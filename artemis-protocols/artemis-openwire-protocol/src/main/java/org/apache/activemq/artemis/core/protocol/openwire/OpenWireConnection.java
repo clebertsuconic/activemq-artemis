@@ -53,6 +53,7 @@ import org.apache.activemq.artemis.spi.core.protocol.RemotingConnection;
 import org.apache.activemq.artemis.spi.core.remoting.Acceptor;
 import org.apache.activemq.artemis.spi.core.remoting.Connection;
 import org.apache.activemq.artemis.utils.ConcurrentHashSet;
+import org.apache.activemq.artemis.utils.ConfigurationHelper;
 import org.apache.activemq.command.ActiveMQDestination;
 import org.apache.activemq.command.ActiveMQMessage;
 import org.apache.activemq.command.BrokerInfo;
@@ -149,6 +150,11 @@ public class OpenWireConnection implements RemotingConnection, CommandVisitor, S
 
    private volatile AMQSession advisorySession;
 
+   private String defaultSocketURIString;
+
+   private boolean rebalance;
+   private boolean updateClusterClients;
+
    public OpenWireConnection(Acceptor acceptorUsed,
                              Connection connection,
                              OpenWireProtocolManager openWireProtocolManager,
@@ -158,6 +164,10 @@ public class OpenWireConnection implements RemotingConnection, CommandVisitor, S
       this.acceptorUsed = acceptorUsed;
       this.wireFormat = wf;
       this.creationTime = System.currentTimeMillis();
+      this.defaultSocketURIString = connection.getLocalAddress();
+      //todo: define amq5 property names somewhere
+      rebalance = ConfigurationHelper.getBooleanProperty("rebalance-cluster-clients", false, acceptorUsed.getConfiguration());
+      updateClusterClients = ConfigurationHelper.getBooleanProperty("update-cluster-clients", false, acceptorUsed.getConfiguration());
    }
 
 
@@ -564,7 +574,7 @@ public class OpenWireConnection implements RemotingConnection, CommandVisitor, S
       }
       if (info.isManageable()) {
          // send ConnectionCommand
-         ConnectionControl command = new ConnectionControl();
+         ConnectionControl command = protocolManager.getConnectionControl(this, rebalance, updateClusterClients);
          command.setFaultTolerant(protocolManager.isFaultTolerantConfiguration());
          if (info.isFailoverReconnect()) {
             command.setRebalanceConnection(false);
@@ -1246,4 +1256,15 @@ public class OpenWireConnection implements RemotingConnection, CommandVisitor, S
       return this.context;
    }
 
+   public String getDefaultSocketURIString() {
+      return defaultSocketURIString;
+   }
+
+   public void updateClient() {
+      ConnectionControl control = this.protocolManager.getConnectionControl(this, rebalance, updateClusterClients);
+      if (!destroyed && context.isFaultTolerant() && this.wireFormat != null
+              && this.wireFormat.getVersion() >= 6) {
+         dispatchAsync(control);
+      }
+   }
 }
