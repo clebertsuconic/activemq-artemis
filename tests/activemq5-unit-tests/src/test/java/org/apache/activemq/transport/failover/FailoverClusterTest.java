@@ -143,6 +143,7 @@ public class FailoverClusterTest extends TestCase {
       answer.setBrokerName(BROKER_B_NAME);
       answer.setPersistent(false);
       NetworkConnector network = answer.addNetworkConnector("static://" + brokerA.getTransportConnectors().get(0).getPublishableConnectString());
+      System.out.println("network ---------------------- : " + brokerA.getTransportConnectors().get(0).getPublishableConnectString());
       network.setDuplex(true);
       TransportConnector connector = answer.addConnector(uri);
       connector.setRebalanceClusterClients(true);
@@ -154,6 +155,7 @@ public class FailoverClusterTest extends TestCase {
    protected void createClients() throws Exception {
       ActiveMQConnectionFactory factory = new ActiveMQConnectionFactory(clientUrl);
       for (int i = 0; i < NUMBER; i++) {
+         System.out.println("create connection using url: " + clientUrl);
          ActiveMQConnection c = (ActiveMQConnection) factory.createConnection();
          c.start();
          Session s = c.createSession(false, Session.AUTO_ACKNOWLEDGE);

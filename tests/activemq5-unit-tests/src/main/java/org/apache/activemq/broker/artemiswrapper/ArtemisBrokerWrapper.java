@@ -16,6 +16,8 @@
  */
 package org.apache.activemq.broker.artemiswrapper;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -26,6 +28,7 @@ import java.util.Set;
 import org.apache.activemq.artemis.api.core.ActiveMQQueueExistsException;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.api.core.TransportConfiguration;
+import org.apache.activemq.artemis.core.config.ClusterConnectionConfiguration;
 import org.apache.activemq.artemis.core.config.Configuration;
 import org.apache.activemq.artemis.core.config.impl.SecurityConfiguration;
 import org.apache.activemq.artemis.core.registry.JndiBindingRegistry;
@@ -40,6 +43,8 @@ import org.apache.activemq.artemiswrapper.ArtemisBrokerHelper;
 import org.apache.activemq.broker.BrokerService;
 import org.apache.activemq.broker.region.policy.PolicyEntry;
 import org.apache.activemq.broker.region.policy.PolicyMap;
+import org.apache.activemq.network.DiscoveryNetworkConnector;
+import org.apache.activemq.network.NetworkConnector;
 
 public class ArtemisBrokerWrapper extends ArtemisBrokerBase {
 
@@ -56,10 +61,6 @@ public class ArtemisBrokerWrapper extends ArtemisBrokerBase {
       clearDataRecreateServerDirs();
       server = createServer(realStore, true);
       server.getConfiguration().getAcceptorConfigurations().clear();
-      HashMap<String, Object> params = new HashMap<String, Object>();
-      params.put(TransportConstants.PORT_PROP_NAME, "61616");
-      params.put(TransportConstants.PROTOCOLS_PROP_NAME, "OPENWIRE,CORE");
-      TransportConfiguration transportConfiguration = new TransportConfiguration(NETTY_ACCEPTOR_FACTORY, params);
 
       Configuration serverConfig = server.getConfiguration();
 
@@ -82,7 +83,13 @@ public class ArtemisBrokerWrapper extends ArtemisBrokerBase {
       commonSettings.setDeadLetterAddress(dla);
       commonSettings.setAutoCreateJmsQueues(true);
 
-      serverConfig.getAcceptorConfigurations().add(transportConfiguration);
+      HashMap<String, Object> params = new HashMap<String, Object>();
+      if (bservice.extraConnectors.size() == 0) {
+         params.put(TransportConstants.PORT_PROP_NAME, "61616");
+         params.put(TransportConstants.PROTOCOLS_PROP_NAME, "OPENWIRE,CORE");
+         TransportConfiguration transportConfiguration = new TransportConfiguration(NETTY_ACCEPTOR_FACTORY, params);
+         serverConfig.getAcceptorConfigurations().add(transportConfiguration);
+      }
       if (this.bservice.enableSsl()) {
          params = new HashMap<String, Object>();
          params.put(TransportConstants.SSL_ENABLED_PROP_NAME, true);
@@ -102,19 +109,15 @@ public class ArtemisBrokerWrapper extends ArtemisBrokerBase {
       }
 
       for (Integer port : bservice.extraConnectors) {
-         if (port.intValue() != 61616) {
-            //extra port
-            params = new HashMap<String, Object>();
-            params.put(TransportConstants.PORT_PROP_NAME, port.intValue());
-            params.put(TransportConstants.PROTOCOLS_PROP_NAME, "OPENWIRE");
-            TransportConfiguration extraTransportConfiguration = new TransportConfiguration(NETTY_ACCEPTOR_FACTORY, params);
-            serverConfig.getAcceptorConfigurations().add(extraTransportConfiguration);
-         }
+         //extra port
+         params = new HashMap<String, Object>();
+         params.put(TransportConstants.PORT_PROP_NAME, port.intValue());
+         params.put(TransportConstants.PROTOCOLS_PROP_NAME, "OPENWIRE");
+         TransportConfiguration extraTransportConfiguration = new TransportConfiguration(NETTY_ACCEPTOR_FACTORY, params);
+         serverConfig.getAcceptorConfigurations().add(extraTransportConfiguration);
       }
 
       serverConfig.setSecurityEnabled(enableSecurity);
-
-      //extraServerConfig(serverConfig);
 
       if (enableSecurity) {
          ActiveMQSecurityManagerImpl sm = (ActiveMQSecurityManagerImpl) server.getSecurityManager();
@@ -163,6 +166,8 @@ public class ArtemisBrokerWrapper extends ArtemisBrokerBase {
          System.out.println("acceptor =>: " + iter.next());
       }
 
+      //cluster connection
+      setUpClusterConnections();
       jmsServer = new JMSServerManagerImpl(server);
       InVMNamingContext namingContext = new InVMNamingContext();
       jmsServer.setRegistry(new JndiBindingRegistry(namingContext));
@@ -178,6 +183,49 @@ public class ArtemisBrokerWrapper extends ArtemisBrokerBase {
       ArtemisBrokerHelper.setBroker(this.bservice);
       stopped = false;
 
+   }
+
+   //todo: after finish static, consider refactor it to include multicast
+   private void setUpClusterConnections() throws Exception {
+      List<NetworkConnector> networkConnectors = bservice.getNetworkConnectors();
+      String local = bservice.getConnectURI().toString();
+      for (NetworkConnector nc : networkConnectors) {
+         //each static uri points to a node
+         String remote = nc.getBrokerURL();
+         if (nc.isDuplex()) {
+            ClusterConfigHelper.registerDuplex(local, nc);
+         }
+         //now create CC
+         createClusterConnection(nc);
+      }
+      //check duplex connections
+      List<NetworkConnector> duplexList = ClusterConfigHelper.getDuplexConnections(local);
+      for (NetworkConnector duplexNC : duplexList) {
+         createDuplexClusterConnection(duplexNC);
+      }
+   }
+
+   //the CC should point to duplexNC's local connector.
+   private void createDuplexClusterConnection(NetworkConnector duplexNC) {
+
+   }
+
+   private void createClusterConnection(NetworkConnector nc) throws NoSuchFieldException, IllegalAccessException, URISyntaxException {
+      String ccName = nc.getName();
+      ClusterConnectionConfiguration ccCfg = new ClusterConnectionConfiguration();
+      ccCfg.setName(ccName);
+
+      if (nc instanceof DiscoveryNetworkConnector) {
+         DiscoveryNetworkConnector dnc = (DiscoveryNetworkConnector)nc;
+         URI discoveryUri = ClusterConfigHelper.getDiscoveryUri(dnc);
+         URI[] remoteUris = ClusterConfigHelper.extractRemoteUris(discoveryUri);
+         for (URI remote : remoteUris) {
+
+         }
+      }
+      else {
+         throw new IllegalStateException("Please implement to support this: " + nc);
+      }
    }
 
    private void translatePolicyMap(Configuration serverConfig, PolicyMap policyMap) {
