@@ -21,6 +21,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.InetAddress;
+import java.net.ServerSocket;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -29,6 +31,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.WeakHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
@@ -44,6 +48,7 @@ import org.apache.activemq.broker.region.policy.PolicyMap;
 import org.apache.activemq.broker.scheduler.JobSchedulerStore;
 import org.apache.activemq.command.ActiveMQDestination;
 import org.apache.activemq.command.BrokerId;
+import org.apache.activemq.network.DiscoveryNetworkConnector;
 import org.apache.activemq.network.NetworkConnector;
 import org.apache.activemq.network.jms.JmsConnector;
 import org.apache.activemq.proxy.ProxyConnector;
@@ -68,6 +73,7 @@ import org.slf4j.LoggerFactory;
 public class BrokerService implements Service {
 
    public static final String DEFAULT_PORT = "61616";
+   public static final AtomicInteger RANDOM_PORT_BASE = new AtomicInteger(51616);
    public static final String DEFAULT_BROKER_NAME = "localhost";
    public static final String BROKER_VERSION;
    public static final int DEFAULT_MAX_FILE_LENGTH = 1024 * 1024 * 32;
@@ -98,6 +104,9 @@ public class BrokerService implements Service {
 
    private PolicyMap destinationPolicy;
    private SystemUsage systemUsage;
+
+   private boolean isClustered = true;
+   private final List<NetworkConnector> networkConnectors = new CopyOnWriteArrayList<NetworkConnector>();
 
    public static WeakHashMap<Broker, Exception> map = new WeakHashMap<>();
 
@@ -188,7 +197,6 @@ public class BrokerService implements Service {
       LOG.info("Apache ActiveMQ Artemis{} ({}, {}) is shutting down", new Object[]{getBrokerVersion(), getBrokerName(), brokerId});
 
       if (broker != null) {
-         System.out.println("______________________stopping broker: " + broker.getClass().getName());
          broker.stop();
          broker = null;
       }
@@ -382,10 +390,6 @@ public class BrokerService implements Service {
    public void setKeepDurableSubsActive(boolean keepDurableSubsActive) {
    }
 
-   public NetworkConnector addNetworkConnector(String discoveryAddress) throws Exception {
-      return null;
-   }
-
    public TransportConnector getConnectorByName(String connectorName) {
       return null;
    }
@@ -407,8 +411,17 @@ public class BrokerService implements Service {
    public void setSchedulerDirectoryFile(File schedulerDirectory) {
    }
 
+   public NetworkConnector addNetworkConnector(String discoveryAddress) throws Exception {
+      return addNetworkConnector(new URI(discoveryAddress));
+   }
+
+   public NetworkConnector addNetworkConnector(URI uri) throws Exception {
+      NetworkConnector connector = new FakeNetworkConnector(uri);
+      return addNetworkConnector(connector);
+   }
+
    public List<NetworkConnector> getNetworkConnectors() {
-      return new ArrayList<>();
+      return this.networkConnectors;
    }
 
    public void setSchedulerSupport(boolean schedulerSupport) {
@@ -471,6 +484,7 @@ public class BrokerService implements Service {
    }
 
    public NetworkConnector addNetworkConnector(NetworkConnector connector) throws Exception {
+      networkConnectors.add(connector);
       return connector;
    }
 
@@ -486,17 +500,61 @@ public class BrokerService implements Service {
 
    public TransportConnector addConnector(URI bindAddress) throws Exception {
       Integer port = bindAddress.getPort();
+      String host = bindAddress.getHost();
       FakeTransportConnector connector = null;
-      if (port != 0) {
-         connector = new FakeTransportConnector(bindAddress);
-         this.transportConnectors.add(connector);
-         this.extraConnectors.add(port);
+
+      host = (host == null || host.length() == 0) ? "localhost" : host;
+      if ("0.0.0.0".equals(host)) {
+         host = "localhost";
       }
-      else {
-         connector = new FakeTransportConnector(new URI(this.getDefaultUri()));
-         this.transportConnectors.add(connector);
+
+      if (port == 0) {
+         //In actual impl in amq5, after connector has been added the socket
+         //is bound already. This means in case of 0 port uri, the random
+         //port is available after this call. With artemis wrapper however
+         //the real binding happens during broker start. To work around this
+         //we use manually calculated port for that.
+         port = getPseudoRandomPort();
+
       }
+
+      System.out.println("Now host is: " + host);
+      bindAddress = new URI(bindAddress.getScheme(), bindAddress.getUserInfo(),
+              host, port, bindAddress.getPath(), bindAddress.getQuery(), bindAddress.getFragment());
+
+      connector = new FakeTransportConnector(bindAddress);
+      this.transportConnectors.add(connector);
+      this.extraConnectors.add(port);
+
       return connector;
+   }
+
+   private int getPseudoRandomPort() {
+      int port = RANDOM_PORT_BASE.getAndIncrement();
+      while (!checkPort(port)) {
+         port = RANDOM_PORT_BASE.getAndIncrement();
+      }
+      return port;
+   }
+
+   private static boolean checkPort(final int port) {
+      ServerSocket ssocket = null;
+      try {
+         ssocket = new ServerSocket(port);
+      }
+      catch (Exception e) {
+         return false;
+      }
+      finally {
+         if (ssocket != null) {
+            try {
+               ssocket.close();
+            }
+            catch (IOException e) {
+            }
+         }
+      }
+      return true;
    }
 
    public void setCacheTempDestinations(boolean cacheTempDestinations) {
