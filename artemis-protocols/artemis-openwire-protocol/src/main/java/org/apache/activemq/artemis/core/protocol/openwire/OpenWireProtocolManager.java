@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -37,6 +38,9 @@ import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
 import org.apache.activemq.artemis.api.core.BaseInterceptor;
 import org.apache.activemq.artemis.api.core.Interceptor;
 import org.apache.activemq.artemis.api.core.SimpleString;
+import org.apache.activemq.artemis.api.core.TransportConfiguration;
+import org.apache.activemq.artemis.api.core.client.ClusterTopologyListener;
+import org.apache.activemq.artemis.api.core.client.TopologyMember;
 import org.apache.activemq.artemis.api.core.management.CoreNotificationType;
 import org.apache.activemq.artemis.api.core.management.ManagementHelper;
 import org.apache.activemq.artemis.core.io.IOCallback;
@@ -48,10 +52,13 @@ import org.apache.activemq.artemis.core.protocol.openwire.amq.AMQConsumer;
 import org.apache.activemq.artemis.core.protocol.openwire.amq.AMQProducerBrokerExchange;
 import org.apache.activemq.artemis.core.protocol.openwire.amq.AMQSession;
 import org.apache.activemq.artemis.core.remoting.impl.netty.NettyServerConnection;
+import org.apache.activemq.artemis.core.remoting.impl.netty.TransportConstants;
 import org.apache.activemq.artemis.core.security.CheckType;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
 import org.apache.activemq.artemis.core.server.ActiveMQServerLogger;
 import org.apache.activemq.artemis.core.server.Queue;
+import org.apache.activemq.artemis.core.server.cluster.ClusterConnection;
+import org.apache.activemq.artemis.core.server.cluster.ClusterManager;
 import org.apache.activemq.artemis.core.server.management.ManagementService;
 import org.apache.activemq.artemis.core.server.management.Notification;
 import org.apache.activemq.artemis.core.server.management.NotificationListener;
@@ -63,6 +70,7 @@ import org.apache.activemq.artemis.spi.core.protocol.RemotingConnection;
 import org.apache.activemq.artemis.spi.core.remoting.Acceptor;
 import org.apache.activemq.artemis.spi.core.remoting.Connection;
 import org.apache.activemq.artemis.spi.core.security.ActiveMQSecurityManager;
+import org.apache.activemq.artemis.utils.ConfigurationHelper;
 import org.apache.activemq.artemis.utils.DataConstants;
 import org.apache.activemq.command.ActiveMQDestination;
 import org.apache.activemq.command.ActiveMQMessage;
@@ -71,6 +79,7 @@ import org.apache.activemq.command.BrokerId;
 import org.apache.activemq.command.BrokerInfo;
 import org.apache.activemq.command.Command;
 import org.apache.activemq.command.CommandTypes;
+import org.apache.activemq.command.ConnectionControl;
 import org.apache.activemq.command.ConnectionId;
 import org.apache.activemq.command.ConnectionInfo;
 import org.apache.activemq.command.ConsumerId;
@@ -135,6 +144,8 @@ public class OpenWireProtocolManager implements ProtocolManager<Interceptor>, No
 
    private final ScheduledExecutorService scheduledPool;
 
+   private LinkedList<PeerBroker> peerBrokers = new LinkedList<PeerBroker>();
+
    public OpenWireProtocolManager(OpenWireProtocolManagerFactory factory, ActiveMQServer server) {
       this.factory = factory;
       this.server = server;
@@ -148,6 +159,53 @@ public class OpenWireProtocolManager implements ProtocolManager<Interceptor>, No
          service.addNotificationListener(this);
       }
 
+      ClusterManager clusterManager = this.server.getClusterManager();
+      ClusterConnection cc = clusterManager.getDefaultConnection(null);
+      if (cc != null) {
+         cc.addClusterTopologyListener(new ClusterTopologyListener() {
+            @Override
+            public void nodeUP(TopologyMember member, boolean last) {
+               peerBrokerUp(member);
+            }
+
+            @Override
+            public void nodeDown(long eventUID, String nodeID) {
+               peerBrokerDown(nodeID);
+            }
+         });
+      }
+   }
+
+   private void peerBrokerUp(TopologyMember member) {
+      synchronized (peerBrokers) {
+         peerBrokers.add(getBrokerURI(member));
+         updateClientClusterInfo();
+      }
+   }
+
+   private PeerBroker getBrokerURI(TopologyMember member) {
+      TransportConfiguration liveConnector = member.getLive();
+      Map<String, Object> props = liveConnector.getParams();
+      String host = ConfigurationHelper.getStringProperty(TransportConstants.HOST_PROP_NAME, "localhost", props);
+      int port = ConfigurationHelper.getIntProperty(TransportConstants.PORT_PROP_NAME, 0, props);
+      if (port == 0) {
+         throw new IllegalStateException("Port is 0");
+      }
+      return new PeerBroker(member.getNodeId(), "tcp://" + host + ":" + port);
+   }
+
+   private void updateClientClusterInfo() {
+      for (OpenWireConnection c : this.connections) {
+         c.updateClient();
+      }
+
+   }
+
+   private void peerBrokerDown(String nodeID) {
+      synchronized (peerBrokers) {
+         peerBrokers.remove(new PeerBroker(nodeID));
+         updateClientClusterInfo();
+      }
    }
 
    @Override
@@ -393,6 +451,39 @@ public class OpenWireProtocolManager implements ProtocolManager<Interceptor>, No
          }
       }
       return brokerName;
+   }
+
+   protected ConnectionControl getConnectionControl(OpenWireConnection connection, boolean rebalance, boolean updateClusterClients) {
+      String connectedBrokers = "";
+      String separator = "";
+
+      if (updateClusterClients) {
+         synchronized (peerBrokers) {
+            for (PeerBroker br : getPeerBrokers(connection)) {
+               connectedBrokers += separator + br.connectUri;
+               separator = ",";
+            }
+
+            if (rebalance) {
+               PeerBroker shuffle = peerBrokers.removeFirst();
+               peerBrokers.addLast(shuffle);
+            }
+         }
+      }
+      ConnectionControl control = new ConnectionControl();
+      control.setConnectedBrokers(connectedBrokers);
+      control.setRebalanceConnection(rebalance);
+      return control;
+   }
+
+   public List<PeerBroker> getPeerBrokers(OpenWireConnection connection) {
+      synchronized (peerBrokers) {
+         if (peerBrokers.isEmpty()) {
+            ;
+            peerBrokers.add(new PeerBroker(server.getNodeID().toString(), connection.getDefaultSocketURIString()));
+         }
+         return peerBrokers;
+      }
    }
 
    public boolean isFaultTolerantConfiguration() {
@@ -737,5 +828,27 @@ public class OpenWireProtocolManager implements ProtocolManager<Interceptor>, No
       //cluster support yet to support
       brokerInfo.setPeerBrokerInfos(null);
       connection.dispatchAsync(brokerInfo);
+   }
+
+   private class PeerBroker {
+      public String nodeId;
+      public String connectUri;
+
+      public PeerBroker(String nodeId, String uri) {
+         this.nodeId = nodeId;
+         this.connectUri = uri;
+      }
+
+      public PeerBroker(String nodeID) {
+         this(nodeID, null);
+      }
+
+      @Override
+      public boolean equals(Object another) {
+         if (another instanceof PeerBroker) {
+            return nodeId.equals(((PeerBroker)another).nodeId);
+         }
+         return false;
+      }
    }
 }
