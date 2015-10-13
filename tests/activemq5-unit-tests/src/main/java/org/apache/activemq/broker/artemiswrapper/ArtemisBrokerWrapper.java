@@ -31,6 +31,7 @@ import org.apache.activemq.artemis.api.core.TransportConfiguration;
 import org.apache.activemq.artemis.core.config.ClusterConnectionConfiguration;
 import org.apache.activemq.artemis.core.config.Configuration;
 import org.apache.activemq.artemis.core.config.impl.SecurityConfiguration;
+import org.apache.activemq.artemis.core.postoffice.impl.AddressImpl;
 import org.apache.activemq.artemis.core.registry.JndiBindingRegistry;
 import org.apache.activemq.artemis.core.remoting.impl.netty.TransportConstants;
 import org.apache.activemq.artemis.core.security.Role;
@@ -196,35 +197,70 @@ public class ArtemisBrokerWrapper extends ArtemisBrokerBase {
             ClusterConfigHelper.registerDuplex(local, nc);
          }
          //now create CC
-         createClusterConnection(nc);
+         createClusterConnection((DiscoveryNetworkConnector) nc);
       }
       //check duplex connections
       List<NetworkConnector> duplexList = ClusterConfigHelper.getDuplexConnections(local);
       for (NetworkConnector duplexNC : duplexList) {
-         createDuplexClusterConnection(duplexNC);
+         createDuplexClusterConnection(local, (DiscoveryNetworkConnector) duplexNC);
       }
    }
 
    //the CC should point to duplexNC's local connector.
-   private void createDuplexClusterConnection(NetworkConnector duplexNC) {
+   private void createDuplexClusterConnection(String local, DiscoveryNetworkConnector duplexNC) throws URISyntaxException {
+      AddressImpl[] addresses = ClusterConfigHelper.getEquivalentAddresses(duplexNC);
+      String ccName = duplexNC.getName();
+      //this config is the remote connector
+      URI remote = duplexNC.getLocalUri();
+      TransportConfiguration connectorConfig = ClusterConfigHelper.createCCStaticConnector(remote, 0);
+      Map<String, TransportConfiguration> connectors = this.server.getConfiguration().getConnectorConfigurations();
+      connectors.put(connectorConfig.getName(), connectorConfig);
+      TransportConfiguration myConnector = ClusterConfigHelper.createConnectorFromUri(new URI(local), "myself-connector");
+      connectors.put(myConnector.getName(), myConnector);
 
+      int maxHops = ClusterConfigHelper.getMaxHops(duplexNC);
+
+      for (int i = 0; i < addresses.length; i++) {
+         ClusterConnectionConfiguration ccCfg = new ClusterConnectionConfiguration();
+
+         ccCfg.setName(ccName);
+         ccCfg.setConnectorName(myConnector.getName());
+         ccCfg.setMaxHops(maxHops);
+         ccCfg.setAddress(addresses[i].getAddress().toString());
+         //remote uri points to local
+         List<String> remoteStaticConnectors = ccCfg.getStaticConnectors();
+         remoteStaticConnectors.add(connectorConfig.getName());
+         server.getConfiguration().addClusterConfiguration(ccCfg);
+      }
    }
 
-   private void createClusterConnection(NetworkConnector nc) throws NoSuchFieldException, IllegalAccessException, URISyntaxException {
+   private void createClusterConnection(DiscoveryNetworkConnector nc) throws NoSuchFieldException, IllegalAccessException, URISyntaxException {
+      AddressImpl[] addresses = ClusterConfigHelper.getEquivalentAddresses(nc);
       String ccName = nc.getName();
-      ClusterConnectionConfiguration ccCfg = new ClusterConnectionConfiguration();
-      ccCfg.setName(ccName);
+      TransportConfiguration connectorConfig = ClusterConfigHelper.getCCConnector(nc);
+      Map<String, TransportConfiguration> connectors = this.server.getConfiguration().getConnectorConfigurations();
+      connectors.put(connectorConfig.getName(), connectorConfig);
+      int maxHops = ClusterConfigHelper.getMaxHops(nc);
 
-      if (nc instanceof DiscoveryNetworkConnector) {
-         DiscoveryNetworkConnector dnc = (DiscoveryNetworkConnector)nc;
-         URI discoveryUri = ClusterConfigHelper.getDiscoveryUri(dnc);
-         URI[] remoteUris = ClusterConfigHelper.extractRemoteUris(discoveryUri);
+      URI discoveryUri = ClusterConfigHelper.getDiscoveryUri(nc);
+      URI[] remoteUris = ClusterConfigHelper.extractRemoteUris(discoveryUri);
+
+      for (int i = 0; i < addresses.length; i++) {
+         ClusterConnectionConfiguration ccCfg = new ClusterConnectionConfiguration();
+
+         ccCfg.setName(ccName + i);
+         ccCfg.setConnectorName(connectorConfig.getName());
+         ccCfg.setMaxHops(maxHops);
+         ccCfg.setAddress(addresses[i].getAddress().toString());
+
+         List<String> remoteStaticConnectors = ccCfg.getStaticConnectors();
+
          for (URI remote : remoteUris) {
-
+            TransportConfiguration staticConnector = ClusterConfigHelper.createCCStaticConnector(remote, i);
+            connectors.put(staticConnector.getName(), staticConnector);
+            remoteStaticConnectors.add(staticConnector.getName());
          }
-      }
-      else {
-         throw new IllegalStateException("Please implement to support this: " + nc);
+         server.getConfiguration().addClusterConfiguration(ccCfg);
       }
    }
 
