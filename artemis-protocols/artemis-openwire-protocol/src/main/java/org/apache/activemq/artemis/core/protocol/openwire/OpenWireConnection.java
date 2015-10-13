@@ -240,7 +240,7 @@ public class OpenWireConnection implements RemotingConnection, CommandVisitor, S
             }
             else {
                try {
-                  response = ((Command) command).visit(this);
+                  response = command.visit(this);
                }
                catch (Exception e) {
                   if (responseRequired) {
@@ -260,6 +260,7 @@ public class OpenWireConnection implements RemotingConnection, CommandVisitor, S
             if (responseRequired) {
                if (response == null) {
                   response = new Response();
+                  response.setCorrelationId(command.getCommandId());
                }
             }
 
@@ -767,9 +768,12 @@ public class OpenWireConnection implements RemotingConnection, CommandVisitor, S
    public Response processAddConsumer(ConsumerInfo info) {
       Response resp = null;
       try {
+         System.out.println("====> server processing consumer info " + info.getConsumerId());
          protocolManager.addConsumer(this, info);
+         System.out.println("-===> added consumer");
       }
       catch (Exception e) {
+         System.out.println("===>got regular exception: " + e);
          if (e instanceof ActiveMQSecurityException) {
             resp = new ExceptionResponse(new JMSSecurityException(e.getMessage()));
          }
