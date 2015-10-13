@@ -62,13 +62,6 @@
 
       <dependency>
          <groupId>org.apache.activemq</groupId>
-         <artifactId>activemq-broker</artifactId>
-         <version>${activemq5.project.version}</version>
-         <type>test-jar</type>
-      </dependency>
-
-      <dependency>
-         <groupId>org.apache.activemq</groupId>
          <artifactId>activemq-jdbc-store</artifactId>
          <version>${activemq5.project.version}</version>
       </dependency>
