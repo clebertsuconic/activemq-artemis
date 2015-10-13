@@ -1,6 +1,12 @@
 package org.apache.activemq.broker.artemiswrapper;
 
+import org.apache.activemq.artemis.api.core.SimpleString;
+import org.apache.activemq.artemis.api.core.TransportConfiguration;
 import org.apache.activemq.artemis.core.config.ClusterConnectionConfiguration;
+import org.apache.activemq.artemis.core.postoffice.Address;
+import org.apache.activemq.artemis.core.postoffice.impl.AddressImpl;
+import org.apache.activemq.artemis.core.remoting.impl.netty.TransportConstants;
+import org.apache.activemq.command.ActiveMQDestination;
 import org.apache.activemq.network.DiscoveryNetworkConnector;
 import org.apache.activemq.network.NetworkConnector;
 import org.apache.activemq.util.URISupport;
@@ -74,4 +80,80 @@ public class ClusterConfigHelper {
       System.out.println("default CC address: " + ccCfg.getAddress());
    }
 
+   public static TransportConfiguration getCCConnector(NetworkConnector nc) throws URISyntaxException {
+      String connectorName = "from" + nc.getName();
+      URI localUri = nc.getLocalUri();
+      return createConnectorFromUri(localUri, connectorName);
+   }
+
+   //to do: consider messageTTL and consumerTTL
+   public static int getMaxHops(NetworkConnector nc) {
+      return nc.getNetworkTTL();
+   }
+
+   public static TransportConfiguration createCCStaticConnector(URI remote, int i) {
+      return createConnectorFromUri(remote, "to" + i);
+   }
+
+   public static TransportConfiguration createConnectorFromUri(URI uri, String name) {
+      String factoryClass = "org.apache.activemq.artemis.core.remoting.impl.netty.NettyConnectorFactory";
+      Map<String, Object> params = new HashMap<String, Object>();
+      String host = uri.getHost();
+      int port = uri.getPort();
+      params.put(TransportConstants.HOST_PROP_NAME, host);
+      params.put(TransportConstants.PORT_PROP_NAME, port);
+      TransportConfiguration connectorConfig = new TransportConfiguration(factoryClass, params, name);
+
+      return connectorConfig;
+   }
+
+   /*
+    * NetworkConnector has three related parameters:
+    * ExcludedDestinations
+    * DynamicallyIncludedDestinations
+    * StaticallyIncludedDestinations
+    * we need to anaylze them and build
+    * equivalent addresses.
+    */
+   public static AddressImpl[] getEquivalentAddresses(DiscoveryNetworkConnector nc) {
+      List<String> addresses = new ArrayList<String>();
+      AddressImpl defaultAddress = new AddressImpl(new SimpleString("jms.#"));
+
+      List<ActiveMQDestination> excludes = nc.getExcludedDestinations();
+      List<AddressImpl> excludeSet = new ArrayList<AddressImpl>();
+      for (ActiveMQDestination dest : excludes) {
+         //replace ".>" wildcard
+         String rawDestName = dest.getPhysicalName().replace(".>", ".#");
+         excludeSet.add(new AddressImpl(new SimpleString(rawDestName)));
+      }
+      List<ActiveMQDestination> dynamicIncludes =nc.getDynamicallyIncludedDestinations();
+      List<AddressImpl> includeSet = new ArrayList<AddressImpl>();
+      for (ActiveMQDestination dest : dynamicIncludes) {
+         //replace ".>" wildcard
+         String rawDestName = dest.getPhysicalName().replace(".>", ".#");
+         includeSet.add(new AddressImpl(new SimpleString(rawDestName)));
+      }
+      List<ActiveMQDestination> staticIncludes = nc.getStaticallyIncludedDestinations();
+      for (ActiveMQDestination dest : staticIncludes) {
+         //".>" is not allowed
+         String rawDestName = dest.getPhysicalName();
+         includeSet.add(new AddressImpl(new SimpleString(rawDestName)));
+      }
+
+      //check exclude
+      for (AddressImpl incAddr : includeSet) {
+         if (incAddr.containsWildCard()) {
+            throw new IllegalStateException("Cluster Connection doesn't support wildcard address: " +
+            incAddr.getAddress() + " Please reconfigure your test.");
+         }
+         for (AddressImpl excAddr : excludeSet) {
+            if (incAddr.matches(excAddr)) {
+               throw new IllegalStateException("Currently we don't support excludes in NetworkConnector \n" +
+               "and there is a exclude address: " + excAddr.getAddress() + " that conflicts with one of the \n" +
+               "includes: " + incAddr.getAddress() + ". Please reconfigure the test.");
+            }
+         }
+      }
+      return includeSet.toArray(new AddressImpl[0]);
+   }
 }
