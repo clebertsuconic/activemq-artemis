@@ -26,7 +26,9 @@ import java.net.ServerSocket;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -48,6 +50,7 @@ import org.apache.activemq.broker.region.policy.PolicyMap;
 import org.apache.activemq.broker.scheduler.JobSchedulerStore;
 import org.apache.activemq.command.ActiveMQDestination;
 import org.apache.activemq.command.BrokerId;
+import org.apache.activemq.network.ConnectionFilter;
 import org.apache.activemq.network.DiscoveryNetworkConnector;
 import org.apache.activemq.network.NetworkConnector;
 import org.apache.activemq.network.jms.JmsConnector;
@@ -62,6 +65,7 @@ import org.apache.activemq.usage.SystemUsage;
 import org.apache.activemq.util.IOExceptionHandler;
 import org.apache.activemq.util.IOHelper;
 import org.apache.activemq.util.ServiceStopper;
+import org.apache.activemq.util.URISupport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -415,8 +419,8 @@ public class BrokerService implements Service {
       return addNetworkConnector(new URI(discoveryAddress));
    }
 
-   public NetworkConnector addNetworkConnector(URI uri) throws Exception {
-      NetworkConnector connector = new FakeNetworkConnector(uri);
+   public NetworkConnector addNetworkConnector(URI discoveryAddress) throws Exception {
+      NetworkConnector connector = new DiscoveryNetworkConnector(discoveryAddress);
       return addNetworkConnector(connector);
    }
 
@@ -484,6 +488,29 @@ public class BrokerService implements Service {
    }
 
    public NetworkConnector addNetworkConnector(NetworkConnector connector) throws Exception {
+      connector.setBrokerService(this);
+
+      System.out.println("------------------------ this broker uri: " + this.getConnectURI());
+      connector.setLocalUri(this.getConnectURI());
+      // Set a connection filter so that the connector does not establish loop
+      // back connections.
+      connector.setConnectionFilter(new ConnectionFilter() {
+         @Override
+         public boolean connectTo(URI location) {
+            List<TransportConnector> transportConnectors = getTransportConnectors();
+            for (Iterator<TransportConnector> iter = transportConnectors.iterator(); iter.hasNext();) {
+               try {
+                  TransportConnector tc = iter.next();
+                  if (location.equals(tc.getConnectUri())) {
+                     return false;
+                  }
+               } catch (Throwable e) {
+               }
+            }
+            return true;
+         }
+      });
+
       networkConnectors.add(connector);
       return connector;
    }
