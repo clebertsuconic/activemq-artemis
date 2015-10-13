@@ -54,8 +54,10 @@ public class FailoverClusterTest extends TestCase {
       Thread.sleep(3000);
       Set<String> set = new HashSet<String>();
       for (ActiveMQConnection c : connections) {
+         System.out.println("======> adding address: " + c.getTransportChannel().getRemoteAddress());
          set.add(c.getTransportChannel().getRemoteAddress());
       }
+      System.out.println("============final size: " + set.size());
       assertTrue(set.size() > 1);
    }
 
@@ -155,9 +157,11 @@ public class FailoverClusterTest extends TestCase {
    protected void createClients() throws Exception {
       ActiveMQConnectionFactory factory = new ActiveMQConnectionFactory(clientUrl);
       for (int i = 0; i < NUMBER; i++) {
-         System.out.println("create connection using url: " + clientUrl);
+         System.out.println("*****create connection using url: " + clientUrl);
          ActiveMQConnection c = (ActiveMQConnection) factory.createConnection();
+         System.out.println("got connection, starting it ...");
          c.start();
+         System.out.println("Started");
          Session s = c.createSession(false, Session.AUTO_ACKNOWLEDGE);
          Queue queue = s.createQueue(getClass().getName());
          MessageConsumer consumer = s.createConsumer(queue);

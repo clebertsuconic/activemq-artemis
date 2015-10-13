@@ -54,6 +54,7 @@ public class ClusterConfigHelper {
    //because the discoveryUri is private we use reflection to get it
    public static URI getDiscoveryUri(DiscoveryNetworkConnector dnc) throws NoSuchFieldException, IllegalAccessException {
       Field field = DiscoveryNetworkConnector.class.getDeclaredField("discoveryUri");
+      field.setAccessible(true);
       return (URI)field.get(dnc);
    }
 
