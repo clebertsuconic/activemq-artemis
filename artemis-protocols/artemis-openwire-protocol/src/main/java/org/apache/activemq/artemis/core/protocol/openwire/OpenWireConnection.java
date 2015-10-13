@@ -573,7 +573,7 @@ public class OpenWireConnection implements RemotingConnection, CommandVisitor, S
          return resp;
       }
       if (info.isManageable()) {
-         System.out.println("======= > new connection need control info ");
+         System.out.println("======= > new connection need control info: " + info);
          // send ConnectionCommand
          ConnectionControl command = protocolManager.getConnectionControl(this, rebalance, updateClusterClients);
          command.setFaultTolerant(protocolManager.isFaultTolerantConfiguration());
