@@ -161,7 +161,7 @@ public class FailoverClusterTest extends TestCase {
          ActiveMQConnection c = (ActiveMQConnection) factory.createConnection();
          System.out.println("got connection, starting it ...");
          c.start();
-         System.out.println("Started");
+         System.out.println("******Started");
          Session s = c.createSession(false, Session.AUTO_ACKNOWLEDGE);
          Queue queue = s.createQueue(getClass().getName());
          MessageConsumer consumer = s.createConsumer(queue);
