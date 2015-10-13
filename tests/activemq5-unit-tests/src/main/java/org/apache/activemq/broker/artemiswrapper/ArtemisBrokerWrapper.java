@@ -86,10 +86,7 @@ public class ArtemisBrokerWrapper extends ArtemisBrokerBase {
 
       HashMap<String, Object> params = new HashMap<String, Object>();
       if (bservice.extraConnectors.size() == 0) {
-         params.put(TransportConstants.PORT_PROP_NAME, "61616");
-         params.put(TransportConstants.PROTOCOLS_PROP_NAME, "OPENWIRE,CORE");
-         TransportConfiguration transportConfiguration = new TransportConfiguration(NETTY_ACCEPTOR_FACTORY, params);
-         serverConfig.getAcceptorConfigurations().add(transportConfiguration);
+         serverConfig.addAcceptorConfiguration("home", "tcp://localhost:61616?protocols=OPENWIRE,CORE");
       }
       if (this.bservice.enableSsl()) {
          params = new HashMap<String, Object>();
@@ -110,12 +107,7 @@ public class ArtemisBrokerWrapper extends ArtemisBrokerBase {
       }
 
       for (Integer port : bservice.extraConnectors) {
-         //extra port
-         params = new HashMap<String, Object>();
-         params.put(TransportConstants.PORT_PROP_NAME, port.intValue());
-         params.put(TransportConstants.PROTOCOLS_PROP_NAME, "OPENWIRE");
-         TransportConfiguration extraTransportConfiguration = new TransportConfiguration(NETTY_ACCEPTOR_FACTORY, params);
-         serverConfig.getAcceptorConfigurations().add(extraTransportConfiguration);
+         serverConfig.addAcceptorConfiguration("homePort" + port, "tcp://localhost:" + port + "?protocols=OPENWIRE");
       }
 
       serverConfig.setSecurityEnabled(enableSecurity);
