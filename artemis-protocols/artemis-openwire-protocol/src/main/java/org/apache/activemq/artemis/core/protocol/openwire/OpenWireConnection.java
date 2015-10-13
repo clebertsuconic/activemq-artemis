@@ -166,8 +166,8 @@ public class OpenWireConnection implements RemotingConnection, CommandVisitor, S
       this.creationTime = System.currentTimeMillis();
       this.defaultSocketURIString = connection.getLocalAddress();
       //todo: define amq5 property names somewhere
-      rebalance = ConfigurationHelper.getBooleanProperty("rebalance-cluster-clients", false, acceptorUsed.getConfiguration());
-      updateClusterClients = ConfigurationHelper.getBooleanProperty("update-cluster-clients", false, acceptorUsed.getConfiguration());
+      rebalance = ConfigurationHelper.getBooleanProperty("rebalance-cluster-clients", true, acceptorUsed.getConfiguration());
+      updateClusterClients = ConfigurationHelper.getBooleanProperty("update-cluster-clients", true, acceptorUsed.getConfiguration());
    }
 
 
@@ -573,6 +573,7 @@ public class OpenWireConnection implements RemotingConnection, CommandVisitor, S
          return resp;
       }
       if (info.isManageable()) {
+         System.out.println("======= > new connection need control info ");
          // send ConnectionCommand
          ConnectionControl command = protocolManager.getConnectionControl(this, rebalance, updateClusterClients);
          command.setFaultTolerant(protocolManager.isFaultTolerantConfiguration());
@@ -580,6 +581,7 @@ public class OpenWireConnection implements RemotingConnection, CommandVisitor, S
             command.setRebalanceConnection(false);
          }
          dispatchAsync(command);
+         System.out.println("======= > connection control dispatched. " + command);
       }
       return null;
    }
