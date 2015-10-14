@@ -1023,6 +1023,8 @@ public class ServerConsumerImpl implements ServerConsumer, ReadyListener {
       }
    }
 
+
+   // Clebert TODO: Why do we need such extension here?
    protected class BrowserDeliverer implements Runnable {
 
       protected MessageReference current = null;
