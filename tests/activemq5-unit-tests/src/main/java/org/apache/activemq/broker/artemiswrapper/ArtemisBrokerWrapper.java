@@ -16,6 +16,7 @@
  */
 package org.apache.activemq.broker.artemiswrapper;
 
+import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashMap;
@@ -52,13 +53,13 @@ public class ArtemisBrokerWrapper extends ArtemisBrokerBase {
    protected final Map<String, SimpleString> testQueues = new HashMap<String, SimpleString>();
    protected JMSServerManagerImpl jmsServer;
 
-   public ArtemisBrokerWrapper(BrokerService brokerService) {
+   public ArtemisBrokerWrapper(BrokerService brokerService, File temporaryFolder) {
+      super(temporaryFolder);
       this.bservice = brokerService;
    }
 
    @Override
    public void start() throws Exception {
-      testDir = temporaryFolder.getRoot().getAbsolutePath();
       clearDataRecreateServerDirs();
       server = createServer(realStore, true);
       server.getConfiguration().getAcceptorConfigurations().clear();
