@@ -17,6 +17,8 @@
 package org.apache.activemq.artemis.core.protocol.openwire;
 
 import javax.jms.InvalidClientIDException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -105,6 +107,7 @@ import org.apache.activemq.state.SessionState;
 import org.apache.activemq.util.IdGenerator;
 import org.apache.activemq.util.InetAddressUtil;
 import org.apache.activemq.util.LongSequenceGenerator;
+import org.apache.activemq.util.URISupport;
 
 public class OpenWireProtocolManager implements ProtocolManager<Interceptor>, NotificationListener {
 
@@ -149,7 +152,7 @@ public class OpenWireProtocolManager implements ProtocolManager<Interceptor>, No
 
    private final ScheduledExecutorService scheduledPool;
 
-   private final LinkedList<PeerBroker> peerBrokers = new LinkedList<PeerBroker>();
+   private final LinkedList<URI> peerBrokers = new LinkedList<URI>();
 
    public OpenWireProtocolManager(OpenWireProtocolManagerFactory factory, ActiveMQServer server) {
       this.factory = factory;
@@ -183,32 +186,54 @@ public class OpenWireProtocolManager implements ProtocolManager<Interceptor>, No
 
    private void peerBrokerUp(TopologyMember member) {
       synchronized (peerBrokers) {
-         peerBrokers.add(getBrokerURI(member));
+         URI peerBrokerUri = createPeerBrokerUri(member.getNodeId(), member.toURI());
+         peerBrokers.add(peerBrokerUri);
          updateClientClusterInfo();
       }
    }
 
-   private PeerBroker getBrokerURI(TopologyMember member) {
-      TransportConfiguration liveConnector = member.getLive();
-      Map<String, Object> props = liveConnector.getParams();
-      String host = ConfigurationHelper.getStringProperty(TransportConstants.HOST_PROP_NAME, "localhost", props);
-      int port = ConfigurationHelper.getIntProperty(TransportConstants.PORT_PROP_NAME, 0, props);
-      if (port == 0) {
-         throw new IllegalStateException("Port is 0");
+   private URI createPeerBrokerUri(String nodeId, String url) {
+      URI result = null;
+      try {
+         result = URISupport.createURIWithQuery(new URI(url), "nodeId=" + nodeId);
       }
-      return new PeerBroker(member.getNodeId(), "tcp://" + host + ":" + port);
+      catch (URISyntaxException e) {
+         //shouldn't happen.
+      }
+      return result;
+   }
+
+   private boolean matchPeerBroker(URI peerUri, String nodeId) {
+      String query = peerUri.getQuery();
+      return query.contains(nodeId);
+   }
+
+   private String getBrokerUriString(final URI peerBrokerUri) {
+      String brokerUri = null;
+      try {
+         brokerUri = URISupport.removeQuery(peerBrokerUri).toString();
+      }
+      catch (URISyntaxException e) {
+         e.printStackTrace();
+      }
+      return brokerUri;
    }
 
    private void updateClientClusterInfo() {
       for (OpenWireConnection c : this.connections) {
          c.updateClient();
       }
-
    }
 
    private void peerBrokerDown(String nodeID) {
       synchronized (peerBrokers) {
-         peerBrokers.remove(new PeerBroker(nodeID));
+         Iterator<URI> iterator = peerBrokers.iterator();
+         while (iterator.hasNext()) {
+            if (matchPeerBroker(iterator.next(), nodeID)) {
+               iterator.remove();
+               break;
+            }
+         }
          updateClientClusterInfo();
       }
    }
@@ -466,13 +491,13 @@ public class OpenWireProtocolManager implements ProtocolManager<Interceptor>, No
 
       if (updateClusterClients) {
          synchronized (peerBrokers) {
-            for (PeerBroker br : getPeerBrokers(connection)) {
-               connectedBrokers += separator + br.connectUri;
+            for (URI br : getPeerBrokers(connection)) {
+               connectedBrokers += separator + getBrokerUriString(br);
                separator = ",";
             }
 
             if (rebalance) {
-               PeerBroker shuffle = peerBrokers.removeFirst();
+               URI shuffle = peerBrokers.removeFirst();
                peerBrokers.addLast(shuffle);
             }
          }
@@ -483,11 +508,10 @@ public class OpenWireProtocolManager implements ProtocolManager<Interceptor>, No
       return control;
    }
 
-   public List<PeerBroker> getPeerBrokers(OpenWireConnection connection) {
+   public List<URI> getPeerBrokers(OpenWireConnection connection) {
       synchronized (peerBrokers) {
          if (peerBrokers.isEmpty()) {
-            ;
-            peerBrokers.add(new PeerBroker(server.getNodeID().toString(), connection.getDefaultSocketURIString()));
+            peerBrokers.add(createPeerBrokerUri(server.getNodeID().toString(), connection.getDefaultSocketURIString()));
          }
          return peerBrokers;
       }
@@ -837,6 +861,7 @@ public class OpenWireProtocolManager implements ProtocolManager<Interceptor>, No
       connection.dispatchAsync(brokerInfo);
    }
 
+   /*
    private class PeerBroker {
       public String nodeId;
       public String connectUri;
@@ -858,4 +883,5 @@ public class OpenWireProtocolManager implements ProtocolManager<Interceptor>, No
          return false;
       }
    }
+   */
 }
