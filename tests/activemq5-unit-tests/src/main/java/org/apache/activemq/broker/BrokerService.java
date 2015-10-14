@@ -16,17 +16,17 @@
  */
 package org.apache.activemq.broker;
 
+import javax.management.MalformedObjectNameException;
+import javax.management.ObjectName;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -35,9 +35,6 @@ import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import javax.management.MalformedObjectNameException;
-import javax.management.ObjectName;
 
 import org.apache.activemq.ActiveMQConnectionMetaData;
 import org.apache.activemq.Service;
@@ -65,7 +62,7 @@ import org.apache.activemq.usage.SystemUsage;
 import org.apache.activemq.util.IOExceptionHandler;
 import org.apache.activemq.util.IOHelper;
 import org.apache.activemq.util.ServiceStopper;
-import org.apache.activemq.util.URISupport;
+import org.junit.rules.TemporaryFolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -112,6 +109,8 @@ public class BrokerService implements Service {
    private boolean isClustered = true;
    private final List<NetworkConnector> networkConnectors = new CopyOnWriteArrayList<NetworkConnector>();
 
+   private TemporaryFolder tmpfolder;
+
    public static WeakHashMap<Broker, Exception> map = new WeakHashMap<>();
 
    static {
@@ -144,6 +143,10 @@ public class BrokerService implements Service {
 
    @Override
    public void start() throws Exception {
+      File targetTmp = new File("./target/tmp");
+      targetTmp.mkdirs();
+      tmpfolder = new TemporaryFolder(targetTmp);
+      tmpfolder.create();
       Exception e = new Exception();
       e.fillInStackTrace();
       startBroker(startAsync);
@@ -204,6 +207,7 @@ public class BrokerService implements Service {
          broker.stop();
          broker = null;
       }
+      tmpfolder.delete();
       LOG.info("Apache ActiveMQ Artemis {} ({}, {}) is shutdown", new Object[]{getBrokerVersion(), getBrokerName(), brokerId});
    }
 
@@ -212,7 +216,7 @@ public class BrokerService implements Service {
 
    public Broker getBroker() throws Exception {
       if (broker == null) {
-         broker = createBroker();
+         broker = createBroker(tmpfolder.getRoot());
       }
       return broker;
    }
@@ -232,13 +236,14 @@ public class BrokerService implements Service {
       this.brokerName = str.trim();
    }
 
-   protected Broker createBroker() throws Exception {
-      broker = createBrokerWrapper();
+   protected Broker createBroker(File temporaryFile) throws Exception {
+      new Exception("file=" + temporaryFile.getAbsolutePath()).printStackTrace();
+      broker = createBrokerWrapper(temporaryFile);
       return broker;
    }
 
-   private Broker createBrokerWrapper() {
-      return new ArtemisBrokerWrapper(this);
+   private Broker createBrokerWrapper(File temporaryFile) {
+      return new ArtemisBrokerWrapper(this, temporaryFile);
    }
 
    public void makeSureDestinationExists(ActiveMQDestination activemqDestination) throws Exception {

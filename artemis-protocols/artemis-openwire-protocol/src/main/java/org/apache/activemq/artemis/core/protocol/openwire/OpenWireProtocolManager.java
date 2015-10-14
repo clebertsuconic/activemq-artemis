@@ -144,7 +144,7 @@ public class OpenWireProtocolManager implements ProtocolManager<Interceptor>, No
 
    private final ScheduledExecutorService scheduledPool;
 
-   private LinkedList<PeerBroker> peerBrokers = new LinkedList<PeerBroker>();
+   private final LinkedList<PeerBroker> peerBrokers = new LinkedList<PeerBroker>();
 
    public OpenWireProtocolManager(OpenWireProtocolManagerFactory factory, ActiveMQServer server) {
       this.factory = factory;
