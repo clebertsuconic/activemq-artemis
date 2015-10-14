@@ -201,4 +201,17 @@ public class ConfigurationHelper {
       }
    }
 
+   public static double getDoubleProperty(String name, double def, Map<String, Object> props) {
+      if (props == null) {
+         return def;
+      }
+      Object prop = props.get(name);
+      if (prop == null) {
+         return def;
+      }
+      else {
+         String value = prop.toString();
+         return Double.parseDouble(value);
+      }
+   }
 }
