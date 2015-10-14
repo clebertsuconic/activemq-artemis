@@ -52,7 +52,7 @@ public class SocketProxy {
 
     private CountDownLatch closed = new CountDownLatch(1);
 
-    public List<Bridge> connections = new LinkedList<Bridge>();
+    public final List<Bridge> connections = new LinkedList<Bridge>();
 
     private int listenPort = 0;
 
