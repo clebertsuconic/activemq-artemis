@@ -132,14 +132,19 @@ public class OpenWireProtocolManager implements ProtocolManager<Interceptor>, No
 
    protected final ConcurrentMap<ConnectionId, ConnectionInfo> connectionInfos = new ConcurrentHashMap<ConnectionId, ConnectionInfo>();
 
+   // Clebert TODO: use ConcurrentHashMap, or maybe use the schema that's already available on Artemis upstream (unique-client-id)
    private final Map<String, AMQConnectionContext> clientIdSet = new HashMap<String, AMQConnectionContext>();
 
    private String brokerName;
 
+   // Clebert TODO: Artemis already stores the Session. Why do we need a different one here
    private Map<SessionId, AMQSession> sessions = new ConcurrentHashMap<SessionId, AMQSession>();
 
+   // Clebert: Artemis already has a Resource Manager. Need to remove this..
+   //          The TransactionID extends XATransactionID, so all we need is to convert the XID here
    private Map<TransactionId, AMQSession> transactions = new ConcurrentHashMap<TransactionId, AMQSession>();
 
+   // Clebert: Artemis session has meta-data support, perhaps we could reuse it here
    private Map<String, SessionId> sessionIdMap = new ConcurrentHashMap<String, SessionId>();
 
    private final ScheduledExecutorService scheduledPool;
@@ -229,6 +234,7 @@ public class OpenWireProtocolManager implements ProtocolManager<Interceptor>, No
       OpenWireConnection owConn = new OpenWireConnection(acceptorUsed, connection, this, wf);
       owConn.init();
 
+      // TODO CLEBERT What is this constant here? we should get it from TTL initial pings
       return new ConnectionEntry(owConn, null, System.currentTimeMillis(), 1 * 60 * 1000);
    }
 
@@ -393,6 +399,7 @@ public class OpenWireProtocolManager implements ProtocolManager<Interceptor>, No
    }
 
    public BrokerId getBrokerId() {
+      // TODO: Use the Storage ID here...
       if (brokerId == null) {
          brokerId = new BrokerId(BROKER_ID_GENERATOR.generateId());
       }
