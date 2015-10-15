@@ -23,7 +23,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -40,11 +39,11 @@ import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
 import org.apache.activemq.artemis.api.core.BaseInterceptor;
 import org.apache.activemq.artemis.api.core.Interceptor;
 import org.apache.activemq.artemis.api.core.SimpleString;
-import org.apache.activemq.artemis.api.core.TransportConfiguration;
 import org.apache.activemq.artemis.api.core.client.ClusterTopologyListener;
 import org.apache.activemq.artemis.api.core.client.TopologyMember;
 import org.apache.activemq.artemis.api.core.management.CoreNotificationType;
 import org.apache.activemq.artemis.api.core.management.ManagementHelper;
+import org.apache.activemq.artemis.core.client.impl.Topology;
 import org.apache.activemq.artemis.core.io.IOCallback;
 import org.apache.activemq.artemis.core.postoffice.Binding;
 import org.apache.activemq.artemis.core.postoffice.Bindings;
@@ -54,7 +53,6 @@ import org.apache.activemq.artemis.core.protocol.openwire.amq.AMQConsumer;
 import org.apache.activemq.artemis.core.protocol.openwire.amq.AMQProducerBrokerExchange;
 import org.apache.activemq.artemis.core.protocol.openwire.amq.AMQSession;
 import org.apache.activemq.artemis.core.remoting.impl.netty.NettyServerConnection;
-import org.apache.activemq.artemis.core.remoting.impl.netty.TransportConstants;
 import org.apache.activemq.artemis.core.security.CheckType;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
 import org.apache.activemq.artemis.core.server.ActiveMQServerLogger;
@@ -72,7 +70,6 @@ import org.apache.activemq.artemis.spi.core.protocol.RemotingConnection;
 import org.apache.activemq.artemis.spi.core.remoting.Acceptor;
 import org.apache.activemq.artemis.spi.core.remoting.Connection;
 import org.apache.activemq.artemis.spi.core.security.ActiveMQSecurityManager;
-import org.apache.activemq.artemis.utils.ConfigurationHelper;
 import org.apache.activemq.artemis.utils.DataConstants;
 import org.apache.activemq.command.ActiveMQDestination;
 import org.apache.activemq.command.ActiveMQMessage;
@@ -152,8 +149,6 @@ public class OpenWireProtocolManager implements ProtocolManager<Interceptor>, No
 
    private final ScheduledExecutorService scheduledPool;
 
-   private final LinkedList<URI> peerBrokers = new LinkedList<URI>();
-
    public OpenWireProtocolManager(OpenWireProtocolManagerFactory factory, ActiveMQServer server) {
       this.factory = factory;
       this.server = server;
@@ -167,29 +162,29 @@ public class OpenWireProtocolManager implements ProtocolManager<Interceptor>, No
          service.addNotificationListener(this);
       }
 
-      ClusterManager clusterManager = this.server.getClusterManager();
+      final ClusterManager clusterManager = this.server.getClusterManager();
       ClusterConnection cc = clusterManager.getDefaultConnection(null);
       if (cc != null) {
          cc.addClusterTopologyListener(new ClusterTopologyListener() {
             @Override
             public void nodeUP(TopologyMember member, boolean last) {
-               peerBrokerUp(member);
+               peerBrokerUp(member, clusterManager.getDefaultConnection(null).getTopology());
             }
 
             @Override
             public void nodeDown(long eventUID, String nodeID) {
-               peerBrokerDown(nodeID);
+               peerBrokerDown(nodeID, clusterManager.getDefaultConnection(null).getTopology());
             }
          });
       }
    }
 
-   private void peerBrokerUp(TopologyMember member) {
-      synchronized (peerBrokers) {
-         URI peerBrokerUri = createPeerBrokerUri(member.getNodeId(), member.toURI());
-         peerBrokers.add(peerBrokerUri);
-         updateClientClusterInfo();
-      }
+   private void peerBrokerUp(TopologyMember member, Topology topology) {
+      updateClientClusterInfo(topology);
+   }
+
+   private void peerBrokerDown(String nodeID, Topology topology) {
+      updateClientClusterInfo(topology);
    }
 
    private URI createPeerBrokerUri(String nodeId, String url) {
@@ -219,22 +214,9 @@ public class OpenWireProtocolManager implements ProtocolManager<Interceptor>, No
       return brokerUri;
    }
 
-   private void updateClientClusterInfo() {
+   private void updateClientClusterInfo(Topology topology) {
       for (OpenWireConnection c : this.connections) {
-         c.updateClient();
-      }
-   }
-
-   private void peerBrokerDown(String nodeID) {
-      synchronized (peerBrokers) {
-         Iterator<URI> iterator = peerBrokers.iterator();
-         while (iterator.hasNext()) {
-            if (matchPeerBroker(iterator.next(), nodeID)) {
-               iterator.remove();
-               break;
-            }
-         }
-         updateClientClusterInfo();
+         c.updateClient(topology);
       }
    }
 
@@ -485,36 +467,28 @@ public class OpenWireProtocolManager implements ProtocolManager<Interceptor>, No
       return brokerName;
    }
 
-   protected ConnectionControl getConnectionControl(OpenWireConnection connection, boolean rebalance, boolean updateClusterClients) {
+   protected ConnectionControl getConnectionControl(OpenWireConnection connection, Topology topology, boolean rebalance) {
       String connectedBrokers = "";
       String separator = "";
 
-      if (updateClusterClients) {
-         synchronized (peerBrokers) {
-            for (URI br : getPeerBrokers(connection)) {
-               connectedBrokers += separator + getBrokerUriString(br);
-               separator = ",";
-            }
+      if (topology != null) {
 
-            if (rebalance) {
-               URI shuffle = peerBrokers.removeFirst();
-               peerBrokers.addLast(shuffle);
-            }
+         for (TopologyMember member : topology.getMembers()) {
+            connectedBrokers += separator + member.toURI();
+            separator = ",";
          }
+
+         // @Howard: That's the part I don't understand why we have to do. that's not really a rebalancing thing
+//         if (rebalance) {
+//            URI shuffle = peerBrokers.removeFirst();
+//            peerBrokers.addLast(shuffle);
+//         }
       }
+
       ConnectionControl control = new ConnectionControl();
       control.setConnectedBrokers(connectedBrokers);
       control.setRebalanceConnection(rebalance);
       return control;
-   }
-
-   public List<URI> getPeerBrokers(OpenWireConnection connection) {
-      synchronized (peerBrokers) {
-         if (peerBrokers.isEmpty()) {
-            peerBrokers.add(createPeerBrokerUri(server.getNodeID().toString(), connection.getDefaultSocketURIString()));
-         }
-         return peerBrokers;
-      }
    }
 
    public boolean isFaultTolerantConfiguration() {
