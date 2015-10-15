@@ -38,6 +38,7 @@ import org.apache.activemq.artemis.api.core.ActiveMQBuffers;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.ActiveMQNonExistentQueueException;
 import org.apache.activemq.artemis.api.core.ActiveMQSecurityException;
+import org.apache.activemq.artemis.core.client.impl.Topology;
 import org.apache.activemq.artemis.core.protocol.openwire.amq.AMQCompositeConsumerBrokerExchange;
 import org.apache.activemq.artemis.core.protocol.openwire.amq.AMQConnectionContext;
 import org.apache.activemq.artemis.core.protocol.openwire.amq.AMQConsumer;
@@ -576,7 +577,7 @@ public class OpenWireConnection implements RemotingConnection, CommandVisitor, S
       if (info.isManageable()) {
          System.out.println("======= > new connection need control info: " + info);
          // send ConnectionCommand
-         ConnectionControl command = protocolManager.getConnectionControl(this, rebalance, updateClusterClients);
+         ConnectionControl command = protocolManager.getConnectionControl(this, null, rebalance);
          command.setFaultTolerant(protocolManager.isFaultTolerantConfiguration());
          if (info.isFailoverReconnect()) {
             command.setRebalanceConnection(false);
@@ -1266,8 +1267,8 @@ public class OpenWireConnection implements RemotingConnection, CommandVisitor, S
       return defaultSocketURIString;
    }
 
-   public void updateClient() {
-      ConnectionControl control = this.protocolManager.getConnectionControl(this, rebalance, updateClusterClients);
+   public void updateClient(Topology topology) {
+      ConnectionControl control = this.protocolManager.getConnectionControl(this, topology, updateClusterClients);
       if (!destroyed && context.isFaultTolerant() && this.wireFormat != null
               && this.wireFormat.getVersion() >= 6) {
          dispatchAsync(control);
