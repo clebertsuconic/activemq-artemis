@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -383,6 +384,19 @@ public final class Topology {
          members = new ArrayList<>(topology.values());
       }
       return members;
+   }
+
+   public Collection<TopologyMemberImpl> getMembers(boolean shuffle) {
+      LinkedList<TopologyMemberImpl> members;
+      synchronized (this) {
+         members = new LinkedList<TopologyMemberImpl>(topology.values());
+      }
+      if (shuffle && members.size() > 1) {
+         TopologyMemberImpl first = members.removeFirst();
+         members.addLast(first);
+      }
+      return members;
+
    }
 
    synchronized int nodes() {
