@@ -117,14 +117,15 @@ public class ClusterConfigHelper {
     * equivalent addresses.
     */
    public static AddressImpl[] getEquivalentAddresses(DiscoveryNetworkConnector nc) {
-      List<String> addresses = new ArrayList<String>();
-      AddressImpl defaultAddress = new AddressImpl(new SimpleString("jms.#"));
+
+      AddressImpl defaultAddress = new AddressImpl(new SimpleString("jms"));
 
       List<ActiveMQDestination> excludes = nc.getExcludedDestinations();
       List<AddressImpl> excludeSet = new ArrayList<AddressImpl>();
       for (ActiveMQDestination dest : excludes) {
          //replace ".>" wildcard
          String rawDestName = dest.getPhysicalName().replace(".>", ".#");
+
          excludeSet.add(new AddressImpl(new SimpleString(rawDestName)));
       }
       List<ActiveMQDestination> dynamicIncludes =nc.getDynamicallyIncludedDestinations();
@@ -132,12 +133,14 @@ public class ClusterConfigHelper {
       for (ActiveMQDestination dest : dynamicIncludes) {
          //replace ".>" wildcard
          String rawDestName = dest.getPhysicalName().replace(".>", ".#");
+
          includeSet.add(new AddressImpl(new SimpleString(rawDestName)));
       }
       List<ActiveMQDestination> staticIncludes = nc.getStaticallyIncludedDestinations();
       for (ActiveMQDestination dest : staticIncludes) {
          //".>" is not allowed
          String rawDestName = dest.getPhysicalName();
+
          includeSet.add(new AddressImpl(new SimpleString(rawDestName)));
       }
 
@@ -155,6 +158,10 @@ public class ClusterConfigHelper {
             }
          }
       }
+      if (includeSet.size() == 0) {
+         includeSet.add(defaultAddress);
+      }
+
       return includeSet.toArray(new AddressImpl[0]);
    }
 }
