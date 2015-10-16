@@ -19,6 +19,7 @@ package org.apache.activemq.broker.artemiswrapper;
 import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -108,7 +109,7 @@ public class ArtemisBrokerWrapper extends ArtemisBrokerBase {
       }
 
       for (Integer port : bservice.extraConnectors) {
-         serverConfig.addAcceptorConfiguration("homePort" + port, "tcp://localhost:" + port + "?protocols=OPENWIRE");
+         serverConfig.addAcceptorConfiguration("homePort" + port, "tcp://localhost:" + port + "?protocols=OPENWIRE,CORE");
       }
 
       serverConfig.setSecurityEnabled(enableSecurity);
@@ -185,7 +186,6 @@ public class ArtemisBrokerWrapper extends ArtemisBrokerBase {
       String local = bservice.getConnectURI().toString();
       for (NetworkConnector nc : networkConnectors) {
          //each static uri points to a node
-         String remote = nc.getBrokerURL();
          if (nc.isDuplex()) {
             ClusterConfigHelper.registerDuplex(local, nc);
          }
@@ -247,12 +247,16 @@ public class ArtemisBrokerWrapper extends ArtemisBrokerBase {
          ccCfg.setAddress(addresses[i].getAddress().toString());
 
          List<String> remoteStaticConnectors = ccCfg.getStaticConnectors();
+         if (remoteStaticConnectors.isEmpty()) {
+            remoteStaticConnectors = new ArrayList<String>();
+         }
 
          for (URI remote : remoteUris) {
             TransportConfiguration staticConnector = ClusterConfigHelper.createCCStaticConnector(remote, i);
             connectors.put(staticConnector.getName(), staticConnector);
             remoteStaticConnectors.add(staticConnector.getName());
          }
+         ccCfg.setStaticConnectors(remoteStaticConnectors);
          server.getConfiguration().addClusterConfiguration(ccCfg);
       }
    }
