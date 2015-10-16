@@ -467,22 +467,22 @@ public class OpenWireProtocolManager implements ProtocolManager<Interceptor>, No
       return brokerName;
    }
 
-   protected ConnectionControl getConnectionControl(OpenWireConnection connection, Topology topology, boolean rebalance) {
+   protected ConnectionControl getConnectionControl(OpenWireConnection connection, Topology topology, boolean rebalance, boolean updateClusterClients) {
       String connectedBrokers = "";
       String separator = "";
 
-      if (topology != null) {
+      if (topology == null) {
+         ClusterConnection cc = server.getClusterManager().getDefaultConnection(null);
+         if (cc != null) {
+            topology = cc.getTopology();
+         }
+      }
 
-         for (TopologyMember member : topology.getMembers()) {
+      if (topology != null) {
+         for (TopologyMember member : topology.getMembers(rebalance)) {
             connectedBrokers += separator + member.toURI();
             separator = ",";
          }
-
-         // @Howard: That's the part I don't understand why we have to do. that's not really a rebalancing thing
-//         if (rebalance) {
-//            URI shuffle = peerBrokers.removeFirst();
-//            peerBrokers.addLast(shuffle);
-//         }
       }
 
       ConnectionControl control = new ConnectionControl();
@@ -834,28 +834,4 @@ public class OpenWireProtocolManager implements ProtocolManager<Interceptor>, No
       brokerInfo.setPeerBrokerInfos(null);
       connection.dispatchAsync(brokerInfo);
    }
-
-   /*
-   private class PeerBroker {
-      public String nodeId;
-      public String connectUri;
-
-      public PeerBroker(String nodeId, String uri) {
-         this.nodeId = nodeId;
-         this.connectUri = uri;
-      }
-
-      public PeerBroker(String nodeID) {
-         this(nodeID, null);
-      }
-
-      @Override
-      public boolean equals(Object another) {
-         if (another instanceof PeerBroker) {
-            return nodeId.equals(((PeerBroker)another).nodeId);
-         }
-         return false;
-      }
-   }
-   */
 }
