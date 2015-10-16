@@ -577,7 +577,7 @@ public class OpenWireConnection implements RemotingConnection, CommandVisitor, S
       if (info.isManageable()) {
          System.out.println("======= > new connection need control info: " + info);
          // send ConnectionCommand
-         ConnectionControl command = protocolManager.getConnectionControl(this, null, rebalance);
+         ConnectionControl command = protocolManager.getConnectionControl(this, null, rebalance, updateClusterClients);
          command.setFaultTolerant(protocolManager.isFaultTolerantConfiguration());
          if (info.isFailoverReconnect()) {
             command.setRebalanceConnection(false);
@@ -1268,7 +1268,7 @@ public class OpenWireConnection implements RemotingConnection, CommandVisitor, S
    }
 
    public void updateClient(Topology topology) {
-      ConnectionControl control = this.protocolManager.getConnectionControl(this, topology, updateClusterClients);
+      ConnectionControl control = this.protocolManager.getConnectionControl(this, topology, rebalance, updateClusterClients);
       if (!destroyed && context.isFaultTolerant() && this.wireFormat != null
               && this.wireFormat.getVersion() >= 6) {
          dispatchAsync(control);
