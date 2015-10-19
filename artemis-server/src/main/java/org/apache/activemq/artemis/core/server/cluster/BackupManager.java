@@ -72,7 +72,7 @@ public class BackupManager implements ActiveMQComponent {
    * Start the backup manager if not already started. This entails deploying a backup connector based on a cluster
    * configuration, informing the cluster manager so that it can add it to its topology and announce itself to the cluster.
    * */
-   public synchronized void start() {
+   public synchronized void start() throws Exception {
       if (started)
          return;
       //deploy the backup connectors using the cluster configuration
@@ -115,14 +115,18 @@ public class BackupManager implements ActiveMQComponent {
    /*
    * create the connectors using the cluster configurations
    * */
-   private void deployBackupConnector(final ClusterConnectionConfiguration config) {
-      TransportConfiguration connector = ClusterConfigurationUtil.getTransportConfiguration(config, configuration);
+   private void deployBackupConnector(final ClusterConnectionConfiguration config) throws Exception {
+      if (!config.validateConfiguration()) {
+         return;
+      }
+
+      TransportConfiguration connector = config.getTransportConfiguration(configuration);
 
       if (connector == null)
          return;
 
       if (config.getDiscoveryGroupName() != null) {
-         DiscoveryGroupConfiguration dg = ClusterConfigurationUtil.getDiscoveryGroupConfiguration(config, configuration);
+         DiscoveryGroupConfiguration dg = config.getDiscoveryGroupConfiguration(configuration);
 
          if (dg == null)
             return;
@@ -132,7 +136,7 @@ public class BackupManager implements ActiveMQComponent {
          backupConnectors.add(backupConnector);
       }
       else {
-         TransportConfiguration[] tcConfigs = ClusterConfigurationUtil.getTransportConfigurations(config, configuration);
+         TransportConfiguration[] tcConfigs = config.getTransportConfigurations(configuration);
 
          StaticBackupConnector backupConnector = new StaticBackupConnector(tcConfigs, config.getName(), connector, config.getRetryInterval(), clusterManager);
 
