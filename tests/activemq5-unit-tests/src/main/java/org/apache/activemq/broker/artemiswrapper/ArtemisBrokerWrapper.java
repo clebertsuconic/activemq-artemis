@@ -187,25 +187,25 @@ public class ArtemisBrokerWrapper extends ArtemisBrokerBase {
       for (NetworkConnector nc : networkConnectors) {
          //each static uri points to a node
          if (nc.isDuplex()) {
-            ClusterConfigHelper.registerDuplex(local, nc);
+            ClusterConfigHelper.registerDuplex(local, (DiscoveryNetworkConnector) nc);
          }
          //now create CC
          createClusterConnection((DiscoveryNetworkConnector) nc);
       }
       //check duplex connections
-      List<NetworkConnector> duplexList = ClusterConfigHelper.getDuplexConnections(local);
-      for (NetworkConnector duplexNC : duplexList) {
-         createDuplexClusterConnection(local, (DiscoveryNetworkConnector) duplexNC);
+      List<ClusterConfigHelper.NCPair> duplexList = ClusterConfigHelper.getDuplexConnections(local);
+      for (ClusterConfigHelper.NCPair pair : duplexList) {
+         createDuplexClusterConnection(local, pair.localUri, (DiscoveryNetworkConnector) pair.nc);
       }
    }
 
    //the CC should point to duplexNC's local connector.
-   private void createDuplexClusterConnection(String local, DiscoveryNetworkConnector duplexNC) throws URISyntaxException {
+   private void createDuplexClusterConnection(String local, String remote, DiscoveryNetworkConnector duplexNC) throws URISyntaxException {
       AddressImpl[] addresses = ClusterConfigHelper.getEquivalentAddresses(duplexNC);
       String ccName = duplexNC.getName();
       //this config is the remote connector
-      URI remote = duplexNC.getLocalUri();
-      TransportConfiguration connectorConfig = ClusterConfigHelper.createCCStaticConnector(remote, 0);
+      URI remoteUri = new URI(remote);
+      TransportConfiguration connectorConfig = ClusterConfigHelper.createCCStaticConnector(remoteUri, 0);
       Map<String, TransportConfiguration> connectors = this.server.getConfiguration().getConnectorConfigurations();
       connectors.put(connectorConfig.getName(), connectorConfig);
       TransportConfiguration myConnector = ClusterConfigHelper.createConnectorFromUri(new URI(local), "myself-connector");
@@ -229,7 +229,12 @@ public class ArtemisBrokerWrapper extends ArtemisBrokerBase {
 
    private void createClusterConnection(DiscoveryNetworkConnector nc) throws NoSuchFieldException, IllegalAccessException, URISyntaxException {
       AddressImpl[] addresses = ClusterConfigHelper.getEquivalentAddresses(nc);
+      if (addresses == null || addresses.length == 0)
+      {
+         throw new IllegalStateException("No equivalent address for CC");
+      }
       String ccName = nc.getName();
+
       TransportConfiguration connectorConfig = ClusterConfigHelper.getCCConnector(nc);
       Map<String, TransportConfiguration> connectors = this.server.getConfiguration().getConnectorConfigurations();
       connectors.put(connectorConfig.getName(), connectorConfig);
@@ -251,6 +256,9 @@ public class ArtemisBrokerWrapper extends ArtemisBrokerBase {
             remoteStaticConnectors = new ArrayList<String>();
          }
 
+         if (remoteUris.length == 0) {
+            throw new IllegalStateException("No static remote uri for CC");
+         }
          for (URI remote : remoteUris) {
             TransportConfiguration staticConnector = ClusterConfigHelper.createCCStaticConnector(remote, i);
             connectors.put(staticConnector.getName(), staticConnector);
