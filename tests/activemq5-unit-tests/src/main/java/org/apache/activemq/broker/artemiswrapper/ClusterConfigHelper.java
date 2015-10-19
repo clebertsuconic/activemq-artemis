@@ -27,25 +27,33 @@ import java.util.Set;
  */
 public class ClusterConfigHelper {
 
-   private static Map<String, Map<String, NetworkConnector>> duplexMap = new HashMap<String, Map<String, NetworkConnector>>();
+   private static Map<String, List<NCRemoteSet>> duplexMap = new HashMap<String, List<NCRemoteSet>>();
 
-   public static void registerDuplex(String local, NetworkConnector nc) {
-      Map<String, NetworkConnector> remoteSet = duplexMap.get(local);
-      if (remoteSet == null) {
-         remoteSet = new HashMap<String, NetworkConnector>();
-         duplexMap.put(local, remoteSet);
+   public static void registerDuplex(String local, DiscoveryNetworkConnector nc) throws NoSuchFieldException, IllegalAccessException, URISyntaxException {
+      List<NCRemoteSet> ncList = duplexMap.get(local);
+      if (ncList == null) {
+         ncList = new ArrayList<NCRemoteSet>();
+         duplexMap.put(local, ncList);
       }
-      remoteSet.put(nc.getBrokerURL(), nc);
+      URI discoveryUri = ClusterConfigHelper.getDiscoveryUri(nc);
+      URI[] remoteList = ClusterConfigHelper.extractRemoteUris(discoveryUri);
+      NCRemoteSet ncSet = new NCRemoteSet(nc);
+      for (URI remoteUri : remoteList) {
+         ncSet.addRemote(remoteUri);
+      }
+      ncList.add(ncSet);
    }
 
-   public static List<NetworkConnector> getDuplexConnections(String remote) {
-      List<NetworkConnector> duplexList = new ArrayList<NetworkConnector>();
-      Iterator<Map<String, NetworkConnector>> iterator = duplexMap.values().iterator();
-      while (iterator.hasNext()) {
-         Map<String, NetworkConnector> remoteSet = iterator.next();
-         NetworkConnector remoteNC = remoteSet.get(remote);
-         if (remoteNC != null) {
-            duplexList.add(remoteNC);
+   public static List<NCPair> getDuplexConnections(String remote) throws URISyntaxException {
+      List<NCPair> duplexList = new ArrayList<NCPair>();
+      Iterator<String> localUrlIterator = duplexMap.keySet().iterator();
+      while (localUrlIterator.hasNext()) {
+         String localUrl = localUrlIterator.next();
+         List<NCRemoteSet> listSet = duplexMap.get(localUrl);
+         for (NCRemoteSet ncSet : listSet) {
+            if (ncSet.contains(remote)) {
+               duplexList.add(new NCPair(localUrl, ncSet.nc));
+            }
          }
       }
       return duplexList;
@@ -163,5 +171,46 @@ public class ClusterConfigHelper {
       }
 
       return includeSet.toArray(new AddressImpl[0]);
+   }
+
+   private static class NCRemoteSet
+   {
+      public DiscoveryNetworkConnector nc;
+      public Set<URI> remoteSet = new HashSet<URI>();
+
+      public NCRemoteSet(DiscoveryNetworkConnector nc) {
+         this.nc = nc;
+      }
+
+      public void addRemote(URI remoteUri) {
+         this.remoteSet.add(remoteUri);
+      }
+
+      public boolean contains(String remote) throws URISyntaxException {
+         URI remoteUri = new URI(remote);
+         String remoteHost = remoteUri.getHost();
+         int remotePort = remoteUri.getPort();
+         Iterator<URI> iter = remoteSet.iterator();
+         while (iter.hasNext()) {
+            URI uri = iter.next();
+            String host = uri.getHost();
+            int port = uri.getPort();
+            if (remoteHost.equals(host) && port == remotePort) {
+               return true;
+            }
+         }
+         return false;
+      }
+   }
+
+   public static class NCPair
+   {
+      public String localUri;
+      public DiscoveryNetworkConnector nc;
+
+      public NCPair(String localUrl, DiscoveryNetworkConnector nc) {
+         this.localUri = localUrl;
+         this.nc = nc;
+      }
    }
 }
