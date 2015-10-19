@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.commons.beanutils.BeanUtilsBean;
+import org.apache.commons.beanutils.Converter;
 import org.apache.commons.beanutils.FluentPropertyBeanIntrospector;
 
 public abstract class URISchema<T, P> {
@@ -99,6 +100,12 @@ public abstract class URISchema<T, P> {
    protected abstract URI internalNewURI(T bean) throws Exception;
 
    private static final BeanUtilsBean beanUtils = new BeanUtilsBean();
+
+   public static void registerConverter(Converter converter, Class type) {
+      synchronized (beanUtils) {
+         beanUtils.getConvertUtils().register(converter, type);
+      }
+   }
 
    static {
       // This is to customize the BeanUtils to use Fluent Proeprties as well
