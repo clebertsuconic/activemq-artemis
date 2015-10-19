@@ -22,12 +22,15 @@ import java.io.File;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
+import java.net.URI;
 import java.security.AccessController;
 import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -47,6 +50,7 @@ import org.apache.activemq.artemis.core.config.HAPolicyConfiguration;
 import org.apache.activemq.artemis.core.config.ha.ReplicaPolicyConfiguration;
 import org.apache.activemq.artemis.core.config.ha.ReplicatedPolicyConfiguration;
 import org.apache.activemq.artemis.core.security.Role;
+import org.apache.activemq.artemis.core.server.ActiveMQServerLogger;
 import org.apache.activemq.artemis.core.server.JournalType;
 import org.apache.activemq.artemis.core.server.group.impl.GroupingHandlerConfiguration;
 import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
@@ -440,6 +444,12 @@ public class ConfigurationImpl implements Configuration, Serializable {
    public ConfigurationImpl addClusterConfiguration(final ClusterConnectionConfiguration config) {
       clusterConfigurations.add(config);
       return this;
+   }
+
+   public ClusterConnectionConfiguration addClusterConfiguration(String name, String uri) throws Exception {
+      ClusterConnectionConfiguration newConfig = new ClusterConnectionConfiguration(new URI(uri)).setName(name);
+      clusterConfigurations.add(newConfig);
+      return newConfig;
    }
 
    public ConfigurationImpl clearClusterConfigurations() {
@@ -1069,6 +1079,27 @@ public class ConfigurationImpl implements Configuration, Serializable {
    public ConfigurationImpl setResolveProtocols(boolean resolveProtocols) {
       this.resolveProtocols = resolveProtocols;
       return this;
+   }
+
+   public TransportConfiguration[] getTransportConfigurations(String ...connectorNames) {
+      return getTransportConfigurations(Arrays.asList(connectorNames));
+   }
+
+   public TransportConfiguration[] getTransportConfigurations(List<String> connectorNames) {
+
+      List<TransportConfiguration> configurations = new LinkedList<>();
+      for (String connectorName : connectorNames) {
+         TransportConfiguration connector = getConnectorConfigurations().get(connectorName);
+
+         if (connector != null) {
+            ActiveMQServerLogger.LOGGER.noConnector(connectorName);
+         }
+         else {
+            configurations.add(connector);
+         }
+      }
+
+      return configurations.toArray(new TransportConfiguration[configurations.size()]);
    }
 
    @Override

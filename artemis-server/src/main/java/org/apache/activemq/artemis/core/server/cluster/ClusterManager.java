@@ -16,6 +16,18 @@
  */
 package org.apache.activemq.artemis.core.server.cluster;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
+
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.ActiveMQExceptionType;
 import org.apache.activemq.artemis.api.core.BroadcastGroupConfiguration;
@@ -53,18 +65,6 @@ import org.apache.activemq.artemis.spi.core.remoting.Acceptor;
 import org.apache.activemq.artemis.utils.ConcurrentHashSet;
 import org.apache.activemq.artemis.utils.ExecutorFactory;
 import org.apache.activemq.artemis.utils.FutureLatch;
-
-import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ScheduledExecutorService;
 
 /**
  * A ClusterManager manages {@link ClusterConnection}s, {@link BroadcastGroup}s and {@link Bridge}s.
@@ -429,7 +429,7 @@ public final class ClusterManager implements ActiveMQComponent {
 
       }
       else {
-         TransportConfiguration[] tcConfigs = ClusterConfigurationUtil.connectorNameListToArray(config.getStaticConnectors(), configuration);
+         TransportConfiguration[] tcConfigs = configuration.getTransportConfigurations(config.getStaticConnectors());
 
          if (tcConfigs == null) {
             ActiveMQServerLogger.LOGGER.bridgeCantFindConnectors(config.getName());
@@ -578,7 +578,12 @@ public final class ClusterManager implements ActiveMQComponent {
    }
 
    private void deployClusterConnection(final ClusterConnectionConfiguration config) throws Exception {
-      TransportConfiguration connector = ClusterConfigurationUtil.getTransportConfiguration(config, configuration);
+
+      if (!config.validateConfiguration()) {
+         return;
+      }
+
+      TransportConfiguration connector = config.getTransportConfiguration(configuration);
 
       if (connector == null)
          return;
@@ -588,10 +593,11 @@ public final class ClusterManager implements ActiveMQComponent {
          return;
       }
 
+
       ClusterConnectionImpl clusterConnection;
 
       if (config.getDiscoveryGroupName() != null) {
-         DiscoveryGroupConfiguration dg = ClusterConfigurationUtil.getDiscoveryGroupConfiguration(config, configuration);
+         DiscoveryGroupConfiguration dg = config.getDiscoveryGroupConfiguration(configuration);
 
          if (dg == null)
             return;
@@ -608,7 +614,7 @@ public final class ClusterManager implements ActiveMQComponent {
          clusterController.addClusterConnection(clusterConnection.getName(), dg, config);
       }
       else {
-         TransportConfiguration[] tcConfigs = ClusterConfigurationUtil.getTransportConfigurations(config, configuration);
+         TransportConfiguration[] tcConfigs = config.getTransportConfigurations(configuration);
 
          if (ActiveMQServerLogger.LOGGER.isDebugEnabled()) {
             ActiveMQServerLogger.LOGGER.debug(this + " defining cluster connection towards " + Arrays.toString(tcConfigs));

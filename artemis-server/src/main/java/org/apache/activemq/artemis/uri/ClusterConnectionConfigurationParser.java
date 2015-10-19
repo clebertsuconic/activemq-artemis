@@ -18,11 +18,14 @@
 package org.apache.activemq.artemis.uri;
 
 import org.apache.activemq.artemis.core.config.ClusterConnectionConfiguration;
+import org.apache.activemq.artemis.uri.schemas.clusterConnection.ClusterConnectionMulticastSchema;
+import org.apache.activemq.artemis.uri.schemas.clusterConnection.ClusterConnectionStaticSchema;
 import org.apache.activemq.artemis.utils.uri.URIFactory;
 
 public class ClusterConnectionConfigurationParser extends URIFactory<ClusterConnectionConfiguration, String> {
 
    public ClusterConnectionConfigurationParser() {
       registerSchema(new ClusterConnectionStaticSchema());
+      registerSchema(new ClusterConnectionMulticastSchema());
    }
 }
