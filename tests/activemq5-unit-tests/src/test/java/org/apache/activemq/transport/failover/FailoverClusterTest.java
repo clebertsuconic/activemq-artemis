@@ -59,12 +59,6 @@ public class FailoverClusterTest extends OpenwireArtemisBaseTest {
       server1 = new EmbeddedJMS().setConfiguration(config1).setJmsConfiguration(new JMSConfigurationImpl());
       server2 = new EmbeddedJMS().setConfiguration(config2).setJmsConfiguration(new JMSConfigurationImpl());
 
-      server1.start();
-      server2.start();
-
-      Assert.assertTrue(server1.waitClusterForming(100, TimeUnit.MILLISECONDS, 20, 2));
-      Assert.assertTrue(server2.waitClusterForming(100, TimeUnit.MILLISECONDS, 20, 2));
-
       clientUrl = "failover://(" + newURI(1) + "," + newURI(2) + ")";
    }
 
@@ -77,11 +71,18 @@ public class FailoverClusterTest extends OpenwireArtemisBaseTest {
       server2.stop();
    }
 
-
    @Test
    public void testClusterConnectedAfterClients() throws Exception {
+      server1.start();
       createClients();
+
+      server2.start();
+      Assert.assertTrue(server1.waitClusterForming(100, TimeUnit.MILLISECONDS, 20, 2));
+      Assert.assertTrue(server2.waitClusterForming(100, TimeUnit.MILLISECONDS, 20, 2));
+
+      Thread.sleep(3000);
       Set<String> set = new HashSet<String>();
+
       for (ActiveMQConnection c : connections) {
          System.out.println("======> adding address: " + c.getTransportChannel().getRemoteAddress());
          set.add(c.getTransportChannel().getRemoteAddress());
@@ -90,13 +91,20 @@ public class FailoverClusterTest extends OpenwireArtemisBaseTest {
       Assert.assertTrue(set.size() > 1);
    }
 
+   //this test seems the same as the above one as long as artemis broker
+   //is concerned.
    @Test
    public void testClusterURIOptionsStrip() throws Exception {
-      ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory();
-      Connection connection = connectionFactory.createConnection();
-
+      server1.start();
 
       createClients();
+
+      server2.start();
+      Assert.assertTrue(server1.waitClusterForming(100, TimeUnit.MILLISECONDS, 20, 2));
+      Assert.assertTrue(server2.waitClusterForming(100, TimeUnit.MILLISECONDS, 20, 2));
+
+      Thread.sleep(3000);
+
       Set<String> set = new HashSet<String>();
       for (ActiveMQConnection c : connections) {
          set.add(c.getTransportChannel().getRemoteAddress());
@@ -106,6 +114,11 @@ public class FailoverClusterTest extends OpenwireArtemisBaseTest {
 
    @Test
    public void testClusterConnectedBeforeClients() throws Exception {
+
+      server1.start();
+      server2.start();
+      Assert.assertTrue(server1.waitClusterForming(100, TimeUnit.MILLISECONDS, 20, 2));
+      Assert.assertTrue(server2.waitClusterForming(100, TimeUnit.MILLISECONDS, 20, 2));
 
       createClients();
       server1.stop();
