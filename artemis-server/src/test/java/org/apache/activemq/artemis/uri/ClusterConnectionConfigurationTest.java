@@ -29,7 +29,8 @@ public class ClusterConnectionConfigurationTest {
    @Test
    public void testClusterConnectionStatic() throws Exception {
       ClusterConnectionConfigurationParser parser = new ClusterConnectionConfigurationParser();
-      ClusterConnectionConfiguration configuration = parser.newObject(new URI("static:(tcp://localhost:6556,tcp://localhost:6557)?minLargeMessageSize=132"), null);
+      ClusterConnectionConfiguration configuration = parser.newObject(new URI("static:(tcp://localhost:6556,tcp://localhost:6557)?minLargeMessageSize=132;s&messageLoadBalancingType=OFF"), null);
+      Assert.assertEquals(MessageLoadBalancingType.OFF, configuration.getMessageLoadBalancingType());
       Assert.assertEquals(132, configuration.getMinLargeMessageSize());
       Assert.assertEquals("tcp://localhost:6556", configuration.getCompositeMembers().getComponents()[0].toString());
       Assert.assertEquals("tcp://localhost:6557", configuration.getCompositeMembers().getComponents()[1].toString());
@@ -38,9 +39,8 @@ public class ClusterConnectionConfigurationTest {
    @Test
    public void testClusterConnectionStatic2() throws Exception {
       ClusterConnectionConfigurationParser parser = new ClusterConnectionConfigurationParser();
-      ClusterConnectionConfiguration configuration = parser.newObject(new URI("static://(tcp://localhost:6556,tcp://localhost:6557)?minLargeMessageSize=132&messageLoadBalancingType=OFF"), null);
+      ClusterConnectionConfiguration configuration = parser.newObject(new URI("static://(tcp://localhost:6556,tcp://localhost:6557)?minLargeMessageSize=132;messageLoadBalancingType=OFF"), null);
       Assert.assertEquals(132, configuration.getMinLargeMessageSize());
-      Assert.assertEquals(MessageLoadBalancingType.OFF, configuration.getMessageLoadBalancingType());
       Assert.assertEquals(2, configuration.getCompositeMembers().getComponents().length);
       Assert.assertEquals("tcp://localhost:6556", configuration.getCompositeMembers().getComponents()[0].toString());
       Assert.assertEquals("tcp://localhost:6557", configuration.getCompositeMembers().getComponents()[1].toString());
