@@ -21,7 +21,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.PrintWriter;
 import java.io.Serializable;
+import java.io.StringWriter;
 import java.net.URI;
 import java.security.AccessController;
 import java.security.PrivilegedExceptionAction;
@@ -1087,11 +1089,13 @@ public class ConfigurationImpl implements Configuration, Serializable {
 
    public TransportConfiguration[] getTransportConfigurations(List<String> connectorNames) {
 
+      System.out.println(debugConnectors());
+
       List<TransportConfiguration> configurations = new LinkedList<>();
       for (String connectorName : connectorNames) {
          TransportConfiguration connector = getConnectorConfigurations().get(connectorName);
 
-         if (connector != null) {
+         if (connector == null) {
             ActiveMQServerLogger.LOGGER.noConnector(connectorName);
          }
          else {
@@ -1100,6 +1104,22 @@ public class ConfigurationImpl implements Configuration, Serializable {
       }
 
       return configurations.toArray(new TransportConfiguration[configurations.size()]);
+   }
+
+   public String debugConnectors() {
+
+      StringWriter stringWriter = new StringWriter();
+      PrintWriter writer = new PrintWriter(stringWriter);
+
+
+      for (Map.Entry<String, TransportConfiguration> connector : getConnectorConfigurations().entrySet()) {
+         writer.println("Connector::" + connector.getKey() + " value = " + connector.getValue());
+      }
+
+      writer.close();
+
+      return stringWriter.toString();
+
    }
 
    @Override
