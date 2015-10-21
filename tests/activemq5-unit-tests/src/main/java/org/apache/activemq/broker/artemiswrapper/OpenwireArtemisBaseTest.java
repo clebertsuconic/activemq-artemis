@@ -22,6 +22,7 @@ import java.io.File;
 import org.apache.activemq.artemis.core.config.Configuration;
 import org.apache.activemq.artemis.core.config.impl.ConfigurationImpl;
 import org.apache.activemq.artemis.core.server.JournalType;
+import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
 import org.junit.Rule;
 import org.junit.rules.TemporaryFolder;
 
@@ -76,6 +77,8 @@ public class OpenwireArtemisBaseTest {
          setJournalCompactMinFiles(0).
          setJournalCompactPercentage(0).
          setClusterPassword(CLUSTER_PASSWORD);
+
+      configuration.addAddressesSetting("#", new AddressSettings().setAutoCreateJmsQueues(true).setAutoDeleteJmsQueues(true));
 
       configuration.addAcceptorConfiguration("netty", newURI(serverID));
       configuration.addConnectorConfiguration("netty-connector", newURI(serverID));
