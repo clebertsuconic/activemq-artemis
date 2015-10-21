@@ -17,9 +17,6 @@
 package org.apache.activemq.broker.artemiswrapper;
 
 import java.io.File;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -30,10 +27,8 @@ import java.util.Set;
 import org.apache.activemq.artemis.api.core.ActiveMQQueueExistsException;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.api.core.TransportConfiguration;
-import org.apache.activemq.artemis.core.config.ClusterConnectionConfiguration;
 import org.apache.activemq.artemis.core.config.Configuration;
 import org.apache.activemq.artemis.core.config.impl.SecurityConfiguration;
-import org.apache.activemq.artemis.core.postoffice.impl.AddressImpl;
 import org.apache.activemq.artemis.core.registry.JndiBindingRegistry;
 import org.apache.activemq.artemis.core.remoting.impl.netty.TransportConstants;
 import org.apache.activemq.artemis.core.security.Role;
@@ -46,8 +41,6 @@ import org.apache.activemq.artemiswrapper.ArtemisBrokerHelper;
 import org.apache.activemq.broker.BrokerService;
 import org.apache.activemq.broker.region.policy.PolicyEntry;
 import org.apache.activemq.broker.region.policy.PolicyMap;
-import org.apache.activemq.network.DiscoveryNetworkConnector;
-import org.apache.activemq.network.NetworkConnector;
 
 public class ArtemisBrokerWrapper extends ArtemisBrokerBase {
 
@@ -114,6 +107,8 @@ public class ArtemisBrokerWrapper extends ArtemisBrokerBase {
 
       serverConfig.setSecurityEnabled(enableSecurity);
 
+      //extraServerConfig(serverConfig);
+
       if (enableSecurity) {
          ActiveMQSecurityManagerImpl sm = (ActiveMQSecurityManagerImpl) server.getSecurityManager();
          SecurityConfiguration securityConfig = sm.getConfiguration();
@@ -161,8 +156,6 @@ public class ArtemisBrokerWrapper extends ArtemisBrokerBase {
          System.out.println("acceptor =>: " + iter.next());
       }
 
-      //cluster connection
-      setUpClusterConnections();
       jmsServer = new JMSServerManagerImpl(server);
       InVMNamingContext namingContext = new InVMNamingContext();
       jmsServer.setRegistry(new JndiBindingRegistry(namingContext));
@@ -178,95 +171,6 @@ public class ArtemisBrokerWrapper extends ArtemisBrokerBase {
       ArtemisBrokerHelper.setBroker(this.bservice);
       stopped = false;
 
-   }
-
-   //todo: after finish static, consider refactor it to include multicast
-   private void setUpClusterConnections() throws Exception {
-      List<NetworkConnector> networkConnectors = bservice.getNetworkConnectors();
-      String local = bservice.getConnectURI().toString();
-      for (NetworkConnector nc : networkConnectors) {
-         //each static uri points to a node
-         if (nc.isDuplex()) {
-            ClusterConfigHelper.registerDuplex(local, (DiscoveryNetworkConnector) nc);
-         }
-         //now create CC
-         createClusterConnection((DiscoveryNetworkConnector) nc);
-      }
-      //check duplex connections
-      List<ClusterConfigHelper.NCPair> duplexList = ClusterConfigHelper.getDuplexConnections(local);
-      for (ClusterConfigHelper.NCPair pair : duplexList) {
-         createDuplexClusterConnection(local, pair.localUri, (DiscoveryNetworkConnector) pair.nc);
-      }
-   }
-
-   //the CC should point to duplexNC's local connector.
-   private void createDuplexClusterConnection(String local, String remote, DiscoveryNetworkConnector duplexNC) throws URISyntaxException {
-      AddressImpl[] addresses = ClusterConfigHelper.getEquivalentAddresses(duplexNC);
-      String ccName = duplexNC.getName();
-      //this config is the remote connector
-      URI remoteUri = new URI(remote);
-      TransportConfiguration connectorConfig = ClusterConfigHelper.createCCStaticConnector(remoteUri, 0);
-      Map<String, TransportConfiguration> connectors = this.server.getConfiguration().getConnectorConfigurations();
-      connectors.put(connectorConfig.getName(), connectorConfig);
-      TransportConfiguration myConnector = ClusterConfigHelper.createConnectorFromUri(new URI(local), "myself-connector");
-      connectors.put(myConnector.getName(), myConnector);
-
-      int maxHops = ClusterConfigHelper.getMaxHops(duplexNC);
-
-      for (int i = 0; i < addresses.length; i++) {
-         ClusterConnectionConfiguration ccCfg = new ClusterConnectionConfiguration();
-
-         ccCfg.setName(ccName);
-         ccCfg.setConnectorName(myConnector.getName());
-         ccCfg.setMaxHops(maxHops);
-         ccCfg.setAddress(addresses[i].getAddress().toString());
-         //remote uri points to local
-         List<String> remoteStaticConnectors = ccCfg.getStaticConnectors();
-         remoteStaticConnectors.add(connectorConfig.getName());
-         server.getConfiguration().addClusterConfiguration(ccCfg);
-      }
-   }
-
-   private void createClusterConnection(DiscoveryNetworkConnector nc) throws NoSuchFieldException, IllegalAccessException, URISyntaxException {
-      AddressImpl[] addresses = ClusterConfigHelper.getEquivalentAddresses(nc);
-      if (addresses == null || addresses.length == 0)
-      {
-         throw new IllegalStateException("No equivalent address for CC");
-      }
-      String ccName = nc.getName();
-
-      TransportConfiguration connectorConfig = ClusterConfigHelper.getCCConnector(nc);
-      Map<String, TransportConfiguration> connectors = this.server.getConfiguration().getConnectorConfigurations();
-      connectors.put(connectorConfig.getName(), connectorConfig);
-      int maxHops = ClusterConfigHelper.getMaxHops(nc);
-
-      URI discoveryUri = ClusterConfigHelper.getDiscoveryUri(nc);
-      URI[] remoteUris = ClusterConfigHelper.extractRemoteUris(discoveryUri);
-
-      for (int i = 0; i < addresses.length; i++) {
-         ClusterConnectionConfiguration ccCfg = new ClusterConnectionConfiguration();
-
-         ccCfg.setName(ccName + i);
-         ccCfg.setConnectorName(connectorConfig.getName());
-         ccCfg.setMaxHops(maxHops);
-         ccCfg.setAddress(addresses[i].getAddress().toString());
-
-         List<String> remoteStaticConnectors = ccCfg.getStaticConnectors();
-         if (remoteStaticConnectors.isEmpty()) {
-            remoteStaticConnectors = new ArrayList<String>();
-         }
-
-         if (remoteUris.length == 0) {
-            throw new IllegalStateException("No static remote uri for CC");
-         }
-         for (URI remote : remoteUris) {
-            TransportConfiguration staticConnector = ClusterConfigHelper.createCCStaticConnector(remote, i);
-            connectors.put(staticConnector.getName(), staticConnector);
-            remoteStaticConnectors.add(staticConnector.getName());
-         }
-         ccCfg.setStaticConnectors(remoteStaticConnectors);
-         server.getConfiguration().addClusterConfiguration(ccCfg);
-      }
    }
 
    private void translatePolicyMap(Configuration serverConfig, PolicyMap policyMap) {
