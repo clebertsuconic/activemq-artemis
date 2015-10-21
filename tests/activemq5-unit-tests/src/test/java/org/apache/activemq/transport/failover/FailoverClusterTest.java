@@ -30,7 +30,8 @@ import java.util.concurrent.TimeUnit;
 import org.apache.activemq.ActiveMQConnection;
 import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.activemq.artemis.core.config.Configuration;
-import org.apache.activemq.artemis.core.server.embedded.EmbeddedActiveMQ;
+import org.apache.activemq.artemis.jms.server.config.impl.JMSConfigurationImpl;
+import org.apache.activemq.artemis.jms.server.embedded.EmbeddedJMS;
 import org.apache.activemq.broker.artemiswrapper.OpenwireArtemisBaseTest;
 import org.junit.After;
 import org.junit.Assert;
@@ -43,8 +44,8 @@ public class FailoverClusterTest extends OpenwireArtemisBaseTest {
    private String clientUrl;
 
    private final List<ActiveMQConnection> connections = new ArrayList<ActiveMQConnection>();
-   EmbeddedActiveMQ server1;
-   EmbeddedActiveMQ server2;
+   EmbeddedJMS server1;
+   EmbeddedJMS server2;
 
 
    @Before
@@ -55,14 +56,14 @@ public class FailoverClusterTest extends OpenwireArtemisBaseTest {
       deployClusterConfiguration(config1, 2);
       deployClusterConfiguration(config2, 1);
 
-      server1 = new EmbeddedActiveMQ().setConfiguration(config1);
-      server2 = new EmbeddedActiveMQ().setConfiguration(config2);
+      server1 = new EmbeddedJMS().setConfiguration(config1).setJmsConfiguration(new JMSConfigurationImpl());
+      server2 = new EmbeddedJMS().setConfiguration(config2).setJmsConfiguration(new JMSConfigurationImpl());
 
       server1.start();
       server2.start();
 
-      server1.waitClusterForming(10, TimeUnit.MILLISECONDS, 1000, 2);
-      server2.waitClusterForming(10, TimeUnit.MILLISECONDS, 1000, 2);
+      Assert.assertTrue(server1.waitClusterForming(100, TimeUnit.MILLISECONDS, 20, 2));
+      Assert.assertTrue(server2.waitClusterForming(100, TimeUnit.MILLISECONDS, 20, 2));
 
       clientUrl = "failover://(" + newURI(1) + "," + newURI(2) + ")";
    }
@@ -91,6 +92,10 @@ public class FailoverClusterTest extends OpenwireArtemisBaseTest {
 
    @Test
    public void testClusterURIOptionsStrip() throws Exception {
+      ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory();
+      Connection connection = connectionFactory.createConnection();
+
+
       createClients();
       Set<String> set = new HashSet<String>();
       for (ActiveMQConnection c : connections) {
