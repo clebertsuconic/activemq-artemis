@@ -222,7 +222,7 @@ public class TransportConfiguration implements Serializable {
       StringBuilder str = new StringBuilder(TransportConfiguration.class.getSimpleName());
       str.append("(name=" + name + ", ");
       str.append("factory=" + replaceWildcardChars(factoryClassName));
-      str.append(") ");
+      str.append(")");
       if (params != null) {
          if (!params.isEmpty()) {
             str.append("?");

@@ -916,4 +916,7 @@ public interface Configuration {
     */
    File getBrokerInstance();
 
+   /** It will return all the connectors in a toString manner for debug purposes. */
+   String debugConnectors();
+
 }
