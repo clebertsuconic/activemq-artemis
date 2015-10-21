@@ -16,142 +16,102 @@
  */
 package org.apache.activemq.transport.failover;
 
+import javax.jms.Connection;
+import javax.jms.MessageConsumer;
+import javax.jms.Queue;
+import javax.jms.Session;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import javax.jms.Connection;
-import javax.jms.MessageConsumer;
-import javax.jms.Queue;
-import javax.jms.Session;
-
-import junit.framework.TestCase;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.activemq.ActiveMQConnection;
 import org.apache.activemq.ActiveMQConnectionFactory;
-import org.apache.activemq.broker.BrokerService;
-import org.apache.activemq.broker.TransportConnector;
-import org.apache.activemq.network.NetworkConnector;
+import org.apache.activemq.artemis.core.config.Configuration;
+import org.apache.activemq.artemis.core.server.embedded.EmbeddedActiveMQ;
+import org.apache.activemq.broker.artemiswrapper.OpenwireArtemisBaseTest;
+import org.junit.After;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
 
-public class FailoverClusterTest extends TestCase {
+public class FailoverClusterTest extends OpenwireArtemisBaseTest {
 
    private static final int NUMBER = 10;
-   private static final String BROKER_BIND_ADDRESS = "tcp://0.0.0.0:0";
-   private static final String BROKER_A_NAME = "BROKERA";
-   private static final String BROKER_B_NAME = "BROKERB";
-   private BrokerService brokerA;
-   private BrokerService brokerB;
    private String clientUrl;
 
    private final List<ActiveMQConnection> connections = new ArrayList<ActiveMQConnection>();
+   EmbeddedActiveMQ server1;
+   EmbeddedActiveMQ server2;
 
+
+   @Before
+   public void setUp() throws Exception {
+      Configuration config1 = createConfig(1);
+      Configuration config2 = createConfig(2);
+
+      deployClusterConfiguration(config1, 2);
+      deployClusterConfiguration(config2, 1);
+
+      server1 = new EmbeddedActiveMQ().setConfiguration(config1);
+      server2 = new EmbeddedActiveMQ().setConfiguration(config2);
+
+      server1.start();
+      server2.start();
+
+      server1.waitClusterForming(10, TimeUnit.MILLISECONDS, 1000, 2);
+      server2.waitClusterForming(10, TimeUnit.MILLISECONDS, 1000, 2);
+
+      clientUrl = "failover://(" + newURI(1) + "," + newURI(2) + ")";
+   }
+
+   @After
+   public void tearDown() throws Exception {
+      for (Connection c : connections) {
+         c.close();
+      }
+      server1.stop();
+      server2.stop();
+   }
+
+
+   @Test
    public void testClusterConnectedAfterClients() throws Exception {
       createClients();
-      if (brokerB == null) {
-         brokerB = createBrokerB(BROKER_BIND_ADDRESS);
-      }
-      Thread.sleep(3000);
       Set<String> set = new HashSet<String>();
       for (ActiveMQConnection c : connections) {
          System.out.println("======> adding address: " + c.getTransportChannel().getRemoteAddress());
          set.add(c.getTransportChannel().getRemoteAddress());
       }
       System.out.println("============final size: " + set.size());
-      assertTrue(set.size() > 1);
+      Assert.assertTrue(set.size() > 1);
    }
 
+   @Test
    public void testClusterURIOptionsStrip() throws Exception {
       createClients();
-      if (brokerB == null) {
-         // add in server side only url param, should not be propagated
-         brokerB = createBrokerB(BROKER_BIND_ADDRESS + "?transport.closeAsync=false");
-      }
-      Thread.sleep(3000);
       Set<String> set = new HashSet<String>();
       for (ActiveMQConnection c : connections) {
          set.add(c.getTransportChannel().getRemoteAddress());
       }
-      assertTrue(set.size() > 1);
+      Assert.assertTrue(set.size() > 1);
    }
 
+   @Test
    public void testClusterConnectedBeforeClients() throws Exception {
 
-      if (brokerB == null) {
-         brokerB = createBrokerB(BROKER_BIND_ADDRESS);
-      }
-      Thread.sleep(5000);
       createClients();
-      Thread.sleep(2000);
-      brokerA.stop();
-      Thread.sleep(2000);
+      server1.stop();
 
-      URI brokerBURI = new URI(brokerB.getTransportConnectors().get(0).getPublishableConnectString());
+      URI brokerBURI = new URI(newURI(2));
       for (ActiveMQConnection c : connections) {
          String addr = c.getTransportChannel().getRemoteAddress();
-         assertTrue(addr.indexOf("" + brokerBURI.getPort()) > 0);
+         Assert.assertTrue(addr.indexOf("" + brokerBURI.getPort()) > 0);
       }
    }
 
-   @Override
-   protected void setUp() throws Exception {
-      if (brokerA == null) {
-         brokerA = createBrokerA(BROKER_BIND_ADDRESS + "?transport.closeAsync=false");
-         clientUrl = "failover://(" + brokerA.getTransportConnectors().get(0).getPublishableConnectString() + ")";
-      }
-   }
-
-   @Override
-   protected void tearDown() throws Exception {
-      for (Connection c : connections) {
-         c.close();
-      }
-      if (brokerB != null) {
-         brokerB.stop();
-         brokerB = null;
-      }
-      if (brokerA != null) {
-         brokerA.stop();
-         brokerA = null;
-      }
-   }
-
-   protected BrokerService createBrokerA(String uri) throws Exception {
-      BrokerService answer = new BrokerService();
-      answer.setUseJmx(false);
-      configureConsumerBroker(answer, uri);
-      answer.start();
-      return answer;
-   }
-
-   protected void configureConsumerBroker(BrokerService answer, String uri) throws Exception {
-      answer.setBrokerName(BROKER_A_NAME);
-      answer.setPersistent(false);
-      TransportConnector connector = answer.addConnector(uri);
-      connector.setRebalanceClusterClients(true);
-      connector.setUpdateClusterClients(true);
-      answer.setUseShutdownHook(false);
-   }
-
-   protected BrokerService createBrokerB(String uri) throws Exception {
-      BrokerService answer = new BrokerService();
-      answer.setUseJmx(false);
-      configureNetwork(answer, uri);
-      answer.start();
-      return answer;
-   }
-
-   protected void configureNetwork(BrokerService answer, String uri) throws Exception {
-      answer.setBrokerName(BROKER_B_NAME);
-      answer.setPersistent(false);
-      NetworkConnector network = answer.addNetworkConnector("static://" + brokerA.getTransportConnectors().get(0).getPublishableConnectString());
-      System.out.println("network ---------------------- : " + brokerA.getTransportConnectors().get(0).getPublishableConnectString());
-      network.setDuplex(true);
-      TransportConnector connector = answer.addConnector(uri);
-      connector.setRebalanceClusterClients(true);
-      connector.setUpdateClusterClients(true);
-      answer.setUseShutdownHook(false);
-   }
 
    @SuppressWarnings("unused")
    protected void createClients() throws Exception {
