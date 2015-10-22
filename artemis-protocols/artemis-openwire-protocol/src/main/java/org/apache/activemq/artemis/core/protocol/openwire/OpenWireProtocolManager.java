@@ -17,12 +17,11 @@
 package org.apache.activemq.artemis.core.protocol.openwire;
 
 import javax.jms.InvalidClientIDException;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -43,7 +42,6 @@ import org.apache.activemq.artemis.api.core.client.ClusterTopologyListener;
 import org.apache.activemq.artemis.api.core.client.TopologyMember;
 import org.apache.activemq.artemis.api.core.management.CoreNotificationType;
 import org.apache.activemq.artemis.api.core.management.ManagementHelper;
-import org.apache.activemq.artemis.core.client.impl.Topology;
 import org.apache.activemq.artemis.core.io.IOCallback;
 import org.apache.activemq.artemis.core.postoffice.Binding;
 import org.apache.activemq.artemis.core.postoffice.Bindings;
@@ -104,9 +102,8 @@ import org.apache.activemq.state.SessionState;
 import org.apache.activemq.util.IdGenerator;
 import org.apache.activemq.util.InetAddressUtil;
 import org.apache.activemq.util.LongSequenceGenerator;
-import org.apache.activemq.util.URISupport;
 
-public class OpenWireProtocolManager implements ProtocolManager<Interceptor>, NotificationListener {
+public class OpenWireProtocolManager implements ProtocolManager<Interceptor>, NotificationListener, ClusterTopologyListener {
 
    private static final IdGenerator BROKER_ID_GENERATOR = new IdGenerator();
    private static final IdGenerator ID_GENERATOR = new IdGenerator();
@@ -147,6 +144,10 @@ public class OpenWireProtocolManager implements ProtocolManager<Interceptor>, No
    // Clebert: Artemis session has meta-data support, perhaps we could reuse it here
    private Map<String, SessionId> sessionIdMap = new ConcurrentHashMap<String, SessionId>();
 
+   private final Map<String, TopologyMember> topologyMap = new ConcurrentHashMap<>();
+
+   private final LinkedList<TopologyMember> members = new LinkedList<>();
+
    private final ScheduledExecutorService scheduledPool;
 
    public OpenWireProtocolManager(OpenWireProtocolManagerFactory factory, ActiveMQServer server) {
@@ -165,59 +166,33 @@ public class OpenWireProtocolManager implements ProtocolManager<Interceptor>, No
       final ClusterManager clusterManager = this.server.getClusterManager();
       ClusterConnection cc = clusterManager.getDefaultConnection(null);
       if (cc != null) {
-         cc.addClusterTopologyListener(new ClusterTopologyListener() {
-            @Override
-            public void nodeUP(TopologyMember member, boolean last) {
-               peerBrokerUp(member, clusterManager.getDefaultConnection(null).getTopology());
-            }
-
-            @Override
-            public void nodeDown(long eventUID, String nodeID) {
-               peerBrokerDown(nodeID, clusterManager.getDefaultConnection(null).getTopology());
-            }
-         });
+         cc.addClusterTopologyListener(this);
       }
    }
 
-   private void peerBrokerUp(TopologyMember member, Topology topology) {
-      updateClientClusterInfo(topology);
-   }
-
-   private void peerBrokerDown(String nodeID, Topology topology) {
-      System.out.println("---------got node down: " + topology.getMembers(true));
-      updateClientClusterInfo(topology);
-   }
-
-   private URI createPeerBrokerUri(String nodeId, String url) {
-      URI result = null;
-      try {
-         result = URISupport.createURIWithQuery(new URI(url), "nodeId=" + nodeId);
+   @Override
+   public void nodeUP(TopologyMember member, boolean last) {
+      if (topologyMap.put(member.getNodeId(), member) == null) {
+         updateClientClusterInfo();
       }
-      catch (URISyntaxException e) {
-         //shouldn't happen.
-      }
-      return result;
    }
 
-   private boolean matchPeerBroker(URI peerUri, String nodeId) {
-      String query = peerUri.getQuery();
-      return query.contains(nodeId);
+   public void nodeDown(long eventUID, String nodeID) {
+      if (topologyMap.remove(nodeID) != null) {
+         updateClientClusterInfo();
+      }
    }
 
-   private String getBrokerUriString(final URI peerBrokerUri) {
-      String brokerUri = null;
-      try {
-         brokerUri = URISupport.removeQuery(peerBrokerUri).toString();
-      }
-      catch (URISyntaxException e) {
-         e.printStackTrace();
-      }
-      return brokerUri;
-   }
+   private void updateClientClusterInfo() {
 
-   private void updateClientClusterInfo(Topology topology) {
+      synchronized (members) {
+         members.clear();
+         members.addAll(topologyMap.values());
+      }
+
       for (OpenWireConnection c : this.connections) {
-         c.updateClient(topology);
+         ConnectionControl control = newConnectionControl(c.isRebalance());
+         c.updateClient(control);
       }
    }
 
@@ -468,28 +443,38 @@ public class OpenWireProtocolManager implements ProtocolManager<Interceptor>, No
       return brokerName;
    }
 
-   protected ConnectionControl getConnectionControl(OpenWireConnection connection, Topology topology, boolean rebalance, boolean updateClusterClients) {
-      String connectedBrokers = "";
-      String separator = "";
-
-      if (topology == null) {
-         ClusterConnection cc = server.getClusterManager().getDefaultConnection(null);
-         if (cc != null) {
-            topology = cc.getTopology();
-         }
-      }
-
-      if (topology != null) {
-         for (TopologyMember member : topology.getMembers(rebalance)) {
-            connectedBrokers += separator + member.toURI();
-            separator = ",";
-         }
-      }
-
+   protected ConnectionControl newConnectionControl(boolean rebalance) {
       ConnectionControl control = new ConnectionControl();
-      control.setConnectedBrokers(connectedBrokers);
+
+      String uri = generateMembersURI(rebalance);
+      control.setConnectedBrokers(uri);
+
       control.setRebalanceConnection(rebalance);
       return control;
+   }
+
+   private String generateMembersURI(boolean flip) {
+      String uri;
+      StringBuffer connectedBrokers = new StringBuffer();
+      String separator = "";
+
+      synchronized (members) {
+         if (members.size() > 0) {
+            for (TopologyMember member : members) {
+               connectedBrokers.append(separator).append(member.toURI());
+               separator = ",";
+            }
+
+            // The flip exists to guarantee even distribution of URIs when sent to the client
+            // in case of failures you won't get all the connections failing to a single server.
+            if (flip && members.size() > 1) {
+               members.addLast(members.removeFirst());
+            }
+         }
+      }
+
+      uri = connectedBrokers.toString();
+      return uri;
    }
 
    public boolean isFaultTolerantConfiguration() {

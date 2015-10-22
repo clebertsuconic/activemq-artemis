@@ -20,6 +20,7 @@ import javax.management.MBeanServer;
 
 import java.util.concurrent.TimeUnit;
 
+import org.apache.activemq.artemis.api.core.client.TopologyMember;
 import org.apache.activemq.artemis.core.config.Configuration;
 import org.apache.activemq.artemis.core.config.FileDeploymentManager;
 import org.apache.activemq.artemis.core.config.impl.FileConfiguration;

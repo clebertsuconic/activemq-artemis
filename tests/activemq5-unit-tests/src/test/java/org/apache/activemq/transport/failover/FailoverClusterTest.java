@@ -122,6 +122,7 @@ public class FailoverClusterTest extends OpenwireArtemisBaseTest {
 
       createClients();
       server1.stop();
+      Thread.sleep(1000);
 
       URI brokerBURI = new URI(newURI(2));
       for (ActiveMQConnection c : connections) {

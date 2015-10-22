@@ -20,8 +20,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -54,7 +52,7 @@ public final class Topology {
     * keys are node IDs
     * values are a pair of live/backup transport configurations
     */
-   private final TopologyMap topology;
+   private final Map<String, TopologyMemberImpl> topology;
 
    private Map<String, Long> mapDelete;
 
@@ -71,7 +69,7 @@ public final class Topology {
 
    public Topology(final Object owner, final Executor executor) {
       this.topologyListeners = new HashSet<>();
-      this.topology = new TopologyMap();
+      this.topology = new ConcurrentHashMap<>();
       if (executor == null) {
          throw new IllegalArgumentException("Executor is required");
       }
@@ -387,11 +385,6 @@ public final class Topology {
       return members;
    }
 
-   public Collection<TopologyMemberImpl> getMembers(boolean shuffle) {
-      List<TopologyMemberImpl> result = topology.getList(shuffle);
-      return result;
-   }
-
    synchronized int nodes() {
       int count = 0;
       for (TopologyMemberImpl member : topology.values()) {
@@ -458,101 +451,4 @@ public final class Topology {
       return mapDelete;
    }
 
-   public static class TopologyMap implements Map<String, TopologyMemberImpl> {
-
-      private final Map<String, TopologyMemberImpl> topologyMap = new ConcurrentHashMap<>();
-      private final LinkedList<TopologyMemberImpl> orderedTopology = new LinkedList<>();
-
-      @Override
-      public int size() {
-         return topologyMap.size();
-      }
-
-      @Override
-      public boolean isEmpty() {
-         return topologyMap.isEmpty();
-      }
-
-      @Override
-      public boolean containsKey(Object key) {
-         return topologyMap.containsKey(key);
-      }
-
-      @Override
-      public boolean containsValue(Object value) {
-         return topologyMap.containsValue(value);
-      }
-
-      @Override
-      public TopologyMemberImpl get(Object key) {
-         return topologyMap.get(key);
-      }
-
-      @Override
-      public TopologyMemberImpl put(String key, TopologyMemberImpl value) {
-         synchronized (topologyMap) {
-            TopologyMemberImpl member = topologyMap.put(key, value);
-            if (member == null) {
-               //new
-               orderedTopology.addLast(value);
-            }
-            else {
-               orderedTopology.remove(value);
-               orderedTopology.addLast(value);
-            }
-            return member;
-         }
-      }
-
-      @Override
-      public TopologyMemberImpl remove(Object key) {
-         synchronized (topologyMap) {
-            orderedTopology.remove(key);
-            return topologyMap.remove(key);
-         }
-      }
-
-      @Override
-      public void putAll(Map<? extends String, ? extends TopologyMemberImpl> m) {
-         synchronized (topologyMap) {
-            orderedTopology.addAll(m.values());
-            topologyMap.putAll(m);
-         }
-      }
-
-      @Override
-      public void clear() {
-         synchronized (topologyMap) {
-            topologyMap.clear();
-            orderedTopology.clear();
-         }
-      }
-
-      @Override
-      public Set<String> keySet() {
-         return topologyMap.keySet();
-      }
-
-      @Override
-      public Collection<TopologyMemberImpl> values() {
-         return topologyMap.values();
-      }
-
-      @Override
-      public Set<Entry<String, TopologyMemberImpl>> entrySet() {
-         return topologyMap.entrySet();
-      }
-
-      public List<TopologyMemberImpl> getList(boolean shuffle) {
-         List<TopologyMemberImpl> list = new ArrayList<>();
-         synchronized (orderedTopology) {
-            if (shuffle && orderedTopology.size() > 1) {
-               TopologyMemberImpl first = orderedTopology.removeFirst();
-               orderedTopology.addLast(first);
-            }
-            list.addAll(orderedTopology);
-         }
-         return list;
-      }
-   }
 }

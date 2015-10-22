@@ -38,7 +38,6 @@ import org.apache.activemq.artemis.api.core.ActiveMQBuffers;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.ActiveMQNonExistentQueueException;
 import org.apache.activemq.artemis.api.core.ActiveMQSecurityException;
-import org.apache.activemq.artemis.core.client.impl.Topology;
 import org.apache.activemq.artemis.core.protocol.openwire.amq.AMQCompositeConsumerBrokerExchange;
 import org.apache.activemq.artemis.core.protocol.openwire.amq.AMQConnectionContext;
 import org.apache.activemq.artemis.core.protocol.openwire.amq.AMQConsumer;
@@ -122,7 +121,7 @@ public class OpenWireConnection implements RemotingConnection, CommandVisitor, S
 
    private final Acceptor acceptorUsed;
 
-   private OpenWireFormat wireFormat;
+   private final OpenWireFormat wireFormat;
 
    private AMQConnectionContext context;
 
@@ -192,6 +191,10 @@ public class OpenWireConnection implements RemotingConnection, CommandVisitor, S
          return null;
       }
       return info.getPassword();
+   }
+
+   public boolean isRebalance() {
+      return rebalance;
    }
 
 
@@ -584,7 +587,7 @@ public class OpenWireConnection implements RemotingConnection, CommandVisitor, S
       if (info.isManageable()) {
          System.out.println("======= > new connection need control info: " + info);
          // send ConnectionCommand
-         ConnectionControl command = protocolManager.getConnectionControl(this, null, rebalance, updateClusterClients);
+         ConnectionControl command = protocolManager.newConnectionControl(rebalance);
          command.setFaultTolerant(protocolManager.isFaultTolerantConfiguration());
          if (info.isFailoverReconnect()) {
             command.setRebalanceConnection(false);
@@ -1274,11 +1277,9 @@ public class OpenWireConnection implements RemotingConnection, CommandVisitor, S
       return defaultSocketURIString;
    }
 
-   public void updateClient(Topology topology) {
-      ConnectionControl control = this.protocolManager.getConnectionControl(this, topology, rebalance, updateClusterClients);
-      if (!destroyed && context.isFaultTolerant() && this.wireFormat != null
-              && this.wireFormat.getVersion() >= 6) {
+   public void updateClient(ConnectionControl control) {
+//      if (!destroyed && context.isFaultTolerant()) {
          dispatchAsync(control);
-      }
+//      }
    }
 }

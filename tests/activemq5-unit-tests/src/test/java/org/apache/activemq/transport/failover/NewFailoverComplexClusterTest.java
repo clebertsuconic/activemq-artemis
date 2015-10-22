@@ -16,17 +16,6 @@
  */
 package org.apache.activemq.transport.failover;
 
-import org.apache.activemq.ActiveMQConnection;
-import org.apache.activemq.ActiveMQConnectionFactory;
-import org.apache.activemq.artemis.core.config.Configuration;
-import org.apache.activemq.artemis.jms.server.config.impl.JMSConfigurationImpl;
-import org.apache.activemq.artemis.jms.server.embedded.EmbeddedJMS;
-import org.apache.activemq.broker.artemiswrapper.OpenwireArtemisBaseTest;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-
 import javax.jms.Connection;
 import javax.jms.JMSException;
 import javax.jms.MessageConsumer;
@@ -37,6 +26,17 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+
+import org.apache.activemq.ActiveMQConnection;
+import org.apache.activemq.ActiveMQConnectionFactory;
+import org.apache.activemq.artemis.core.config.Configuration;
+import org.apache.activemq.artemis.jms.server.config.impl.JMSConfigurationImpl;
+import org.apache.activemq.artemis.jms.server.embedded.EmbeddedJMS;
+import org.apache.activemq.broker.artemiswrapper.OpenwireArtemisBaseTest;
+import org.junit.After;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
 
 /**
  * Complex cluster test that will exercise the dynamic failover capabilities of
@@ -69,43 +69,13 @@ public class NewFailoverComplexClusterTest extends OpenwireArtemisBaseTest {
 
    @Before
    public void setUp() throws Exception {
-   }
-
-   @After
-   public void tearDown() throws Exception {
-      shutdownClients();
-      Thread.sleep(2000);
-      server1.stop();
-      server2.stop();
-      server3.stop();
-   }
-
-   /**
-    * Basic dynamic failover 3 broker test
-    *
-    * @throws Exception
-    */
-   @Test
-   public void testThreeBrokerClusterSingleConnectorBasic() throws Exception {
-      initSingleTcBroker("", null, null);
-      Thread.sleep(2000);
-      setClientUrl("failover://(" + BROKER_A_CLIENT_TC_ADDRESS + "," + BROKER_B_CLIENT_TC_ADDRESS + ")");
-      createClients();
-
-      runTests(false, null, null, null);
-   }
-
-   private void initSingleTcBroker(String params, String clusterFilter, String destinationFilter) throws Exception {
       Configuration config1 = createConfig(1);
       Configuration config2 = createConfig(2);
       Configuration config3 = createConfig(3);
 
-      deployClusterConfiguration(config1, 2);
-      deployClusterConfiguration(config1, 3);
-      deployClusterConfiguration(config2, 1);
-      deployClusterConfiguration(config2, 3);
-      deployClusterConfiguration(config3, 1);
-      deployClusterConfiguration(config3, 2);
+      deployClusterConfiguration(config1, 2, 3);
+      deployClusterConfiguration(config2, 1, 3);
+      deployClusterConfiguration(config3, 1, 2);
 
       server1 = new EmbeddedJMS().setConfiguration(config1).setJmsConfiguration(new JMSConfigurationImpl());
       server2 = new EmbeddedJMS().setConfiguration(config2).setJmsConfiguration(new JMSConfigurationImpl());
@@ -120,6 +90,29 @@ public class NewFailoverComplexClusterTest extends OpenwireArtemisBaseTest {
       Assert.assertTrue(server3.waitClusterForming(100, TimeUnit.MILLISECONDS, 20, 3));
    }
 
+   @After
+   public void tearDown() throws Exception {
+      shutdownClients();
+      server1.stop();
+      server2.stop();
+      server3.stop();
+   }
+
+   /**
+    * Basic dynamic failover 3 broker test
+    *
+    * @throws Exception
+    */
+   @Test
+   public void testThreeBrokerClusterSingleConnectorBasic() throws Exception {
+      setClientUrl("failover://(" + BROKER_A_CLIENT_TC_ADDRESS + "," + BROKER_B_CLIENT_TC_ADDRESS + ")");
+      createClients();
+
+      Thread.sleep(3000);
+      runTests(false, null, null, null);
+   }
+
+
    /**
     * Tests a 3 broker configuration to ensure that the backup is random and
     * supported in a cluster. useExponentialBackOff is set to false and
@@ -129,8 +122,6 @@ public class NewFailoverComplexClusterTest extends OpenwireArtemisBaseTest {
     * @throws Exception
     */
    public void testThreeBrokerClusterSingleConnectorBackupFailoverConfig() throws Exception {
-
-      initSingleTcBroker("", null, null);
 
       Thread.sleep(2000);
 
@@ -149,9 +140,8 @@ public class NewFailoverComplexClusterTest extends OpenwireArtemisBaseTest {
     *
     * @throws Exception
     */
+   @Test
    public void testThreeBrokerClusterSingleConnectorWithParams() throws Exception {
-
-      initSingleTcBroker("?transport.closeAsync=false", null, null);
 
       Thread.sleep(2000);
       setClientUrl("failover://(" + BROKER_A_CLIENT_TC_ADDRESS + "," + BROKER_B_CLIENT_TC_ADDRESS + ")");
@@ -166,9 +156,8 @@ public class NewFailoverComplexClusterTest extends OpenwireArtemisBaseTest {
     *
     * @throws Exception
     */
+   @Test
    public void testThreeBrokerClusterWithClusterFilter() throws Exception {
-
-      initSingleTcBroker("?transport.closeAsync=false", null, null);
 
       Thread.sleep(2000);
       setClientUrl("failover://(" + BROKER_A_CLIENT_TC_ADDRESS + "," + BROKER_B_CLIENT_TC_ADDRESS + ")");
@@ -183,10 +172,9 @@ public class NewFailoverComplexClusterTest extends OpenwireArtemisBaseTest {
     *
     * @throws Exception
     */
-   /*
+   @Test
    public void testThreeBrokerClusterMultipleConnectorBasic() throws Exception {
 
-      initMultiTcCluster("", null);
 
       Thread.sleep(2000);
 
@@ -196,7 +184,6 @@ public class NewFailoverComplexClusterTest extends OpenwireArtemisBaseTest {
 
       runTests(true, null, null, null);
    }
-   */
 
    /**
     * Test to verify the reintroduction of the A Broker
@@ -237,19 +224,17 @@ public class NewFailoverComplexClusterTest extends OpenwireArtemisBaseTest {
     *
     * @throws Exception
     */
-   /*
-   public void testThreeBrokerClusterClientDistributions() throws Exception {
-
-      initSingleTcBroker("", null, null);
-
-      Thread.sleep(2000);
-      setClientUrl("failover://(" + BROKER_A_CLIENT_TC_ADDRESS + "," + BROKER_B_CLIENT_TC_ADDRESS + ")?useExponentialBackOff=false&initialReconnectDelay=500");
-      createClients(100);
-      Thread.sleep(5000);
-
-      runClientDistributionTests(false, null, null, null);
-   }
-   */
+//   @Test
+//   public void testThreeBrokerClusterClientDistributions() throws Exception {
+//
+//
+//      Thread.sleep(2000);
+//      setClientUrl("failover://(" + BROKER_A_CLIENT_TC_ADDRESS + "," + BROKER_B_CLIENT_TC_ADDRESS + ")?useExponentialBackOff=false&initialReconnectDelay=500");
+//      createClients(100);
+//      Thread.sleep(5000);
+//
+//      runClientDistributionTests(false, null, null, null);
+//   }
 
    /**
     * Test to verify that clients are distributed with no less than 20% of the
