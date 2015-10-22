@@ -184,6 +184,7 @@ public class OpenWireProtocolManager implements ProtocolManager<Interceptor>, No
    }
 
    private void peerBrokerDown(String nodeID, Topology topology) {
+      System.out.println("---------got node down: " + topology.getMembers(true));
       updateClientClusterInfo(topology);
    }
 
