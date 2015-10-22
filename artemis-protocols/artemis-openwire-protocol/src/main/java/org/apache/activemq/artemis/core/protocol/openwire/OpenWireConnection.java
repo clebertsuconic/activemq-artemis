@@ -155,6 +155,7 @@ public class OpenWireConnection implements RemotingConnection, CommandVisitor, S
 
    private boolean rebalance;
    private boolean updateClusterClients;
+   private boolean updateClusterClientsOnRemove;
 
    public OpenWireConnection(Acceptor acceptorUsed,
                              Connection connection,
@@ -169,6 +170,7 @@ public class OpenWireConnection implements RemotingConnection, CommandVisitor, S
       //todo: define amq5 property names somewhere
       rebalance = ConfigurationHelper.getBooleanProperty("rebalance-cluster-clients", true, acceptorUsed.getConfiguration());
       updateClusterClients = ConfigurationHelper.getBooleanProperty("update-cluster-clients", true, acceptorUsed.getConfiguration());
+      updateClusterClientsOnRemove = ConfigurationHelper.getBooleanProperty("update-cluster-clients-on-remove", true, acceptorUsed.getConfiguration());
    }
 
 
