@@ -86,6 +86,26 @@ public class OpenwireArtemisBaseTest {
       return configuration;
    }
 
+   //extraAcceptor takes form: "?name=value&name1=value ..."
+   protected Configuration createConfig(final int serverID, String extraAcceptorParams) throws Exception {
+      ConfigurationImpl configuration = new ConfigurationImpl().setJMXManagementEnabled(false).
+              setSecurityEnabled(false).setJournalMinFiles(2).setJournalFileSize(100 * 1024).setJournalType(JournalType.NIO).
+              setJournalDirectory(getJournalDir(serverID, false)).
+              setBindingsDirectory(getBindingsDir(serverID, false)).
+              setPagingDirectory(getPageDir(serverID, false)).
+              setLargeMessagesDirectory(getLargeMessagesDir(serverID, false)).
+              setJournalCompactMinFiles(0).
+              setJournalCompactPercentage(0).
+              setClusterPassword(CLUSTER_PASSWORD);
+
+      configuration.addAddressesSetting("#", new AddressSettings().setAutoCreateJmsQueues(true).setAutoDeleteJmsQueues(true));
+
+      String fullAcceptorUri = newURI(serverID) + extraAcceptorParams;
+      configuration.addAcceptorConfiguration("netty", fullAcceptorUri);
+
+      configuration.addConnectorConfiguration("netty-connector", newURI(serverID));
+      return configuration;
+   }
 
    public void deployClusterConfiguration(Configuration config, int ... targetIDs) throws Exception {
       StringBuffer stringBuffer = new StringBuffer();
