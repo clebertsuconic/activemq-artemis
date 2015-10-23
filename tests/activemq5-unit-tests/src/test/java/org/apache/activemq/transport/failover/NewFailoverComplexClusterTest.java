@@ -22,8 +22,10 @@ import javax.jms.MessageConsumer;
 import javax.jms.Queue;
 import javax.jms.Session;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -48,9 +50,9 @@ import org.junit.Test;
 //When finished, use this to overwrite the original test and discard this one!!
 public class NewFailoverComplexClusterTest extends OpenwireArtemisBaseTest {
 
-   private static final String BROKER_A_CLIENT_TC_ADDRESS = "tcp://127.0.0.1:61617";
-   private static final String BROKER_B_CLIENT_TC_ADDRESS = "tcp://127.0.0.1:61618";
-   private static final String BROKER_C_CLIENT_TC_ADDRESS = "tcp://127.0.0.1:61619";
+   private static final String BROKER_A_CLIENT_TC_ADDRESS = "tcp://127.0.0.1:61616";
+   private static final String BROKER_B_CLIENT_TC_ADDRESS = "tcp://127.0.0.1:61617";
+   private static final String BROKER_C_CLIENT_TC_ADDRESS = "tcp://127.0.0.1:61618";
    private static final String BROKER_A_NOB_TC_ADDRESS = "tcp://127.0.0.1:61626";
    private static final String BROKER_B_NOB_TC_ADDRESS = "tcp://127.0.0.1:61627";
    private static final String BROKER_C_NOB_TC_ADDRESS = "tcp://127.0.0.1:61628";
@@ -59,9 +61,7 @@ public class NewFailoverComplexClusterTest extends OpenwireArtemisBaseTest {
    private static final String BROKER_C_NAME = "BROKERC";
 
    private String clientUrl;
-   private EmbeddedJMS server1;
-   private EmbeddedJMS server2;
-   private EmbeddedJMS server3;
+   private EmbeddedJMS[] servers = new EmbeddedJMS[3];
 
    private static final int NUMBER_OF_CLIENTS = 30;
    private final List<ActiveMQConnection> connections = new ArrayList<ActiveMQConnection>();
@@ -69,33 +69,33 @@ public class NewFailoverComplexClusterTest extends OpenwireArtemisBaseTest {
 
    @Before
    public void setUp() throws Exception {
+      Configuration config0 = createConfig(0);
       Configuration config1 = createConfig(1);
       Configuration config2 = createConfig(2);
-      Configuration config3 = createConfig(3);
 
-      deployClusterConfiguration(config1, 2, 3);
-      deployClusterConfiguration(config2, 1, 3);
-      deployClusterConfiguration(config3, 1, 2);
+      deployClusterConfiguration(config0, 1, 2);
+      deployClusterConfiguration(config1, 0, 2);
+      deployClusterConfiguration(config2, 0, 1);
 
-      server1 = new EmbeddedJMS().setConfiguration(config1).setJmsConfiguration(new JMSConfigurationImpl());
-      server2 = new EmbeddedJMS().setConfiguration(config2).setJmsConfiguration(new JMSConfigurationImpl());
-      server3 = new EmbeddedJMS().setConfiguration(config3).setJmsConfiguration(new JMSConfigurationImpl());
+      servers[0] = new EmbeddedJMS().setConfiguration(config0).setJmsConfiguration(new JMSConfigurationImpl());
+      servers[1] = new EmbeddedJMS().setConfiguration(config1).setJmsConfiguration(new JMSConfigurationImpl());
+      servers[2] = new EmbeddedJMS().setConfiguration(config2).setJmsConfiguration(new JMSConfigurationImpl());
 
-      server1.start();
-      server2.start();
-      server3.start();
+      servers[0].start();
+      servers[1].start();
+      servers[2].start();
 
-      Assert.assertTrue(server1.waitClusterForming(100, TimeUnit.MILLISECONDS, 20, 3));
-      Assert.assertTrue(server2.waitClusterForming(100, TimeUnit.MILLISECONDS, 20, 3));
-      Assert.assertTrue(server3.waitClusterForming(100, TimeUnit.MILLISECONDS, 20, 3));
+      Assert.assertTrue(servers[0].waitClusterForming(100, TimeUnit.MILLISECONDS, 20, 3));
+      Assert.assertTrue(servers[1].waitClusterForming(100, TimeUnit.MILLISECONDS, 20, 3));
+      Assert.assertTrue(servers[2].waitClusterForming(100, TimeUnit.MILLISECONDS, 20, 3));
    }
 
    @After
    public void tearDown() throws Exception {
       shutdownClients();
-      server1.stop();
-      server2.stop();
-      server3.stop();
+      for (EmbeddedJMS server : servers) {
+         server.stop();
+      }
    }
 
    /**
@@ -121,6 +121,7 @@ public class NewFailoverComplexClusterTest extends OpenwireArtemisBaseTest {
     *
     * @throws Exception
     */
+   @Test
    public void testThreeBrokerClusterSingleConnectorBackupFailoverConfig() throws Exception {
 
       Thread.sleep(2000);
@@ -175,7 +176,6 @@ public class NewFailoverComplexClusterTest extends OpenwireArtemisBaseTest {
    @Test
    public void testThreeBrokerClusterMultipleConnectorBasic() throws Exception {
 
-
       Thread.sleep(2000);
 
       setClientUrl("failover://(" + BROKER_A_CLIENT_TC_ADDRESS + "," + BROKER_B_CLIENT_TC_ADDRESS + ")");
@@ -190,9 +190,8 @@ public class NewFailoverComplexClusterTest extends OpenwireArtemisBaseTest {
     *
     * @throws Exception
     */
-   /*
+   @Test
    public void testOriginalBrokerRestart() throws Exception {
-      initSingleTcBroker("", null, null);
 
       Thread.sleep(2000);
 
@@ -202,21 +201,17 @@ public class NewFailoverComplexClusterTest extends OpenwireArtemisBaseTest {
 
       assertClientsConnectedToThreeBrokers();
 
-      getBroker(BROKER_A_NAME).stop();
-      getBroker(BROKER_A_NAME).waitUntilStopped();
-      removeBroker(BROKER_A_NAME);
+      stopServer(0);
 
       Thread.sleep(5000);
 
       assertClientsConnectedToTwoBrokers();
 
-      createBrokerA(false, null, null, null);
-      getBroker(BROKER_A_NAME).waitUntilStarted();
+      restartServer(0);
       Thread.sleep(5000);
 
       assertClientsConnectedToThreeBrokers();
    }
-   */
 
    /**
     * Test to ensure clients are evenly to all available brokers in the
@@ -224,17 +219,15 @@ public class NewFailoverComplexClusterTest extends OpenwireArtemisBaseTest {
     *
     * @throws Exception
     */
-//   @Test
-//   public void testThreeBrokerClusterClientDistributions() throws Exception {
-//
-//
-//      Thread.sleep(2000);
-//      setClientUrl("failover://(" + BROKER_A_CLIENT_TC_ADDRESS + "," + BROKER_B_CLIENT_TC_ADDRESS + ")?useExponentialBackOff=false&initialReconnectDelay=500");
-//      createClients(100);
-//      Thread.sleep(5000);
-//
-//      runClientDistributionTests(false, null, null, null);
-//   }
+   @Test
+   public void testThreeBrokerClusterClientDistributions() throws Exception {
+      Thread.sleep(2000);
+      setClientUrl("failover://(" + BROKER_A_CLIENT_TC_ADDRESS + "," + BROKER_B_CLIENT_TC_ADDRESS + ")?useExponentialBackOff=false&initialReconnectDelay=500");
+      createClients(100);
+      Thread.sleep(5000);
+
+      runClientDistributionTests(false, null, null, null);
+   }
 
    /**
     * Test to verify that clients are distributed with no less than 20% of the
@@ -317,13 +310,13 @@ public class NewFailoverComplexClusterTest extends OpenwireArtemisBaseTest {
                          String destinationFilter) throws Exception, InterruptedException {
       assertClientsConnectedToThreeBrokers();
 
-      stopServer3();
+      stopServer(2);
 
       Thread.sleep(5000);
 
       assertClientsConnectedToTwoBrokers();
 
-      startServer3();
+      restartServer(2);
 
       Thread.sleep(5000);
 
@@ -481,19 +474,68 @@ public class NewFailoverComplexClusterTest extends OpenwireArtemisBaseTest {
       Assert.assertTrue("Only 2 connections should be found: " + set, set.size() == 2);
    }
 
-   private void stopServer3() throws Exception {
-      server3.stop();
-
-      Assert.assertTrue(server1.waitClusterForming(100, TimeUnit.MILLISECONDS, 20, 2));
-      Assert.assertTrue(server2.waitClusterForming(100, TimeUnit.MILLISECONDS, 20, 2));
+   private void stopServer(int serverID) throws Exception {
+      servers[serverID].stop();
+      for (int i = 0; i < servers.length; i++) {
+         if (i != serverID) {
+            Assert.assertTrue(servers[i].waitClusterForming(100, TimeUnit.MILLISECONDS, 20, servers.length - 1));
+         }
+      }
    }
 
-   private void startServer3() throws Exception {
-      server3.start();
+   private void restartServer(int serverID) throws Exception {
+      servers[serverID].start();
 
-      Assert.assertTrue(server1.waitClusterForming(100, TimeUnit.MILLISECONDS, 20, 3));
-      Assert.assertTrue(server2.waitClusterForming(100, TimeUnit.MILLISECONDS, 20, 3));
-      Assert.assertTrue(server3.waitClusterForming(100, TimeUnit.MILLISECONDS, 20, 3));
-
+      for (int i = 0; i < servers.length; i++) {
+         Assert.assertTrue(servers[i].waitClusterForming(100, TimeUnit.MILLISECONDS, 20, servers.length));
+      }
    }
+
+   private void runClientDistributionTests(boolean multi,
+                                           String tcParams,
+                                           String clusterFilter,
+                                           String destinationFilter) throws Exception, InterruptedException {
+      assertClientsConnectedToThreeBrokers();
+      assertClientsConnectionsEvenlyDistributed(.25);
+
+      stopServer(2);
+
+      Thread.sleep(5000);
+
+      assertClientsConnectedToTwoBrokers();
+      assertClientsConnectionsEvenlyDistributed(.35);
+
+      restartServer(2);
+      Thread.sleep(5000);
+
+      assertClientsConnectedToThreeBrokers();
+      assertClientsConnectionsEvenlyDistributed(.20);
+   }
+
+   protected void assertClientsConnectionsEvenlyDistributed(double minimumPercentage) {
+      Map<String, Double> clientConnectionCounts = new HashMap<String, Double>();
+      int total = 0;
+      for (ActiveMQConnection c : connections) {
+         String key = c.getTransportChannel().getRemoteAddress();
+         if (key != null) {
+            total++;
+            if (clientConnectionCounts.containsKey(key)) {
+               double count = clientConnectionCounts.get(key);
+               count += 1.0;
+               clientConnectionCounts.put(key, count);
+            }
+            else {
+               clientConnectionCounts.put(key, 1.0);
+            }
+         }
+      }
+      Set<String> keys = clientConnectionCounts.keySet();
+      for (String key : keys) {
+         double count = clientConnectionCounts.get(key);
+         double percentage = count / total;
+         System.out.println(count + " of " + total + " connections for " + key + " = " + percentage);
+         Assert.assertTrue("Connections distribution expected to be >= than " + minimumPercentage + ".  Actuall distribution was " + percentage + " for connection " + key, percentage >= minimumPercentage);
+      }
+   }
+
 }
