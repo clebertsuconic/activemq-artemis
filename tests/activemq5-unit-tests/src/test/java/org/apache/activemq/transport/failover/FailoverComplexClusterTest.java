@@ -51,13 +51,6 @@ public class FailoverComplexClusterTest extends OpenwireArtemisBaseTest {
 
    private static final String BROKER_A_CLIENT_TC_ADDRESS = "tcp://127.0.0.1:61616";
    private static final String BROKER_B_CLIENT_TC_ADDRESS = "tcp://127.0.0.1:61617";
-   private static final String BROKER_C_CLIENT_TC_ADDRESS = "tcp://127.0.0.1:61618";
-   private static final String BROKER_A_NOB_TC_ADDRESS = "tcp://127.0.0.1:61626";
-   private static final String BROKER_B_NOB_TC_ADDRESS = "tcp://127.0.0.1:61627";
-   private static final String BROKER_C_NOB_TC_ADDRESS = "tcp://127.0.0.1:61628";
-   private static final String BROKER_A_NAME = "BROKERA";
-   private static final String BROKER_B_NAME = "BROKERB";
-   private static final String BROKER_C_NAME = "BROKERC";
 
    private String clientUrl;
    private EmbeddedJMS[] servers = new EmbeddedJMS[3];
@@ -331,7 +324,6 @@ public class FailoverComplexClusterTest extends OpenwireArtemisBaseTest {
       createClients(NUMBER_OF_CLIENTS);
    }
 
-   @SuppressWarnings("unused")
    protected void createClients(int numOfClients) throws Exception {
       ActiveMQConnectionFactory factory = new ActiveMQConnectionFactory(clientUrl);
       for (int i = 0; i < numOfClients; i++) {

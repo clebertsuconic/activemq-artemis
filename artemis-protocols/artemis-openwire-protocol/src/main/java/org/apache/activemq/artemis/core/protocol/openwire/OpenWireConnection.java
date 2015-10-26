@@ -785,6 +785,7 @@ public class OpenWireConnection implements RemotingConnection, CommandVisitor, S
       }
       catch (Exception e) {
          System.out.println("===>got regular exception: " + e);
+         e.printStackTrace();
          if (e instanceof ActiveMQSecurityException) {
             resp = new ExceptionResponse(new JMSSecurityException(e.getMessage()));
          }
