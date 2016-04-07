@@ -216,6 +216,10 @@ public final class Page implements Comparable<Page> {
       file.position(0);
    }
 
+   public void close() throws Exception {
+      close(true);
+   }
+   
    /** sendEvent means it's a close happening from a major event such moveNext.
     *  While reading the cache we don't need (and shouldn't inform the backup */
    public synchronized void close(boolean sendEvent) throws Exception {
