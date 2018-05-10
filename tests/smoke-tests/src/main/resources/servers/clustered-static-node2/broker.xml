@@ -38,13 +38,13 @@ under the License.
        -->
       <journal-type>NIO</journal-type>
 
-      <paging-directory>data/paging</paging-directory>
+      <paging-directory>./data/paging</paging-directory>
 
-      <bindings-directory>data/bindings</bindings-directory>
+      <bindings-directory>./data/bindings</bindings-directory>
 
-      <journal-directory>data/journal</journal-directory>
+      <journal-directory>./data/journal</journal-directory>
 
-      <large-messages-directory>data/large-messages</large-messages-directory>
+      <large-messages-directory>./data/large-messages</large-messages-directory>
 
       <journal-datasync>true</journal-datasync>
 
@@ -53,24 +53,7 @@ under the License.
       <journal-pool-files>10</journal-pool-files>
 
       <journal-file-size>10M</journal-file-size>
-
-      <!--
-       This value was determined through a calculation.
-       Your system could perform 20.83 writes per millisecond
-       on the current journal configuration.
-       That translates as a sync write every 48000 nanoseconds.
-
-       Note: If you specify 0 the system will perform writes directly to the disk.
-             We recommend this to be 0 if you are using journalType=MAPPED and ournal-datasync=false.
-      -->
-      <journal-buffer-timeout>48000</journal-buffer-timeout>
-
-
-      <!--
-        When using ASYNCIO, this will determine the writing queue depth for libaio.
-       -->
-      <journal-max-io>1</journal-max-io>
-      <!--
+            <!--
         You can verify the network health of a particular NIC by specifying the <network-check-NIC> element.
          <network-check-NIC>theNicName</network-check-NIC>
         -->
@@ -100,11 +83,11 @@ under the License.
 
     <connectors>
         <!-- Connector used to be announced through cluster connections and notifications -->
-        <connector name="artemis">tcp://127.0.0.1:61616</connector>
+        <connector name="artemis">tcp://127.0.0.1:61618</connector>
 
-        <connector name="server1-connector">tcp://localhost:61617</connector>
 
-        <connector name="server2-connector">tcp://localhost:61618</connector>
+       <connector name="server1-connector">tcp://localhost:61616</connector>
+       <connector name="server2-connector">tcp://localhost:61617</connector>
 
     </connectors>
 
@@ -147,19 +130,19 @@ under the License.
                     See https://issues.apache.org/jira/browse/ARTEMIS-1644 for more information. -->
 
          <!-- Acceptor for every supported protocol -->
-         <acceptor name="artemis">tcp://127.0.0.1:61616?tcpSendBufferSize=1048576;tcpReceiveBufferSize=1048576;protocols=CORE,AMQP,STOMP,HORNETQ,MQTT,OPENWIRE;useEpoll=true;amqpCredits=1000;amqpLowCredits=300</acceptor>
+         <acceptor name="artemis">tcp://127.0.0.1:61618?tcpSendBufferSize=1048576;tcpReceiveBufferSize=1048576;protocols=CORE,AMQP,STOMP,HORNETQ,MQTT,OPENWIRE;useEpoll=true;amqpCredits=1000;amqpLowCredits=300</acceptor>
 
          <!-- AMQP Acceptor.  Listens on default AMQP port for AMQP traffic.-->
-         <acceptor name="amqp">tcp://127.0.0.1:5672?tcpSendBufferSize=1048576;tcpReceiveBufferSize=1048576;protocols=AMQP;useEpoll=true;amqpCredits=1000;amqpMinCredits=300</acceptor>
+         <acceptor name="amqp">tcp://127.0.0.1:5674?tcpSendBufferSize=1048576;tcpReceiveBufferSize=1048576;protocols=AMQP;useEpoll=true;amqpCredits=1000;amqpMinCredits=300</acceptor>
 
          <!-- STOMP Acceptor. -->
-         <acceptor name="stomp">tcp://127.0.0.1:61613?tcpSendBufferSize=1048576;tcpReceiveBufferSize=1048576;protocols=STOMP;useEpoll=true</acceptor>
+         <acceptor name="stomp">tcp://127.0.0.1:61615?tcpSendBufferSize=1048576;tcpReceiveBufferSize=1048576;protocols=STOMP;useEpoll=true</acceptor>
 
          <!-- HornetQ Compatibility Acceptor.  Enables HornetQ Core and STOMP for legacy HornetQ clients. -->
-         <acceptor name="hornetq">tcp://127.0.0.1:5445?anycastPrefix=jms.queue.;multicastPrefix=jms.topic.;protocols=HORNETQ,STOMP;useEpoll=true</acceptor>
+         <acceptor name="hornetq">tcp://127.0.0.1:5447?anycastPrefix=jms.queue.;multicastPrefix=jms.topic.;protocols=HORNETQ,STOMP;useEpoll=true</acceptor>
 
          <!-- MQTT Acceptor -->
-         <acceptor name="mqtt">tcp://127.0.0.1:1883?tcpSendBufferSize=1048576;tcpReceiveBufferSize=1048576;protocols=MQTT;useEpoll=true</acceptor>
+         <acceptor name="mqtt">tcp://127.0.0.1:1885?tcpSendBufferSize=1048576;tcpReceiveBufferSize=1048576;protocols=MQTT;useEpoll=true</acceptor>
 
       </acceptors>
 
@@ -168,7 +151,7 @@ under the License.
 
       <cluster-password>admin</cluster-password>
 
-      <cluster-connections>
+     <cluster-connections>
          <cluster-connection name="my-cluster">
             <connector-ref>artemis</connector-ref>
             <message-load-balancing>ON_DEMAND</message-load-balancing>
@@ -177,23 +160,24 @@ under the License.
                <connector-ref>server1-connector</connector-ref>
                <connector-ref>server2-connector</connector-ref>
             </static-connectors>
+
          </cluster-connection>
       </cluster-connections>
 
 
       <security-settings>
          <security-setting match="#">
-            <permission type="createNonDurableQueue" roles="amq"/>
-            <permission type="deleteNonDurableQueue" roles="amq"/>
-            <permission type="createDurableQueue" roles="amq"/>
-            <permission type="deleteDurableQueue" roles="amq"/>
-            <permission type="createAddress" roles="amq"/>
-            <permission type="deleteAddress" roles="amq"/>
-            <permission type="consume" roles="amq"/>
-            <permission type="browse" roles="amq"/>
-            <permission type="send" roles="amq"/>
+            <permission type="createNonDurableQueue" roles="guest"/>
+            <permission type="deleteNonDurableQueue" roles="guest"/>
+            <permission type="createDurableQueue" roles="guest"/>
+            <permission type="deleteDurableQueue" roles="guest"/>
+            <permission type="createAddress" roles="guest"/>
+            <permission type="deleteAddress" roles="guest"/>
+            <permission type="consume" roles="guest"/>
+            <permission type="browse" roles="guest"/>
+            <permission type="send" roles="guest"/>
             <!-- we need this otherwise ./artemis data imp wouldn't work -->
-            <permission type="manage" roles="amq"/>
+            <permission type="manage" roles="guest"/>
          </security-setting>
       </security-settings>
 

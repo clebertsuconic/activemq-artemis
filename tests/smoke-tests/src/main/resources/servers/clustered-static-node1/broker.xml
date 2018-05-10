@@ -104,6 +104,7 @@ under the License.
 
 
        <connector name="server1-connector">tcp://localhost:61616</connector>
+       <connector name="server2-connector">tcp://localhost:61618</connector>
 
 
     </connectors>
@@ -175,6 +176,7 @@ under the License.
             <max-hops>1</max-hops>
             <static-connectors>
                <connector-ref>server1-connector</connector-ref>
+               <connector-ref>server2-connector</connector-ref>
             </static-connectors>
 
          </cluster-connection>
