@@ -433,11 +433,6 @@ under the License.
       <address name="event.test.loyaltyPointsReconciled">
         <multicast></multicast>
       </address>
-      <address name="orders">
-         <multicast>
-            <queue name="test:global"/>
-         </multicast>
-      </address>
     </addresses>
   </core>
 </configuration>
