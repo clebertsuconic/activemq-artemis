@@ -185,12 +185,42 @@
                      <goal>create</goal>
                   </goals>
                   <configuration>
-                     <!-- this makes it easier in certain envs -->
-                     <configuration>${basedir}/target/classes/servers/mqtt</configuration>
                      <allowAnonymous>true</allowAnonymous>
                      <user>admin</user>
                      <password>admin</password>
                      <instance>${basedir}/target/standard</instance>
+                  </configuration>
+               </execution>
+               <execution>
+                  <phase>test-compile</phase>
+                  <id>create-static0</id>
+                  <goals>
+                     <goal>create</goal>
+                  </goals>
+                  <configuration>
+                     <!-- this makes it easier in certain envs -->
+                     <configuration>${basedir}/target/classes/servers/clustered-static-node0</configuration>
+                     <allowAnonymous>true</allowAnonymous>
+                     <portOffset>0</portOffset>
+                     <user>admin</user>
+                     <password>admin</password>
+                     <instance>${basedir}/target/clustered-static-node0</instance>
+                  </configuration>
+               </execution>
+               <execution>
+                  <phase>test-compile</phase>
+                  <id>create-static1</id>
+                  <goals>
+                     <goal>create</goal>
+                  </goals>
+                  <configuration>
+                     <!-- this makes it easier in certain envs -->
+                     <configuration>${basedir}/target/classes/servers/clustered-static-node1</configuration>
+                     <allowAnonymous>true</allowAnonymous>
+                     <portOffset>1</portOffset>
+                     <user>admin</user>
+                     <password>admin</password>
+                     <instance>${basedir}/target/clustered-static-node1</instance>
                   </configuration>
                </execution>
 
