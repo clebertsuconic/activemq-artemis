@@ -77,6 +77,12 @@ under the License.
                <queue name="clientId.secured_topic_durable/queue" />
             </multicast>
          </address>
+
+         <address name="secured_queue">
+            <anycast>
+               <queue name="secured_queue" />
+            </anycast>
+         </address>
       </addresses>
 
       <acceptors>
