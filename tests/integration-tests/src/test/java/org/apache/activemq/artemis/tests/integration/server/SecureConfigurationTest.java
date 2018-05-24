@@ -38,11 +38,13 @@ import org.junit.runners.Parameterized;
 import javax.jms.Connection;
 import javax.jms.ConnectionFactory;
 import javax.jms.JMSException;
+import javax.jms.JMSRuntimeException;
 import javax.jms.JMSSecurityException;
 import javax.jms.MessageConsumer;
 import javax.jms.Session;
 import javax.jms.TextMessage;
 import javax.jms.Topic;
+import java.lang.IllegalStateException;
 import java.util.Arrays;
 import java.util.Collection;
 
@@ -220,7 +222,9 @@ public class SecureConfigurationTest extends ActiveMQTestBase {
 
    private String sendAndReceiveText(ConnectionFactory connectionFactory, String clientId, String message, String topicName, ConsumerSupplier consumerSupplier) throws JMSException {
       String messageRecieved;
-      try (Connection connection = connectionFactory.createConnection()) {
+      Connection connection = null;
+      try {
+         connection = connectionFactory.createConnection();
          if (clientId != null && !clientId.isEmpty()) {
             connection.setClientID(clientId);
          }
@@ -236,6 +240,12 @@ public class SecureConfigurationTest extends ActiveMQTestBase {
             TextMessage received = (TextMessage) messageConsumer.receive(1000);
             messageRecieved = received != null ? received.getText() : null;
          }
+      } catch (JMSException | JMSRuntimeException e) {
+         // Exception Should not be fatal
+         assertNotNull(connection.createSession(false, Session.AUTO_ACKNOWLEDGE));
+         throw e;
+      } finally {
+         connection.close();
       }
       return messageRecieved;
    }
