@@ -25,7 +25,6 @@ import org.apache.activemq.artemis.jms.client.ActiveMQConnectionFactory;
 import org.apache.activemq.artemis.jms.server.config.impl.FileJMSConfiguration;
 import org.apache.activemq.artemis.spi.core.security.ActiveMQJAASSecurityManager;
 import org.apache.activemq.artemis.spi.core.security.jaas.InVMLoginModule;
-import org.apache.activemq.artemis.tests.integration.IntegrationTestLogger;
 import org.apache.activemq.artemis.tests.util.ActiveMQTestBase;
 import org.apache.qpid.jms.JmsConnectionFactory;
 import org.junit.After;
@@ -161,6 +160,11 @@ public class SecureConfigurationTest extends ActiveMQTestBase {
       } catch (JMSSecurityException j) {
          //Expected exception
       }
+   }
+
+   @Test
+   public void testTemporaryQueue() throws Exception {
+      ConnectionFactory connectionFactory = getConnectionFactory("c", "c");
 
       Connection connection = null;
 
@@ -172,7 +176,6 @@ public class SecureConfigurationTest extends ActiveMQTestBase {
             session.createTemporaryQueue();
             Assert.fail("Security exception expected, but did not occur, excepetion expected as not permissioned to create a temporary queue");
          } catch (JMSSecurityException jmsse) {
-            IntegrationTestLogger.LOGGER.info("Client should have thrown a JMSSecurityException but only threw JMSException");
          } catch (JMSException e) {
             e.printStackTrace();
             Assert.fail("thrown a JMSEXception instead of a JMSSEcurityException");
@@ -184,7 +187,6 @@ public class SecureConfigurationTest extends ActiveMQTestBase {
          connection.close();
       }
    }
-
 
    private ConnectionFactory getConnectionFactory(String user, String password) {
       switch (protocol) {
@@ -246,7 +248,6 @@ public class SecureConfigurationTest extends ActiveMQTestBase {
       deploymentManager.addDeployable(fileConfiguration);
       deploymentManager.readConfiguration();
 
-
       SecurityConfiguration securityConfiguration = new SecurityConfiguration();
       securityConfiguration.addUser("a", "a");
       securityConfiguration.addRole("a", "a");
@@ -254,6 +255,8 @@ public class SecureConfigurationTest extends ActiveMQTestBase {
       securityConfiguration.addUser("b", "b");
       securityConfiguration.addRole("b", "b");
 
+      securityConfiguration.addUser("c", "c");
+      securityConfiguration.addRole("c", "c");
 
       ActiveMQJAASSecurityManager sm = new ActiveMQJAASSecurityManager(InVMLoginModule.class.getName(), securityConfiguration);
 
