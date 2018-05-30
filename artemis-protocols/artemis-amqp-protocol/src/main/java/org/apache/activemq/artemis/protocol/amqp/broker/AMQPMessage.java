@@ -67,6 +67,8 @@ import io.netty.buffer.Unpooled;
 // see https://docs.oasis-open.org/amqp/core/v1.0/os/amqp-core-messaging-v1.0-os.html#section-message-format
 public class AMQPMessage extends RefCountMessage {
 
+   private static Symbol AMQP_HDR_ORIGINAL_ADDRESS = Symbol.valueOf(org.apache.activemq.artemis.api.core.Message.HDR_ORIGINAL_ADDRESS.toString());
+
    public static final int DEFAULT_MESSAGE_PRIORITY = 4;
    public static final int MAX_MESSAGE_PRIORITY = 9;
 
@@ -624,18 +626,18 @@ public class AMQPMessage extends RefCountMessage {
 
    private void setProtonAddress(String address) {
       MessageImpl protonMessage = getProtonMessage();
-      if (protonMessage.getProperties() == null) {
-         protonMessage.setProperties(new Properties());
+      if (protonMessage.getDeliveryAnnotations() == null) {
+         protonMessage.setDeliveryAnnotations(new DeliveryAnnotations(new HashMap<>()));
       }
-      protonMessage.getProperties().setTo(address.toString());
+      protonMessage.getDeliveryAnnotations().getValue().put(AMQP_HDR_ORIGINAL_ADDRESS, address);
    }
 
    @Override
    public SimpleString getAddressSimpleString() {
       if (address == null) {
-         Properties properties = getProtonMessage().getProperties();
-         if (properties != null) {
-            internalSetAddress(properties.getTo());
+         DeliveryAnnotations deliveryAnnotations = getProtonMessage().getDeliveryAnnotations();
+         if (deliveryAnnotations != null && deliveryAnnotations.getValue() != null && deliveryAnnotations.getValue().containsKey(AMQP_HDR_ORIGINAL_ADDRESS)) {
+            internalSetAddress((String) deliveryAnnotations.getValue().get(AMQP_HDR_ORIGINAL_ADDRESS));
          } else {
             return null;
          }
@@ -1083,9 +1085,6 @@ public class AMQPMessage extends RefCountMessage {
       if (_messageAnnotations != null) getProtonMessage().setMessageAnnotations(_messageAnnotations);
       if (applicationProperties != null) getProtonMessage().setApplicationProperties(applicationProperties);
       if (_properties != null) {
-         if (address != null) {
-            _properties.setTo(address.toString());
-         }
          getProtonMessage().setProperties(this._properties);
       }
       bufferValid = false;
@@ -1275,7 +1274,7 @@ public class AMQPMessage extends RefCountMessage {
          ", messageID=" + getMessageID() +
          ", address=" + getAddress() +
          ", size=" + getEncodeSize() +
-         ", ApplicationProperties=" + getApplicationProperties() +
+         ", applicationProperties=" + getApplicationProperties() +
          ", properties=" + getProperties() +
          ", extraProperties = " + getExtraProperties() +
          "]";

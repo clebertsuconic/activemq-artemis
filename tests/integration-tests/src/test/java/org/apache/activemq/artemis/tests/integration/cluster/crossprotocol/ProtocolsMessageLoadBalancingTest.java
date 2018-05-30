@@ -228,6 +228,7 @@ public class ProtocolsMessageLoadBalancingTest extends ClusterTestBase {
 
       for (int i = 0; i < messageCount; i++) {
          Message msg = messageConsumer.receive(5000);
+         assertNotNull(msg);
       }
 
       Assert.assertNull(messageConsumer.receiveNoWait());
