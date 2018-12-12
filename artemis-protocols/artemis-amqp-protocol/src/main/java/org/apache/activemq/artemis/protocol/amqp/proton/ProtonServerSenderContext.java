@@ -33,7 +33,6 @@ import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.server.AddressQueryResult;
 import org.apache.activemq.artemis.core.server.Consumer;
 import org.apache.activemq.artemis.core.server.MessageReference;
-import org.apache.activemq.artemis.core.server.MessageReferenceCallback;
 import org.apache.activemq.artemis.core.server.QueueQueryResult;
 import org.apache.activemq.artemis.core.server.impl.ServerConsumerImpl;
 import org.apache.activemq.artemis.jms.client.ActiveMQDestination;
@@ -78,7 +77,7 @@ import org.jboss.logging.Logger;
 /**
  * This is the Equivalent for the ServerConsumer
  */
-public class ProtonServerSenderContext extends ProtonInitializable implements ProtonDeliveryHandler, MessageReferenceCallback {
+public class ProtonServerSenderContext extends ProtonInitializable implements ProtonDeliveryHandler {
 
    private static final Logger log = Logger.getLogger(ProtonServerSenderContext.class);
 
@@ -116,6 +115,7 @@ public class ProtonServerSenderContext extends ProtonInitializable implements Pr
     * to sync the credits we have versus the credits that are being held in proton
     * */
    private final Object creditsLock = new Object();
+   private final java.util.function.Consumer<? super MessageReference> executeDelivery;
 
    public ProtonServerSenderContext(AMQPConnectionContext connection,
                                     Sender sender,
@@ -126,6 +126,7 @@ public class ProtonServerSenderContext extends ProtonInitializable implements Pr
       this.sender = sender;
       this.protonSession = protonSession;
       this.sessionSPI = server;
+      this.executeDelivery = this::executeDelivery;
    }
 
    public Object getBrokerConsumer() {
@@ -746,7 +747,7 @@ public class ProtonServerSenderContext extends ProtonInitializable implements Pr
          }
 
          if (messageReference instanceof Runnable) {
-            messageReference.setCallback(this);
+            messageReference.onDelivery(executeDelivery);
             connection.runNow((Runnable)messageReference);
          } else {
             connection.runNow(() -> executeDelivery(messageReference));
@@ -759,8 +760,7 @@ public class ProtonServerSenderContext extends ProtonInitializable implements Pr
       }
    }
 
-   @Override
-   public void executeDelivery(MessageReference messageReference) {
+   private void executeDelivery(MessageReference messageReference) {
 
       try {
          AMQPMessage message = CoreAmqpConverter.checkAMQP(messageReference.getMessage());
