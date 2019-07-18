@@ -2924,6 +2924,44 @@
       <xsd:attributeGroup ref="xml:specialAttrs"/>
    </xsd:complexType>
 
+   <xsd:complexType name="dead-letter-address-auto-create">
+      <xsd:annotation>
+         <xsd:documentation>
+            Defines prefix for dynamically assigned Dead Letter Addresses, with ability to define DLA routing and related queues durability and whether it should be temporary.
+         </xsd:documentation>
+      </xsd:annotation>
+      <xsd:all>
+         <xsd:element name="routing-type" minOccurs="0" type="dla-routing-type" default="MULTICAST">
+            <xsd:annotation>
+               <xsd:documentation>
+                  Default routing type for auto-created addresses- if enabled address auto-creation in address settings for DLA
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="durable" minOccurs="0" type="xsd:boolean" default="true">
+            <xsd:annotation>
+               <xsd:documentation>
+                  Default durability for auto-created queues- if enabled queue auto-creation in address settings for DLA
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="temporary" minOccurs="0" type="xsd:boolean" default="false">
+            <xsd:annotation>
+               <xsd:documentation>
+                  Are auto-created queues temporary- if enabled queue auto-creation in address settings for DLA
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+      </xsd:all>
+      <xsd:attribute name="prefix" use="required" type="xsd:string">
+         <xsd:annotation>
+            <xsd:documentation>
+               Prefix value for auto-created Dead Letter Addresses
+            </xsd:documentation>
+         </xsd:annotation>
+      </xsd:attribute>
+   </xsd:complexType>
+
    <xsd:element name="address-setting">
       <xsd:complexType>
          <xsd:annotation>
@@ -2939,7 +2977,7 @@
                   </xsd:documentation>
                </xsd:annotation>
             </xsd:element>
-            <xsd:element maxOccurs="1" minOccurs="0" name="dead-letter-address-prefix" type="xsd:string">
+            <xsd:element maxOccurs="1" minOccurs="0" name="dead-letter-address-auto-create" type="dead-letter-address-auto-create">
                <xsd:annotation>
                   <xsd:documentation>
                      the prefix of the address to send dead messages to
@@ -3473,6 +3511,21 @@
       <xsd:restriction base="xsd:string">
          <xsd:enumeration value="ANYCAST"/>
          <xsd:enumeration value="MULTICAST"/>
+      </xsd:restriction>
+   </xsd:simpleType>
+
+   <xsd:simpleType name="dla-routing-type">
+      <xsd:restriction base="xsd:string">
+         <xsd:enumeration value="ANYCAST"/>
+         <xsd:enumeration value="MULTICAST"/>
+         <xsd:enumeration value="AS_ORIGIN">
+            <xsd:annotation>
+               <xsd:documentation>
+                  Special routing method which ensures that DLA route will route the message to the corresponding Dead
+                  Letter Queue, instead of all (MULTIAST) or any (ANYCAST) if more than one available.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:enumeration>
       </xsd:restriction>
    </xsd:simpleType>
 

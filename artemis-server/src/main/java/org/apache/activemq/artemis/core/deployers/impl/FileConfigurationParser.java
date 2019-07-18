@@ -36,6 +36,7 @@ import org.apache.activemq.artemis.ArtemisConstants;
 import org.apache.activemq.artemis.api.config.ActiveMQDefaultConfiguration;
 import org.apache.activemq.artemis.api.core.BroadcastEndpointFactory;
 import org.apache.activemq.artemis.api.core.BroadcastGroupConfiguration;
+import org.apache.activemq.artemis.api.core.DeadLetterAddressRoutingType;
 import org.apache.activemq.artemis.api.core.DiscoveryGroupConfiguration;
 import org.apache.activemq.artemis.api.core.JGroupsFileBroadcastEndpointFactory;
 import org.apache.activemq.artemis.api.core.Pair;
@@ -158,7 +159,15 @@ public final class FileConfigurationParser extends XMLConfigurationUtil {
 
    private static final String DEAD_LETTER_ADDRESS_NODE_NAME = "dead-letter-address";
 
-   private static final String DEAD_LETTER_ADDRESS_PREFIX_NODE_NAME = "dead-letter-address-prefix";
+   private static final String DEAD_LETTER_ADDRESS_AUTO_CREATE_NODE_NAME = "dead-letter-address-auto-create";
+
+   private static final String DEAD_LETTER_ADDRESS_AUTO_CREATE_PREFIX_ATTRIBUTE_NAME = "prefix";
+
+   private static final String DEAD_LETTER_ADDRESS_AUTO_CREATE_ROUTING_TYPE_ATTR_NAME = "routing-type";
+
+   private static final String DEAD_LETTER_ADDRESS_AUTO_CREATE_DURABLE_NAME = "dlq-durable";
+
+   private static final String DEAD_LETTER_ADDRESS_AUTO_CREATE_TEMPORARY_NAME = "dlq-temporary";
 
    private static final String EXPIRY_ADDRESS_NODE_NAME = "expiry-address";
 
@@ -1033,9 +1042,8 @@ public final class FileConfigurationParser extends XMLConfigurationUtil {
          if (DEAD_LETTER_ADDRESS_NODE_NAME.equalsIgnoreCase(name)) {
             SimpleString queueName = new SimpleString(getTrimmedTextContent(child));
             addressSettings.setDeadLetterAddress(queueName);
-         } else if (DEAD_LETTER_ADDRESS_PREFIX_NODE_NAME.equalsIgnoreCase(name)) {
-            SimpleString queuePrefix = new SimpleString(getTrimmedTextContent(child));
-            addressSettings.setDeadLetterAddressPrefix(queuePrefix);
+         } else if (DEAD_LETTER_ADDRESS_AUTO_CREATE_NODE_NAME.equalsIgnoreCase(name)) {
+            parseAutoCreateDeadLetterNode(addressSettings, child);
          } else if (EXPIRY_ADDRESS_NODE_NAME.equalsIgnoreCase(name)) {
             SimpleString queueName = new SimpleString(getTrimmedTextContent(child));
             addressSettings.setExpiryAddress(queueName);
@@ -1160,6 +1168,25 @@ public final class FileConfigurationParser extends XMLConfigurationUtil {
          }
       }
       return setting;
+   }
+
+   private void parseAutoCreateDeadLetterNode(AddressSettings addressSettings, Node dlaAutoCreateNode) {
+      NamedNodeMap dlaAttributes = dlaAutoCreateNode.getAttributes();
+      String prefix = getTrimmedTextContent(dlaAttributes.getNamedItem(DEAD_LETTER_ADDRESS_AUTO_CREATE_PREFIX_ATTRIBUTE_NAME));
+      addressSettings.setDeadLetterAddressPrefix(new SimpleString(prefix));
+
+      NodeList children = dlaAutoCreateNode.getChildNodes();
+      for (int i = 0; i < children.getLength(); i++) {
+         Node child = children.item(i);
+         String childName = child.getNodeName();
+         if (DEAD_LETTER_ADDRESS_AUTO_CREATE_ROUTING_TYPE_ATTR_NAME.equals(childName)) {
+            addressSettings.setDeadLetterAddressAutoCreateRoutingType(DeadLetterAddressRoutingType.valueOf(getTrimmedTextContent(child)));
+         } else if (DEAD_LETTER_ADDRESS_AUTO_CREATE_DURABLE_NAME.equals(childName)) {
+            addressSettings.setDeadLetterAddressAutoCreateQueueDurable(XMLUtil.parseBoolean(child));
+         } else if (DEAD_LETTER_ADDRESS_AUTO_CREATE_TEMPORARY_NAME.equals(childName)) {
+            addressSettings.setDeadLetterAddressAutoCreateQueueTemporary(XMLUtil.parseBoolean(child));
+         }
+      }
    }
 
    /**

@@ -66,6 +66,14 @@ public class BufferHelper {
       }
    }
 
+   public static void writeNullableByte(ActiveMQBuffer buffer, Byte value) {
+      buffer.writeBoolean(value != null);
+
+      if (value != null) {
+         buffer.writeByte(value);
+      }
+   }
+
    public static int sizeOfNullableBoolean(Boolean value) {
       return DataConstants.SIZE_BOOLEAN + (value != null ? DataConstants.SIZE_BOOLEAN : 0);
    }
@@ -104,6 +112,10 @@ public class BufferHelper {
 
    public static int sizeOfNullableLong(Long value) {
       return DataConstants.SIZE_BOOLEAN + (value != null ? DataConstants.SIZE_LONG : 0);
+   }
+
+   public static int sizeOfNullableByte(Byte value) {
+      return DataConstants.SIZE_BOOLEAN + (value != null ? DataConstants.SIZE_BYTE : 0);
    }
 
    public static int sizeOfNullableDouble(Double value) {

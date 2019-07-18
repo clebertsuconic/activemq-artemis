@@ -954,7 +954,7 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
                   logger.debug("sending message to dla address = " + dlaAddress + ", message=" + message);
                }
 
-               if (dlaAddress == null) {
+               if (dlaAddress == null) { //TODO This check could be improved to avoid routing to non existing DLA address
                   result = RoutingStatus.NO_BINDINGS;
                   ActiveMQServerLogger.LOGGER.noDLA(address);
                } else {
@@ -964,6 +964,9 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
 
                   message.reencode();
 
+                  // There is an option to auto-create DLAs, however this is not available for addresses with no queues,
+                  // as this could potentially lead to stack overflow, if auto-create-queues is disabled, which
+                  // otherwise is valid scenario
                   route(message, context.getTransaction(), false);
                   result = RoutingStatus.NO_BINDINGS_DLA;
                }

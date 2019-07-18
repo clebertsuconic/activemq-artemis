@@ -378,7 +378,11 @@
 
       <address-settings>
          <address-setting match="#">
-            <dead-letter-address-prefix>DLA.</dead-letter-address-prefix>
+            <dead-letter-address-auto-create prefix="DLA.">
+               <routing-type>AS_ORIGIN</routing-type>
+               <durable>true</durable>
+               <temporary>false</temporary>
+            </dead-letter-address-auto-create>
          </address-setting>
          <address-setting match="a1">
             <dead-letter-address>a1.1</dead-letter-address>

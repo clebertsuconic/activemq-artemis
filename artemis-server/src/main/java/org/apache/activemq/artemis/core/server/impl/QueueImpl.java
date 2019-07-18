@@ -44,6 +44,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.apache.activemq.artemis.api.config.ActiveMQDefaultConfiguration;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.ActiveMQNullRefException;
+import org.apache.activemq.artemis.api.core.DeadLetterAddressRoutingType;
 import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.api.core.Pair;
 import org.apache.activemq.artemis.api.core.RoutingType;
@@ -3116,7 +3117,6 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
    }
 
    @Override
-
    public boolean sendToDeadLetterAddress(final Transaction tx, final MessageReference ref) throws Exception {
       return sendToDeadLetterAddress(tx, ref, addressSettingsRepository.getMatch(address.toString()).resolveDealLetterAddress(address));
    }
@@ -3126,21 +3126,83 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
                                         final SimpleString deadLetterAddress) throws Exception {
       if (deadLetterAddress != null) {
          Bindings bindingList = postOffice.lookupBindingsForAddress(deadLetterAddress);
+         AddressSettings as = addressSettingsRepository.getMatch(address.toString());
 
-         if (bindingList == null || bindingList.getBindings().isEmpty()) {
-            ActiveMQServerLogger.LOGGER.messageExceededMaxDelivery(ref, deadLetterAddress);
-            ref.acknowledge(tx, AckReason.KILLED, null);
-         } else {
+         SimpleString dlqName = null;
+         if (as != null && as.getDeadLetterAddressPrefix() != null) {
+            dlqName = as.getDeadLetterAddressPrefix().concat(ref.getQueue().getName());
+         }
+
+         boolean dlaExists = true;
+
+         if (bindingList == null || bindingList.getBindings().isEmpty() || (dlqName != null && postOffice.getMatchingQueue(dlqName, null) == null)) {
+            dlaExists = false;
+            AddressSettings dlas = addressSettingsRepository.getMatch(deadLetterAddress.toString());
+
+            //Checking if synchronised code has a chance to succeed before we enter it for performance reasons
+            if (as != null && as.getDeadLetterAddressPrefix() != null && (dlas.isAutoCreateQueues() || dlas.isAutoCreateAddresses())) {
+               dlaExists = tryCreateDeadLetterAddress(ref, deadLetterAddress, as, dlqName, dlas);
+            }
+         }
+
+         if (dlaExists) {
             ActiveMQServerLogger.LOGGER.messageExceededMaxDeliverySendtoDLA(ref, deadLetterAddress, name);
             move(tx, deadLetterAddress, null, ref, false, AckReason.KILLED, null);
+
             return true;
+         } else {
+            ActiveMQServerLogger.LOGGER.messageExceededMaxDelivery(ref, deadLetterAddress);
          }
       } else {
          ActiveMQServerLogger.LOGGER.messageExceededMaxDeliveryNoDLA(ref, name);
-
-         ref.acknowledge(tx, AckReason.KILLED, null);
       }
 
+      ref.acknowledge(tx, AckReason.KILLED, null);
+      return false;
+   }
+
+   private boolean tryCreateDeadLetterAddress(MessageReference ref, SimpleString deadLetterAddress, AddressSettings as, SimpleString dlqName, AddressSettings dlas) throws Exception {
+      synchronized (this) {
+         Bindings bindingList = postOffice.lookupBindingsForAddress(deadLetterAddress);
+
+         // We need to recheck as conditions might have changed once entering this point
+         if (bindingList != null && !bindingList.getBindings().isEmpty() && (dlqName == null || postOffice.getMatchingQueue(dlqName, null) != null)) {
+            return true;
+         }
+
+         String originQueueName = ref.getQueue().getName().toString();
+
+         if (dlas.isAutoCreateQueues()) {
+            RoutingType routingType = RoutingType.MULTICAST;
+            SimpleString asOriginFilter = null;
+
+            if (as.getDeadLetterAddressAutoCreateRoutingType() == DeadLetterAddressRoutingType.AS_ORIGIN) {
+               // Matching by origin queue name
+               asOriginFilter = new SimpleString(Message.HDR_ORIGINAL_QUEUE.toString() + " = '" + originQueueName + "'");
+            } else if (as.getDeadLetterAddressAutoCreateRoutingType() == DeadLetterAddressRoutingType.ANYCAST) {
+               routingType = RoutingType.ANYCAST;
+            }
+
+            ActiveMQServerLogger.LOGGER.autoCreatingDeadLetterAddress(deadLetterAddress.toString(), as.getDeadLetterAddressAutoCreateRoutingType().name(), originQueueName, true);
+
+            // Setting only queue specific config as rest will be taken from matching AddressSettings if found, otherwise defaults will be applied
+            server.createQueue(deadLetterAddress, routingType, dlqName, asOriginFilter, as.getDeadLetterAddressAutoCreateQueueDurable(), as.getDeadLetterAddressAutoCreateQueueTemporary());
+
+            return true;
+         } else if (dlas.isAutoCreateAddresses()) {
+            RoutingType routingType = RoutingType.getType(as.getDeadLetterAddressAutoCreateRoutingType().getType());
+            if (as.getDeadLetterAddressAutoCreateRoutingType() == DeadLetterAddressRoutingType.AS_ORIGIN) {
+               ActiveMQServerLogger.LOGGER.usingAsOriginDlaWithoutAutoCreateQueues(deadLetterAddress.toString());
+
+               routingType = RoutingType.MULTICAST;
+            }
+
+            ActiveMQServerLogger.LOGGER.autoCreatingDeadLetterAddress(deadLetterAddress.toString(), as.getDeadLetterAddressAutoCreateRoutingType().name(), originQueueName, false);
+            server.addOrUpdateAddressInfo(new AddressInfo(deadLetterAddress, routingType).setAutoCreated(true));
+
+            return true;
+         }
+      }
       return false;
    }
 
