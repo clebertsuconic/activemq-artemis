@@ -3518,7 +3518,7 @@
       <xsd:restriction base="xsd:string">
          <xsd:enumeration value="ANYCAST"/>
          <xsd:enumeration value="MULTICAST"/>
-         <xsd:enumeration value="AS_ORIGIN">
+         <xsd:enumeration value="CORRESPONDING_QUEUE">
             <xsd:annotation>
                <xsd:documentation>
                   Special routing method which ensures that DLA route will route the message to the corresponding Dead

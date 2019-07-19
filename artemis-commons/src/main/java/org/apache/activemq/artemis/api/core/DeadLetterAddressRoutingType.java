@@ -18,7 +18,7 @@ package org.apache.activemq.artemis.api.core;
 
 public enum DeadLetterAddressRoutingType {
 
-   MULTICAST, ANYCAST, AS_ORIGIN;
+   MULTICAST, ANYCAST, CORRESPONDING_QUEUE;
 
    public byte getType() {
       switch (this) {
@@ -26,7 +26,7 @@ public enum DeadLetterAddressRoutingType {
             return 0;
          case ANYCAST:
             return 1;
-         case AS_ORIGIN:
+         case CORRESPONDING_QUEUE:
             return 2;
          default:
             return -1;
@@ -40,7 +40,7 @@ public enum DeadLetterAddressRoutingType {
          case 1:
             return ANYCAST;
          case 2:
-            return AS_ORIGIN;
+            return CORRESPONDING_QUEUE;
          default:
             return null;
       }

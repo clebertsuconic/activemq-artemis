@@ -3171,16 +3171,17 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
          }
 
          String originQueueName = ref.getQueue().getName().toString();
+         RoutingType routingType = ref.getQueue().getRoutingType();
+         if (as.getDeadLetterAddressAutoCreateRoutingType() != null && as.getDeadLetterAddressAutoCreateRoutingType() != DeadLetterAddressRoutingType.CORRESPONDING_QUEUE) {
+            routingType = RoutingType.getType(as.getDeadLetterAddressAutoCreateRoutingType().getType());
+         }
 
          if (dlas.isAutoCreateQueues()) {
-            RoutingType routingType = RoutingType.MULTICAST;
             SimpleString asOriginFilter = null;
 
-            if (as.getDeadLetterAddressAutoCreateRoutingType() == DeadLetterAddressRoutingType.AS_ORIGIN) {
-               // Matching by origin queue name
+            if (as.getDeadLetterAddressAutoCreateRoutingType() == DeadLetterAddressRoutingType.CORRESPONDING_QUEUE) {
+               // Delivering to corresponding DLQ by filtering origin queue name
                asOriginFilter = new SimpleString(Message.HDR_ORIGINAL_QUEUE.toString() + " = '" + originQueueName + "'");
-            } else if (as.getDeadLetterAddressAutoCreateRoutingType() == DeadLetterAddressRoutingType.ANYCAST) {
-               routingType = RoutingType.ANYCAST;
             }
 
             ActiveMQServerLogger.LOGGER.autoCreatingDeadLetterAddress(deadLetterAddress.toString(), as.getDeadLetterAddressAutoCreateRoutingType().name(), originQueueName, true);
@@ -3190,11 +3191,8 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
 
             return true;
          } else if (dlas.isAutoCreateAddresses()) {
-            RoutingType routingType = RoutingType.getType(as.getDeadLetterAddressAutoCreateRoutingType().getType());
-            if (as.getDeadLetterAddressAutoCreateRoutingType() == DeadLetterAddressRoutingType.AS_ORIGIN) {
+            if (as.getDeadLetterAddressAutoCreateRoutingType() == DeadLetterAddressRoutingType.CORRESPONDING_QUEUE) {
                ActiveMQServerLogger.LOGGER.usingAsOriginDlaWithoutAutoCreateQueues(deadLetterAddress.toString());
-
-               routingType = RoutingType.MULTICAST;
             }
 
             ActiveMQServerLogger.LOGGER.autoCreatingDeadLetterAddress(deadLetterAddress.toString(), as.getDeadLetterAddressAutoCreateRoutingType().name(), originQueueName, false);

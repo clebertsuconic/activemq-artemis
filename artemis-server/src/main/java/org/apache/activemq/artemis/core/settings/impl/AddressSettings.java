@@ -108,8 +108,6 @@ public class AddressSettings implements Mergeable<AddressSettings>, Serializable
    // Default address drop threshold, applied to address settings with BLOCK policy.  -1 means no threshold enabled.
    public static final long DEFAULT_ADDRESS_REJECT_THRESHOLD = -1;
 
-   public static final DeadLetterAddressRoutingType DEFAULT_DEAD_LETTER_ADDRESS_PREFIX_ROUTING_TYPE = DeadLetterAddressRoutingType.MULTICAST;
-
    public static final boolean DEFAULT_DEAD_LETTER_ADDRESS_PREFIX_DURABLE = true;
 
    public static final boolean DEFAULT_DEAD_LETTER_ADDRESS_PREFIX_TEMPORARY = false;
@@ -603,7 +601,7 @@ public class AddressSettings implements Mergeable<AddressSettings>, Serializable
    }
 
    public DeadLetterAddressRoutingType getDeadLetterAddressAutoCreateRoutingType() {
-      return deadLetterAddressAutoCreateRoutingType != null ? deadLetterAddressAutoCreateRoutingType : AddressSettings.DEFAULT_DEAD_LETTER_ADDRESS_PREFIX_ROUTING_TYPE;
+      return deadLetterAddressAutoCreateRoutingType;
    }
 
    public AddressSettings setDeadLetterAddressAutoCreateRoutingType(final DeadLetterAddressRoutingType deadLetterAddressAutoCreateRoutingType) {
