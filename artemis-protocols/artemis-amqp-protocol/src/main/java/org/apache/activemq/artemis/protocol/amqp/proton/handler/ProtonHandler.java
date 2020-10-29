@@ -295,8 +295,12 @@ public class ProtonHandler extends ProtonInitializable implements SaslListener {
       return saslResult;
    }
 
+   public boolean serverOne = false;
    public void inputBuffer(ByteBuf buffer) {
       requireHandler();
+      if (serverOne) {
+         new Exception("Receiving data").printStackTrace();
+      }
       dataReceived = true;
       while (buffer.readableBytes() > 0) {
          int capacity = transport.capacity();
@@ -329,6 +333,10 @@ public class ProtonHandler extends ProtonInitializable implements SaslListener {
       boolean res = dataReceived;
 
       dataReceived = false;
+
+      if (serverOne) {
+         new Exception("Receiving dataReeived " + res).printStackTrace();
+      }
 
       return res;
    }

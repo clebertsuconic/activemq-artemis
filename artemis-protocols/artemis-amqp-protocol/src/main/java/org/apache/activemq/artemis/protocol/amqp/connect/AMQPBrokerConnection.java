@@ -222,6 +222,8 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
             return;
          }
 
+         server.getRemotingService().addConnectionEntry(connection, protonProtocolManager.createConnectionEntry(null, connection));
+
          reconnectFuture = null;
          retryCounter = 0;
 
@@ -243,6 +245,7 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
          }
 
          ConnectionEntry entry = protonProtocolManager.createOutgoingConnectionEntry(connection, saslFactory);
+         server.getRemotingService().addConnectionEntry(connection, entry);
          protonRemotingConnection = (ActiveMQProtonRemotingConnection) entry.connection;
          connection.getChannel().pipeline().addLast(new AMQPBrokerConnectionChannelHandler(bridgesConnector.getChannelGroup(), protonRemotingConnection.getAmqpConnection().getHandler()));
 
@@ -276,6 +279,8 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
                }
             }
          }
+
+         protonRemotingConnection.getAmqpConnection().getHandler().serverOne = true;
 
          protonRemotingConnection.getAmqpConnection().flush();
 
@@ -498,6 +503,7 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
 
    @Override
    public void connectionDestroyed(Object connectionID) {
+      server.getRemotingService().removeConnection(connectionID);
       redoConnection();
    }
 

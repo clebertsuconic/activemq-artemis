@@ -93,6 +93,11 @@ public class QpidDispatchPeerTest extends AmqpClientTestSupport {
 
    @Test(timeout = 60_000)
    public void testwithQueueName() throws Exception {
+      internalMultipleQueues(false, false);
+   }
+
+   @Test(timeout = 60_000)
+   public void testwithQueueNameDistinctName() throws Exception {
       internalMultipleQueues(false, true);
    }
 
