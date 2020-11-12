@@ -31,6 +31,7 @@ import org.apache.qpid.proton.amqp.transport.ErrorCondition;
 import org.apache.qpid.proton.codec.ReadableBuffer;
 import org.apache.qpid.proton.engine.Delivery;
 import org.apache.qpid.proton.engine.Receiver;
+import org.jboss.logging.Logger;
 
 public abstract class ProtonAbstractReceiver extends ProtonInitializable implements ProtonDeliveryHandler {
 
@@ -188,6 +189,8 @@ public abstract class ProtonAbstractReceiver extends ProtonInitializable impleme
       flow();
    }
 
+   private static final Logger logger = Logger.getLogger(ProtonAbstractReceiver.class);
+
    @Override
    public void onFlow(int credits, boolean drain) {
       flow();
@@ -264,6 +267,14 @@ public abstract class ProtonAbstractReceiver extends ProtonInitializable impleme
             TransactionalState txState = (TransactionalState) delivery.getRemoteState();
             tx = this.sessionSPI.getTransaction(txState.getTxnId(), false);
          }
+
+         if (tx == null && sessionSPI.getTransactionHandler() != null) {
+            logger.warn("tx is null for " + message, new Exception("TX is null when sending " + message.toString()));
+            throw new ActiveMQAMQPInternalErrorException("There should been defined a transaction");
+         } else if (tx == null) {
+            logger.warn("tx is null and no transaction handler for " + message, new Exception("TX is null when sending " + message.toString()));
+         }
+
 
          actualDelivery(message, delivery, receiver, tx);
       } catch (Exception e) {

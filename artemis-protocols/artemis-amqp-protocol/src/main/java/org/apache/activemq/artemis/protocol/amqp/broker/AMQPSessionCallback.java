@@ -769,6 +769,7 @@ public class AMQPSessionCallback implements SessionCallback {
    }
 
    public void setTransactionHandler(ProtonTransactionHandler transactionHandler) {
+      logger.warn("tx is null setTransactionHandler");
       this.transactionHandler = transactionHandler;
    }
 
