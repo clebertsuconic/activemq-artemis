@@ -87,6 +87,7 @@ public class ReplicatedPageCounterWithSubscriptionsTest extends SmokeTestBase {
    }
 
    AtomicBoolean running = new AtomicBoolean(true);
+   AtomicBoolean draining = new AtomicBoolean(false);
 
    class ConsumerThread extends Thread {
       final int consumerNR;
@@ -118,9 +119,9 @@ public class ReplicatedPageCounterWithSubscriptionsTest extends SmokeTestBase {
                   Message message = consumer.receive(250);
                   if (message != null) {
                      if (messages++ % 1000 == 0) {
-                        System.out.println("processed " + messages + " on " + Thread.currentThread().getName());
+                        System.out.println("processed " + messages + " on " + Thread.currentThread().getName() + " draining = " + draining.get());
                      }
-                     if (processTime != 0) {
+                     if (processTime != 0 && !draining.get()) {
                         Thread.sleep(processTime);
                      }
                   }
@@ -178,16 +179,16 @@ public class ReplicatedPageCounterWithSubscriptionsTest extends SmokeTestBase {
 
       ArrayList<ConsumerThread> threads = new ArrayList<>();
 
-      int SLOW_THREADS = 5;
-      int FAST_THREADS = 10;
+      int SLOW_THREADS = 15;
+      int FAST_THREADS = 15;
 
       CyclicBarrier barrier = new CyclicBarrier(SLOW_THREADS + FAST_THREADS + 1);
 
       for (int i = 0; i < SLOW_THREADS; i++) {
-         threads.add(new ConsumerThread(protocol, i, RandomUtil.randomInterval(5, 500), barrier));
+         threads.add(new ConsumerThread(protocol, i, RandomUtil.randomInterval(5, 100), barrier));
       }
       for (int i = SLOW_THREADS; i < (SLOW_THREADS + FAST_THREADS); i++) {
-         threads.add(new ConsumerThread(protocol, i, 5, barrier));
+         threads.add(new ConsumerThread(protocol, i, 0, barrier));
       }
 
       threads.forEach((t) -> t.start());
@@ -212,16 +213,23 @@ public class ReplicatedPageCounterWithSubscriptionsTest extends SmokeTestBase {
          producer.send(message);
          if (i > 0 && i % 1000 == 0) {
             session.commit();
-            System.out.println("Sent " + i);
-            session.commit();
+            if (i == MESSAGE_COUNT / 2) {
+               server0.destroyForcibly();
+               Wait.assertTrue(activeMQServerControl::isActive);
+            }
+            try {
+               System.out.println("Sent " + i);
+               session.commit();
+            } catch (Exception ignored) {
+            }
          }
       }
       session.commit();
 
       Thread.sleep(15_000);
 
-      server0.destroyForcibly();
-      Wait.assertTrue(activeMQServerControl::isActive);
+      // server0.destroyForcibly();
+      // Wait.assertTrue(activeMQServerControl::isActive);
 
       System.out.println("Activated already");
 
@@ -236,6 +244,39 @@ public class ReplicatedPageCounterWithSubscriptionsTest extends SmokeTestBase {
          } catch (Exception e) {
             e.printStackTrace();
          }
+      }
+
+      for (int i = 0; i < MESSAGE_COUNT / 2; i++) {
+         TextMessage message = session.createTextMessage(text);
+         producer.send(message);
+         if (i > 0 && i % 1000 == 0) {
+            session.commit();
+            System.out.println("Sent " + i);
+            session.commit();
+         }
+      }
+      session.commit();
+
+      Thread.sleep(1000);
+
+
+      for (int i = 0; i < SLOW_THREADS + FAST_THREADS; i++) {
+         String queueName = "consumerNR_" + i + ".nr_" + i;
+         try {
+            long messageCount = activeMQServerControl.getMessageCount(queueName);
+            System.out.println("MessageCount:: on " + queueName + " is " + messageCount);
+            Assert.assertTrue(messageCount >= 0);
+         } catch (Exception e) {
+            e.printStackTrace();
+         }
+      }
+
+      draining.set(true); // after I set this all consumers will be fast, and all messages should be consumed
+
+      for (int i = 0; i < (SLOW_THREADS + FAST_THREADS); i++) {
+         String queueName = "consumerNR_" + i + ".nr_" + i;
+         // Fast queues should eventually remove all the messages
+         Wait.assertTrue(queueName + " should be 0", () -> activeMQServerControl.getMessageCount(queueName) == 0, 120_000, 500);
       }
 
       running.set(false);
