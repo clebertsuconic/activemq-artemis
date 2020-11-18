@@ -22,6 +22,8 @@ under the License.
 
    <core xmlns="urn:activemq:core">
 
+      <name>0.0.0.0</name>
+
       <bindings-directory>./data/bindings</bindings-directory>
 
       <journal-directory>./data/journal</journal-directory>
@@ -94,6 +96,34 @@ under the License.
             <auto-create-jms-queues>true</auto-create-jms-queues>
             <auto-create-jms-topics>true</auto-create-jms-topics>
          </address-setting>
+         <!-- used on ReplicatedPageCounterTest -->
+         <address-setting match="ReplicatedPageCounterTest">
+            <dead-letter-address>DLQ</dead-letter-address>
+            <expiry-address>ExpiryQueue</expiry-address>
+            <redelivery-delay>0</redelivery-delay>
+            <max-size-bytes>200000</max-size-bytes>
+            <page-size-bytes>100000</page-size-bytes>
+            <message-counter-history-day-limit>10</message-counter-history-day-limit>
+            <address-full-policy>PAGE</address-full-policy>
+            <auto-create-queues>true</auto-create-queues>
+            <auto-create-addresses>true</auto-create-addresses>
+            <auto-create-jms-queues>true</auto-create-jms-queues>
+            <auto-create-jms-topics>true</auto-create-jms-topics>
+         </address-setting>
+         <address-setting match="ReplicatedPageCounterTestMulticast">
+            <dead-letter-address>DLQ</dead-letter-address>
+            <expiry-address>ExpiryQueue</expiry-address>
+            <redelivery-delay>0</redelivery-delay>
+            <max-size-bytes>200000</max-size-bytes>
+            <page-size-bytes>100000</page-size-bytes>
+            <message-counter-history-day-limit>10</message-counter-history-day-limit>
+            <address-full-policy>PAGE</address-full-policy>
+            <auto-create-queues>true</auto-create-queues>
+            <auto-create-addresses>true</auto-create-addresses>
+            <auto-create-jms-queues>true</auto-create-jms-queues>
+            <auto-create-jms-topics>true</auto-create-jms-topics>
+         </address-setting>
+
          <!--default for catch all-->
          <address-setting match="#">
             <dead-letter-address>DLQ</dead-letter-address>
@@ -113,6 +143,15 @@ under the License.
       </address-settings>
 
       <addresses>
+         <address name="ReplicatedPageCounterTest">
+            <anycast>
+               <queue name="ReplicatedPageCounterTest"/>
+            </anycast>
+         </address>
+         <address name="ReplicatedPageCounterTestMultiCast">
+            <multicast>
+            </multicast>
+         </address>
          <address name="exampleTopic">
             <multicast>
             </multicast>
