@@ -19,6 +19,7 @@ package org.apache.activemq.artemis.tests.integration.management;
 import javax.jms.Connection;
 import javax.jms.ConnectionFactory;
 import javax.jms.MessageConsumer;
+import javax.jms.MessageProducer;
 import javax.jms.Session;
 import javax.json.JsonArray;
 import javax.json.JsonObject;
@@ -84,6 +85,7 @@ import org.apache.activemq.artemis.nativo.jlibaio.LibaioContext;
 import org.apache.activemq.artemis.spi.core.security.ActiveMQJAASSecurityManager;
 import org.apache.activemq.artemis.spi.core.security.jaas.InVMLoginModule;
 import org.apache.activemq.artemis.tests.unit.core.config.impl.fakes.FakeConnectorServiceFactory;
+import org.apache.activemq.artemis.tests.util.CFUtil;
 import org.apache.activemq.artemis.tests.util.Wait;
 import org.apache.activemq.artemis.utils.RandomUtil;
 import org.apache.activemq.artemis.utils.RetryMethod;
@@ -790,6 +792,41 @@ public class ActiveMQServerControlTest extends ManagementTestBase {
 
       serverControl.destroyQueue(name.toString(), true, true);
       Assert.assertFalse(ActiveMQServerControlTest.contains(address.toString(), serverControl.getAddressNames()));
+   }
+
+   @Test
+   public void testGetMessageCountThroughServerControl() throws Exception {
+      SimpleString address = RandomUtil.randomSimpleString();
+      SimpleString name = RandomUtil.randomSimpleString();
+
+      ActiveMQServerControl serverControl = createManagementControl();
+
+      // due to replication, there can be another queue created for replicating
+      // management operations
+      Assert.assertFalse(ActiveMQServerControlTest.contains(address.toString(), serverControl.getAddressNames()));
+
+      if (legacyCreateQueue) {
+         serverControl.createQueue(address.toString(), "ANYCAST", name.toString(), null, true, -1, false, true);
+      } else {
+         serverControl.createQueue(new QueueConfiguration(name).setAddress(address).setRoutingType(RoutingType.ANYCAST).toJSON());
+      }
+
+      ConnectionFactory cf = CFUtil.createConnectionFactory("core", "tcp://localhost:61616");
+      Connection connection = cf.createConnection();
+      Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+      MessageProducer producer = session.createProducer(session.createQueue(address.toString()));
+      producer.send(session.createTextMessage("hello"));
+
+      Wait.assertEquals(1, () -> serverControl.getMessageCount(name.toString()));
+
+      boolean failed = false;
+      try {
+         serverControl.getMessageCount(name.toString() + "dontexist");
+      } catch (IllegalArgumentException e) {
+         failed = true;
+      }
+
+      Assert.assertTrue("Exception was expected", failed);
    }
 
    @Test

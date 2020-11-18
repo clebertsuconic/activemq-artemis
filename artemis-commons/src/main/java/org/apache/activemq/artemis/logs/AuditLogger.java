@@ -2793,4 +2793,13 @@ public interface AuditLogger extends BasicLogger {
    @LogMessage(level = Logger.Level.INFO)
    @Message(id = 601742, value = "User {0} is getting the queue count on target resource: {1} {2}", format = Message.Format.MESSAGE_FORMAT)
    void getQueueCount(String user, Object source, Object... args);
+
+
+   static void getMessageCountOnQueue(Object source, String queue) {
+      LOGGER.getMessageCountOnQueue(getCaller(), source, queue);
+   }
+
+   @LogMessage(level = Logger.Level.INFO)
+   @Message(id = 601743, value = "User {0} is getting the message count on target resource: {1} {2}", format = Message.Format.MESSAGE_FORMAT)
+   void getMessageCountOnQueue(String user, Object source, Object... args);
 }

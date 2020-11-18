@@ -244,6 +244,20 @@ public interface ActiveMQServerControl {
    int getMessageCounterMaxDayCount();
 
    /**
+    * This method is useful when you want to transverse many queues to lookup their message counts.
+    * But don't want to instantiate the QueueControl for each queue.
+    *
+    * It will throw IllegalArgumentException when the queue is not found.
+    *
+    * @param queueName
+    * @return
+    *
+    * @throws IllegalArgumentException if it cannot find the queue based on the name.
+    */
+   @Operation(desc = "This method will lookup the queue based on the name and return the count")
+   long getMessageCount(String queueName) throws Exception;
+
+   /**
     * Sets the maximum number of days kept in memory for message counter.
     *
     * @param count value must be greater than 0

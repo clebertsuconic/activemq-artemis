@@ -22,6 +22,7 @@ import org.apache.activemq.artemis.api.core.ActiveMQAddressDoesNotExistException
 import org.apache.activemq.artemis.api.core.management.ActiveMQServerControl;
 import org.apache.activemq.artemis.api.core.management.Parameter;
 import org.apache.activemq.artemis.api.core.management.ResourceNames;
+import org.apache.activemq.artemis.cli.commands.Run;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
@@ -58,6 +59,11 @@ public class ActiveMQServerControlUsingCoreTest extends ActiveMQServerControlTes
    @Override
    protected ActiveMQServerControl createManagementControl() throws Exception {
       return new ActiveMQServerControl() {
+         @Override
+         public long getMessageCount(String queueName) throws Exception {
+            return (Long) proxy.invokeOperation("getMessageCount", queueName);
+         }
+
          @Override
          public String listBrokerConnections() {
             try {

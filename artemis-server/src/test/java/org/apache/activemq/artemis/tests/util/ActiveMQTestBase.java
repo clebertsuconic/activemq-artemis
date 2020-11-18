@@ -26,6 +26,7 @@ import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.Closeable;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -170,6 +171,22 @@ public abstract class ActiveMQTestBase extends Assert {
    private static final Logger baseLog = Logger.getLogger(ActiveMQTestBase.class);
 
    protected final Logger instanceLog = Logger.getLogger(this.getClass());
+
+   protected List<AutoCloseable> closeables = new ArrayList<>();
+
+   protected void addCloseable(AutoCloseable closeable) {
+      closeables.add(closeable);
+   }
+
+   @After
+   public void closeCloseables() {
+      closeables.forEach((c) -> {
+         try {
+            c.close();
+         } catch (Exception ignroed) {
+         }
+      });
+   }
 
    static {
       Env.setTestEnv(true);

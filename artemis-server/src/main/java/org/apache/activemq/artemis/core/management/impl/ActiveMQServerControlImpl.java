@@ -1873,6 +1873,25 @@ public class ActiveMQServerControlImpl extends AbstractControl implements Active
    }
 
    @Override
+   public long getMessageCount(String queueName) throws IllegalArgumentException {
+      if (AuditLogger.isEnabled()) {
+         AuditLogger.getMessageCountOnQueue(this.server, queueName);
+      }
+      checkStarted();
+
+      clearIO();
+      try {
+         Queue queue = server.locateQueue(queueName);
+         if (queue == null) {
+            throw new IllegalArgumentException(queueName + " not found");
+         }
+         return queue.getMessageCount();
+      } finally {
+         blockOnIO();
+      }
+   }
+
+   @Override
    public void setMessageCounterMaxDayCount(final int count) {
       if (AuditLogger.isEnabled()) {
          AuditLogger.setMessageCounterMaxDayCount(this.server, count);
