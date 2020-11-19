@@ -158,7 +158,7 @@ public class ReplicatedPageCounterWithSubscriptionsTest extends SmokeTestBase {
       // Without this, the RMI server would bind to the default interface IP (the user's local IP mostly)
       System.setProperty("java.rmi.server.hostname", JMX_SERVER_HOSTNAME);
 
-      final int MESSAGE_COUNT = 40000;
+      final int MESSAGE_COUNT = 4000;
 
       MBeanServerConnection mBeanServerConnection = connectJMX(JMX_SERVER1_PORT);
       String brokerName = "0.0.0.0";  // configured e.g. in broker.xml <broker-name> element
@@ -198,7 +198,7 @@ public class ReplicatedPageCounterWithSubscriptionsTest extends SmokeTestBase {
       ConnectionFactory factory = createConnectionFactory(protocol);
       Connection connection = factory.createConnection();
       connection.setClientID("validate");
-      Session session = connection.createSession(true, Session.SESSION_TRANSACTED);
+      Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
       MessageProducer producer = session.createProducer(session.createTopic(ADDRESS.toString()));
       StringBuilder builder = new StringBuilder();
       for (int i = 0; i < 1000; i++) {
@@ -212,26 +212,26 @@ public class ReplicatedPageCounterWithSubscriptionsTest extends SmokeTestBase {
          TextMessage message = session.createTextMessage(text);
          producer.send(message);
          if (i > 0 && i % 1000 == 0) {
-            session.commit();
+            //session.commit();
             if (i == MESSAGE_COUNT / 2) {
                server0.destroyForcibly();
                Wait.assertTrue(activeMQServerControl::isActive);
             }
             try {
                System.out.println("Sent " + i);
-               session.commit();
+               //session.commit();
             } catch (Exception ignored) {
             }
          }
       }
-      session.commit();
+      //session.commit();
 
       Thread.sleep(15_000);
 
       // server0.destroyForcibly();
       // Wait.assertTrue(activeMQServerControl::isActive);
 
-      System.out.println("Activated already");
+      System.out.println("all messages sent");
 
       Thread.sleep(5_000);
 
@@ -250,12 +250,12 @@ public class ReplicatedPageCounterWithSubscriptionsTest extends SmokeTestBase {
          TextMessage message = session.createTextMessage(text);
          producer.send(message);
          if (i > 0 && i % 1000 == 0) {
-            session.commit();
+            //session.commit();
             System.out.println("Sent " + i);
-            session.commit();
+            //session.commit();
          }
       }
-      session.commit();
+      //session.commit();
 
       Thread.sleep(1000);
 
@@ -272,6 +272,26 @@ public class ReplicatedPageCounterWithSubscriptionsTest extends SmokeTestBase {
       }
 
       draining.set(true); // after I set this all consumers will be fast, and all messages should be consumed
+
+      while (true) {
+         boolean zero = true;
+
+         for (int i = 0; i < (SLOW_THREADS + FAST_THREADS); i++) {
+            String queueName = "consumerNR_" + i + ".nr_" + i;
+            // Fast queues should eventually remove all the messages
+            long messageCount = activeMQServerControl.getMessageCount(queueName);
+            System.out.println("MessageCount:: on " + queueName + " is " + messageCount);
+            if (messageCount != 0) {
+               zero = false;
+            }
+            Assert.assertTrue("message count on " + queueName + " was " + messageCount, messageCount >= 0);
+         }
+
+         if (zero) {
+            break;
+         }
+         Thread.sleep(10);
+      }
 
       for (int i = 0; i < (SLOW_THREADS + FAST_THREADS); i++) {
          String queueName = "consumerNR_" + i + ".nr_" + i;
