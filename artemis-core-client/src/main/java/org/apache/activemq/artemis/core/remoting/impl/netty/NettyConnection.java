@@ -29,6 +29,7 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelPromise;
 import io.netty.channel.EventLoop;
+import io.netty.util.concurrent.FastThreadLocal;
 import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
 import org.apache.activemq.artemis.api.core.ActiveMQInterruptedException;
 import org.apache.activemq.artemis.api.core.TransportConfiguration;
@@ -59,7 +60,7 @@ public class NettyConnection implements Connection {
     * here for when the connection (or Netty Channel) becomes available again.
     */
    private final List<ReadyListener> readyListeners = new ArrayList<>();
-   private final ThreadLocal<ArrayList<ReadyListener>> localListenersPool = new ThreadLocal<>();
+   private final FastThreadLocal<ArrayList<ReadyListener>> localListenersPool = new FastThreadLocal<>();
 
    private final boolean batchingEnabled;
    private final int writeBufferHighWaterMark;
@@ -293,6 +294,12 @@ public class NettyConnection implements Connection {
    }
 
    @Override
+   public void flush() {
+      checkConnectionState();
+      this.channel.flush();
+   }
+
+   @Override
    public final void write(ActiveMQBuffer buffer, final boolean flush, final boolean batched) {
       write(buffer, flush, batched, null);
    }
@@ -304,22 +311,22 @@ public class NettyConnection implements Connection {
    }
 
    @Override
-   public final boolean blockUntilWritable(final int requiredCapacity, final long timeout, final TimeUnit timeUnit) {
+   public final boolean blockUntilWritable(final long timeout, final TimeUnit timeUnit) {
       checkConnectionState();
       final boolean isAllowedToBlock = isAllowedToBlock();
       if (!isAllowedToBlock) {
+         if (timeout > 0) {
+            if (Env.isTestEnv()) {
+               // this will only show when inside the testsuite.
+               // we may great the log for FAILURE
+               logger.warn("FAILURE! The code is using blockUntilWritable inside a Netty worker, which would block. " + "The code will probably need fixing!", new Exception("trace"));
+            }
 
-         if (Env.isTestEnv()) {
-            // this will only show when inside the testsuite.
-            // we may great the log for FAILURE
-            logger.warn("FAILURE! The code is using blockUntilWritable inside a Netty worker, which would block. " +
-                           "The code will probably need fixing!", new Exception("trace"));
+            if (logger.isDebugEnabled()) {
+               logger.debug("Calling blockUntilWritable using a thread where it's not allowed");
+            }
          }
-
-         if (logger.isDebugEnabled()) {
-            logger.debug("Calling blockUntilWritable using a thread where it's not allowed");
-         }
-         return canWrite(requiredCapacity);
+         return channel.isWritable();
       } else {
          final long timeoutNanos = timeUnit.toNanos(timeout);
          final long deadline = System.nanoTime() + timeoutNanos;
@@ -333,7 +340,7 @@ public class NettyConnection implements Connection {
             parkNanos = 1000L;
          }
          boolean canWrite;
-         while (!(canWrite = canWrite(requiredCapacity)) && (System.nanoTime() - deadline) < 0) {
+         while (!(canWrite = channel.isWritable()) && (System.nanoTime() - deadline) < 0) {
             //periodically check the connection state
             checkConnectionState();
             LockSupport.parkNanos(parkNanos);
@@ -346,19 +353,6 @@ public class NettyConnection implements Connection {
       final EventLoop eventLoop = channel.eventLoop();
       final boolean inEventLoop = eventLoop.inEventLoop();
       return !inEventLoop;
-   }
-
-   private boolean canWrite(final int requiredCapacity) {
-      //evaluate if the write request could be taken:
-      //there is enough space in the write buffer?
-      final long totalPendingWrites = this.pendingWritesOnChannel();
-      final boolean canWrite;
-      if (requiredCapacity > this.writeBufferHighWaterMark) {
-         canWrite = totalPendingWrites == 0;
-      } else {
-         canWrite = (totalPendingWrites + requiredCapacity) <= this.writeBufferHighWaterMark;
-      }
-      return canWrite;
    }
 
    @Override

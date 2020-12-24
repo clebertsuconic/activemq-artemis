@@ -232,6 +232,11 @@ public final class ChannelImpl implements Channel {
    }
 
    @Override
+   public void flushConnection() {
+      connection.getTransportConnection().flush();
+   }
+
+   @Override
    public boolean send(Packet packet, boolean flushConnection) {
       if (invokeInterceptors(packet, interceptors, connection) != null) {
          return false;
