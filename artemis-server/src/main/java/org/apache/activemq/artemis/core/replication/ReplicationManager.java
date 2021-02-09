@@ -486,10 +486,10 @@ public final class ReplicationManager implements ActiveMQComponent {
       if (resume) {
          awaitingResume = false;
       }
-      // isFlushing check is there to save recursive calls on flushConnection:
-      // flushing a connection can make it writable again, but we cannot
-      // keep this task to occupy too much the event loop or both reads and timeouts will starve.
-      if (isFlushing || !enabled) {
+      // We try to:
+      // - save recursive calls of resume due to flushConnection
+      // - saving flush pending writes *if* the OS hasn't notified that's writable again
+      if (awaitingResume || isFlushing || !enabled) {
          return;
       }
       if (replicatePacketRequests.isEmpty()) {
@@ -512,27 +512,22 @@ public final class ReplicationManager implements ActiveMQComponent {
             replicatingChannel.send(pack, false);
          }
          replicatingChannel.flushConnection();
-         if (!awaitingResume) {
-            // we care about writability just if there is some work to do
-            if (!replicatePacketRequests.isEmpty()) {
-               if (!connection.isWritable(onResume)) {
-                  notWritableFrom = System.currentTimeMillis();
-                  awaitingResume = true;
-               } else {
-                  // This is needed, because this loop can call flushConnection
-                  // with no new packets, flushing to the network the pending writes before
-                  // that the OS notify Netty that's writable again.
-                  // This optimization, although would cause more sys-calls to happen
-                  // it's ok, because will make writes a bit more reactive in case of fast networks.
-                  notWritableFrom = -1;
-                  // submit itself again to continue draining:
-                  // we're not trying it again here to save read starvation
-                  // NOTE: maybe it's redundant because there are already others in-flights requests
-                  replicationStream.execute(() -> sendReplicatedPackets(false));
-               }
+         assert notWritableFrom == -1;
+         assert !awaitingResume;
+         // we care about writability just if there is some work to do
+         if (!replicatePacketRequests.isEmpty()) {
+            if (!connection.isWritable(onResume)) {
+               notWritableFrom = System.currentTimeMillis();
+               awaitingResume = true;
+            } else {
+               // submit itself again to continue draining:
+               // we're not trying it again here to save read starvation
+               // NOTE: maybe it's redundant because there are already others in-flights requests
+               replicationStream.execute(() -> sendReplicatedPackets(false));
             }
          }
       } catch (Throwable t) {
+         assert !(t instanceof AssertionError) : t.getMessage();
          if (!connection.getTransportConnection().isOpen()) {
             // that's an handled state: right after this cleanup is expected to be stopped/closed
             // or get the failure listener to be called!
