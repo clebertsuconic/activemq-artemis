@@ -16,19 +16,17 @@
  */
 package org.apache.activemq.artemis.protocol.amqp.connect.mirror;
 
-import java.util.HashMap;
+import java.io.PrintStream;
 import java.util.List;
-import java.util.Map;
 import java.util.function.ToLongFunction;
-import java.util.stream.Stream;
 
 import org.apache.activemq.artemis.api.core.ActiveMQAddressDoesNotExistException;
 import org.apache.activemq.artemis.api.core.ActiveMQNonExistentQueueException;
 import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.api.core.QueueConfiguration;
 import org.apache.activemq.artemis.api.core.SimpleString;
-import org.apache.activemq.artemis.core.postoffice.Binding;
-import org.apache.activemq.artemis.core.postoffice.impl.LocalQueueBinding;
+import org.apache.activemq.artemis.core.io.IOCallback;
+import org.apache.activemq.artemis.core.postoffice.DuplicateIDCache;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
 import org.apache.activemq.artemis.core.server.MessageReference;
 import org.apache.activemq.artemis.core.server.Queue;
@@ -38,12 +36,18 @@ import org.apache.activemq.artemis.core.server.impl.AddressInfo;
 import org.apache.activemq.artemis.core.server.impl.RoutingContextImpl;
 import org.apache.activemq.artemis.core.server.mirror.MirrorController;
 import org.apache.activemq.artemis.core.transaction.Transaction;
+import org.apache.activemq.artemis.core.transaction.TransactionOperationAbstract;
+import org.apache.activemq.artemis.core.transaction.impl.TransactionImpl;
 import org.apache.activemq.artemis.protocol.amqp.broker.AMQPMessage;
 import org.apache.activemq.artemis.protocol.amqp.broker.AMQPMessageBrokerAccessor;
 import org.apache.activemq.artemis.protocol.amqp.broker.AMQPSessionCallback;
+import org.apache.activemq.artemis.protocol.amqp.broker.ProtonProtocolManager;
 import org.apache.activemq.artemis.protocol.amqp.proton.AMQPConnectionContext;
 import org.apache.activemq.artemis.protocol.amqp.proton.AMQPSessionContext;
 import org.apache.activemq.artemis.protocol.amqp.proton.ProtonAbstractReceiver;
+import org.apache.activemq.artemis.utils.ByteUtil;
+import org.apache.activemq.artemis.utils.StringPrintStream;
+import org.apache.activemq.artemis.utils.pools.MpscPool;
 import org.apache.qpid.proton.amqp.messaging.Accepted;
 import org.apache.qpid.proton.amqp.messaging.AmqpValue;
 import org.apache.qpid.proton.amqp.transport.ReceiverSettleMode;
@@ -51,30 +55,87 @@ import org.apache.qpid.proton.engine.Delivery;
 import org.apache.qpid.proton.engine.Receiver;
 import org.jboss.logging.Logger;
 
-import static org.apache.activemq.artemis.protocol.amqp.connect.mirror.AMQPMirrorControllerSource.EVENT_TYPE;
 import static org.apache.activemq.artemis.protocol.amqp.connect.mirror.AMQPMirrorControllerSource.ADDRESS;
+import static org.apache.activemq.artemis.protocol.amqp.connect.mirror.AMQPMirrorControllerSource.ADD_ADDRESS;
+import static org.apache.activemq.artemis.protocol.amqp.connect.mirror.AMQPMirrorControllerSource.CREATE_QUEUE;
+import static org.apache.activemq.artemis.protocol.amqp.connect.mirror.AMQPMirrorControllerSource.DELETE_ADDRESS;
+import static org.apache.activemq.artemis.protocol.amqp.connect.mirror.AMQPMirrorControllerSource.DELETE_QUEUE;
+import static org.apache.activemq.artemis.protocol.amqp.connect.mirror.AMQPMirrorControllerSource.EVENT_TYPE;
 import static org.apache.activemq.artemis.protocol.amqp.connect.mirror.AMQPMirrorControllerSource.INTERNAL_DESTINATION;
+import static org.apache.activemq.artemis.protocol.amqp.connect.mirror.AMQPMirrorControllerSource.INTERNAL_ID;
 import static org.apache.activemq.artemis.protocol.amqp.connect.mirror.AMQPMirrorControllerSource.POST_ACK;
 import static org.apache.activemq.artemis.protocol.amqp.connect.mirror.AMQPMirrorControllerSource.QUEUE;
-import static org.apache.activemq.artemis.protocol.amqp.connect.mirror.AMQPMirrorControllerSource.ADD_ADDRESS;
-import static org.apache.activemq.artemis.protocol.amqp.connect.mirror.AMQPMirrorControllerSource.DELETE_ADDRESS;
-import static org.apache.activemq.artemis.protocol.amqp.connect.mirror.AMQPMirrorControllerSource.CREATE_QUEUE;
-import static org.apache.activemq.artemis.protocol.amqp.connect.mirror.AMQPMirrorControllerSource.DELETE_QUEUE;
-import static org.apache.activemq.artemis.protocol.amqp.connect.mirror.AMQPMirrorControllerSource.INTERNAL_ID;
-import static org.apache.activemq.artemis.protocol.amqp.connect.mirror.AMQPMirrorControllerSource.ADDRESS_SCAN_START;
-import static org.apache.activemq.artemis.protocol.amqp.connect.mirror.AMQPMirrorControllerSource.ADDRESS_SCAN_END;
+import static org.apache.activemq.artemis.protocol.amqp.connect.mirror.AMQPMirrorControllerSource.INTERNAL_ID_EXTRA_PROPERTY;
 
 public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implements MirrorController {
 
-   public static final SimpleString INTERNAL_ID_EXTRA_PROPERTY = SimpleString.toSimpleString(INTERNAL_ID.toString());
-
    private static final Logger logger = Logger.getLogger(AMQPMirrorControllerTarget.class);
 
-   final ActiveMQServer server;
+   private static ThreadLocal<MirrorController> controllerThreadLocal = new ThreadLocal<>();
+
+   public static void setControllerTarget(MirrorController controller) {
+      controllerThreadLocal.set(controller);
+   }
+
+   public static MirrorController getControllerTarget() {
+      return controllerThreadLocal.get();
+   }
+
+   class ACKMessage extends TransactionOperationAbstract implements IOCallback, Runnable {
+
+      Delivery delivery;
+
+      void reset() {
+         this.delivery = null;
+      }
+
+      ACKMessage setDelivery(Delivery delivery) {
+         this.delivery = delivery;
+         return this;
+      }
+
+      @Override
+      public void run() {
+         if (logger.isTraceEnabled()) {
+            logger.trace("Delivery settling for " + delivery + ", context=" + delivery.getContext());
+         }
+         delivery.disposition(Accepted.getInstance());
+         settle(delivery);
+         connection.flush();
+         AMQPMirrorControllerTarget.this.ackMessageMpscPool.release(ACKMessage.this);
+      }
+
+      @Override
+      public void beforeCommit(Transaction tx) throws Exception {
+      }
+
+      @Override
+      public void afterCommit(Transaction tx) {
+         done();
+      }
+
+      @Override
+      public void done() {
+         connection.runNow(this);
+      }
+
+      @Override
+      public void onError(int errorCode, String errorMessage) {
+      }
+   }
+
+   // in a regular case we should not have more than amqpCredits on the pool, that's the max we would need
+   private final MpscPool<ACKMessage> ackMessageMpscPool = new MpscPool<>(amqpCredits, ACKMessage::reset,  () -> new ACKMessage());
 
    final RoutingContextImpl routingContext = new RoutingContextImpl(null);
 
-   Map<SimpleString, Map<SimpleString, QueueConfiguration>> scanAddresses;
+   final BasicMirrorController<Receiver> basicController;
+
+   final ActiveMQServer server;
+
+   final DuplicateIDCache duplicateIDCache;
+
+   private final ToLongFunction<MessageReference> referenceIDSupplier;
 
    public AMQPMirrorControllerTarget(AMQPSessionCallback sessionSPI,
                                      AMQPConnectionContext connection,
@@ -82,7 +143,41 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
                                      Receiver receiver,
                                      ActiveMQServer server) {
       super(sessionSPI, connection, protonSession, receiver);
+      this.basicController = new BasicMirrorController(server);
+      this.basicController.setLink(receiver);
       this.server = server;
+
+      // we ise the number of credits for the duplicate detection, as that means the maximum number of elements you can have pending
+      if (logger.isTraceEnabled()) {
+         logger.trace("Setting up Duplicate detection on " + ProtonProtocolManager.MIRROR_ADDRESS + " wth " + connection.getAmqpCredits() + " as that's the number of credits");
+      }
+      duplicateIDCache = server.getPostOffice().getDuplicateIDCache(SimpleString.toSimpleString(ProtonProtocolManager.MIRROR_ADDRESS), connection.getAmqpCredits());
+
+      referenceIDSupplier = (source) -> {
+         Long id = (Long) source.getMessage().getBrokerProperty(INTERNAL_ID_EXTRA_PROPERTY);
+         if (id == null) {
+            long mixedID = ByteUtil.mixByteAndLong(basicController.mirrorIDForRouting, source.getMessageID());
+            if (logger.isTraceEnabled()) {
+               logger.trace("ID provider mixed server = " + basicController.mirrorIDForRouting + " and ID=" + source.getMessageID() + " resulting in " + mixedID + " on " + source.getMessage());
+            }
+            return mixedID;
+         } else {
+            if (logger.isTraceEnabled()) {
+               logger.trace("ID provider returned " + id + " for " + source.getMessage());
+            }
+            return id;
+         }
+      };
+   }
+
+   @Override
+   public short getLocalMirrorId() {
+      return basicController.getLocalMirrorId();
+   }
+
+   @Override
+   public short getRemoteMirrorId() {
+      return basicController.getRemoteMirrorId();
    }
 
    @Override
@@ -95,9 +190,15 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
       incrementSettle();
 
 
-      if (logger.isDebugEnabled()) {
-         logger.debug(server.getIdentity() + "::Received " + message);
+      if (logger.isTraceEnabled()) {
+         logger.trace(server + "::actualdelivery call for " + message);
       }
+      setControllerTarget(this);
+
+      delivery.setContext(message);
+
+      ACKMessage messageCompletionAck = this.ackMessageMpscPool.borrow().setDelivery(delivery);
+
       try {
          /** We use message annotations, because on the same link we will receive control messages
           *  coming from mirror events,
@@ -106,28 +207,22 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
           *  The body of the message may still be used on control messages, on cases where a JSON string is sent. */
          Object eventType = AMQPMessageBrokerAccessor.getMessageAnnotationProperty(message, EVENT_TYPE);
          if (eventType != null) {
-            if (eventType.equals(ADDRESS_SCAN_START)) {
-               logger.debug("Starting scan for removed queues");
-               startAddressScan();
-            } else if (eventType.equals(ADDRESS_SCAN_END)) {
-               logger.debug("Ending scan for removed queues");
-               endAddressScan();
-            } else if (eventType.equals(ADD_ADDRESS)) {
+            if (eventType.equals(ADD_ADDRESS)) {
                AddressInfo addressInfo = parseAddress(message);
                if (logger.isDebugEnabled()) {
-                  logger.debug("Adding Address " + addressInfo);
+                  logger.debug(server + " Adding Address " + addressInfo);
                }
                addAddress(addressInfo);
             } else if (eventType.equals(DELETE_ADDRESS)) {
                AddressInfo addressInfo = parseAddress(message);
                if (logger.isDebugEnabled()) {
-                  logger.debug("Removing Address " + addressInfo);
+                  logger.debug(server + " Removing Address " + addressInfo);
                }
                deleteAddress(addressInfo);
             } else if (eventType.equals(CREATE_QUEUE)) {
                QueueConfiguration queueConfiguration = parseQueue(message);
                if (logger.isDebugEnabled()) {
-                  logger.debug("Creating queue " + queueConfiguration);
+                  logger.debug(server + " Creating queue " + queueConfiguration);
                }
                createQueue(queueConfiguration);
             } else if (eventType.equals(DELETE_QUEUE)) {
@@ -135,7 +230,7 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
                String address = (String) AMQPMessageBrokerAccessor.getMessageAnnotationProperty(message, ADDRESS);
                String queueName = (String) AMQPMessageBrokerAccessor.getMessageAnnotationProperty(message, QUEUE);
                if (logger.isDebugEnabled()) {
-                  logger.debug("Deleting queue " + queueName + " on address " + address);
+                  logger.debug(server + " Deleting queue " + queueName + " on address " + address);
                }
                deleteQueue(SimpleString.toSimpleString(address), SimpleString.toSimpleString(queueName));
             } else if (eventType.equals(POST_ACK)) {
@@ -144,22 +239,27 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
                AmqpValue value = (AmqpValue) message.getBody();
                Long messageID = (Long) value.getValue();
                if (logger.isDebugEnabled()) {
-                  logger.debug("Post ack address=" + address + " queueName = " + queueName + " messageID=" + messageID);
+                  logger.debug(server + " Post ack address=" + address + " queueName = " + queueName + " messageID=" + messageID + "(mirrorID=" + ByteUtil.getFirstByte(messageID) + ", messageID=" + ByteUtil.removeFirstByte(messageID) + ")");
                }
-               postAcknowledge(address, queueName, messageID);
+               if (postAcknowledge(address, queueName, messageID, messageCompletionAck)) {
+                  messageCompletionAck = null;
+               }
             }
          } else {
             if (logger.isDebugEnabled()) {
-               logger.debug("Sending message " + message);
+               logger.debug(server + " Sending message " + message);
             }
-            sendMessage(message);
+            if (sendMessage(message, messageCompletionAck)) {
+               messageCompletionAck = null;
+            }
          }
       } catch (Throwable e) {
          logger.warn(e.getMessage(), e);
       } finally {
-         delivery.disposition(Accepted.getInstance());
-         settle(delivery);
-         connection.flush();
+         setControllerTarget(null);
+         if (messageCompletionAck != null) {
+            server.getStorageManager().afterCompleteOperations(messageCompletionAck);
+         }
       }
    }
 
@@ -190,61 +290,10 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
       return addressInfo;
    }
 
-
-   @Override
-   public void startAddressScan() throws Exception {
-      scanAddresses = new HashMap<>();
-   }
-
-   @Override
-   public void endAddressScan() throws Exception {
-      Map<SimpleString, Map<SimpleString, QueueConfiguration>> scannedAddresses = scanAddresses;
-      this.scanAddresses = null;
-      Stream<Binding> bindings = server.getPostOffice().getAllBindings();
-      bindings.forEach((binding) -> {
-         if (binding instanceof LocalQueueBinding) {
-            LocalQueueBinding localQueueBinding = (LocalQueueBinding) binding;
-            Map<SimpleString, QueueConfiguration> scannedQueues = scannedAddresses.get(localQueueBinding.getQueue().getAddress());
-
-            if (scannedQueues == null) {
-               if (logger.isDebugEnabled()) {
-                  logger.debug("There's no address " + localQueueBinding.getQueue().getAddress() + " so, removing queue");
-               }
-               try {
-                  deleteQueue(localQueueBinding.getQueue().getAddress(), localQueueBinding.getQueue().getName());
-               } catch (Exception e) {
-                  logger.warn(e.getMessage(), e);
-               }
-            } else {
-               QueueConfiguration queueConfg = scannedQueues.get(localQueueBinding.getQueue().getName());
-               if (queueConfg == null) {
-                  if (logger.isDebugEnabled()) {
-                     logger.debug("There no queue for " + localQueueBinding.getQueue().getName() + " so, removing queue");
-                  }
-                  try {
-                     deleteQueue(localQueueBinding.getQueue().getAddress(), localQueueBinding.getQueue().getName());
-                  } catch (Exception e) {
-                     logger.warn(e.getMessage(), e);
-                  }
-               }
-            }
-         }
-      });
-   }
-
-   private Map<SimpleString, QueueConfiguration> getQueueScanMap(SimpleString address) {
-      Map<SimpleString, QueueConfiguration> queueMap = scanAddresses.get(address);
-      if (queueMap == null) {
-         queueMap = new HashMap<>();
-         scanAddresses.put(address, queueMap);
-      }
-      return queueMap;
-   }
-
    @Override
    public void addAddress(AddressInfo addressInfo) throws Exception {
       if (logger.isDebugEnabled()) {
-         logger.debug("Adding address " + addressInfo);
+         logger.debug(server + " Adding address " + addressInfo);
       }
       server.addAddressInfo(addressInfo);
    }
@@ -252,7 +301,7 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
    @Override
    public void deleteAddress(AddressInfo addressInfo) throws Exception {
       if (logger.isDebugEnabled()) {
-         logger.debug("delete address " + addressInfo);
+         logger.debug(server + " delete address " + addressInfo);
       }
       try {
          server.removeAddressInfo(addressInfo.getName(), null, true);
@@ -267,65 +316,120 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
    @Override
    public void createQueue(QueueConfiguration queueConfiguration) throws Exception {
       if (logger.isDebugEnabled()) {
-         logger.debug("Adding queue " + queueConfiguration);
+         logger.debug(server + " Adding queue " + queueConfiguration);
       }
       server.createQueue(queueConfiguration, true);
-
-      if (scanAddresses != null) {
-         getQueueScanMap(queueConfiguration.getAddress()).put(queueConfiguration.getName(), queueConfiguration);
-      }
    }
 
    @Override
    public void deleteQueue(SimpleString addressName, SimpleString queueName) throws Exception {
       if (logger.isDebugEnabled()) {
-         logger.debug("destroy queue " + queueName + " on address = " + addressName);
+         logger.debug(server + " destroy queue " + queueName + " on address = " + addressName + " server " + server.getIdentity());
       }
       try {
-         server.destroyQueue(queueName);
+
+         server.destroyQueue(queueName,null, false, true, false, false);
       } catch (ActiveMQNonExistentQueueException expected) {
-         logger.debug("queue " + queueName + " was previously removed", expected);
+         logger.debug(server + " queue " + queueName + " was previously removed", expected);
       }
    }
 
-   private static ToLongFunction<MessageReference> referenceIDSupplier = (source) -> {
-      Long id = (Long) source.getMessage().getBrokerProperty(INTERNAL_ID_EXTRA_PROPERTY);
-      if (id == null) {
-         return -1;
-      } else {
-         return id;
-      }
-   };
+   public boolean postAcknowledge(String address, String queue, long messageID, ACKMessage ackMessage) throws Exception {
+      final Queue targetQueue = server.locateQueue(queue);
 
-   public void postAcknowledge(String address, String queue, long messageID) {
-      if (logger.isDebugEnabled()) {
-         logger.debug("post acking " + address + ", queue = " + queue + ", messageID = " + messageID);
+      if (targetQueue == null) {
+         logger.warn("Queue " + queue + " not found on mirror target, ignoring ack for queue=" + queue + ", messageID=" + messageID + " being serverID=" + ByteUtil.getFirstByte(messageID) + " and original id portion = " + ByteUtil.removeFirstByte(messageID));
+         return false;
       }
 
-      Queue targetQueue = server.locateQueue(queue);
-      if (targetQueue != null) {
-         MessageReference reference = targetQueue.removeWithSuppliedID(messageID, referenceIDSupplier);
-         if (reference != null) {
-            if (logger.isDebugEnabled()) {
-               logger.debug("Acking reference " + reference);
-            }
-            try {
-               targetQueue.acknowledge(reference);
-            } catch (Exception e) {
-               // TODO anything else I can do here?
-               // such as close the connection with error?
-               logger.warn(e.getMessage(), e);
-            }
-         } else {
-            if (logger.isTraceEnabled()) {
-               logger.trace("There is no reference to ack on " + messageID);
-            }
+      byte[] duplicateID = getInternalIDBytes(targetQueue.getID(), messageID);
+      if (duplicateIDCache.contains(duplicateID)) {
+         if (logger.isDebugEnabled()) {
+            logger.debug("Duplicate ID for ack on queue " + queue + " and messageID=" + messageID + " being ignored");
+            return false;
          }
       }
 
+      if (logger.isTraceEnabled()) {
+         // we only do the following check if tracing
+         if (targetQueue.getConsumerCount() > 0) {
+            StringPrintStream stringPrintStream = new StringPrintStream();
+            PrintStream out = stringPrintStream.newStream();
+
+            targetQueue.getConsumers().forEach((c) -> out.println(c));
+
+            logger.trace("server " + server.getIdentity() + ", queue " + targetQueue.getName() + " has consumers while delivering ack for " + messageID + "::" + stringPrintStream.toString());
+         }
+      }
+
+      if (logger.isTraceEnabled()) {
+         logger.trace("Server " + server.getIdentity() + " with queue = " + queue + " being acked for " + messageID + " coming from " + messageID + " targetQueue = " + targetQueue);
+      }
+
+      Transaction transaction = new MirrorTransaction(server.getStorageManager());
+
+      transaction.addOperation(ackMessage);
+      duplicateIDCache.addToCache(duplicateID, transaction);
+      performAck(messageID, targetQueue, transaction, true);
+      return true;
+
    }
 
-   private void sendMessage(AMQPMessage message) throws Exception {
+   private void performAck(long messageID, Queue targetQueue, Transaction transaction, boolean retry) {
+      assert transaction != null;
+      assert transaction instanceof MirrorTransaction;
+
+      if (logger.isTraceEnabled()) {
+         logger.trace("performAck " + messageID + "(messageID=" + ByteUtil.removeFirstByte(messageID) + "), targetQueue=" + targetQueue.getName());
+      }
+      MessageReference reference = targetQueue.removeWithSuppliedID(messageID, referenceIDSupplier);
+      if (reference == null && retry) {
+
+         if (logger.isDebugEnabled()) {
+            logger.debug("Retrying Reference not found on messageID=" + messageID + " not found, representing serverID=" + ByteUtil.getFirstByte(messageID) + " and actual messageID=" + ByteUtil.removeFirstByte(messageID));
+         }
+         targetQueue.flushOnIntermediate(() -> performAck(messageID, targetQueue, transaction, false));
+         return;
+      }
+      if (reference != null) {
+         if (logger.isTraceEnabled()) {
+            logger.trace("Post ack Server " + server + " worked well for messageID=" + messageID + " representing serverID=" + ByteUtil.getFirstByte(messageID) + " and actual messageID=" + ByteUtil.removeFirstByte(messageID) + " and message = " + reference);
+         }
+         try {
+            targetQueue.acknowledge(transaction, reference);
+         } catch (Exception e) {
+            // TODO anything else I can do here?
+            // such as close the connection with error?
+            logger.warn(e.getMessage(), e);
+         }
+      } else {
+         if (logger.isDebugEnabled()) {
+            logger.debug("Post ack Server " + server + " could not find messageID = " + messageID +
+                            " representing serverID=" + ByteUtil.getFirstByte(messageID) + " and actual messageID=" +
+                            ByteUtil.removeFirstByte(messageID));
+         }
+      }
+
+      try {
+         transaction.commit();
+      } catch (Throwable e) {
+         logger.warn(e.getMessage(), e);
+      }
+   }
+
+   byte[] getInternalIDBytes(long internalID) {
+      return ByteUtil.longToBytes(internalID);
+   }
+
+   byte[] getInternalIDBytes(long queueID, long internalID) {
+      byte[] internalIDBytes = new byte[16];
+      ByteUtil.longToBytes(queueID, internalIDBytes, 0);
+      ByteUtil.longToBytes(internalID, internalIDBytes, 8);
+      return internalIDBytes;
+   }
+
+   private boolean sendMessage(AMQPMessage message, ACKMessage messageCompletionAck) throws Exception {
+
       if (message.getMessageID() <= 0) {
          message.setMessageID(server.getStorageManager().generateID());
       }
@@ -333,7 +437,27 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
       Long internalID = (Long) AMQPMessageBrokerAccessor.getDeliveryAnnotationProperty(message, INTERNAL_ID);
       String internalAddress = (String) AMQPMessageBrokerAccessor.getDeliveryAnnotationProperty(message, INTERNAL_DESTINATION);
 
+
+      if (logger.isTraceEnabled()) {
+         logger.trace("sendMessage on server " + server + " for message " + message +
+                         " with internalID = " + internalID + " having salt id " + ByteUtil.getFirstByte(internalID) +
+                               " and ID messageID=" + ByteUtil.removeFirstByte(internalID));
+      }
+
+      final TransactionImpl transaction = new MirrorTransaction(server.getStorageManager());
+      transaction.addOperation(messageCompletionAck);
+
+      routingContext.setDuplicateDetection(false); // we do our own duplicate detection here
+
       if (internalID != null) {
+         byte[] duplicateIDBytes = getInternalIDBytes(internalID);
+         if (duplicateIDCache.contains(duplicateIDBytes)) {
+            flow();
+            return false;
+         } else {
+            routingContext.setTransaction(transaction);
+            duplicateIDCache.addToCache(duplicateIDBytes, transaction);
+         }
          message.setBrokerProperty(INTERNAL_ID_EXTRA_PROPERTY, internalID);
       }
 
@@ -341,14 +465,14 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
          message.setAddress(internalAddress);
       }
 
-      routingContext.clear();
+      routingContext.clear().setMirrorSource(this);
       server.getPostOffice().route(message, routingContext, false);
+      transaction.commit();
       flow();
+      return true;
    }
 
    /**
-    * not implemented on the target, treated at {@link #postAcknowledge(String, String, long)}
-    *
     * @param ref
     * @param reason
     */
@@ -356,13 +480,6 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
    public void postAcknowledge(MessageReference ref, AckReason reason) {
    }
 
-   /**
-    * not implemented on the target, treated at {@link #sendMessage(AMQPMessage)}
-    *
-    * @param message
-    * @param context
-    * @param refs
-    */
    @Override
    public void sendMessage(Message message, RoutingContext context, List<MessageReference> refs) {
    }

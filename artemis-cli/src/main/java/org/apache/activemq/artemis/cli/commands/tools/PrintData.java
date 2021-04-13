@@ -140,21 +140,14 @@ public class PrintData extends DBOption {
 
       printBanner(out, BINDINGS_BANNER);
 
-      try {
-         DescribeJournal.describeBindingsJournal(bindingsDirectory, out, safe);
-      } catch (Exception e) {
-         e.printStackTrace();
-      }
+      printBindings(bindingsDirectory, out, safe, true, true);
 
       printBanner(out, MESSAGES_BANNER);
 
       DescribeJournal describeJournal = null;
-      try {
-         describeJournal = DescribeJournal.describeMessagesJournal(messagesDirectory, out, safe);
-      } catch (Exception e) {
-         e.printStackTrace();
+      describeJournal = printMessages(messagesDirectory, out, safe, true, true);
+      if (describeJournal == null)
          return;
-      }
 
       try {
          printBanner(out, "P A G I N G");
@@ -165,6 +158,25 @@ public class PrintData extends DBOption {
          return;
       }
 
+   }
+
+   public static DescribeJournal printMessages(File messagesDirectory, PrintStream out, boolean safe, boolean printRecords, boolean printSurving) {
+      DescribeJournal describeJournal;
+      try {
+         describeJournal = DescribeJournal.describeMessagesJournal(messagesDirectory, out, safe, printRecords, printSurving);
+      } catch (Exception e) {
+         e.printStackTrace();
+         return null;
+      }
+      return describeJournal;
+   }
+
+   public static void printBindings(File bindingsDirectory, PrintStream out, boolean safe, boolean printRecords, boolean printSurviving) {
+      try {
+         DescribeJournal.describeBindingsJournal(bindingsDirectory, out, safe, printRecords, printSurviving);
+      } catch (Exception e) {
+         e.printStackTrace();
+      }
    }
 
    protected static void printBanner(PrintStream out, String x2) {

@@ -109,6 +109,8 @@ public class ConfigurationImpl implements Configuration, Serializable {
 
    private String name = "localhost";
 
+   private short brokerMirrorID = 0;
+
    private boolean persistenceEnabled = ActiveMQDefaultConfiguration.isDefaultPersistenceEnabled();
 
    private boolean journalDatasync = ActiveMQDefaultConfiguration.isDefaultJournalDatasync();
@@ -366,6 +368,17 @@ public class ConfigurationImpl implements Configuration, Serializable {
    private File artemisInstance;
 
    // Public -------------------------------------------------------------------------
+
+   @Override
+   public short getBrokerMirrorId() {
+      return brokerMirrorID;
+   }
+
+   @Override
+   public Configuration setBrokerMirrorId(short mirrorID) {
+      this.brokerMirrorID = mirrorID;
+      return this;
+   }
 
    @Override
    public Configuration setSystemPropertyPrefix(String systemPropertyPrefix) {

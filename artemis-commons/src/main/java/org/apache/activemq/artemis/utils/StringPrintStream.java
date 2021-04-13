@@ -14,33 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.activemq.artemis.core.transaction.impl;
+package org.apache.activemq.artemis.utils;
 
-import org.apache.activemq.artemis.core.persistence.StorageManager;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 
+public class StringPrintStream {
+   final ByteArrayOutputStream byteOuptut = new ByteArrayOutputStream();
 
-public class BindingsTransactionImpl extends TransactionImpl {
-
-   public BindingsTransactionImpl(StorageManager storage) {
-      super(storage, 0);
-   }
-
-   /**
-    * @throws Exception
-    */
-   @Override
-   protected void doCommit() throws Exception {
-      if (isContainsPersistent()) {
-         storageManager.commitBindings(getID());
-         setState(State.COMMITTED);
-      }
+   public PrintStream newStream() throws IOException {
+      return new PrintStream(byteOuptut, true, StandardCharsets.UTF_8.name());
    }
 
    @Override
-   protected void doRollback() throws Exception {
-      if (isContainsPersistent()) {
-         storageManager.rollbackBindings(getID());
-         setState(State.ROLLEDBACK);
+   public String toString() {
+      try {
+         return byteOuptut.toString(StandardCharsets.UTF_8.name());
+      } catch (Throwable e) {
+         throw new RuntimeException(e);
       }
    }
+
 }

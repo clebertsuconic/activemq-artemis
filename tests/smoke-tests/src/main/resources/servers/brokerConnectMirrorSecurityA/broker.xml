@@ -26,10 +26,11 @@ under the License.
    <core xmlns="urn:activemq:core" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="urn:activemq:core ">
 
-      <name>0.0.0.0</name>
+      <name>ServerA</name>
 
+      <broker-mirror-id>1</broker-mirror-id>
 
-      <persistence-enabled>false</persistence-enabled>
+      <persistence-enabled>true</persistence-enabled>
 
       <!-- this could be ASYNCIO, MAPPED, NIO
            ASYNCIO: Linux Libaio
@@ -127,7 +128,7 @@ under the License.
 
       <broker-connections>
          <amqp-connection uri="tcp://localhost:61617" name="outgoing" reconnect-attempts="-1" retry-interval="100" user="B" password="B">
-            <mirror/>
+            <mirror source-mirror-address="toB"/>
          </amqp-connection>
       </broker-connections>
 

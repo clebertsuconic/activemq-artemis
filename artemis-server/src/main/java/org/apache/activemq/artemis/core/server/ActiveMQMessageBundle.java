@@ -498,4 +498,7 @@ public interface ActiveMQMessageBundle {
 
    @Message(id = 229233, value = "Cannot set ActiveMQSecurityManager during startup or while started")
    IllegalStateException cannotSetSecurityManager();
+
+   @Message(id = 229234, value = "broker-mirror-id needs to be between 0 and 255, while you passed {0} on the configuration", format = Message.Format.MESSAGE_FORMAT)
+   IllegalArgumentException invalidBrokerID(Object val);
 }

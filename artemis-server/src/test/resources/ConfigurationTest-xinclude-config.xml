@@ -20,6 +20,8 @@
         xmlns:xi="http://www.w3.org/2001/XInclude"
         xsi:schemaLocation="urn:activemq ../../../../activemq-server/src/main/resources/schema/artemis-server.xsd">
    <core xmlns="urn:activemq:core">
+
+      <broker-mirror-id>3</broker-mirror-id>
       <name>SomeNameForUseOnTheApplicationServer</name>
       <resolve-protocols>false</resolve-protocols>
       <persistence-enabled>false</persistence-enabled>

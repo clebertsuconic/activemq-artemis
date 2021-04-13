@@ -28,6 +28,7 @@ import org.apache.activemq.artemis.core.persistence.CoreMessageObjectPools;
 import org.apache.activemq.artemis.core.persistence.Persister;
 import org.apache.activemq.artemis.protocol.amqp.util.NettyWritable;
 import org.apache.activemq.artemis.protocol.amqp.util.TLSEncode;
+import org.apache.activemq.artemis.utils.ByteUtil;
 import org.apache.activemq.artemis.utils.DataConstants;
 import org.apache.activemq.artemis.utils.collections.TypedProperties;
 import org.apache.qpid.proton.amqp.Symbol;
@@ -322,17 +323,26 @@ public class AMQPStandardMessage extends AMQPMessage {
       // toString will only call ensureScanning on regular messages
       // as large messages might need to do extra work to parse it
       ensureScanning();
-      return super.toString();
+      String body = getStringBody();
+      return super.toString() + (body != null ? ",body=[" + body + "]" : "");
    }
 
    @Override
    public String getStringBody() {
       final Section body = getBody();
-      if (body instanceof AmqpValue && ((AmqpValue) body).getValue() instanceof String) {
-         return (String) ((AmqpValue) body).getValue();
-      } else {
-         return null;
+      if (body instanceof AmqpValue) {
+         AmqpValue sectionBody = (AmqpValue) body;
+         if (sectionBody != null) {
+            if (sectionBody.getValue() instanceof Long) {
+               long id = (long)sectionBody.getValue();
+               return sectionBody.getValue().toString() + ", byte[0]=" + ByteUtil.getFirstByte(id) + ", messageID=" + ByteUtil.removeFirstByte(id);
+            } else {
+               return sectionBody.getValue().toString();
+            }
+         }
       }
+
+      return null;
    }
 }
 
