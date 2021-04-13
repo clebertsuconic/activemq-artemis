@@ -110,6 +110,8 @@ public class ConfigurationImpl implements Configuration, Serializable {
 
    private String name = "localhost";
 
+   private short brokerMirrorID = 0;
+
    private boolean persistenceEnabled = ActiveMQDefaultConfiguration.isDefaultPersistenceEnabled();
 
    private boolean journalDatasync = ActiveMQDefaultConfiguration.isDefaultJournalDatasync();
@@ -417,6 +419,17 @@ public class ConfigurationImpl implements Configuration, Serializable {
    @Override
    public ConfigurationImpl setJournalRetentionMaxBytes(long bytes) {
       this.journalRetentionMaxBytes = bytes;
+      return this;
+   }
+
+   @Override
+   public short getBrokerMirrorId() {
+      return brokerMirrorID;
+   }
+
+   @Override
+   public Configuration setBrokerMirrorId(short mirrorID) {
+      this.brokerMirrorID = mirrorID;
       return this;
    }
 

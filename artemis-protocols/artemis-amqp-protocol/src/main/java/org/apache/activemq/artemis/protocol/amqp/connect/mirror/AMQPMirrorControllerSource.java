@@ -37,31 +37,36 @@ import org.apache.activemq.artemis.core.transaction.Transaction;
 import org.apache.activemq.artemis.protocol.amqp.broker.AMQPMessage;
 import org.apache.activemq.artemis.protocol.amqp.broker.AMQPMessageBrokerAccessor;
 import org.apache.activemq.artemis.protocol.amqp.connect.AMQPBrokerConnection;
+import org.apache.activemq.artemis.utils.ByteUtil;
 import org.apache.qpid.proton.amqp.Symbol;
 import org.apache.qpid.proton.amqp.messaging.DeliveryAnnotations;
 import org.apache.qpid.proton.amqp.messaging.Properties;
+import org.apache.qpid.proton.engine.Sender;
 import org.jboss.logging.Logger;
 
-public class AMQPMirrorControllerSource implements MirrorController, ActiveMQComponent {
+import static org.apache.activemq.artemis.protocol.amqp.connect.mirror.AMQPMirrorControllerTarget.getControllerTarget;
+
+public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> implements MirrorController, ActiveMQComponent {
 
    private static final Logger logger = Logger.getLogger(AMQPMirrorControllerSource.class);
 
    public static final Symbol EVENT_TYPE = Symbol.getSymbol("x-opt-amq-mr-ev-type");
    public static final Symbol ADDRESS = Symbol.getSymbol("x-opt-amq-mr-adr");
    public static final Symbol QUEUE = Symbol.getSymbol("x-opt-amq-mr-qu");
+   public static final Symbol BROKER_ID = Symbol.getSymbol("x-opt-amq-bkr-id");
 
    // Events:
    public static final Symbol ADD_ADDRESS = Symbol.getSymbol("addAddress");
    public static final Symbol DELETE_ADDRESS = Symbol.getSymbol("deleteAddress");
    public static final Symbol CREATE_QUEUE = Symbol.getSymbol("createQueue");
    public static final Symbol DELETE_QUEUE = Symbol.getSymbol("deleteQueue");
-   public static final Symbol ADDRESS_SCAN_START = Symbol.getSymbol("addressCanStart");
-   public static final Symbol ADDRESS_SCAN_END = Symbol.getSymbol("addressScanEnd");
    public static final Symbol POST_ACK = Symbol.getSymbol("postAck");
 
    // Delivery annotation property used on mirror control routing and Ack
    public static final Symbol INTERNAL_ID = Symbol.getSymbol("x-opt-amq-mr-id");
    public static final Symbol INTERNAL_DESTINATION = Symbol.getSymbol("x-opt-amq-mr-dst");
+
+   public static final SimpleString INTERNAL_ID_EXTRA_PROPERTY = SimpleString.toSimpleString(INTERNAL_ID.toString());
 
    private static final ThreadLocal<MirrorControlRouting> mirrorControlRouting = ThreadLocal.withInitial(() -> new MirrorControlRouting(null));
 
@@ -88,6 +93,7 @@ public class AMQPMirrorControllerSource implements MirrorController, ActiveMQCom
    }
 
    public AMQPMirrorControllerSource(Queue snfQueue, ActiveMQServer server, boolean acks, boolean addQueues, boolean deleteQueues, AMQPBrokerConnection brokerConnection) {
+      super(server);
       this.snfQueue = snfQueue;
       this.server = server;
       this.acks = acks;
@@ -105,19 +111,14 @@ public class AMQPMirrorControllerSource implements MirrorController, ActiveMQCom
    }
 
    @Override
-   public void startAddressScan() throws Exception {
-      Message message = createMessage(null, null, ADDRESS_SCAN_START, null);
-      route(server, message);
-   }
-
-   @Override
-   public void endAddressScan() throws Exception {
-      Message message = createMessage(null, null, ADDRESS_SCAN_END, null);
-      route(server, message);
-   }
-
-   @Override
    public void addAddress(AddressInfo addressInfo) throws Exception {
+      if (logger.isTraceEnabled()) {
+         logger.trace(server + " addAddress " + addressInfo);
+      }
+
+      if (getControllerTarget() != null && !addressInfo.isInternal()) {
+         return;
+      }
       if (addQueues) {
          Message message = createMessage(addressInfo.getName(), null, ADD_ADDRESS, addressInfo.toJSON());
          route(server, message);
@@ -126,6 +127,12 @@ public class AMQPMirrorControllerSource implements MirrorController, ActiveMQCom
 
    @Override
    public void deleteAddress(AddressInfo addressInfo) throws Exception {
+      if (logger.isTraceEnabled()) {
+         logger.trace(server + " deleteAddress " + addressInfo);
+      }
+      if (getControllerTarget() != null && !addressInfo.isInternal()) {
+         return;
+      }
       if (deleteQueues) {
          Message message = createMessage(addressInfo.getName(), null, DELETE_ADDRESS, addressInfo.toJSON());
          route(server, message);
@@ -134,6 +141,15 @@ public class AMQPMirrorControllerSource implements MirrorController, ActiveMQCom
 
    @Override
    public void createQueue(QueueConfiguration queueConfiguration) throws Exception {
+      if (logger.isTraceEnabled()) {
+         logger.trace(server + " createQueue " + queueConfiguration);
+      }
+      if (getControllerTarget() != null || queueConfiguration.isInternal()) {
+         if (logger.isTraceEnabled()) {
+            logger.trace("Rejecting ping pong on create " + queueConfiguration + " as isInternal=" + queueConfiguration.isInternal() + " and mirror target = " + getControllerTarget());
+         }
+         return;
+      }
       if (addQueues) {
          Message message = createMessage(queueConfiguration.getAddress(), queueConfiguration.getName(), CREATE_QUEUE, queueConfiguration.toJSON());
          route(server, message);
@@ -142,6 +158,12 @@ public class AMQPMirrorControllerSource implements MirrorController, ActiveMQCom
 
    @Override
    public void deleteQueue(SimpleString address, SimpleString queue) throws Exception {
+      if (logger.isTraceEnabled()) {
+         logger.trace(server + " deleteQueue " + address + "/" + queue);
+      }
+      if (getControllerTarget() != null) {
+         return;
+      }
       if (deleteQueues) {
          Message message = createMessage(address, queue, DELETE_QUEUE, queue.toString());
          route(server, message);
@@ -150,6 +172,17 @@ public class AMQPMirrorControllerSource implements MirrorController, ActiveMQCom
 
    @Override
    public void sendMessage(Message message, RoutingContext context, List<MessageReference> refs) {
+      if (context.getMirrorSource() != null &&
+         context.getMirrorSource().getRemoteMirrorId() == this.getRemoteMirrorId()) {
+         if (logger.isTraceEnabled()) {
+            logger.trace("server " + server + " is Rejecting ping pong on send " + message);
+         }
+         return;
+      }
+
+      if (logger.isTraceEnabled()) {
+         logger.trace(server + " send message " + message);
+      }
 
       try {
          context.setReusable(false);
@@ -159,7 +192,7 @@ public class AMQPMirrorControllerSource implements MirrorController, ActiveMQCom
          refs.add(ref);
          message.usageUp();
 
-         setProtocolData(ref);
+         setProtocolData(server, ref);
 
          if (message.isDurable() && snfQueue.isDurable()) {
             PostOfficeImpl.storeDurableReference(server.getStorageManager(), message, context.getTransaction(), snfQueue, true);
@@ -170,16 +203,16 @@ public class AMQPMirrorControllerSource implements MirrorController, ActiveMQCom
       }
    }
 
-   public static void validateProtocolData(MessageReference ref, SimpleString snfAddress) {
+   public static void validateProtocolData(ActiveMQServer server, MessageReference ref, SimpleString snfAddress) {
       if (ref.getProtocolData() == null && !ref.getMessage().getAddressSimpleString().equals(snfAddress)) {
-         setProtocolData(ref);
+         setProtocolData(server, ref);
       }
    }
 
-   private static void setProtocolData(MessageReference ref) {
+   private static void setProtocolData(ActiveMQServer server, MessageReference ref) {
       Map<Symbol, Object> daMap = new HashMap<>();
       DeliveryAnnotations deliveryAnnotations = new DeliveryAnnotations(daMap);
-      daMap.put(INTERNAL_ID, ref.getMessage().getMessageID());
+      daMap.put(INTERNAL_ID, ByteUtil.mixByteAndLong((byte)server.getMirrorBrokerId(), ref.getMessage().getMessageID()));
       String address = ref.getMessage().getAddress();
       if (address != null) { // this is the message that was set through routing
          Properties amqpProperties = getProperties(ref.getMessage());
@@ -202,8 +235,34 @@ public class AMQPMirrorControllerSource implements MirrorController, ActiveMQCom
 
    @Override
    public void postAcknowledge(MessageReference ref, AckReason reason) throws Exception {
+
+      MirrorController targetController = getControllerTarget();
+
+      if (targetController != null || ref.getQueue() != null && (ref.getQueue().isInternalQueue() || ref.getQueue().isMirrorController())) {
+         logger.trace(server + " rejecting ping pong for postAcknowledge queue=" + ref.getQueue().getName() +
+                         ", ref=" + ref);
+         return;
+      }
+
+      if (logger.isTraceEnabled()) {
+         logger.trace(server + " postAcknowledge " + ref);
+      }
+
       if (acks && !ref.getQueue().isMirrorController()) { // we don't call postACK on snfqueues, otherwise we would get infinite loop because of this feedback
-         Message message = createMessage(ref.getQueue().getAddress(), ref.getQueue().getName(), POST_ACK, ref.getMessage().getMessageID());
+         Long internalIDObject = (Long)ref.getMessage().getBrokerProperty(INTERNAL_ID_EXTRA_PROPERTY);
+         long internalID;
+         if (internalIDObject == null) {
+            internalID = ByteUtil.mixByteAndLong((byte)localMirrorId, ref.getMessageID());
+         } else {
+            internalID = internalIDObject.longValue();
+            if (logger.isTraceEnabled()) {
+               logger.trace("server " + server + "postAcknowledge on " + server + " acking message " + ref);
+            }
+         }
+         if (logger.isTraceEnabled()) {
+            logger.trace(server + " sending ack message from server " + ByteUtil.getFirstByte(internalID) + " with messageID=" + ByteUtil.removeFirstByte(internalID));
+         }
+         Message message = createMessage(ref.getQueue().getAddress(), ref.getQueue().getName(), POST_ACK, internalID);
          route(server, message);
          ref.getMessage().usageDown();
       }

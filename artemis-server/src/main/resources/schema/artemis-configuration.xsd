@@ -36,6 +36,15 @@
             </xsd:annotation>
          </xsd:element>
 
+         <xsd:element name="broker-mirror-id" type="xsd:integer" maxOccurs="1" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  When you use mirroring, you need to specify an unique broker-mirror-id that is less than 255, and it needs to be unique between any mirrors this broker is connected to.
+                  This will be used to identify data from this broker towards other brokers on the mirror and process acknowledgments and other data maintenance accordingly.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+
          <xsd:element name="system-property-prefix" type="xsd:string" maxOccurs="1" minOccurs="0">
             <xsd:annotation>
                <xsd:documentation>
@@ -1712,7 +1721,7 @@
          <xsd:element name="concurrency" type="xsd:int" default="1" maxOccurs="1" minOccurs="0">
             <xsd:annotation>
                <xsd:documentation>
-                  Number of concurrent workers, more workers can help increase throughput on high latency networks. 
+                  Number of concurrent workers, more workers can help increase throughput on high latency networks.
                   Defaults to 1
                </xsd:documentation>
             </xsd:annotation>

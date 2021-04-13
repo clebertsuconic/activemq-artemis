@@ -203,7 +203,6 @@ public class AMQPReplicaTest extends AmqpClientTestSupport {
       server_2.start();
       // if this does not succeed the catch up did not arrive at the other server
       Wait.assertTrue(() -> server.locateQueue("sometest") != null);
-      Wait.assertTrue(() -> server.locateQueue("ToBeGone") == null);
       server_2.stop();
       server.stop();
    }
@@ -214,8 +213,6 @@ public class AMQPReplicaTest extends AmqpClientTestSupport {
       server.start();
       server.setIdentity("Server1");
       server.addAddressInfo(new AddressInfo("sometest").setAutoCreated(false).addRoutingType(RoutingType.MULTICAST));
-      // This queue will disappear from the source, so it should go
-      server.createQueue(new QueueConfiguration("ToBeGone").setDurable(true).setRoutingType(RoutingType.MULTICAST));
       server.stop();
 
       server_2 = createServer(AMQP_PORT_2, false);
@@ -243,12 +240,10 @@ public class AMQPReplicaTest extends AmqpClientTestSupport {
 
       server.start();
       Assert.assertTrue(server.locateQueue("sometest") == null);
-      Assert.assertTrue(server.locateQueue("ToBeGone") != null);
       Wait.assertTrue(server::isActive);
       server_2.start();
       // if this does not succeed the catch up did not arrive at the other server
       Wait.assertTrue(() -> server.locateQueue("sometest") != null);
-      Wait.assertTrue(() -> server.locateQueue("ToBeGone") == null);
       server_2.stop();
       server.stop();
    }

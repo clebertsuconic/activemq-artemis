@@ -62,6 +62,10 @@ public interface Configuration {
     */
    String getName();
 
+   short getBrokerMirrorId();
+
+   Configuration setBrokerMirrorId(short mirrorID);
+
    /**
     * To be used on dependency management on the application server
     */

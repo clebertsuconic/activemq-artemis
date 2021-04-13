@@ -81,6 +81,7 @@ import org.apache.activemq.artemis.core.config.storage.DatabaseStorageConfigurat
 import org.apache.activemq.artemis.core.config.storage.FileStorageConfiguration;
 import org.apache.activemq.artemis.core.io.aio.AIOSequentialFileFactory;
 import org.apache.activemq.artemis.core.security.Role;
+import org.apache.activemq.artemis.core.server.ActiveMQMessageBundle;
 import org.apache.activemq.artemis.core.server.ActiveMQServerLogger;
 import org.apache.activemq.artemis.core.server.ComponentConfigurationRoutingType;
 import org.apache.activemq.artemis.core.server.JournalType;
@@ -362,6 +363,17 @@ public final class FileConfigurationParser extends XMLConfigurationUtil {
       if (config.getHAPolicyConfiguration() == null) {
          config.setHAPolicyConfiguration(new LiveOnlyPolicyConfiguration());
       }
+
+      Integer mirrorBrokerId = getInteger(e, "broker-mirror-id", 0, (name, value) -> {
+         if (value != null) {
+            int valueInteger = (int) value;
+            if (valueInteger < 0 || valueInteger > 255) {
+               throw ActiveMQMessageBundle.BUNDLE.invalidBrokerID(value);
+            }
+         }
+      });
+
+      config.setBrokerMirrorId(mirrorBrokerId.shortValue());
 
       config.setResolveProtocols(getBoolean(e, "resolve-protocols", config.isResolveProtocols()));
 

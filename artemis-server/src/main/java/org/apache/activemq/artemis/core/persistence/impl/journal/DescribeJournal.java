@@ -240,7 +240,7 @@ public final class DescribeJournal {
                                             final byte[] extraData,
                                             final int numberOfRecords) throws Exception {
                recordsPrintStream.println("operation@Prepare,txID=" + transactionID + ",numberOfRecords=" + numberOfRecords +
-                              ",extraData=" + encode(extraData) + ", xid=" + toXid(extraData));
+                                             ",extraData=" + encode(extraData) + ", xid=" + toXid(extraData));
             }
 
             @Override
@@ -522,8 +522,8 @@ public final class DescribeJournal {
    private static boolean isSafe(Object obj) {
       // these classes will have user's data and not considered safe
       return !(obj instanceof PersistentAddressBindingEncoding ||
-              obj instanceof MessageDescribe ||
-              obj instanceof PersistentQueueBindingEncoding);
+         obj instanceof MessageDescribe ||
+         obj instanceof PersistentQueueBindingEncoding);
    }
 
    private static String toString(Object obj, boolean safe) {

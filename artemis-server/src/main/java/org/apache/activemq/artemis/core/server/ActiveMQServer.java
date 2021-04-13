@@ -126,6 +126,12 @@ public interface ActiveMQServer extends ServiceComponent {
     */
    void setIdentity(String identity);
 
+   /** an ID that should be < 255 or 1 byte, and would be used to identify data between mirrors.
+    *  -1 would mean not assigned */
+   default short getMirrorBrokerId() {
+      return -1;
+   }
+
    String getIdentity();
 
    String describe();

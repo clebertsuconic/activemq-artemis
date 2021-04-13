@@ -544,7 +544,7 @@ public class TransactionImpl implements Transaction {
    // Private
    // -------------------------------------------------------------------
 
-   private void doRollback() throws Exception {
+   protected void doRollback() throws Exception {
       if (containsPersistent || xid != null && state == State.PREPARED) {
          storageManager.rollback(id);
       }
@@ -556,13 +556,13 @@ public class TransactionImpl implements Transaction {
       }
    }
 
-   private synchronized void afterCommit(List<TransactionOperation> oeprationsToComplete) {
-      if (oeprationsToComplete != null) {
-         for (TransactionOperation operation : oeprationsToComplete) {
+   protected synchronized void afterCommit(List<TransactionOperation> operationsToComplete) {
+      if (operationsToComplete != null) {
+         for (TransactionOperation operation : operationsToComplete) {
             operation.afterCommit(this);
          }
          // Help out GC here
-         oeprationsToComplete.clear();
+         operationsToComplete.clear();
       }
    }
 

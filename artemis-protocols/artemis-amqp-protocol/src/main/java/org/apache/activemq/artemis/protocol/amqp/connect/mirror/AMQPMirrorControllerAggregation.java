@@ -55,6 +55,24 @@ public class AMQPMirrorControllerAggregation implements MirrorController, Active
    }
 
    @Override
+   public short getLocalMirrorId() {
+      if (partitions != null && partitions.size() > 0) {
+         return partitions.get(0).getLocalMirrorId();
+      } else {
+         throw new IllegalStateException();
+      }
+   }
+
+   @Override
+   public short getRemoteMirrorId() {
+      if (partitions != null && partitions.size() > 0) {
+         return partitions.get(0).getRemoteMirrorId();
+      } else {
+         throw new IllegalStateException();
+      }
+   }
+
+   @Override
    public boolean isStarted() {
       return false;
    }
@@ -106,17 +124,4 @@ public class AMQPMirrorControllerAggregation implements MirrorController, Active
       }
    }
 
-   @Override
-   public void startAddressScan() throws Exception {
-      for (MirrorController partition : partitions) {
-         partition.startAddressScan();
-      }
-   }
-
-   @Override
-   public void endAddressScan() throws Exception {
-      for (MirrorController partition : partitions) {
-         partition.endAddressScan();
-      }
-   }
 }
