@@ -17,7 +17,6 @@
 package org.apache.activemq.artemis.core.config.amqpBrokerConnectivity;
 
 import org.apache.activemq.artemis.api.core.SimpleString;
-import org.apache.activemq.artemis.utils.RandomUtil;
 
 public class AMQPMirrorBrokerConnectionElement extends AMQPBrokerConnectionElement {
 

@@ -251,10 +251,10 @@ public class BrokerInSyncTest extends AmqpClientTestSupport {
       queueToDebugOn2.forEach((r) -> out.println("Server2 has reference " + r.getMessage()));
       out.println("*******************************************************************************************************************************");
       out.println("PrintData Server 1");
-      PrintData.printMessages(server.getConfiguration().getJournalLocation(), out, false, false, true);
+      PrintData.printMessages(server.getConfiguration().getJournalLocation(), out, false, false, true, false);
       out.println("*******************************************************************************************************************************");
       out.println("PrintData Server 2");
-      PrintData.printMessages(server_2.getConfiguration().getJournalLocation(), out, false, false, true);
+      PrintData.printMessages(server_2.getConfiguration().getJournalLocation(), out, false, false, true, false);
       logger.debug("Data Available on Servers:\n" + stringPrintStream.toString());
    }
 

@@ -153,26 +153,31 @@ public final class DescribeJournal {
       describeBindingsJournal(bindingsDir, System.out, false, true, true);
    }
 
+
    public static void describeBindingsJournal(final File bindingsDir, PrintStream out, boolean safe, boolean printRecords, boolean printSurviving) throws Exception {
+      describeBindingsJournal(bindingsDir, out, safe, printRecords, printSurviving, false);
+   }
+
+   public static void describeBindingsJournal(final File bindingsDir, PrintStream out, boolean safe, boolean printRecords, boolean printSurviving, boolean reclaimed) throws Exception {
 
       SequentialFileFactory bindingsFF = new NIOSequentialFileFactory(bindingsDir, null, 1);
 
       JournalImpl bindings = new JournalImpl(1024 * 1024, 2, 2, -1, 0, bindingsFF, "activemq-bindings", "bindings", 1);
-      describeJournal(bindingsFF, bindings, bindingsDir, out, safe, printRecords, printSurviving);
+      describeJournal(bindingsFF, bindings, bindingsDir, out, safe, printRecords, printSurviving, reclaimed);
    }
 
    public static DescribeJournal describeMessagesJournal(final File messagesDir) throws Exception {
-      return describeMessagesJournal(messagesDir, System.out, false, true, true);
+      return describeMessagesJournal(messagesDir, System.out, false, true, true, false);
    }
 
-   public static DescribeJournal describeMessagesJournal(final File messagesDir, PrintStream out, boolean safe, boolean printRecords, boolean printSurviving) throws Exception {
+   public static DescribeJournal describeMessagesJournal(final File messagesDir, PrintStream out, boolean safe, boolean printRecords, boolean printSurviving, boolean reclaimed) throws Exception {
       Configuration configuration = getConfiguration();
       SequentialFileFactory messagesFF = new NIOSequentialFileFactory(messagesDir, null, 1);
 
       // Will use only default values. The load function should adapt to anything different
       JournalImpl messagesJournal = new JournalImpl(configuration.getJournalFileSize(), configuration.getJournalMinFiles(), configuration.getJournalPoolFiles(), 0, 0, messagesFF, "activemq-data", "amq", 1);
 
-      return describeJournal(messagesFF, messagesJournal, messagesDir, out, safe, printRecords, printSurviving);
+      return describeJournal(messagesFF, messagesJournal, messagesDir, out, safe, printRecords, printSurviving, reclaimed);
    }
 
    private static final PrintStream nullPrintStream = new PrintStream(new OutputStream() {
@@ -193,7 +198,8 @@ public final class DescribeJournal {
                                                   PrintStream out,
                                                   boolean safe,
                                                   boolean printRecords,
-                                                  boolean printSurving) throws Exception {
+                                                  boolean printSurving,
+                                                  boolean reclaimed) throws Exception {
       List<JournalFile> files = journal.orderFiles();
 
       final Map<Long, PageSubscriptionCounterImpl> counters = new HashMap<>();
@@ -299,7 +305,7 @@ public final class DescribeJournal {
                   recordsPrintStream.println();
                }
             }
-         });
+         }, null, reclaimed);
       }
 
       recordsPrintStream.println();
