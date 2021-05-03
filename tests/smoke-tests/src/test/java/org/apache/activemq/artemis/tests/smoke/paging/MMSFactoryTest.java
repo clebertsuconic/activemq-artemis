@@ -146,16 +146,17 @@ public class MMSFactoryTest extends SmokeTestBase {
       // this is expected to be 0 at the end, we are not sending greens
       AtomicInteger greenConsumed = new AtomicInteger(0);
 
-      final int NUMBER_OF_LIKES_THEM_ALL = 6;
-      final int NUMBER_OF_LIKES_GREEN = 6;
-      final int NUMBER_OF_LIKES_RED = 6;
+      final int NUMBER_OF_LIKES_THEM_ALL = 30;
+      final int NUMBER_OF_LIKES_GREEN = 30;
+      final int NUMBER_OF_LIKES_RED = 30;
 
       final int PROCESSING_TIME_ALL = 10;
-      final int PROCESSING_TIME_RED = 100;
+      final int PROCESSING_TIME_RED = 300;
 
       final int BATCH_SIZE = 5_000;
 
       ReusableLatch latchSlow = new ReusableLatch(0);
+      ReusableLatch verySlowLatch = new ReusableLatch(0);
 
       Consumer[] likesThemAll = new Consumer[NUMBER_OF_LIKES_THEM_ALL];
       Consumer[] likesGreen = new Consumer[NUMBER_OF_LIKES_GREEN];
@@ -173,13 +174,13 @@ public class MMSFactoryTest extends SmokeTestBase {
       }
 
 
+      Consumer verySlowRed = new Consumer(300, "MMFactory::Red", verySlowLatch, redConsumed, "Very slow consumer");
+      verySlowRed.start();
+
       for (int i = 0; i < NUMBER_OF_LIKES_RED; i++) {
          likesRed[i] = new Consumer(PROCESSING_TIME_RED, "MMFactory::Red", latchSlow, redConsumed);
          likesRed[i].start();
       }
-
-      Consumer verySlowRed = new Consumer(PROCESSING_TIME_RED * 5, "MMFactory::Red", latchSlow, redConsumed, "Very slow consumer");
-      verySlowRed.start();
 
       ConnectionFactory factory = createConnectionFactory(protocol, "tcp://localhost:61616");
       Connection connection = factory.createConnection();
@@ -190,18 +191,19 @@ public class MMSFactoryTest extends SmokeTestBase {
       while (true) {
          // slow down processing
          latchSlow.countUp();
+         verySlowLatch.countUp();
          for (int i = 0; i < BATCH_SIZE; i++) {
             String color = "red"; // we are only making red today!
             TextMessage message = session.createTextMessage("This is a " + color + " MM");
             message.setStringProperty("color", color);
-            message.setStringProperty("JMSXGroupID", "" + (i % 20));
+            message.setStringProperty("JMSXGroupID", "" + (i % 60));
             mmsFactory.send(message);
          }
          session.commit();
 
          for (int i = 0; i < 100; i++) {
 
-            if (allConsumed.get() == BATCH_SIZE) {
+            if (allConsumed.get() > BATCH_SIZE - 1000) {
                // We have enough.. consume them all now
                break;
             }
@@ -212,8 +214,27 @@ public class MMSFactoryTest extends SmokeTestBase {
             Thread.sleep(1_000);
          }
 
+
          // Speed up processing
          latchSlow.countDown();
+
+         for (int i = 0; i < 100; i++) {
+
+            if (redConsumed.get() == BATCH_SIZE) {
+               System.out.println("giving up level All Processing: " + allConsumed);
+               System.out.println("giving up Red Processing: " + redConsumed);
+               System.out.println("giving up Green Processing: " + greenConsumed);
+               // We have enough.. consume them all now
+               break;
+            }
+
+            System.out.println("second level All Processing: " + allConsumed);
+            System.out.println("Red Processing: " + redConsumed);
+            System.out.println("Green Processing: " + greenConsumed);
+            Thread.sleep(1_000);
+         }
+
+         verySlowLatch.countDown();
 
          Wait.assertEquals(BATCH_SIZE, allConsumed::get);
          Wait.assertEquals(BATCH_SIZE, redConsumed::get);
