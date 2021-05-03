@@ -30,18 +30,32 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.activemq.artemis.cli.commands.ActionContext;
-import org.apache.activemq.artemis.cli.commands.messages.Consumer;
-import org.apache.activemq.artemis.cli.commands.messages.Producer;
 import org.apache.activemq.artemis.tests.smoke.common.SmokeTestBase;
-import org.apache.activemq.artemis.tests.util.CFUtil;
 import org.apache.activemq.artemis.utils.ReusableLatch;
 import org.apache.activemq.artemis.utils.Wait;
+import org.apache.qpid.jms.JmsConnectionFactory;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
 public class MMSFactoryTest extends SmokeTestBase {
+
+   public static ConnectionFactory createConnectionFactory(String protocol, String uri) {
+      if (protocol.toUpperCase().equals("OPENWIRE")) {
+         return new org.apache.activemq.ActiveMQConnectionFactory(uri);
+      } else if (protocol.toUpperCase().equals("AMQP")) {
+
+         if (uri.startsWith("tcp://")) {
+            // replacing tcp:// by amqp://
+            uri = "amqp" + uri.substring(3);
+         }
+         return new JmsConnectionFactory(uri);
+      } else if (protocol.toUpperCase().equals("CORE") || protocol.toUpperCase().equals("ARTEMIS")) {
+         return new org.apache.activemq.artemis.jms.client.ActiveMQConnectionFactory(uri);
+      } else {
+         throw new IllegalStateException("Unkown:" + protocol);
+      }
+   }
 
    public static final String SERVER_NAME_0 = "paging";
 
@@ -87,7 +101,7 @@ public class MMSFactoryTest extends SmokeTestBase {
          Session session;
          MessageConsumer consumer;
          Queue queue;
-         ConnectionFactory factory = CFUtil.createConnectionFactory(protocol, "tcp://localhost:61616");
+         ConnectionFactory factory = createConnectionFactory(protocol, "tcp://localhost:61616");
 
          try {
 
@@ -167,7 +181,7 @@ public class MMSFactoryTest extends SmokeTestBase {
       Consumer verySlowRed = new Consumer(PROCESSING_TIME_RED * 5, "MMFactory::Red", latchSlow, redConsumed, "Very slow consumer");
       verySlowRed.start();
 
-      ConnectionFactory factory = CFUtil.createConnectionFactory(protocol, "tcp://localhost:61616");
+      ConnectionFactory factory = createConnectionFactory(protocol, "tcp://localhost:61616");
       Connection connection = factory.createConnection();
       Session session = connection.createSession(true, Session.SESSION_TRANSACTED);
       Topic queue = session.createTopic("MMFactory");
