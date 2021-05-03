@@ -162,9 +162,9 @@ under the License.
             <message-counter-history-day-limit>10</message-counter-history-day-limit>
             <address-full-policy>PAGE</address-full-policy>
             <auto-create-queues>true</auto-create-queues>
-            <auto-create-addresses>true</auto-create-addresses>
-            <auto-create-jms-queues>true</auto-create-jms-queues>
-            <auto-create-jms-topics>true</auto-create-jms-topics>
+            <auto-create-addresses>false</auto-create-addresses>
+            <auto-create-jms-queues>false</auto-create-jms-queues>
+            <auto-create-jms-topics>false</auto-create-jms-topics>
          </address-setting>
       </address-settings>
 
@@ -179,7 +179,25 @@ under the License.
                <queue name="ExpiryQueue" />
             </anycast>
          </address>
+         <address name="MMFactory">
+            <multicast>
+               <queue name="All" group-buckets="64" group-rebalance="true">
+                  <durable>true</durable>
+               </queue>
 
+               <queue name="Red" group-buckets="64" group-rebalance="true">
+                  <filter string="color='red'" />
+                  <durable>true</durable>
+               </queue>
+
+               <!-- this queue gets no MMs!  Nobody likes greens. And there are no greens.
+                    We will have consuemrs on them anyway. but no processing is expected. -->
+               <queue name="Green" group-buckets="64" group-rebalance="true">
+                  <filter string="color='green'" />
+                  <durable>true</durable>
+               </queue>
+            </multicast>
+         </address>
       </addresses>
 
    </core>
