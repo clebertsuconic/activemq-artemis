@@ -44,6 +44,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -222,11 +223,28 @@ public abstract class ActiveMQTestBase extends Assert {
    private final Collection<ActiveMQServer> servers = new ArrayList<>();
    private final Collection<ServerLocator> locators = new ArrayList<>();
    private final Collection<ClientSessionFactory> sessionFactories = new ArrayList<>();
+   private final Collection<AutoCloseable> closeables = new ArrayList<>();
    private final Collection<ClientSession> clientSessions = new HashSet<>();
    private final Collection<ClientConsumer> clientConsumers = new HashSet<>();
    private final Collection<ClientProducer> clientProducers = new HashSet<>();
    private final Collection<ActiveMQComponent> otherComponents = new HashSet<>();
    private final Set<ExecutorService> executorSet = new HashSet<>();
+
+   public void addCloseable(AutoCloseable closeable) {
+      closeables.add(closeable);
+   }
+
+
+   @After
+   public void closeCloseables() {
+      for (AutoCloseable closeable: closeables) {
+         try {
+            closeable.close();
+         } catch (Throwable e) {
+            e.printStackTrace();
+         }
+      }
+   }
 
    private String testDir;
    private int sendMsgCount = 0;
