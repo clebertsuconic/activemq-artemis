@@ -173,13 +173,11 @@ public class MMSFactoryTestSpawned extends SmokeTestBase {
       ConnectionFactory factory = createConnectionFactory(theprotocol, "tcp://localhost:61616");
       try (Connection connection = factory.createConnection()) {
          Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
-         Session sessionControl = connection.createSession(true, Session.SESSION_TRANSACTED);
          Topic queue = session.createTopic("MMFactory");
          MessageProducer mmsFactory = session.createProducer(queue);
 
          Topic controlTopic = session.createTopic("MMControl");
 
-         MessageProducer producerControl = sessionControl.createProducer(controlTopic);
 
          String largeString;
          {
@@ -222,6 +220,8 @@ public class MMSFactoryTestSpawned extends SmokeTestBase {
                }
 
 
+               Session sessionControl = connection.createSession(true, Session.SESSION_TRANSACTED);
+               MessageProducer producerControl = sessionControl.createProducer(controlTopic);
                Message controlmessage = sessionControl.createMessage();
                controlmessage.setStringProperty("control", "flush");
                producerControl.send(controlmessage);
