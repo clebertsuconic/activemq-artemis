@@ -127,7 +127,6 @@ public class MMSFactoryTestSpawned extends SmokeTestBase {
          }
          serverProcess = startServer(SERVER_NAME_0, 0, 30000);
          total += 10;
-         if (true) return;
       }
    }
 
