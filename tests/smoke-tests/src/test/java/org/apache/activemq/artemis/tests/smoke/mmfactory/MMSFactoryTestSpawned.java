@@ -292,7 +292,7 @@ public class MMSFactoryTestSpawned extends SmokeTestBase {
             lastTime.set((int)queueControl.getMessagesAcknowledged());
             return true;
          }
-      });
+      }, 5_000);
    }
 
    static class Consumer implements MessageListener {
