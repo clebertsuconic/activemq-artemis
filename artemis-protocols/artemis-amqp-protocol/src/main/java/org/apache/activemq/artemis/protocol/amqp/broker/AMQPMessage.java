@@ -1062,7 +1062,6 @@ public abstract class AMQPMessage extends RefCountMessage implements org.apache.
 
    @Override
    public boolean isDurable() {
-      ensureMessageDataScanned();
       if (header != null && header .getDurable() != null) {
          return header.getDurable();
       } else {
