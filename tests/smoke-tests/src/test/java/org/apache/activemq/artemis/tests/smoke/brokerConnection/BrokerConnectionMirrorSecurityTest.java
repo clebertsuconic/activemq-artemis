@@ -323,7 +323,7 @@ public class BrokerConnectionMirrorSecurityTest extends SmokeTestBase {
          File fileA = new File(localtionServerA + "/data");
          File fileOutput = new File(localtionServerA + "/log/print-data-" + restartNumber + ".txt");
          FileOutputStream fileOutputStream = new FileOutputStream(fileOutput);
-         PrintData.printData(new File(fileA, "bindings"), new File(fileA, "journal"), new File(fileA, "paging"), new PrintStream(fileOutputStream), false);
+         PrintData.printData(new File(fileA, "bindings"), new File(fileA, "journal"), new File(fileA, "paging"), new PrintStream(fileOutputStream), false, false);
          fileOutputStream.close();
       }
 

@@ -342,14 +342,6 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
          return false;
       }
 
-      byte[] duplicateID = getInternalIDBytes(targetQueue.getID(), messageID);
-      if (duplicateIDCache.contains(duplicateID)) {
-         if (logger.isDebugEnabled()) {
-            logger.debug("Duplicate ID for ack on queue " + queue + " and messageID=" + messageID + " being ignored");
-            return false;
-         }
-      }
-
       if (logger.isTraceEnabled()) {
          // we only do the following check if tracing
          if (targetQueue.getConsumerCount() > 0) {
@@ -358,6 +350,9 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
 
             targetQueue.getConsumers().forEach((c) -> out.println(c));
 
+            // shouldn't this be a warn?????
+            // Things we could:
+            // Kick out the consumer, kick out the connection....
             logger.trace("server " + server.getIdentity() + ", queue " + targetQueue.getName() + " has consumers while delivering ack for " + messageID + "::" + stringPrintStream.toString());
          }
       }
@@ -369,7 +364,6 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
       Transaction transaction = new MirrorTransaction(server.getStorageManager());
 
       transaction.addOperation(ackMessage);
-      duplicateIDCache.addToCache(duplicateID, transaction);
       performAck(messageID, targetQueue, transaction, true);
       return true;
 
@@ -436,6 +430,14 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
 
       Long internalID = (Long) AMQPMessageBrokerAccessor.getDeliveryAnnotationProperty(message, INTERNAL_ID);
       String internalAddress = (String) AMQPMessageBrokerAccessor.getDeliveryAnnotationProperty(message, INTERNAL_DESTINATION);
+
+      if (internalID != null) {
+         int internalMirrorID = ByteUtil.getFirstByte(internalID);
+         if (internalMirrorID == basicController.remoteMirrorId) {
+            logger.debug("message " + message + " will not be sent towards " + basicController + " mirror as the internal ID already belongs there");
+            return false;
+         }
+      }
 
 
       if (logger.isTraceEnabled()) {

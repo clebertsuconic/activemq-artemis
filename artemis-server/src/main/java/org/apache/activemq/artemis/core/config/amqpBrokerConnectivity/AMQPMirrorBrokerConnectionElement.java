@@ -17,12 +17,10 @@
 package org.apache.activemq.artemis.core.config.amqpBrokerConnectivity;
 
 import org.apache.activemq.artemis.api.core.SimpleString;
-import org.apache.activemq.artemis.utils.RandomUtil;
 
 public class AMQPMirrorBrokerConnectionElement extends AMQPBrokerConnectionElement {
 
-   SimpleString sourceMirrorAddress;
-
+   short targetMirrorId;
    boolean durable;
 
    boolean queueCreation = true;
@@ -31,8 +29,28 @@ public class AMQPMirrorBrokerConnectionElement extends AMQPBrokerConnectionEleme
 
    boolean messageAcknowledgements = true;
 
+   SimpleString mirrorSNF;
+
+   public SimpleString getMirrorSNF() {
+      return mirrorSNF;
+   }
+
+   public AMQPMirrorBrokerConnectionElement setMirrorSNF(SimpleString mirrorSNF) {
+      this.mirrorSNF = mirrorSNF;
+      return this;
+   }
+
    public AMQPMirrorBrokerConnectionElement() {
       this.setType(AMQPBrokerConnectionAddressType.MIRROR);
+   }
+
+   public short getTargetMirrorId() {
+      return targetMirrorId;
+   }
+
+   public AMQPMirrorBrokerConnectionElement setTargetMirrorId(short targetMirrorId) {
+      this.targetMirrorId = targetMirrorId;
+      return this;
    }
 
    /** There is no setter for this property.
@@ -41,20 +59,9 @@ public class AMQPMirrorBrokerConnectionElement extends AMQPBrokerConnectionEleme
       return durable;
    }
 
-   public AMQPMirrorBrokerConnectionElement setSourceMirrorAddress(String mirrorAddress) {
-      return this.setSourceMirrorAddress(SimpleString.toSimpleString(mirrorAddress));
-   }
-   public AMQPMirrorBrokerConnectionElement setSourceMirrorAddress(SimpleString souceMirrorAddress) {
-      this.sourceMirrorAddress = souceMirrorAddress;
-      this.durable = sourceMirrorAddress != null;
+   public AMQPMirrorBrokerConnectionElement setDurable(boolean durable) {
+      this.durable = durable;
       return this;
-   }
-
-   public SimpleString getSourceMirrorAddress() {
-      if (sourceMirrorAddress == null) {
-         sourceMirrorAddress = SimpleString.toSimpleString(parent.getName() + RandomUtil.randomString());
-      }
-      return sourceMirrorAddress;
    }
 
    public boolean isQueueCreation() {

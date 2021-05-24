@@ -219,6 +219,16 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
       }
    }
 
+
+   SimpleString getMirrorSNF(AMQPMirrorBrokerConnectionElement mirrorElement) {
+      SimpleString snf = mirrorElement.getMirrorSNF();
+      if (snf == null) {
+         snf = SimpleString.toSimpleString(this.brokerConnectConfiguration.getName() + "_MIRRORSNF");
+         mirrorElement.setMirrorSNF(snf);
+      }
+      return snf;
+   }
+
    private void doConnect() {
       try {
          connecting = true;
@@ -279,9 +289,10 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
             for (AMQPBrokerConnectionElement connectionElement : brokerConnectConfiguration.getConnectionElements()) {
                if (connectionElement.getType() == AMQPBrokerConnectionAddressType.MIRROR) {
                   AMQPMirrorBrokerConnectionElement replica = (AMQPMirrorBrokerConnectionElement)connectionElement;
-                  Queue queue = server.locateQueue(replica.getSourceMirrorAddress());
 
-                  connectSender(queue, ProtonProtocolManager.MIRROR_ADDRESS, mirrorControllerSource::setLink, (r) -> AMQPMirrorControllerSource.validateProtocolData(server, r, replica.getSourceMirrorAddress()));
+                  Queue queue = server.locateQueue(getMirrorSNF(replica));
+
+                  connectSender(queue, ProtonProtocolManager.MIRROR_ADDRESS, mirrorControllerSource::setLink, (r) -> AMQPMirrorControllerSource.validateProtocolData(server, r, getMirrorSNF(replica)));
                }
             }
          }
@@ -349,9 +360,9 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
          }
       }
 
-      AddressInfo addressInfo = server.getAddressInfo(replicaConfig.getSourceMirrorAddress());
+      AddressInfo addressInfo = server.getAddressInfo(getMirrorSNF(replicaConfig));
       if (addressInfo == null) {
-         addressInfo = new AddressInfo(replicaConfig.getSourceMirrorAddress()).addRoutingType(RoutingType.ANYCAST).setAutoCreated(false).setTemporary(!replicaConfig.isDurable()).setInternal(true);
+         addressInfo = new AddressInfo(getMirrorSNF(replicaConfig)).addRoutingType(RoutingType.ANYCAST).setAutoCreated(false).setTemporary(!replicaConfig.isDurable()).setInternal(true);
          server.addAddressInfo(addressInfo);
       }
 
@@ -359,15 +370,15 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
          throw new IllegalArgumentException("sourceMirrorAddress is not ANYCAST");
       }
 
-      Queue mirrorControlQueue = server.locateQueue(replicaConfig.getSourceMirrorAddress());
+      Queue mirrorControlQueue = server.locateQueue(getMirrorSNF(replicaConfig));
 
       if (mirrorControlQueue == null) {
-         mirrorControlQueue = server.createQueue(new QueueConfiguration(replicaConfig.getSourceMirrorAddress()).setAddress(replicaConfig.getSourceMirrorAddress()).setRoutingType(RoutingType.ANYCAST).setDurable(replicaConfig.isDurable()).addMetadata("mirror", "true").setInternal(true), true);
+         mirrorControlQueue = server.createQueue(new QueueConfiguration(getMirrorSNF(replicaConfig)).setAddress(getMirrorSNF(replicaConfig)).setRoutingType(RoutingType.ANYCAST).setDurable(replicaConfig.isDurable()).addMetadata("mirror", "true").setInternal(true), true);
       }
 
       mirrorControlQueue.setMirrorController(true);
 
-      QueueBinding snfReplicaQueueBinding = (QueueBinding)server.getPostOffice().getBinding(replicaConfig.getSourceMirrorAddress());
+      QueueBinding snfReplicaQueueBinding = (QueueBinding)server.getPostOffice().getBinding(getMirrorSNF(replicaConfig));
       if (snfReplicaQueueBinding == null) {
          logger.warn("Queue does not exist even after creation! " + replicaConfig);
          throw new IllegalAccessException("Cannot start replica");
@@ -375,7 +386,7 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
 
       Queue snfQueue = snfReplicaQueueBinding.getQueue();
 
-      if (!snfQueue.getAddress().equals(replicaConfig.getSourceMirrorAddress())) {
+      if (!snfQueue.getAddress().equals(getMirrorSNF(replicaConfig))) {
          logger.warn("Queue " + snfQueue + " belong to a different address (" + snfQueue.getAddress() + "), while we expected it to be " + addressInfo.getName());
          throw new IllegalAccessException("Cannot start replica");
       }

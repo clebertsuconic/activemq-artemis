@@ -28,8 +28,6 @@ under the License.
 
       <name>ServerB</name>
 
-      <broker-mirror-id>2</broker-mirror-id>
-
       <persistence-enabled>true</persistence-enabled>
 
       <!-- this could be ASYNCIO, MAPPED, NIO
@@ -121,10 +119,9 @@ under the License.
       
       <page-sync-timeout>40000</page-sync-timeout>
 
-
-      <broker-connections>
+      <broker-connections source-mirror-id="2">
          <amqp-connection uri="tcp://localhost:61616" name="outgoing" reconnect-attempts="-1" retry-interval="100" user="A" password="A">
-            <mirror source-mirror-address="toA"/>
+            <mirror durable="true" target-mirror-id="1"/>
          </amqp-connection>
       </broker-connections>
       <acceptors>

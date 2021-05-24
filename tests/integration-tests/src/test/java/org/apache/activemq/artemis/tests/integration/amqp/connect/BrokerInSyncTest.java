@@ -84,7 +84,7 @@ public class BrokerInSyncTest extends AmqpClientTestSupport {
       server.setIdentity("Server1");
       {
          AMQPBrokerConnectConfiguration amqpConnection = new AMQPBrokerConnectConfiguration("connectTowardsServer2", "tcp://localhost:" + AMQP_PORT_2).setReconnectAttempts(3).setRetryInterval(100);
-         amqpConnection.addElement(new AMQPMirrorBrokerConnectionElement().setSourceMirrorAddress("$MIRROR_TOWARDS_2"));
+         amqpConnection.addElement(new AMQPMirrorBrokerConnectionElement().setDurable(true));
          server.getConfiguration().addAMQPConnection(amqpConnection);
       }
       server.start();
@@ -94,7 +94,7 @@ public class BrokerInSyncTest extends AmqpClientTestSupport {
 
       {
          AMQPBrokerConnectConfiguration amqpConnection = new AMQPBrokerConnectConfiguration("connectTowardsServer1", "tcp://localhost:" + AMQP_PORT).setReconnectAttempts(-1).setRetryInterval(100);
-         amqpConnection.addElement(new AMQPMirrorBrokerConnectionElement().setSourceMirrorAddress("$MIRROR_TOWARDS_1"));
+         amqpConnection.addElement(new AMQPMirrorBrokerConnectionElement().setDurable(true));
          server_2.getConfiguration().addAMQPConnection(amqpConnection);
       }
 
@@ -136,7 +136,7 @@ public class BrokerInSyncTest extends AmqpClientTestSupport {
       server.getConfiguration().setBrokerMirrorId((short) 1);
       {
          AMQPBrokerConnectConfiguration amqpConnection = new AMQPBrokerConnectConfiguration("connectTowardsServer2", "tcp://localhost:" + AMQP_PORT_2).setReconnectAttempts(3).setRetryInterval(100);
-         amqpConnection.addElement(new AMQPMirrorBrokerConnectionElement().setSourceMirrorAddress("toTwo"));
+         amqpConnection.addElement(new AMQPMirrorBrokerConnectionElement().setDurable(true));
          server.getConfiguration().addAMQPConnection(amqpConnection);
       }
       server.start();
@@ -147,7 +147,7 @@ public class BrokerInSyncTest extends AmqpClientTestSupport {
 
       {
          AMQPBrokerConnectConfiguration amqpConnection = new AMQPBrokerConnectConfiguration("connectTowardsServer1", "tcp://localhost:" + AMQP_PORT).setReconnectAttempts(-1).setRetryInterval(100);
-         amqpConnection.addElement(new AMQPMirrorBrokerConnectionElement().setSourceMirrorAddress("toOne"));
+         amqpConnection.addElement(new AMQPMirrorBrokerConnectionElement().setDurable(true));
          server_2.getConfiguration().addAMQPConnection(amqpConnection);
       }
 
@@ -265,7 +265,7 @@ public class BrokerInSyncTest extends AmqpClientTestSupport {
 
       {
          AMQPBrokerConnectConfiguration amqpConnection = new AMQPBrokerConnectConfiguration("connectTowardsServer2", "tcp://localhost:" + AMQP_PORT_2).setReconnectAttempts(3).setRetryInterval(100);
-         amqpConnection.addElement(new AMQPMirrorBrokerConnectionElement().setSourceMirrorAddress("$MIRROR_TOWARDS_2"));
+         amqpConnection.addElement(new AMQPMirrorBrokerConnectionElement().setDurable(true));
          server.getConfiguration().addAMQPConnection(amqpConnection);
       }
       server.getConfiguration().setBrokerMirrorId((short) 1);
@@ -277,7 +277,7 @@ public class BrokerInSyncTest extends AmqpClientTestSupport {
 
       {
          AMQPBrokerConnectConfiguration amqpConnection = new AMQPBrokerConnectConfiguration("connectTowardsServer1", "tcp://localhost:" + AMQP_PORT).setReconnectAttempts(-1).setRetryInterval(100);
-         amqpConnection.addElement(new AMQPMirrorBrokerConnectionElement().setSourceMirrorAddress("$MIRROR_TOWARDS_1"));
+         amqpConnection.addElement(new AMQPMirrorBrokerConnectionElement().setDurable(true));
          server_2.getConfiguration().addAMQPConnection(amqpConnection);
       }
 
