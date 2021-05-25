@@ -143,7 +143,7 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
                                      Receiver receiver,
                                      ActiveMQServer server) {
       super(sessionSPI, connection, protonSession, receiver);
-      this.basicController = new BasicMirrorController(server);
+      this.basicController = new BasicMirrorController(server, BasicMirrorController.getRemoteMirrorID(receiver));
       this.basicController.setLink(receiver);
       this.server = server;
 
@@ -433,7 +433,7 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
 
       if (internalID != null) {
          int internalMirrorID = ByteUtil.getFirstByte(internalID);
-         if (internalMirrorID == basicController.remoteMirrorId) {
+         if (internalMirrorID == basicController.localMirrorId) {
             logger.debug("message " + message + " will not be sent towards " + basicController + " mirror as the internal ID already belongs there");
             return false;
          }

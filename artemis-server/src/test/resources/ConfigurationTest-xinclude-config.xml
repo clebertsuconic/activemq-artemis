@@ -82,7 +82,21 @@
          <connector name="connector1">tcp://localhost1:5678?localAddress=mylocal;localPort=99</connector>
          <connector name="connector2">vm://5</connector>
       </connectors>
-
+      <broker-connections>
+         <amqp-connection uri="tcp://test1:111" name="test1" retry-interval="333" reconnect-attempts="33" user="testuser" password="testpassword">
+            <sender address-match="TEST-SENDER"  />
+            <receiver address-match="TEST-RECEIVER" />
+            <peer address-match="TEST-PEER"/>
+            <receiver queue-name="TEST-WITH-QUEUE-NAME"/>
+            <mirror message-acknowledgements="false" queue-creation="false" source-mirror-address="TEST-REPLICA" queue-removal="false"/>
+         </amqp-connection>
+         <amqp-connection uri="tcp://test2:222" name="test2">
+            <mirror/>
+         </amqp-connection>
+         <amqp-connection uri="tcp://false" name="auto-start-false" auto-start="false">
+            <mirror/>
+         </amqp-connection>
+      </broker-connections>
       <xi:include href="${xincludePath}/ConfigurationTest-xinclude-config-acceptors.xml"/>
 
       <broadcast-groups>

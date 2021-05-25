@@ -23,6 +23,7 @@ import java.util.Map;
 import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.api.core.QueueConfiguration;
 import org.apache.activemq.artemis.api.core.SimpleString;
+import org.apache.activemq.artemis.core.config.amqpBrokerConnectivity.AMQPMirrorBrokerConnectionElement;
 import org.apache.activemq.artemis.core.postoffice.impl.PostOfficeImpl;
 import org.apache.activemq.artemis.core.server.ActiveMQComponent;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
@@ -77,6 +78,8 @@ public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> im
    final boolean deleteQueues;
    private final AMQPBrokerConnection brokerConnection;
 
+   final AMQPMirrorBrokerConnectionElement replicaConfig;
+
    boolean started;
 
    @Override
@@ -92,13 +95,15 @@ public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> im
       return started;
    }
 
-   public AMQPMirrorControllerSource(Queue snfQueue, ActiveMQServer server, boolean acks, boolean addQueues, boolean deleteQueues, AMQPBrokerConnection brokerConnection) {
-      super(server);
+   public AMQPMirrorControllerSource(Queue snfQueue, ActiveMQServer server, AMQPMirrorBrokerConnectionElement replicaConfig,
+                                     AMQPBrokerConnection brokerConnection) {
+      super(server, replicaConfig.getTargetMirrorId());
+      this.replicaConfig = replicaConfig;
       this.snfQueue = snfQueue;
       this.server = server;
-      this.acks = acks;
-      this.addQueues = addQueues;
-      this.deleteQueues = deleteQueues;
+      this.addQueues = replicaConfig.isQueueCreation();
+      this.deleteQueues = replicaConfig.isQueueRemoval();
+      this.acks = replicaConfig.isMessageAcknowledgements();
       this.brokerConnection = brokerConnection;
    }
 

@@ -25,7 +25,7 @@ public class BasicMirrorController<T extends Link> {
 
    protected T link;
 
-   protected short remoteMirrorId = -1;
+   protected final short remoteMirrorId;
 
    protected final short localMirrorId;
 
@@ -36,16 +36,24 @@ public class BasicMirrorController<T extends Link> {
    }
 
    public short getRemoteMirrorId() {
-      if (remoteMirrorId < 0 && link != null && link.getRemoteProperties() != null && link.getRemoteProperties().containsKey(AMQPMirrorControllerSource.BROKER_ID)) {
-         remoteMirrorId = ((Number)link.getRemoteProperties().get(AMQPMirrorControllerSource.BROKER_ID)).shortValue();
-      }
       return remoteMirrorId;
+
    }
 
-   public BasicMirrorController(ActiveMQServer server) {
+   public static short getRemoteMirrorID(Link link) {
+      if ( link != null && link.getRemoteProperties() != null && link.getRemoteProperties().containsKey(AMQPMirrorControllerSource.BROKER_ID)) {
+         return ((Number)link.getRemoteProperties().get(AMQPMirrorControllerSource.BROKER_ID)).shortValue();
+      } else {
+         return -1;
+      }
+   }
+
+   public BasicMirrorController(ActiveMQServer server, short remoteMirrorId) {
+      assert remoteMirrorId >= 0;
       this.server = server;
       this.localMirrorId = server.getMirrorBrokerId();
       this.mirrorIDForRouting = (byte)localMirrorId;
+      this.remoteMirrorId = remoteMirrorId;
    }
 
    public T getLink() {
