@@ -48,6 +48,11 @@ public class AMQPMirrorBrokerConnectionElement extends AMQPBrokerConnectionEleme
       return targetMirrorId;
    }
 
+   public AMQPMirrorBrokerConnectionElement setTargetMirrorId(int targetMirrorId) {
+      // just a shortcut to avoid a conversion from int to short as we type
+      return setTargetMirrorId((short)targetMirrorId);
+   }
+
    public AMQPMirrorBrokerConnectionElement setTargetMirrorId(short targetMirrorId) {
       this.targetMirrorId = targetMirrorId;
       return this;

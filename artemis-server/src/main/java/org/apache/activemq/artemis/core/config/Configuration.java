@@ -66,6 +66,12 @@ public interface Configuration {
 
    Configuration setBrokerMirrorId(short mirrorID);
 
+   default Configuration setBrokerMirrorId(int mirrorID) {
+      // this is just a short-cut from int to short (no pun intended) avoiding having to type the cast every time when you are using the
+      // Configuration API directly
+      return setBrokerMirrorId((short)mirrorID);
+   }
+
    /**
     * To be used on dependency management on the application server
     */
