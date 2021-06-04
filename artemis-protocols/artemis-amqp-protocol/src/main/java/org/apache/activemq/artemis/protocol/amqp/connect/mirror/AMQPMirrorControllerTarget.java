@@ -53,6 +53,7 @@ import org.apache.qpid.proton.amqp.messaging.AmqpValue;
 import org.apache.qpid.proton.amqp.transport.ReceiverSettleMode;
 import org.apache.qpid.proton.engine.Delivery;
 import org.apache.qpid.proton.engine.Receiver;
+import org.apache.qpid.proton.engine.impl.DeliveryImpl;
 import org.jboss.logging.Logger;
 
 import static org.apache.activemq.artemis.protocol.amqp.connect.mirror.AMQPMirrorControllerSource.ADDRESS;
@@ -81,7 +82,7 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
       return controllerThreadLocal.get();
    }
 
-   class ACKMessage extends TransactionOperationAbstract implements IOCallback, Runnable {
+   class ACKMessageOperation extends TransactionOperationAbstract implements IOCallback, Runnable {
 
       Delivery delivery;
 
@@ -89,7 +90,7 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
          this.delivery = null;
       }
 
-      ACKMessage setDelivery(Delivery delivery) {
+      ACKMessageOperation setDelivery(Delivery delivery) {
          this.delivery = delivery;
          return this;
       }
@@ -102,7 +103,7 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
          delivery.disposition(Accepted.getInstance());
          settle(delivery);
          connection.flush();
-         AMQPMirrorControllerTarget.this.ackMessageMpscPool.release(ACKMessage.this);
+         AMQPMirrorControllerTarget.this.ackMessageMpscPool.release(ACKMessageOperation.this);
       }
 
       @Override
@@ -116,7 +117,8 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
 
       @Override
       public void done() {
-         connection.runNow(this);
+         new Exception("done").printStackTrace(System.out);
+         connection.runNow(ACKMessageOperation.this);
       }
 
       @Override
@@ -125,7 +127,7 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
    }
 
    // in a regular case we should not have more than amqpCredits on the pool, that's the max we would need
-   private final MpscPool<ACKMessage> ackMessageMpscPool = new MpscPool<>(amqpCredits, ACKMessage::reset,  () -> new ACKMessage());
+   private final MpscPool<ACKMessageOperation> ackMessageMpscPool = new MpscPool<>(amqpCredits, ACKMessageOperation::reset, () -> new ACKMessageOperation());
 
    final RoutingContextImpl routingContext = new RoutingContextImpl(null);
 
@@ -197,7 +199,8 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
 
       delivery.setContext(message);
 
-      ACKMessage messageCompletionAck = this.ackMessageMpscPool.borrow().setDelivery(delivery);
+      //((DeliveryImpl)delivery).print = false;
+      ACKMessageOperation messageAckOperation = this.ackMessageMpscPool.borrow().setDelivery(delivery);
 
       try {
          /** We use message annotations, because on the same link we will receive control messages
@@ -241,24 +244,25 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
                if (logger.isDebugEnabled()) {
                   logger.debug(server + " Post ack address=" + address + " queueName = " + queueName + " messageID=" + messageID + "(mirrorID=" + ByteUtil.getFirstByte(messageID) + ", messageID=" + ByteUtil.removeFirstByte(messageID) + ")");
                }
-               if (postAcknowledge(address, queueName, messageID, messageCompletionAck)) {
-                  messageCompletionAck = null;
+               //((DeliveryImpl)delivery).print = true;
+               if (postAcknowledge(address, queueName, messageID, messageAckOperation)) {
+                  messageAckOperation = null;
                }
             }
          } else {
             if (logger.isDebugEnabled()) {
                logger.debug(server + " Sending message " + message);
             }
-            if (sendMessage(message, messageCompletionAck)) {
-               messageCompletionAck = null;
+            if (sendMessage(message, messageAckOperation)) {
+               messageAckOperation = null;
             }
          }
       } catch (Throwable e) {
          logger.warn(e.getMessage(), e);
       } finally {
          setControllerTarget(null);
-         if (messageCompletionAck != null) {
-            server.getStorageManager().afterCompleteOperations(messageCompletionAck);
+         if (messageAckOperation != null) {
+            server.getStorageManager().afterCompleteOperations(messageAckOperation);
          }
       }
    }
@@ -327,14 +331,13 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
          logger.debug(server + " destroy queue " + queueName + " on address = " + addressName + " server " + server.getIdentity());
       }
       try {
-
          server.destroyQueue(queueName,null, false, true, false, false);
       } catch (ActiveMQNonExistentQueueException expected) {
          logger.debug(server + " queue " + queueName + " was previously removed", expected);
       }
    }
 
-   public boolean postAcknowledge(String address, String queue, long messageID, ACKMessage ackMessage) throws Exception {
+   public boolean postAcknowledge(String address, String queue, long messageID, ACKMessageOperation ackMessage) throws Exception {
       final Queue targetQueue = server.locateQueue(queue);
 
       if (targetQueue == null) {
@@ -422,7 +425,7 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
       return internalIDBytes;
    }
 
-   private boolean sendMessage(AMQPMessage message, ACKMessage messageCompletionAck) throws Exception {
+   private boolean sendMessage(AMQPMessage message, ACKMessageOperation messageCompletionAck) throws Exception {
 
       if (message.getMessageID() <= 0) {
          message.setMessageID(server.getStorageManager().generateID());

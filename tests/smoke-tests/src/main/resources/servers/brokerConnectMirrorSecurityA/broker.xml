@@ -128,8 +128,7 @@ under the License.
          <amqp-connection uri="tcp://localhost:61617#backup:5111" name="outgoing" reconnect-attempts="-1" retry-interval="100" user="B" password="B">
             <sender address-match="gary#"/>
             <sender address-match="domenico#"/>
-            <mirror durable="true" target-mirror-id="2">
-            </mirror>
+            <mirror durable="true" target-mirror-id="2"/>
          </amqp-connection>
       </broker-connections>
 

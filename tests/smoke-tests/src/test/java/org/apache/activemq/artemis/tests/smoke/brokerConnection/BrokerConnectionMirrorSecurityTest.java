@@ -173,8 +173,8 @@ public class BrokerConnectionMirrorSecurityTest extends SmokeTestBase {
       ConnectionFactory cfB = CFUtil.createConnectionFactory("amqp", "tcp://localhost:61617");
 
 
-      int NUMBER_OF_MESSAGES = 1_000;
-      int FAILURE_INTERVAL = 100;
+      int NUMBER_OF_MESSAGES = 100;
+      int FAILURE_INTERVAL = 10;
 
       try (Connection connectionA = cfA.createConnection("A", "A")) {
 
@@ -195,7 +195,7 @@ public class BrokerConnectionMirrorSecurityTest extends SmokeTestBase {
             }
 
             if (i % FAILURE_INTERVAL == 0 && i > 0) {
-               restartB();
+               //restartB();
             }
          }
 
@@ -220,6 +220,7 @@ public class BrokerConnectionMirrorSecurityTest extends SmokeTestBase {
             Assert.assertNotNull("expected message at " + i, message);
             Assert.assertEquals("message " + i, message.getText());
          }
+         Assert.assertNull(consumerB.receiveNoWait());
          sessionB.rollback();
       }
 
@@ -244,15 +245,19 @@ public class BrokerConnectionMirrorSecurityTest extends SmokeTestBase {
 
             if (op++ > 0 && op % FAILURE_INTERVAL == 0) {
                restartA(++restarted);
+               //System.exit(-1);
             }
          }
 
          Assert.assertNull(consumerB.receiveNoWait());
       }
 
+      //System.exit(-1);
       System.out.println("Restarted serverA " + restarted + " times");
 
       Thread.sleep(5000);
+
+      //System.exit(-1);
 
       try (Connection connectionA = cfA.createConnection("A", "A")) {
 
