@@ -370,7 +370,7 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
       Queue mirrorControlQueue = server.locateQueue(getMirrorSNF(replicaConfig));
 
       if (mirrorControlQueue == null) {
-         mirrorControlQueue = server.createQueue(new QueueConfiguration(getMirrorSNF(replicaConfig)).setAddress(getMirrorSNF(replicaConfig)).setRoutingType(RoutingType.ANYCAST).setDurable(replicaConfig.isDurable()).setInternal(true), true);
+         mirrorControlQueue = server.createQueue(new QueueConfiguration(getMirrorSNF(replicaConfig)).setAddress(getMirrorSNF(replicaConfig)).setRoutingType(RoutingType.ANYCAST).setDurable(replicaConfig.isDurable()).addMetadata("mirror", "true").setInternal(true), true);
       }
 
       mirrorControlQueue.setMirrorController(true);

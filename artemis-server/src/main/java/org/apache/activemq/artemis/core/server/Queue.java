@@ -517,4 +517,10 @@ public interface Queue extends Bindable,CriticalComponent {
    default QueueConfiguration getQueueConfiguration() {
       return null;
    }
+
+   Map<String, String> getMetadata();
+
+   Queue setMetadata(Map<String, String> metadata);
+
+   Queue addMetadata(String k, String v);
 }

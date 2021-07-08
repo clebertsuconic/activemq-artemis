@@ -187,6 +187,8 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
 
    private boolean mirrorController;
 
+   private Map<String, String> metadata;
+
    // Messages will first enter intermediateMessageReferences
    // Before they are added to messageReferences
    // This is to avoid locking the queue on the producer
@@ -4089,6 +4091,28 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
          .setAutoCreated(autoCreated);
    }
 
+   @Override
+   public Map<String, String> getMetadata() {
+      if (metadata == null) {
+         return Collections.emptyMap();
+      }
+      return metadata;
+   }
+
+   @Override
+   public Queue setMetadata(Map<String, String> metadata) {
+      this.metadata = metadata;
+      return this;
+   }
+
+   @Override
+   public Queue addMetadata(String k, String v) {
+      if (metadata == null) {
+         metadata = new HashMap<>();
+      }
+      metadata.put(k, v);
+      return this;
+   }
    // Inner classes
    // --------------------------------------------------------------------------
 
