@@ -293,7 +293,7 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
 
                   Queue queue = server.locateQueue(getMirrorSNF(replica));
 
-                  connectSender(queue, ProtonProtocolManager.MIRROR_ADDRESS, mirrorControllerSource::setLink, (r) -> AMQPMirrorControllerSource.validateProtocolData(protonProtocolManager.getReferenceIDSupplier(), r, getMirrorSNF(replica)), server.getNodeID().toString());
+                  connectSender(queue, ProtonProtocolManager.MIRROR_ADDRESS, mirrorControllerSource::setLink, (r) -> AMQPMirrorControllerSource.validateProtocolData(protonProtocolManager.getReferenceIDSupplier(), r, getMirrorSNF(replica)), server.getNodeID().toString(), AMQPMirrorControllerSource.MIRROR_CAPABILITY);
                }
             }
          }
@@ -512,6 +512,7 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
 
             AMQPOutgoingController outgoingInitializer = new AMQPOutgoingController(queue, sender, sessionContext.getSessionSPI());
 
+            // TODO link Capabilities, and protocol to validate remote open here
             ProtonServerSenderContext senderContext = new ProtonServerSenderContext(protonRemotingConnection.getAmqpConnection(), sender, sessionContext, sessionContext.getSessionSPI(), outgoingInitializer).setBeforeDelivery(beforeDeliver);
 
             sessionContext.addSender(sender, senderContext);

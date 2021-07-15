@@ -254,8 +254,12 @@ public class ProtonServerSenderContext extends ProtonInitializable implements Pr
     * create the actual underlying ActiveMQ Artemis Server Consumer
     */
    @Override
+
+   // TODO initialize has to happen on remote open. Make sure it's happening on Mirror
    public void initialize() throws Exception {
       super.initialize();
+
+      new Exception("initialize").printStackTrace();
 
       if (controller == null) {
          controller = new DefaultController(sessionSPI);

@@ -98,6 +98,13 @@ public class AmqpClientTestSupport extends AmqpTestSupport {
 
    protected MBeanServer mBeanServer = MBeanServerFactory.createMBeanServer();
 
+   public AmqpClientTestSupport() {
+   }
+
+   public AmqpClientTestSupport(String connectorScheme, boolean useSSL) {
+      this.useSSL = useSSL;
+   }
+
    @Before
    @Override
    public void setUp() throws Exception {
@@ -211,7 +218,6 @@ public class AmqpClientTestSupport extends AmqpTestSupport {
          createAddressAndQueues(server);
       }
 
-
       return server;
    }
 
@@ -256,21 +262,46 @@ public class AmqpClientTestSupport extends AmqpTestSupport {
 
    protected void createAddressAndQueues(ActiveMQServer server) throws Exception {
       // Default Queue
-      server.addAddressInfo(new AddressInfo(SimpleString.toSimpleString(getQueueName()), RoutingType.ANYCAST));
-      server.createQueue(new QueueConfiguration(getQueueName()).setRoutingType(RoutingType.ANYCAST));
+      try {
+         server.addAddressInfo(new AddressInfo(SimpleString.toSimpleString(getQueueName()), RoutingType.ANYCAST));
+      } catch (Throwable ignored) {
+      }
+
+      try {
+         server.createQueue(new QueueConfiguration(getQueueName()).setRoutingType(RoutingType.ANYCAST));
+      } catch (Throwable ignored) {
+      }
 
       // Default DLQ
-      server.addAddressInfo(new AddressInfo(SimpleString.toSimpleString(getDeadLetterAddress()), RoutingType.ANYCAST));
-      server.createQueue(new QueueConfiguration(getDeadLetterAddress()).setRoutingType(RoutingType.ANYCAST));
+      try {
+         server.addAddressInfo(new AddressInfo(SimpleString.toSimpleString(getDeadLetterAddress()), RoutingType.ANYCAST));
+      } catch (Throwable ignored) {
+      }
+      try {
+         server.createQueue(new QueueConfiguration(getDeadLetterAddress()).setRoutingType(RoutingType.ANYCAST));
+      } catch (Throwable ignored) {
+      }
 
       // Default Topic
-      server.addAddressInfo(new AddressInfo(SimpleString.toSimpleString(getTopicName()), RoutingType.MULTICAST));
-      server.createQueue(new QueueConfiguration(getTopicName()));
+      try {
+         server.addAddressInfo(new AddressInfo(SimpleString.toSimpleString(getTopicName()), RoutingType.MULTICAST));
+      } catch (Throwable ignored) {
+      }
+      try {
+         server.createQueue(new QueueConfiguration(getTopicName()));
+      } catch (Throwable ignored) {
+      }
 
       // Additional Test Queues
       for (int i = 0; i < getPrecreatedQueueSize(); ++i) {
-         server.addAddressInfo(new AddressInfo(SimpleString.toSimpleString(getQueueName(i)), RoutingType.ANYCAST));
-         server.createQueue(new QueueConfiguration(getQueueName(i)).setRoutingType(RoutingType.ANYCAST));
+         try {
+            server.addAddressInfo(new AddressInfo(SimpleString.toSimpleString(getQueueName(i)), RoutingType.ANYCAST));
+         } catch (Throwable ignored) {
+         }
+         try {
+            server.createQueue(new QueueConfiguration(getQueueName(i)).setRoutingType(RoutingType.ANYCAST));
+         } catch (Throwable ignored) {
+         }
       }
    }
 
@@ -341,13 +372,6 @@ public class AmqpClientTestSupport extends AmqpTestSupport {
 
    public String getQueueName(int index) {
       return getName() + "-" + index;
-   }
-
-   public AmqpClientTestSupport() {
-   }
-
-   public AmqpClientTestSupport(String connectorScheme, boolean useSSL) {
-      this.useSSL = useSSL;
    }
 
    protected void sendMessages(String destinationName, int count) throws Exception {
@@ -449,7 +473,10 @@ public class AmqpClientTestSupport extends AmqpTestSupport {
       sendMessagesOpenWire(destinationName, count, durable, null);
    }
 
-   protected void sendMessagesOpenWire(String destinationName, int count, boolean durable, byte[] payload) throws Exception {
+   protected void sendMessagesOpenWire(String destinationName,
+                                       int count,
+                                       boolean durable,
+                                       byte[] payload) throws Exception {
       ConnectionFactory cf = new ActiveMQConnectionFactory("tcp://127.0.0.1:5672");
       Connection connection = cf.createConnection();
       Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
