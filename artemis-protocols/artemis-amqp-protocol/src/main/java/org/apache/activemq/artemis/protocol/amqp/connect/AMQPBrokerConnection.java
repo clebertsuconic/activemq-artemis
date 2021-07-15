@@ -211,7 +211,7 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
          connectReceiver(protonRemotingConnection, session, sessionContext, queue, Symbol.valueOf("qd.waypoint"));
       } else {
          if (connectionElement.getType() == AMQPBrokerConnectionAddressType.SENDER) {
-            connectSender(queue, queue.getAddress().toString(), null, null, null);
+            connectSender(queue, queue.getAddress().toString(), null, null, null, null, null);
          }
          if (connectionElement.getType() == AMQPBrokerConnectionAddressType.RECEIVER) {
             connectReceiver(protonRemotingConnection, session, sessionContext, queue);
@@ -293,7 +293,7 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
 
                   Queue queue = server.locateQueue(getMirrorSNF(replica));
 
-                  connectSender(queue, ProtonProtocolManager.MIRROR_ADDRESS, mirrorControllerSource::setLink, (r) -> AMQPMirrorControllerSource.validateProtocolData(protonProtocolManager.getReferenceIDSupplier(), r, getMirrorSNF(replica)), server.getNodeID().toString());
+                  connectSender(queue, ProtonProtocolManager.MIRROR_ADDRESS, mirrorControllerSource::setLink, (r) -> AMQPMirrorControllerSource.validateProtocolData(protonProtocolManager.getReferenceIDSupplier(), r, getMirrorSNF(replica)), server.getNodeID().toString(), AMQPMirrorControllerSource.MIRROR_CAPABILITY);
                }
             }
          }

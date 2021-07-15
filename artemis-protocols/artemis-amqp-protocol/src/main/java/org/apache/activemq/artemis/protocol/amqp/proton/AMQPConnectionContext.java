@@ -41,6 +41,7 @@ import org.apache.activemq.artemis.core.security.SecurityAuth;
 import org.apache.activemq.artemis.protocol.amqp.broker.AMQPConnectionCallback;
 import org.apache.activemq.artemis.protocol.amqp.broker.AMQPSessionCallback;
 import org.apache.activemq.artemis.protocol.amqp.broker.ProtonProtocolManager;
+import org.apache.activemq.artemis.protocol.amqp.connect.mirror.AMQPMirrorControllerSource;
 import org.apache.activemq.artemis.protocol.amqp.exceptions.ActiveMQAMQPException;
 import org.apache.activemq.artemis.protocol.amqp.logger.ActiveMQAMQPProtocolLogger;
 import org.apache.activemq.artemis.protocol.amqp.logger.ActiveMQAMQPProtocolMessageBundle;
@@ -58,6 +59,7 @@ import org.apache.activemq.artemis.utils.ByteUtil;
 import org.apache.activemq.artemis.utils.VersionLoader;
 import org.apache.qpid.proton.amqp.Symbol;
 import org.apache.qpid.proton.amqp.messaging.Source;
+import org.apache.qpid.proton.amqp.messaging.Terminus;
 import org.apache.qpid.proton.amqp.messaging.TerminusExpiryPolicy;
 import org.apache.qpid.proton.amqp.transaction.Coordinator;
 import org.apache.qpid.proton.amqp.transport.ErrorCondition;
@@ -324,7 +326,7 @@ public class AMQPConnectionContext extends ProtonInitializable implements EventH
          } else {
             if (isReplicaTarget(receiver)) {
                try {
-                  protonSession.getSessionSPI().check(SimpleString.toSimpleString(ProtonProtocolManager.MIRROR_ADDRESS), CheckType.SEND, getSecurityAuth());
+                  protonSession.getSessionSPI().check(SimpleString.toSimpleString(link.getTarget().getAddress()), CheckType.SEND, getSecurityAuth());
                } catch (ActiveMQSecurityException e) {
                   throw ActiveMQAMQPProtocolMessageBundle.BUNDLE.securityErrorCreatingProducer(e.getMessage());
                }
@@ -340,7 +342,19 @@ public class AMQPConnectionContext extends ProtonInitializable implements EventH
    }
 
    private boolean isReplicaTarget(Link link) {
-      return link != null && link.getTarget() != null && link.getTarget().getAddress() != null && link.getTarget().getAddress().equals(ProtonProtocolManager.MIRROR_ADDRESS);
+      boolean hasMirror = false;
+
+      Terminus terminus = (Terminus)link.getTarget();
+      if (terminus != null && terminus.getCapabilities() != null) {
+         for (Symbol s : terminus.getCapabilities()) {
+            if (s.equals(AMQPMirrorControllerSource.MIRROR_CAPABILITY)) {
+               hasMirror = true;
+               break;
+            }
+         }
+      }
+
+      return link != null && link.getTarget() != null && link.getTarget().getAddress() != null && hasMirror;
    }
 
    public Symbol[] getConnectionCapabilitiesOffered() {

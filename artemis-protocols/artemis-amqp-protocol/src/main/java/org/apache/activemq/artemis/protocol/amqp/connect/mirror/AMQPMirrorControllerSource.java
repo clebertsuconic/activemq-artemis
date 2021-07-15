@@ -66,6 +66,7 @@ public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> im
    // Delivery annotation property used on mirror control routing and Ack
    public static final Symbol INTERNAL_ID = Symbol.getSymbol("x-opt-amq-mr-id");
    public static final Symbol INTERNAL_DESTINATION = Symbol.getSymbol("x-opt-amq-mr-dst");
+   public static final Symbol MIRROR_CAPABILITY = Symbol.getSymbol("amq-mr");
 
    public static final SimpleString INTERNAL_ID_EXTRA_PROPERTY = SimpleString.toSimpleString(INTERNAL_ID.toString());
    public static final SimpleString INTERNAL_BROKER_ID_EXTRA_PROPERTY = SimpleString.toSimpleString(BROKER_ID.toString());
