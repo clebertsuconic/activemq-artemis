@@ -512,6 +512,7 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
 
             AMQPOutgoingController outgoingInitializer = new AMQPOutgoingController(queue, sender, sessionContext.getSessionSPI());
 
+            // TODO link Capabilities, and protocol to validate remote open here
             ProtonServerSenderContext senderContext = new ProtonServerSenderContext(protonRemotingConnection.getAmqpConnection(), sender, sessionContext, sessionContext.getSessionSPI(), outgoingInitializer).setBeforeDelivery(beforeDeliver);
 
             sessionContext.addSender(sender, senderContext);

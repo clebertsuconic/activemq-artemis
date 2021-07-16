@@ -308,6 +308,8 @@ public class AMQPConnectionContext extends ProtonInitializable implements EventH
       return connectionCallback;
    }
 
+
+   // aki
    protected void remoteLinkOpened(Link link) throws Exception {
 
       AMQPSessionContext protonSession = getSessionExtension(link.getSession());
