@@ -4307,22 +4307,52 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
 
       private QueueBrowserIterator() {
          messagesIterator = new SynchronizedIterator(messageReferences.iterator());
+         new Exception("Browser iterator").printStackTrace(System.out);
       }
 
       @Override
       public boolean hasNext() {
-         if (messagesIterator != null && messagesIterator.hasNext()) {
-            lastIterator = messagesIterator;
-            return true;
+         if (messagesIterator != null) {
+            MessageReference nextMessage = iterate(messagesIterator);
+            if (nextMessage != null) {
+               cachedNext = nextMessage;
+               lastIterator = messagesIterator;
+               return true;
+            }
          }
-         if (getPagingIterator() != null) {
-            if (getPagingIterator().hasNext()) {
-               lastIterator = getPagingIterator();
+
+         LinkedListIterator<PagedReference> pagingIterator = getPagingIterator();
+         if (pagingIterator != null) {
+            PagedReference nextMessage = iteratePaging(pagingIterator);
+            if (nextMessage != null) {
+               cachedNext = nextMessage;
                return true;
             }
          }
 
          return false;
+      }
+
+      private PagedReference iteratePaging(LinkedListIterator<PagedReference> iterator) {
+         while (iterator.hasNext()) {
+            PagedReference ref = iterator.next();
+            if (!previouslyBrowsed.contains(ref.getPosition())) {
+               return ref;
+            }
+         }
+         return null;
+      }
+
+
+      private MessageReference iterate(LinkedListIterator<MessageReference> iterator) {
+         while (iterator.hasNext()) {
+            MessageReference ref = iterator.next();
+            if (ref.isPaged()) {
+               previouslyBrowsed.add(((PagedReference)ref).getPosition());
+            }
+            return ref;
+         }
+         return null;
       }
 
       @Override
@@ -4336,20 +4366,18 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
             }
 
          }
+
          if (messagesIterator != null && messagesIterator.hasNext()) {
-            MessageReference msg = messagesIterator.next();
-            if (msg.isPaged()) {
-               previouslyBrowsed.add(((PagedReference) msg).getPosition());
+            MessageReference ref = iterate(messagesIterator);
+            if (ref != null) {
+               return ref;
             }
-            return msg;
          }
-         if (getPagingIterator() != null) {
-            while (getPagingIterator().hasNext()) {
-               lastIterator = getPagingIterator();
-               PagedReference ref = getPagingIterator().next();
-               if (previouslyBrowsed.contains(ref.getPosition())) {
-                  continue;
-               }
+
+         LinkedListIterator<PagedReference> pagingIterator = getPagingIterator();
+         if (pagingIterator != null) {
+            PagedReference ref = iteratePaging(pagingIterator);
+            if (ref != null) {
                return ref;
             }
          }

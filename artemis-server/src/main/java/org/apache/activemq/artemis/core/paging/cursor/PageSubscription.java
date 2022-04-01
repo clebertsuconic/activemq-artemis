@@ -16,6 +16,10 @@
  */
 package org.apache.activemq.artemis.core.paging.cursor;
 
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
+import java.util.function.ToIntFunction;
+
 import org.apache.activemq.artemis.core.paging.PagedMessage;
 import org.apache.activemq.artemis.core.paging.PagingStore;
 import org.apache.activemq.artemis.core.paging.impl.Page;
@@ -135,6 +139,8 @@ public interface PageSubscription {
     * @return
     */
    boolean isComplete(long page);
+
+   void forEachConsumedPage(Consumer<ConsumedPage> pageCleaner);
 
    /**
     * wait all the scheduled runnables to finish their current execution
