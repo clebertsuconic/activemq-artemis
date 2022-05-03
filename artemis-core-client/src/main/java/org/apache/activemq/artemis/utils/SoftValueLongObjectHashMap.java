@@ -28,11 +28,12 @@ import java.util.TreeSet;
 
 import io.netty.util.collection.LongObjectHashMap;
 import io.netty.util.collection.LongObjectMap;
-import org.jboss.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class SoftValueLongObjectHashMap<V extends SoftValueLongObjectHashMap.ValueCache> implements LongObjectMap<V> {
 
-   private static final Logger logger = Logger.getLogger(SoftValueLongObjectHashMap.class);
+   private static final Logger logger = LoggerFactory.getLogger(SoftValueLongObjectHashMap.class);
 
    // The soft references that are already good.
    // too bad there's no way to override the queue method on ReferenceQueue, so I wouldn't need this
