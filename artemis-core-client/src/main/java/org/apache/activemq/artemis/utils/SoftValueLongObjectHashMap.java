@@ -335,7 +335,7 @@ public class SoftValueLongObjectHashMap<V extends SoftValueLongObjectHashMap.Val
    private void processQueue() {
       AggregatedSoftReference ref;
       while ((ref = (AggregatedSoftReference) this.refQueue.poll()) != null) {
-         logger.tracef("Removing reference through processQueue:: %s", ref.get());
+         logger.trace("Removing reference through processQueue:: %s", ref.get());
          mapDelegate.remove(ref.key);
       }
    }
