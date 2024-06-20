@@ -107,26 +107,31 @@ public class StompSoakTest extends SoakTestBase {
 
                   clientConnection.sendFrame(beginFrame);
 
-                  ClientStompFrame frame = clientConnection.createFrame(Stomp.Commands.SEND).addHeader(Stomp.Headers.Send.DESTINATION, destination).setBody("message" + messageCount).addHeader(Stomp.Headers.TRANSACTION, txId).addHeader(Stomp.Headers.Send.PERSISTENT, Boolean.TRUE.toString());;
+                  ClientStompFrame frame = clientConnection.createFrame(Stomp.Commands.SEND).addHeader(Stomp.Headers.Send.DESTINATION, destination).setBody("message" + messageCount).addHeader(Stomp.Headers.TRANSACTION, txId).addHeader(Stomp.Headers.Send.PERSISTENT, Boolean.TRUE.toString());
 
-                  clientConnection.sendFrame(frame);
+                  for (int repeat = 0; repeat < 10; repeat++) {
+                     clientConnection.sendFrame(frame);
+                  }
 
-                  ClientStompFrame commitFrame = clientConnection.createFrame(Stomp.Commands.COMMIT).addHeader(Stomp.Headers.TRANSACTION, txId);
-
-                  clientConnection.sendFrame(commitFrame);
+                  {
+                     ClientStompFrame commitFrame = clientConnection.createFrame(Stomp.Commands.COMMIT).addHeader(Stomp.Headers.TRANSACTION, txId);
+                     clientConnection.sendFrame(commitFrame);
+                  }
 
                   beginFrame = clientConnection.createFrame(Stomp.Commands.BEGIN).addHeader(Stomp.Headers.TRANSACTION, "receive" + txId);
 
                   clientConnection.sendFrame(beginFrame);
 
-                  ClientStompFrame receivedFrame = clientConnection.receiveFrame();
+                  for (int repeat = 0; repeat < 10; repeat++) {
+                     ClientStompFrame receivedFrame = clientConnection.receiveFrame();
+                     Assertions.assertEquals("MESSAGE", receivedFrame.getCommand());
+                     Assertions.assertEquals("message" + messageCount, receivedFrame.getBody());
+                  }
 
-                  Assertions.assertEquals("MESSAGE", receivedFrame.getCommand());
-                  Assertions.assertEquals("message" + messageCount, receivedFrame.getBody());
-
-                  commitFrame = clientConnection.createFrame(Stomp.Commands.COMMIT).addHeader(Stomp.Headers.TRANSACTION, "receive" + txId);
-
-                  clientConnection.sendFrame(commitFrame);
+                  {
+                     ClientStompFrame commitFrame = clientConnection.createFrame(Stomp.Commands.COMMIT).addHeader(Stomp.Headers.TRANSACTION, "receive" + txId);
+                     clientConnection.sendFrame(commitFrame);
+                  }
                }
 
             } catch (Throwable e) {
