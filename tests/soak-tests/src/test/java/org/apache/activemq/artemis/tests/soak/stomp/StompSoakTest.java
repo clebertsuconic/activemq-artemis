@@ -40,15 +40,15 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.util.Assert;
 
-public class StompSoakTest  extends SoakTestBase {
+public class StompSoakTest extends SoakTestBase {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
    public static final String SERVER_NAME_0 = "stomp/stompServer";
 
-   private static final int THREADS = 100;
+   private static final int THREADS = 10;
+   private static final int NUMBER_OF_MESSAGES = 1000;
 
    Process serverProcess;
 
@@ -61,8 +61,10 @@ public class StompSoakTest  extends SoakTestBase {
          StringWriter queuesWriter = new StringWriter();
 
          for (int i = 0; i < THREADS; i++) {
-            if (i > 0) queuesWriter.write(",");
-            queuesWriter.write("CLIENT_" + i);;
+            if (i > 0)
+               queuesWriter.write(",");
+            queuesWriter.write("CLIENT_" + i);
+            ;
          }
 
          HelperCreate cliCreateServer = new HelperCreate();
@@ -93,25 +95,41 @@ public class StompSoakTest  extends SoakTestBase {
 
                clientConnection.connect();
 
-
-               ClientStompFrame subscribeFrame = clientConnection.createFrame(Stomp.Commands.SUBSCRIBE)
-                  .addHeader(Stomp.Headers.Subscribe.SUBSCRIPTION_TYPE, RoutingType.ANYCAST.toString())
-                  .addHeader(Stomp.Headers.Subscribe.DESTINATION, destination);
+               ClientStompFrame subscribeFrame = clientConnection.createFrame(Stomp.Commands.SUBSCRIBE).addHeader(Stomp.Headers.Subscribe.SUBSCRIPTION_TYPE, RoutingType.ANYCAST.toString()).addHeader(Stomp.Headers.Subscribe.DESTINATION, destination);
 
                clientConnection.sendFrame(subscribeFrame);
 
+               for (int messageCount = 0; messageCount < NUMBER_OF_MESSAGES; messageCount++) {
 
-               for (int messageCount = 0; messageCount < 1000; messageCount++) {
-                  ClientStompFrame frame = clientConnection.createFrame(Stomp.Commands.SEND).addHeader(Stomp.Headers.Send.DESTINATION, destination).setBody("message" + messageCount);
+                  String txId = "tx" + messageCount + "_" + destination;
+
+                  ClientStompFrame beginFrame = clientConnection.createFrame(Stomp.Commands.BEGIN).addHeader(Stomp.Headers.TRANSACTION, txId);
+
+                  clientConnection.sendFrame(beginFrame);
+
+                  ClientStompFrame frame = clientConnection.createFrame(Stomp.Commands.SEND).addHeader(Stomp.Headers.Send.DESTINATION, destination).setBody("message" + messageCount).addHeader(Stomp.Headers.TRANSACTION, txId).addHeader(Stomp.Headers.Send.PERSISTENT, Boolean.TRUE.toString());;
 
                   clientConnection.sendFrame(frame);
 
+                  ClientStompFrame commitFrame = clientConnection.createFrame(Stomp.Commands.COMMIT).addHeader(Stomp.Headers.TRANSACTION, txId);
+
+                  clientConnection.sendFrame(commitFrame);
+
+                  beginFrame = clientConnection.createFrame(Stomp.Commands.BEGIN).addHeader(Stomp.Headers.TRANSACTION, "receive" + txId);
+
+                  clientConnection.sendFrame(beginFrame);
+
                   ClientStompFrame receivedFrame = clientConnection.receiveFrame();
+
                   Assertions.assertEquals("MESSAGE", receivedFrame.getCommand());
                   Assertions.assertEquals("message" + messageCount, receivedFrame.getBody());
+
+                  commitFrame = clientConnection.createFrame(Stomp.Commands.COMMIT).addHeader(Stomp.Headers.TRANSACTION, "receive" + txId);
+
+                  clientConnection.sendFrame(commitFrame);
                }
 
-            } catch (Exception e) {
+            } catch (Throwable e) {
                logger.warn(e.getMessage(), e);
                errors.incrementAndGet();
 
@@ -128,8 +146,8 @@ public class StompSoakTest  extends SoakTestBase {
          });
       }
 
-      Assertions.assertTrue(done.await(10, TimeUnit.SECONDS));
+      Assertions.assertTrue(done.await(10, TimeUnit.MINUTES));
+      Assertions.assertEquals(0, errors.get());
    }
-
 
 }
