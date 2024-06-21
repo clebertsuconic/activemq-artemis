@@ -607,8 +607,6 @@ public final class PagingManagerImpl implements PagingManager {
          transactionsSet.put(a, b);
          b.setOrphaned(true);
       });
-      AtomicLong minLargeMessageID = new AtomicLong(Long.MAX_VALUE);
-
       // make a copy of the stores
       Map<SimpleString, PagingStore> currentStoreMap = new HashMap<>();
       stores.forEach(currentStoreMap::put);
@@ -620,7 +618,7 @@ public final class PagingManagerImpl implements PagingManager {
 
       currentStoreMap.forEach((address, pgStore) -> {
          if (pgStore.isPaging()) {
-            PageCounterRebuildManager rebuildManager = new PageCounterRebuildManager(this, pgStore, transactionsSet, storedLargeMessages, minLargeMessageID);
+            PageCounterRebuildManager rebuildManager = new PageCounterRebuildManager(this, pgStore, transactionsSet, storedLargeMessages);
             logger.debug("Setting destination {} to rebuild counters", address);
             managerExecutor.execute(rebuildManager);
          }

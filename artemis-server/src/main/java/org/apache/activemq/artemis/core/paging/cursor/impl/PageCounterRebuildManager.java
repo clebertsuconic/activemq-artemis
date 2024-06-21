@@ -59,7 +59,7 @@ public class PageCounterRebuildManager implements Runnable {
    private final Set<Long> storedLargeMessages;
 
 
-   public PageCounterRebuildManager(PagingManager pagingManager, PagingStore store, Map<Long, PageTransactionInfo> transactions, Set<Long> storedLargeMessages, AtomicLong minPageTXIDFound) {
+   public PageCounterRebuildManager(PagingManager pagingManager, PagingStore store, Map<Long, PageTransactionInfo> transactions, Set<Long> storedLargeMessages) {
       // we make a copy of the data because we are allowing data to influx. We will consolidate the values at the end
       initialize(store);
       this.pagingManager = pagingManager;
@@ -265,6 +265,11 @@ public class PageCounterRebuildManager implements Runnable {
 
                for (long queueID : routedQueues) {
                   boolean ok = !isACK(queueID, msg.getPageNumber(), msg.getMessageNumber());
+
+                  if (ok) {
+                     System.out.println("Retrying for debug...");
+                     System.out.println("newok = " + isACK(queueID, msg.getPageNumber(), msg.getMessageNumber()));
+                  }
 
                   // if the pageTransaction is in prepare state, we have to increment the counter after the commit
                   // notice that there is a check if the commit is done in afterCommit
