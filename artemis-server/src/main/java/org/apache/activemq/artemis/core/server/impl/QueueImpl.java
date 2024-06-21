@@ -1822,7 +1822,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
 
    @Override
    public long getMessageCount() {
-      if (pageSubscription != null) {
+      if (pageSubscription != null && pageSubscription.isPaging()) {
          // messageReferences will have depaged messages which we need to discount from the counter as they are
          // counted on the pageSubscription as well
          long returnValue = (long) pendingMetrics.getNonPagedMessageCount() + scheduledDeliveryHandler.getNonPagedScheduledCount() + deliveringMetrics.getNonPagedMessageCount() + pageSubscription.getMessageCount();

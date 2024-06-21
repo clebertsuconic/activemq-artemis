@@ -76,10 +76,15 @@ public class PageCounterRebuildManager implements Runnable {
          try {
             paging = store.isPaging();
             if (!paging) {
-               logger.trace("Destination {} was not paging, no need to rebuild counters");
+               logger.trace("Destination {} was not paging, no need to rebuild counters", store.getAddress());
                store.getCursorProvider().forEachSubscription(subscription -> {
                   subscription.getCounter().markRebuilding();
                   subscription.getCounter().finishRebuild();
+                  try {
+                     subscription.getCounter().delete();
+                  } catch (Exception e) {
+                     logger.warn(e.getMessage(), e);
+                  }
                });
 
                store.getCursorProvider().counterRebuildDone();
@@ -89,6 +94,7 @@ public class PageCounterRebuildManager implements Runnable {
             Page currentPage = store.getCurrentPage();
             limitPageId = store.getCurrentWritingPage();
             limitMessageNr = currentPage.getNumberOfMessages();
+            logger.info("PageCounterRebuild for {}, Current writing page {} and limit will be {} with lastMessage on last page={}", store.getStoreName(), store.getCurrentWritingPage(), limitPageId, limitMessageNr);
             if (logger.isTraceEnabled()) {
                logger.trace("PageCounterRebuild for {}, Current writing page {} and limit will be {} with lastMessage on last page={}", store.getStoreName(), store.getCurrentWritingPage(), limitPageId, limitMessageNr);
             }
