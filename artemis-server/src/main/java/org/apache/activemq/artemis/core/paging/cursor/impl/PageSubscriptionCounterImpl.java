@@ -23,6 +23,7 @@ import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import org.apache.activemq.artemis.core.paging.PagingStore;
 import org.apache.activemq.artemis.core.paging.cursor.PageSubscription;
 import org.apache.activemq.artemis.core.paging.cursor.PageSubscriptionCounter;
+import org.apache.activemq.artemis.core.paging.impl.PagingManagerImpl;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.server.ActiveMQServerLogger;
 import org.apache.activemq.artemis.core.transaction.Transaction;
@@ -98,13 +99,14 @@ public class PageSubscriptionCounterImpl extends BasePagingCounter {
 
    @Override
    public void finishRebuild() {
-      super.finishRebuild();
       if (logger.isDebugEnabled()) {
          logger.debug("Subscription {} finished rebuilding", subscriptionID);
       }
+      logger.info("Rebuild done for {}", ((PagingManagerImpl) pagingStore.getPagingManager()).getServer().getIdentity());
       snapshot();
       addedUpdater.set(this, valueUpdater.get(this));
       addedPersistentSizeUpdater.set(this, persistentSizeUpdater.get(this));
+      super.finishRebuild();
    }
 
    @Override
@@ -192,6 +194,12 @@ public class PageSubscriptionCounterImpl extends BasePagingCounter {
       }
       long value = valueUpdater.addAndGet(this, add);
       persistentSizeUpdater.addAndGet(this, size);
+      if (PageSubscriptionImpl.print) {
+         try {
+            logger.info("process {} on {} value {}", add, ((PagingManagerImpl) pagingStore.getPagingManager()).getServer().getIdentity(), value, new Exception("trace"));
+         } catch (Throwable ignored) {
+         }
+      }
       if (add > 0) {
          addedUpdater.addAndGet(this, add);
          addedPersistentSizeUpdater.addAndGet(this, size);

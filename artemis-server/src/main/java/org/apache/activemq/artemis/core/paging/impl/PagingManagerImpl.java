@@ -85,6 +85,10 @@ public final class PagingManagerImpl implements PagingManager {
 
    private final ActiveMQServer server;
 
+   public ActiveMQServer getServer() {
+      return server;
+   }
+
    private PagingStoreFactory pagingStoreFactory;
 
    private volatile boolean globalFull;

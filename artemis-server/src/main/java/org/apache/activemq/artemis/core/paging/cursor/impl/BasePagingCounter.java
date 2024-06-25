@@ -16,9 +16,15 @@
  */
 package org.apache.activemq.artemis.core.paging.cursor.impl;
 
+import java.lang.invoke.MethodHandles;
+
 import org.apache.activemq.artemis.core.paging.cursor.PageSubscriptionCounter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public abstract class BasePagingCounter implements PageSubscriptionCounter {
+
+   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
    private volatile  boolean rebuilding = false;
 
@@ -29,6 +35,7 @@ public abstract class BasePagingCounter implements PageSubscriptionCounter {
 
    @Override
    public void finishRebuild() {
+
       rebuilding = false;
    }
 

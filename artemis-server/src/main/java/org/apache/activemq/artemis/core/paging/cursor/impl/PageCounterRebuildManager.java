@@ -28,6 +28,7 @@ import org.apache.activemq.artemis.core.paging.cursor.PagePosition;
 import org.apache.activemq.artemis.core.paging.cursor.PageSubscription;
 import org.apache.activemq.artemis.core.paging.cursor.PageSubscriptionCounter;
 import org.apache.activemq.artemis.core.paging.impl.Page;
+import org.apache.activemq.artemis.core.paging.impl.PagingManagerImpl;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.transaction.Transaction;
 import org.apache.activemq.artemis.core.transaction.TransactionOperationAbstract;
@@ -129,7 +130,10 @@ public class PageCounterRebuildManager implements Runnable {
                   // as if the page is done, we just move over
                   consumedPage.forEachAck((messageNR, pagePosition) -> {
                      if (logger.isTraceEnabled()) {
-                        logger.trace("Marking messageNR {} as acked on pageID={} copy", messageNR, consumedPage.getPageId());
+                        try {
+                           logger.trace("Marking messageNR {} as acked on pageID={} copy on server {}", messageNR, consumedPage.getPageId(), ((PagingManagerImpl) pagingManager).getServer().getIdentity());
+                        } catch (Throwable ignored) {
+                        }
                      }
                      if (copiedConsumedPage.acks == null) {
                         copiedConsumedPage.acks = new IntObjectHashMap<>();
@@ -267,8 +271,7 @@ public class PageCounterRebuildManager implements Runnable {
                   boolean ok = !isACK(queueID, msg.getPageNumber(), msg.getMessageNumber());
 
                   if (ok) {
-                     System.out.println("Retrying for debug...");
-                     System.out.println("newok = " + isACK(queueID, msg.getPageNumber(), msg.getMessageNumber()));
+                     logger.info("Retrying newok for page {} and message {}, isAck={}, server={}", msg.getPageNumber(), msg.getMessageNumber(), isACK(queueID, msg.getPageNumber(), msg.getMessageNumber()), ((PagingManagerImpl)pagingManager).getServer().getIdentity());
                   }
 
                   // if the pageTransaction is in prepare state, we have to increment the counter after the commit

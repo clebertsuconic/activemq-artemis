@@ -48,6 +48,7 @@ import org.apache.activemq.artemis.core.paging.cursor.PageSubscriptionCounter;
 import org.apache.activemq.artemis.core.paging.cursor.PagedReference;
 import org.apache.activemq.artemis.core.paging.cursor.PagedReferenceImpl;
 import org.apache.activemq.artemis.core.paging.impl.Page;
+import org.apache.activemq.artemis.core.paging.impl.PagingManagerImpl;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.server.ActiveMQServerLogger;
 import org.apache.activemq.artemis.core.server.MessageReference;
@@ -875,6 +876,8 @@ public final class PageSubscriptionImpl implements PageSubscription {
       }
    }
 
+   public static volatile boolean print = false;
+
 
    /**
     * This will hold information about the pending ACKs towards a page.
@@ -918,7 +921,7 @@ public final class PageSubscriptionImpl implements PageSubscription {
       }
 
       @Override
-      public void forEachAck(BiConsumer<Integer, PagePosition> ackConsumer) {
+      public synchronized void forEachAck(BiConsumer<Integer, PagePosition> ackConsumer) {
          if (acks != null) {
             acks.forEach(ackConsumer);
          }
@@ -1047,6 +1050,10 @@ public final class PageSubscriptionImpl implements PageSubscription {
       }
 
       public void addACK(final PagePosition posACK) {
+
+         if (print) {
+            //logger.info("AddACK {}", posACK, new Exception("trace"));
+         }
 
          if (logger.isTraceEnabled()) {
             try {
