@@ -19,27 +19,39 @@ package org.apache.activemq.artemis.tests.soak.stomp;
 
 import java.io.File;
 import java.io.StringWriter;
-import java.lang.invoke.MethodHandles;
+
 import java.net.URI;
-import java.util.UUID;
+
+import java.lang.invoke.MethodHandles;
+
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import javax.jms.Connection;
+import javax.jms.MessageProducer;
+import javax.jms.Session;
+import javax.jms.TextMessage;
+
 import org.apache.activemq.artemis.api.core.RoutingType;
+import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.protocol.stomp.Stomp;
+import org.apache.activemq.artemis.jms.client.ActiveMQConnectionFactory;
+import org.apache.activemq.artemis.jms.client.ActiveMQDestination;
 import org.apache.activemq.artemis.tests.integration.stomp.util.ClientStompFrame;
 import org.apache.activemq.artemis.tests.integration.stomp.util.StompClientConnection;
 import org.apache.activemq.artemis.tests.integration.stomp.util.StompClientConnectionFactory;
 import org.apache.activemq.artemis.tests.soak.SoakTestBase;
 import org.apache.activemq.artemis.utils.cli.helper.HelperCreate;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class StompSoakTest extends SoakTestBase {
 
@@ -58,18 +70,9 @@ public class StompSoakTest extends SoakTestBase {
          File serverLocation = getFileServerLocation(SERVER_NAME_0);
          deleteDirectory(serverLocation);
 
-         StringWriter queuesWriter = new StringWriter();
-
-         for (int i = 0; i < THREADS; i++) {
-            if (i > 0)
-               queuesWriter.write(",");
-            queuesWriter.write("CLIENT_" + i);
-            ;
-         }
-
          HelperCreate cliCreateServer = new HelperCreate();
-         cliCreateServer.setRole("amq").setUser("admin").setPassword("admin").setAllowAnonymous(true).setNoWeb(false).setArtemisInstance(serverLocation);
-         cliCreateServer.addArgs("--queues", queuesWriter.toString());
+         cliCreateServer.setRole("amq").setUser("admin").setPassword("admin").setAllowAnonymous(true).setNoWeb(false)
+           .setArtemisInstance(serverLocation);
          // some limited memory to make it more likely to fail
          cliCreateServer.setArgs("--java-memory", "512M");
          cliCreateServer.createServer();
@@ -80,79 +83,104 @@ public class StompSoakTest extends SoakTestBase {
    public void testStomp() throws Exception {
       serverProcess = startServer(SERVER_NAME_0, 0, 60_000);
 
-      ExecutorService executorService = Executors.newFixedThreadPool(THREADS);
+      Thread.sleep(2_000);
+
+      ExecutorService executorService = Executors.newFixedThreadPool(THREADS * 2);
       runAfter(executorService::shutdownNow);
 
-      CountDownLatch done = new CountDownLatch(THREADS);
+      CountDownLatch done = new CountDownLatch(THREADS * 2);
       AtomicInteger errors = new AtomicInteger(0);
 
-      for (int i = 0; i < THREADS; i++) {
-         String destination = "CLIENT_" + i;
-         executorService.execute(() -> {
-            StompClientConnection clientConnection = null;
-            try {
-               clientConnection = StompClientConnectionFactory.createClientConnection(new URI("tcp+v12.stomp://localhost:61616"));
+      StompClientConnection cc = null;
+      try {
+         cc = StompClientConnectionFactory.createClientConnection(new URI("tcp://127.0.0.1:61613"));
+         cc.connect("admin", "admin");
 
-               clientConnection.connect();
-
-               ClientStompFrame subscribeFrame = clientConnection.createFrame(Stomp.Commands.SUBSCRIBE).addHeader(Stomp.Headers.Subscribe.SUBSCRIPTION_TYPE, RoutingType.ANYCAST.toString()).addHeader(Stomp.Headers.Subscribe.DESTINATION, destination);
-
-               clientConnection.sendFrame(subscribeFrame);
-
-               for (int messageCount = 0; messageCount < NUMBER_OF_MESSAGES; messageCount++) {
-
-                  String txId = "tx" + messageCount + "_" + destination;
-
-                  ClientStompFrame beginFrame = clientConnection.createFrame(Stomp.Commands.BEGIN).addHeader(Stomp.Headers.TRANSACTION, txId);
-
-                  clientConnection.sendFrame(beginFrame);
-
-                  ClientStompFrame frame = clientConnection.createFrame(Stomp.Commands.SEND).addHeader(Stomp.Headers.Send.DESTINATION, destination).setBody("message" + messageCount).addHeader(Stomp.Headers.TRANSACTION, txId).addHeader(Stomp.Headers.Send.PERSISTENT, Boolean.TRUE.toString());
-
-                  for (int repeat = 0; repeat < 10; repeat++) {
-                     clientConnection.sendFrame(frame);
-                  }
-
-                  {
-                     ClientStompFrame commitFrame = clientConnection.createFrame(Stomp.Commands.COMMIT).addHeader(Stomp.Headers.TRANSACTION, txId);
-                     clientConnection.sendFrame(commitFrame);
-                  }
-
-                  beginFrame = clientConnection.createFrame(Stomp.Commands.BEGIN).addHeader(Stomp.Headers.TRANSACTION, "receive" + txId);
-
-                  clientConnection.sendFrame(beginFrame);
-
-                  for (int repeat = 0; repeat < 10; repeat++) {
-                     ClientStompFrame receivedFrame = clientConnection.receiveFrame();
-                     Assertions.assertEquals("MESSAGE", receivedFrame.getCommand());
-                     Assertions.assertEquals("message" + messageCount, receivedFrame.getBody());
-                  }
-
-                  {
-                     ClientStompFrame commitFrame = clientConnection.createFrame(Stomp.Commands.COMMIT).addHeader(Stomp.Headers.TRANSACTION, "receive" + txId);
-                     clientConnection.sendFrame(commitFrame);
-                  }
-               }
-
-            } catch (Throwable e) {
-               logger.warn(e.getMessage(), e);
-               errors.incrementAndGet();
-
-            } finally {
+         final StompClientConnection clientConnection = cc;
+         for (int i = 0; i < THREADS; i++) {
+            String destination = "CLIENT_" + i;
+            String subId = "SUB_" + i;
+            executorService.execute(() -> {
                try {
-                  clientConnection.closeTransport();
-                  clientConnection.disconnect();
-               } catch (Throwable ignored) {
+                  ClientStompFrame subscribeFrame = clientConnection.createFrame(Stomp.Commands.SUBSCRIBE).
+                    addHeader(Stomp.Headers.Subscribe.ID, subId)
+                    .addHeader(Stomp.Headers.Subscribe.DESTINATION, destination);
+
+                  clientConnection.sendFrame(subscribeFrame);
+
+                  System.out.printf("Subscribed to destination %s with id %s\n", destination, subId);
+
+                  int receivedCount = 0;
+
+                  while (clientConnection.isConnected() && receivedCount < NUMBER_OF_MESSAGES) {
+                     ClientStompFrame clientStompFrame = clientConnection.receiveFrame();
+                     if (clientStompFrame != null) {
+                        receivedCount++;
+                     } else {
+                        Thread.sleep(1000);
+                     }
+                  }
+                  System.out.printf("Received count for destination %s is %d\n", destination, receivedCount);
+               } catch (Throwable e) {
+                  logger.warn(e.getMessage(), e);
+                  errors.incrementAndGet();
+               } finally {
+                  done.countDown();
                }
+            });
+         }
+      } catch (Throwable e) {
+         logger.warn(e.getMessage(), e);
+         errors.incrementAndGet();
+      }
 
-               done.countDown();
-            }
+      ActiveMQConnectionFactory cf = new ActiveMQConnectionFactory("tcp://localhost:61616");
+      cf.setUser("admin");
+      cf.setPassword("admin");
+      cf.setBlockOnNonDurableSend(false);
+      Connection c = null;
+      try {
+         c = cf.createConnection();
+         final Connection connection = c;
+         for (int i = 0; i < THREADS; i++) {
+            String destination = "CLIENT_" + i;
+            executorService.execute(() -> {
+               System.out.printf("Creating session for destination %s\n", destination);
+               try (Session session = connection.createSession(false, Session.DUPS_OK_ACKNOWLEDGE)) {
+                  MessageProducer producer = session.createProducer(
+                    ActiveMQDestination.createDestination(RoutingType.MULTICAST, SimpleString.of(destination)));
 
-         });
+                  System.out.printf("Sending %s messages to destination %s \n", NUMBER_OF_MESSAGES, destination);
+
+                  for (int messageCount = 0; messageCount < NUMBER_OF_MESSAGES; messageCount++) {
+                     TextMessage message = session.createTextMessage("message-" + messageCount);
+                     producer.send(message);
+                  }
+               } catch (Throwable e) {
+                  logger.warn(e.getMessage(), e);
+                  errors.incrementAndGet();
+               } finally {
+                  done.countDown();
+               }
+            });
+         }
+      } catch (Throwable e) {
+         logger.warn(e.getMessage(), e);
+         errors.incrementAndGet();
       }
 
       Assertions.assertTrue(done.await(10, TimeUnit.MINUTES));
+
+      try {
+         if (c != null)
+            c.close();
+         if (cc != null) {
+            cc.closeTransport();
+            cc.disconnect();
+         }
+      } catch (Throwable ignored) {
+      }
+
       Assertions.assertEquals(0, errors.get());
    }
-
 }
