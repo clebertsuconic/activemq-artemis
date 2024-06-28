@@ -106,7 +106,7 @@ public class RefsOperation extends TransactionOperationAbstract {
       // previous state persisted.
       List<MessageReference> ackedRefs = new ArrayList<>();
 
-      for (MessageReference ref : refsToAck) {
+      for (MessageReference ref : getRelatedMessageReferences()) {
          clearLingerRef(ref);
 
          ref.emptyConsumerID();
@@ -159,7 +159,7 @@ public class RefsOperation extends TransactionOperationAbstract {
       }
 
       if (pagedMessagesToPostACK != null) {
-         for (MessageReference refmsg : pagedMessagesToPostACK) {
+         for (MessageReference refmsg : new ArrayList<>(pagedMessagesToPostACK)) {
             ((PagedReference)refmsg).removePendingFlag();
          }
       }
@@ -185,7 +185,7 @@ public class RefsOperation extends TransactionOperationAbstract {
 
    @Override
    public void afterCommit(final Transaction tx) {
-      for (MessageReference ref : refsToAck) {
+      for (MessageReference ref : getRelatedMessageReferences()) {
          clearLingerRef(ref);
 
          synchronized (ref.getQueue()) {
@@ -193,8 +193,8 @@ public class RefsOperation extends TransactionOperationAbstract {
          }
       }
 
-      if (pagedMessagesToPostACK != null) {
-         for (MessageReference refmsg : pagedMessagesToPostACK) {
+      if (pagedMessagesToPostACK != null && !pagedMessagesToPostACK.isEmpty()) {
+         for (MessageReference refmsg : new ArrayList<>(pagedMessagesToPostACK)) {
             ((PagedReference)refmsg).removePendingFlag();
             if (((PagedReference) refmsg).isLargeMessage()) {
                refmsg.getQueue().refDown(refmsg);
@@ -223,7 +223,7 @@ public class RefsOperation extends TransactionOperationAbstract {
    @Override
    public synchronized List<MessageReference> getListOnConsumer(long consumerID) {
       List<MessageReference> list = new LinkedList<>();
-      for (MessageReference ref : refsToAck) {
+      for (MessageReference ref : getRelatedMessageReferences()) {
          if (ref.hasConsumerId() && ref.getConsumerId() == consumerID) {
             list.add(ref);
          }
@@ -238,7 +238,7 @@ public class RefsOperation extends TransactionOperationAbstract {
 
    public synchronized List<MessageReference> getLingerMessages() {
       List<MessageReference> list = new LinkedList<>();
-      for (MessageReference ref : refsToAck) {
+      for (MessageReference ref : getRelatedMessageReferences()) {
          if (!ref.hasConsumerId() && lingerSessionId != null) {
             list.add(ref);
          }
