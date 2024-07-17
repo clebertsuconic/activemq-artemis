@@ -997,6 +997,16 @@ public class BridgeImpl implements Bridge, SessionFailureListener, SendAcknowled
             return;
          }
 
+         if (server.getPagingManager().isRebuildingCounters()) {
+            logger.info("*******************************************************************************************************************************");
+            logger.info("Retrying because counters are rebuilding...");
+            executor.execute(ConnectRunnable.this);
+            return;
+         } else {
+            logger.info(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+            logger.info("proceeding");
+         }
+
          synchronized (connectionGuard) {
             if (!keepConnecting) {
                return;

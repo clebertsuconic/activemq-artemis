@@ -1052,7 +1052,7 @@ public final class PageSubscriptionImpl implements PageSubscription {
       public void addACK(final PagePosition posACK) {
 
          if (print) {
-            //logger.info("AddACK {}", posACK, new Exception("trace"));
+            logger.info("AddACK {}", posACK, new Exception("trace"));
          }
 
          if (logger.isTraceEnabled()) {

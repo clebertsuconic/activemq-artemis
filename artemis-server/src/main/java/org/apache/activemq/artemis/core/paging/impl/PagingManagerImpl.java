@@ -625,6 +625,8 @@ public final class PagingManagerImpl implements PagingManager {
             PageCounterRebuildManager rebuildManager = new PageCounterRebuildManager(this, pgStore, transactionsSet, storedLargeMessages);
             logger.debug("Setting destination {} to rebuild counters", address);
             managerExecutor.execute(rebuildManager);
+         } else {
+            logger.info("Not paging... {}", pgStore.getAddress());
          }
       });
 

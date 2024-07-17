@@ -85,41 +85,50 @@ public class MessageCount235Test extends FailoverTestBase {
             session1.close();
          }
 
-         BridgeConfiguration bridgeConfiguration = new BridgeConfiguration().setName(bridgeName)
+         BridgeConfiguration bridgeConfigurationx = new BridgeConfiguration().setName(bridgeName)
             .setQueueName(queueName0).setRetryInterval(1000)
             .setUseDuplicateDetection(true)
             .setStaticConnectors(List.of(dc2Primary1tc.getName()));
 
-         logger.info("Starting bridge: " + bridgeConfiguration.getName());
-         dc1Primary1.getClusterManager().deployBridge(bridgeConfiguration);
+         BridgeConfiguration bridgeConfiguration2 = new BridgeConfiguration().setName(bridgeName)
+            .setQueueName(queueName0).setRetryInterval(1000)
+            .setUseDuplicateDetection(true)
+            .setStaticConnectors(List.of(dc2Primary1tc.getName()));
+
+
+         logger.info("Starting bridge: " + bridgeConfigurationx.getName());
+         dc1Primary1.getClusterManager().deployBridge(bridgeConfigurationx);
 
          Wait.waitFor(() -> messageSent - getMessageCount(dc1Primary1, queueName0) > 100);
          logger.info("Stopping dc1Primary1");
          dc1Backup1.setIdentity("XXX DC1BAckup");
          PageSubscriptionImpl.print = true;
+         logger.info("Stopping DC1 Shutting");
          dc1Primary1.stop();
          logger.info("Waiting for dc1Backup1 to be alive");
          Wait.waitFor(dc1Backup1::isActive, 15000);
          logger.info("dc1Backup1 isAlive");
+         Wait.assertTrue(dc1Backup1::isRebuildCounters);
          long messageCountNodeDC1 = getMessageCount(dc1Backup1, queueName0);
          long messageCountNodeDC2 = getMessageCount(dc2Primary1, queueName0);
          Thread.sleep(1000);
          logger.info("Count in post office: " + (messageCountNodeDC1 + messageCountNodeDC2) + "messageCountNodeDC1:" + messageCountNodeDC1 + ", messageCountNodeDC2:" + messageCountNodeDC2 + " should be equal to: " + messageSent);
-         dc1Backup1.getClusterManager().deployBridge(bridgeConfiguration);
+         dc1Backup1.getClusterManager().deployBridge(bridgeConfiguration2);
          Wait.waitFor(() -> getMessageCount(dc2Primary1, queueName0) == messageSent);
          messageCountNodeDC1 = getMessageCount(dc1Backup1, queueName0);
          messageCountNodeDC2 = getMessageCount(dc2Primary1, queueName0);
          logger.info("Count in post office: " + (messageCountNodeDC1 + messageCountNodeDC2) + "messageCountNodeDC1:" + messageCountNodeDC1 + ", messageCountNodeDC2:" + messageCountNodeDC2 + " should be equal to: " + messageSent);
          Assertions.assertEquals(messageSent, messageCountNodeDC2);
-         System.out.println("" + dc1Backup1.getConfiguration().getBindingsDirectory());
-         System.out.println("journal: " + dc1Backup1.getConfiguration().getJournalDirectory());
-         System.out.println("paging: " + dc1Backup1.getConfiguration().getPagingDirectory());
-
+         logger.info("XXX bindings = {}, journal= {}, paging= {}", dc1Backup1.getConfiguration().getBindingsDirectory(), dc1Backup1.getConfiguration().getJournalDirectory(), dc1Backup1.getConfiguration().getPagingDirectory());
 
          Queue queue0 = dc1Backup1.locateQueue(queueName0);
 
-         for (int i = 0; i < 100; i++) {
+         for (int i = 0; i < 10; i++) {
             logger.info("Count = {}", queue0.getMessageCount());
+            Thread.sleep(1000);
+            logger.info("Rebuild asked.....");
+            Future<Object> object = dc1Backup1.getPagingManager().rebuildCounters(null);
+            object.get();
          }
 
          /*for (int i = 0; i < 1; i++) {
@@ -131,7 +140,20 @@ public class MessageCount235Test extends FailoverTestBase {
             Future future = dc1Backup1.getPagingManager().rebuildCounters(new HashSet<>());
             future.get();
          } */
-         Wait.assertEquals(0, () -> getMessageCount(dc1Backup1, queueName0), 5000, 1000);
+         try {
+            Wait.assertEquals(0, () -> {
+               int count = getMessageCount(dc1Backup1, queueName0);
+               if (count != 0) {
+                  logger.info("Rebuild asked.....");
+                  Future<Object> object = dc1Backup1.getPagingManager().rebuildCounters(null);
+                  object.get();
+               }
+               return getMessageCount(dc1Backup1, queueName0);
+            }, 5000, 1000);
+         } catch (Throwable e) {
+            logger.warn(e.getMessage(), e);
+            System.exit(-1);
+         }
       } finally {
          dc2Primary1.stop();
       }
@@ -260,7 +282,6 @@ public class MessageCount235Test extends FailoverTestBase {
    protected TransportConfiguration getConnectorTransportConfiguration(final boolean primary) {
       return TransportConfigurationUtils.getInVMConnector(primary);
    }
-
 
    @Override
    protected void createConfigs() throws Exception {
