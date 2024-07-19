@@ -11,6 +11,7 @@ import org.apache.activemq.artemis.core.config.BridgeConfiguration;
 import org.apache.activemq.artemis.core.config.ScaleDownConfiguration;
 import org.apache.activemq.artemis.core.config.ha.SharedStoreBackupPolicyConfiguration;
 import org.apache.activemq.artemis.core.config.ha.SharedStorePrimaryPolicyConfiguration;
+import org.apache.activemq.artemis.core.paging.cursor.impl.PageCounterRebuildManager;
 import org.apache.activemq.artemis.core.paging.cursor.impl.PageSubscriptionImpl;
 import org.apache.activemq.artemis.core.remoting.impl.netty.TransportConstants;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
@@ -76,8 +77,7 @@ public class MessageCount235Test extends FailoverTestBase {
             ClientProducer producerServer1 = session1.createProducer(queueName0);
             for (int i = 0; i < messageSent; i++) {
                ClientMessage msg = session1.createMessage(true);
-               if (i % 2 == 0) setLargeMessageBody(0, msg);
-               else setBody(0, msg);
+               setBody(0, msg);
                producerServer1.send(msg);
             }
             session1.commit();
@@ -127,6 +127,7 @@ public class MessageCount235Test extends FailoverTestBase {
             logger.info("Count = {}", queue0.getMessageCount());
             Thread.sleep(1000);
             logger.info("Rebuild asked.....");
+            PageCounterRebuildManager.stopHere = true;
             Future<Object> object = dc1Backup1.getPagingManager().rebuildCounters(null);
             object.get();
          }

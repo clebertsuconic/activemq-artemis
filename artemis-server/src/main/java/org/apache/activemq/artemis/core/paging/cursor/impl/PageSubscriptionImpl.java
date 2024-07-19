@@ -802,6 +802,7 @@ public final class PageSubscriptionImpl implements PageSubscription {
    // To be called only after the ACK has been processed and guaranteed to be on storage
    // The only exception is on non storage events such as not matching messages
    private PageCursorInfo processACK(final PagePosition pos) {
+      logger.info("process ack {}", pos);
       if (lastAckedPosition == null || pos.compareTo(lastAckedPosition) > 0) {
          logger.trace("a new position is being processed as ACK");
 
@@ -1081,6 +1082,7 @@ public final class PageSubscriptionImpl implements PageSubscription {
       }
 
       synchronized boolean internalAddACK(final PagePosition position) {
+         logger.info("Adding {}/{}", pageId, position);
          if (logger.isDebugEnabled()) {
             logger.debug("internalAddACK on queue {} (id={}), position {}", queue.getName(), queue.getID(), position);
          }

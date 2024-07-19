@@ -60,6 +60,9 @@ public class PageCounterRebuildManager implements Runnable {
    private final Set<Long> storedLargeMessages;
 
 
+   public static boolean stopHere = false;
+
+
    public PageCounterRebuildManager(PagingManager pagingManager, PagingStore store, Map<Long, PageTransactionInfo> transactions, Set<Long> storedLargeMessages) {
       // we make a copy of the data because we are allowing data to influx. We will consolidate the values at the end
       initialize(store);
@@ -135,6 +138,9 @@ public class PageCounterRebuildManager implements Runnable {
                         } catch (Throwable ignored) {
                         }
                      }
+                     if (stopHere) {
+                        logger.info("Marking page {}/{} as ack", consumedPage.getPageId(), pagePosition);
+                     }
                      if (copiedConsumedPage.acks == null) {
                         copiedConsumedPage.acks = new IntObjectHashMap<>();
                      }
@@ -208,6 +214,13 @@ public class PageCounterRebuildManager implements Runnable {
       }
 
       logger.debug("Rebuilding page counter for address {}", pgStore.getAddress());
+
+      if (stopHere) {
+         for (int i = 0; i < 100; i++) {
+            logger.info("It is here!!!");
+         }
+         Thread.sleep(1000);
+      }
 
       for (long pgid = pgStore.getFirstPage(); pgid <= limitPageId; pgid++) {
          if (logger.isDebugEnabled()) {
@@ -302,7 +315,11 @@ public class PageCounterRebuildManager implements Runnable {
 
                      if (ok && txIncluded) { // not acked and TX is ok
                         if (logger.isTraceEnabled()) {
-                           logger.trace("Message pageNumber={}/{} NOT acked on queue {}", msg.getPageNumber(), msg.getMessageNumber(), queueID);
+                           logger.trace("Message pageNumber={}/{} NOT acked on queue {} = {}", msg.getPageNumber(), msg.getMessageNumber(), queueID, msg.getMessage());
+                        }
+
+                        if (stopHere) {
+                           logger.info("message not acked on queue");
                         }
                         CopiedSubscription copiedSubscription = copiedSubscriptionMap.get(queueID);
                         if (copiedSubscription != null) {
