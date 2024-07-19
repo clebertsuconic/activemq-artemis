@@ -16,8 +16,10 @@
  */
 package org.apache.activemq.artemis.core.persistence.impl.journal;
 
+import java.lang.invoke.MethodHandles;
 import java.util.LinkedList;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 
@@ -31,6 +33,8 @@ import org.apache.activemq.artemis.utils.ExecutorFactory;
 import org.apache.commons.collections.Buffer;
 import org.apache.commons.collections.BufferUtils;
 import org.apache.commons.collections.buffer.CircularFifoBuffer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Each instance of OperationContextImpl is associated with an executor (usually an ordered Executor).
@@ -47,7 +51,10 @@ import org.apache.commons.collections.buffer.CircularFifoBuffer;
  */
 public class OperationContextImpl implements OperationContext {
 
+   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
+
    private static final ThreadLocal<OperationContext> threadLocalContext = new ThreadLocal<>();
+   public static final ThreadLocal<AtomicBoolean> testThread = ThreadLocal.withInitial(() -> new AtomicBoolean(false));
 
    public static void clearContext() {
       OperationContextImpl.threadLocalContext.set(null);
@@ -65,6 +72,9 @@ public class OperationContextImpl implements OperationContext {
          } else {
             token = new OperationContextImpl(executorFactory.getExecutor());
             OperationContextImpl.threadLocalContext.set(token);
+            if (testThread.get().get()) {
+               new Exception("new context").printStackTrace();
+            }
          }
       }
       return token;
@@ -72,6 +82,9 @@ public class OperationContextImpl implements OperationContext {
 
    public static void setContext(final OperationContext context) {
       OperationContextImpl.threadLocalContext.set(context);
+      if (testThread.get().get()) {
+         new Exception("recover context").printStackTrace();
+      }
    }
 
    LinkedList<TaskHolder> tasks;
@@ -321,6 +334,7 @@ public class OperationContextImpl implements OperationContext {
             }
          });
       } catch (Throwable e) {
+         logger.info("Current thread = {}", Thread.currentThread().getName());
          ActiveMQServerLogger.LOGGER.errorExecutingAIOCallback(e);
          EXECUTORS_PENDING_UPDATER.decrementAndGet(this);
          task.onError(ActiveMQExceptionType.INTERNAL_ERROR.getCode(), "It wasn't possible to complete IO operation - " + e.getMessage());

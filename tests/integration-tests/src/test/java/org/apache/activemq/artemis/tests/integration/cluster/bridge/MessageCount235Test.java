@@ -13,8 +13,6 @@ import org.apache.activemq.artemis.core.config.ha.SharedStoreBackupPolicyConfigu
 import org.apache.activemq.artemis.core.config.ha.SharedStorePrimaryPolicyConfiguration;
 import org.apache.activemq.artemis.core.paging.cursor.impl.PageCounterRebuildManager;
 import org.apache.activemq.artemis.core.paging.cursor.impl.PageSubscriptionImpl;
-import org.apache.activemq.artemis.core.persistence.OperationContext;
-import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContextImpl;
 import org.apache.activemq.artemis.core.remoting.impl.netty.TransportConstants;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
 import org.apache.activemq.artemis.core.server.Queue;
@@ -30,12 +28,13 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.invoke.MethodHandles;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class MessageCount235Test extends FailoverTestBase {
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
@@ -79,7 +78,9 @@ public class MessageCount235Test extends FailoverTestBase {
             ClientProducer producerServer1 = session1.createProducer(queueName0);
             for (int i = 0; i < messageSent; i++) {
                ClientMessage msg = session1.createMessage(true);
-               setBody(0, msg);
+               if (i % 2 == 0) setLargeMessageBody(0, msg);
+               else setBody(0, msg);
+
                producerServer1.send(msg);
             }
             session1.commit();
@@ -87,35 +88,27 @@ public class MessageCount235Test extends FailoverTestBase {
             session1.close();
          }
 
-         BridgeConfiguration bridgeConfigurationx = new BridgeConfiguration().setName(bridgeName)
+         BridgeConfiguration bridgeConfiguration = new BridgeConfiguration().setName(bridgeName)
             .setQueueName(queueName0).setRetryInterval(1000)
             .setUseDuplicateDetection(true)
             .setStaticConnectors(List.of(dc2Primary1tc.getName()));
 
-         BridgeConfiguration bridgeConfiguration2 = new BridgeConfiguration().setName(bridgeName)
-            .setQueueName(queueName0).setRetryInterval(1000)
-            .setUseDuplicateDetection(true)
-            .setStaticConnectors(List.of(dc2Primary1tc.getName()));
-
-
-         logger.info("Starting bridge: " + bridgeConfigurationx.getName());
-         dc1Primary1.getClusterManager().deployBridge(bridgeConfigurationx);
+         logger.info("Starting bridge: " + bridgeConfiguration.getName());
+         dc1Primary1.getClusterManager().deployBridge(bridgeConfiguration);
 
          Wait.waitFor(() -> messageSent - getMessageCount(dc1Primary1, queueName0) > 100);
          logger.info("Stopping dc1Primary1");
          dc1Backup1.setIdentity("XXX DC1BAckup");
+         PageSubscriptionImpl.print = true;
          logger.info("Stopping DC1 Shutting");
          dc1Primary1.stop();
-         OperationContextImpl.clearContext();
          logger.info("Waiting for dc1Backup1 to be alive");
          Wait.waitFor(dc1Backup1::isActive, 15000);
          logger.info("dc1Backup1 isAlive");
-         Wait.assertTrue(dc1Backup1::isRebuildCounters);
          long messageCountNodeDC1 = getMessageCount(dc1Backup1, queueName0);
          long messageCountNodeDC2 = getMessageCount(dc2Primary1, queueName0);
-         Thread.sleep(1000);
          logger.info("Count in post office: " + (messageCountNodeDC1 + messageCountNodeDC2) + "messageCountNodeDC1:" + messageCountNodeDC1 + ", messageCountNodeDC2:" + messageCountNodeDC2 + " should be equal to: " + messageSent);
-         dc1Backup1.getClusterManager().deployBridge(bridgeConfiguration2);
+         dc1Backup1.getClusterManager().deployBridge(bridgeConfiguration);
          Wait.waitFor(() -> getMessageCount(dc2Primary1, queueName0) == messageSent);
          messageCountNodeDC1 = getMessageCount(dc1Backup1, queueName0);
          messageCountNodeDC2 = getMessageCount(dc2Primary1, queueName0);
@@ -129,6 +122,7 @@ public class MessageCount235Test extends FailoverTestBase {
             logger.info("Count = {}", queue0.getMessageCount());
             Thread.sleep(1000);
             logger.info("Rebuild asked.....");
+            PageCounterRebuildManager.stopHere = true;
             Future<Object> object = dc1Backup1.getPagingManager().rebuildCounters(null);
             object.get();
          }
@@ -220,7 +214,7 @@ public class MessageCount235Test extends FailoverTestBase {
       commitLatch.await();
       messageCountNodeDC1 = getMessageCount(dc1Backup1, queueName0);
       logger.info("Count in post office: dc1Backup1: {}", messageCountNodeDC1);
-      Assertions.assertEquals(messageSent, messageCountNodeDC1);
+      assertEquals(messageSent, messageCountNodeDC1);
    }
 
    @Test
@@ -271,7 +265,7 @@ public class MessageCount235Test extends FailoverTestBase {
       logger.info("dc1Backup1 isAlive");
       messageCountNodeDC1 = getMessageCount(dc1Backup1, queueName0);
       logger.info("Count in post office: dc1Backup1: {}", messageCountNodeDC1);
-      Assertions.assertEquals(messageSent - messagesToConsume, messageCountNodeDC1);
+      assertEquals(messageSent - messagesToConsume, messageCountNodeDC1);
    }
 
 

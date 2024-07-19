@@ -46,6 +46,7 @@ import org.apache.activemq.artemis.core.config.ha.DistributedLockManagerConfigur
 import org.apache.activemq.artemis.core.config.ha.ReplicaPolicyConfiguration;
 import org.apache.activemq.artemis.core.config.ha.SharedStorePrimaryPolicyConfiguration;
 import org.apache.activemq.artemis.core.config.ha.SharedStoreBackupPolicyConfiguration;
+import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContextImpl;
 import org.apache.activemq.artemis.core.remoting.impl.invm.InVMConnector;
 import org.apache.activemq.artemis.core.remoting.impl.invm.InVMRegistry;
 import org.apache.activemq.artemis.core.server.NodeManager;
@@ -95,6 +96,7 @@ public abstract class FailoverTestBase extends ActiveMQTestBase {
    @BeforeEach
    public void setUp() throws Exception {
       super.setUp();
+      OperationContextImpl.testThread.get().set(true);
       createConfigs();
 
       setPrimaryIdentity();
