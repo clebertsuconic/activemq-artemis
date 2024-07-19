@@ -102,7 +102,6 @@ public class PageSubscriptionCounterImpl extends BasePagingCounter {
       if (logger.isDebugEnabled()) {
          logger.debug("Subscription {} finished rebuilding", subscriptionID);
       }
-      logger.info("Rebuild done for {}", ((PagingManagerImpl) pagingStore.getPagingManager()).getServer().getIdentity());
       snapshot();
       addedUpdater.set(this, valueUpdater.get(this));
       addedPersistentSizeUpdater.set(this, persistentSizeUpdater.get(this));
@@ -194,12 +193,6 @@ public class PageSubscriptionCounterImpl extends BasePagingCounter {
       }
       long value = valueUpdater.addAndGet(this, add);
       persistentSizeUpdater.addAndGet(this, size);
-      if (PageSubscriptionImpl.print) {
-         try {
-            logger.info("process {} on {} value {}", add, ((PagingManagerImpl) pagingStore.getPagingManager()).getServer().getIdentity(), value, new Exception("trace"));
-         } catch (Throwable ignored) {
-         }
-      }
       if (add > 0) {
          addedUpdater.addAndGet(this, add);
          addedPersistentSizeUpdater.addAndGet(this, size);

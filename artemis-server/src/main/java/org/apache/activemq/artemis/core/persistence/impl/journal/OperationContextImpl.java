@@ -16,7 +16,6 @@
  */
 package org.apache.activemq.artemis.core.persistence.impl.journal;
 
-import java.lang.invoke.MethodHandles;
 import java.util.LinkedList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
@@ -32,8 +31,6 @@ import org.apache.activemq.artemis.utils.ExecutorFactory;
 import org.apache.commons.collections.Buffer;
 import org.apache.commons.collections.BufferUtils;
 import org.apache.commons.collections.buffer.CircularFifoBuffer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Each instance of OperationContextImpl is associated with an executor (usually an ordered Executor).
@@ -49,8 +46,6 @@ import org.slf4j.LoggerFactory;
  * with the max number of trackers that you want to keep in memory.
  */
 public class OperationContextImpl implements OperationContext {
-
-   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
    private static final ThreadLocal<OperationContext> threadLocalContext = new ThreadLocal<>();
 
@@ -293,11 +288,7 @@ public class OperationContextImpl implements OperationContext {
             // End of list here. No other task will be completed after this
             return;
          }
-         try {
-            execute(holder.task);
-         } catch (Throwable e) {
-            logger.warn(e.getMessage(), e);
-         }
+         execute(holder.task);
          final TaskHolder removed = tasks.poll();
          assert removed == holder;
       }

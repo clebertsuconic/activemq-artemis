@@ -13,6 +13,8 @@ import org.apache.activemq.artemis.core.config.ha.SharedStoreBackupPolicyConfigu
 import org.apache.activemq.artemis.core.config.ha.SharedStorePrimaryPolicyConfiguration;
 import org.apache.activemq.artemis.core.paging.cursor.impl.PageCounterRebuildManager;
 import org.apache.activemq.artemis.core.paging.cursor.impl.PageSubscriptionImpl;
+import org.apache.activemq.artemis.core.persistence.OperationContext;
+import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContextImpl;
 import org.apache.activemq.artemis.core.remoting.impl.netty.TransportConstants;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
 import org.apache.activemq.artemis.core.server.Queue;
@@ -102,9 +104,9 @@ public class MessageCount235Test extends FailoverTestBase {
          Wait.waitFor(() -> messageSent - getMessageCount(dc1Primary1, queueName0) > 100);
          logger.info("Stopping dc1Primary1");
          dc1Backup1.setIdentity("XXX DC1BAckup");
-         PageSubscriptionImpl.print = true;
          logger.info("Stopping DC1 Shutting");
          dc1Primary1.stop();
+         OperationContextImpl.clearContext();
          logger.info("Waiting for dc1Backup1 to be alive");
          Wait.waitFor(dc1Backup1::isActive, 15000);
          logger.info("dc1Backup1 isAlive");
@@ -127,7 +129,6 @@ public class MessageCount235Test extends FailoverTestBase {
             logger.info("Count = {}", queue0.getMessageCount());
             Thread.sleep(1000);
             logger.info("Rebuild asked.....");
-            PageCounterRebuildManager.stopHere = true;
             Future<Object> object = dc1Backup1.getPagingManager().rebuildCounters(null);
             object.get();
          }

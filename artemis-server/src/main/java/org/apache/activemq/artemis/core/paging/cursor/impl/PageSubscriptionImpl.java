@@ -48,7 +48,6 @@ import org.apache.activemq.artemis.core.paging.cursor.PageSubscriptionCounter;
 import org.apache.activemq.artemis.core.paging.cursor.PagedReference;
 import org.apache.activemq.artemis.core.paging.cursor.PagedReferenceImpl;
 import org.apache.activemq.artemis.core.paging.impl.Page;
-import org.apache.activemq.artemis.core.paging.impl.PagingManagerImpl;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.server.ActiveMQServerLogger;
 import org.apache.activemq.artemis.core.server.MessageReference;
@@ -802,7 +801,6 @@ public final class PageSubscriptionImpl implements PageSubscription {
    // To be called only after the ACK has been processed and guaranteed to be on storage
    // The only exception is on non storage events such as not matching messages
    private PageCursorInfo processACK(final PagePosition pos) {
-      logger.info("process ack {}", pos);
       if (lastAckedPosition == null || pos.compareTo(lastAckedPosition) > 0) {
          logger.trace("a new position is being processed as ACK");
 
@@ -876,8 +874,6 @@ public final class PageSubscriptionImpl implements PageSubscription {
          scheduleCleanupCheck();
       }
    }
-
-   public static volatile boolean print = false;
 
 
    /**
@@ -1052,10 +1048,6 @@ public final class PageSubscriptionImpl implements PageSubscription {
 
       public void addACK(final PagePosition posACK) {
 
-         if (print) {
-            logger.info("AddACK {}", posACK, new Exception("trace"));
-         }
-
          if (logger.isTraceEnabled()) {
             try {
                logger.trace("numberOfMessages = {} confirmed = {} pendingTX = {}, pageNr = {} posACK = {}",
@@ -1082,7 +1074,6 @@ public final class PageSubscriptionImpl implements PageSubscription {
       }
 
       synchronized boolean internalAddACK(final PagePosition position) {
-         logger.info("Adding {}/{}", pageId, position);
          if (logger.isDebugEnabled()) {
             logger.debug("internalAddACK on queue {} (id={}), position {}", queue.getName(), queue.getID(), position);
          }

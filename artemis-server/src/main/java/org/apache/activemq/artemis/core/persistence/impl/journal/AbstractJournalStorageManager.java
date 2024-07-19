@@ -453,7 +453,6 @@ public abstract class AbstractJournalStorageManager extends CriticalComponentImp
          long ackID = idGenerator.generateID();
          position.setRecordID(ackID);
          messageJournal.appendAddRecord(ackID, JournalRecordIds.ACKNOWLEDGE_CURSOR, new CursorAckRecordEncoding(queueID, position), syncNonTransactional, getContext(syncNonTransactional));
-         logger.info("Ack {}", position);
       }
    }
 

@@ -1537,7 +1537,6 @@ public class ActiveMQServerImpl implements ActiveMQServer {
    }
 
    private void shutdownPool(ExecutorService executorService) {
-      logger.info("Shutting down pool here", new Exception("trace"));
       executorService.shutdown();
       try {
          if (!executorService.awaitTermination(10, TimeUnit.SECONDS)) {

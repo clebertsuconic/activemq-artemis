@@ -149,7 +149,6 @@ public final class TimedBuffer extends CriticalComponentImpl {
    }
 
    public void stop() {
-      logger.info("Shutting TimedBuffer.stop", new Exception("Trace"));
       Thread localTimer = null;
       try (ArtemisCloseable measure = measureCritical(CRITICAL_PATH_STOP)) {
          // add critical analyzer here.... <<<<

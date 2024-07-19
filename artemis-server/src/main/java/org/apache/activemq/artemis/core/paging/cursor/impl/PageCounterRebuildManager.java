@@ -28,7 +28,6 @@ import org.apache.activemq.artemis.core.paging.cursor.PagePosition;
 import org.apache.activemq.artemis.core.paging.cursor.PageSubscription;
 import org.apache.activemq.artemis.core.paging.cursor.PageSubscriptionCounter;
 import org.apache.activemq.artemis.core.paging.impl.Page;
-import org.apache.activemq.artemis.core.paging.impl.PagingManagerImpl;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.transaction.Transaction;
 import org.apache.activemq.artemis.core.transaction.TransactionOperationAbstract;
@@ -58,10 +57,6 @@ public class PageCounterRebuildManager implements Runnable {
    private int limitMessageNr;
    private LongObjectHashMap<CopiedSubscription> copiedSubscriptionMap = new LongObjectHashMap<>();
    private final Set<Long> storedLargeMessages;
-
-
-   public static boolean stopHere = false;
-
 
    public PageCounterRebuildManager(PagingManager pagingManager, PagingStore store, Map<Long, PageTransactionInfo> transactions, Set<Long> storedLargeMessages) {
       // we make a copy of the data because we are allowing data to influx. We will consolidate the values at the end
@@ -98,7 +93,6 @@ public class PageCounterRebuildManager implements Runnable {
             Page currentPage = store.getCurrentPage();
             limitPageId = store.getCurrentWritingPage();
             limitMessageNr = currentPage.getNumberOfMessages();
-            logger.info("PageCounterRebuild for {}, Current writing page {} and limit will be {} with lastMessage on last page={}", store.getStoreName(), store.getCurrentWritingPage(), limitPageId, limitMessageNr);
             if (logger.isTraceEnabled()) {
                logger.trace("PageCounterRebuild for {}, Current writing page {} and limit will be {} with lastMessage on last page={}", store.getStoreName(), store.getCurrentWritingPage(), limitPageId, limitMessageNr);
             }
@@ -133,13 +127,7 @@ public class PageCounterRebuildManager implements Runnable {
                   // as if the page is done, we just move over
                   consumedPage.forEachAck((messageNR, pagePosition) -> {
                      if (logger.isTraceEnabled()) {
-                        try {
-                           logger.trace("Marking messageNR {} as acked on pageID={} copy on server {}", messageNR, consumedPage.getPageId(), ((PagingManagerImpl) pagingManager).getServer().getIdentity());
-                        } catch (Throwable ignored) {
-                        }
-                     }
-                     if (stopHere) {
-                        logger.info("Marking page {}/{} as ack", consumedPage.getPageId(), pagePosition);
+                        logger.trace("Marking messageNR {} as acked on pageID={} copy", messageNR, consumedPage.getPageId());
                      }
                      if (copiedConsumedPage.acks == null) {
                         copiedConsumedPage.acks = new IntObjectHashMap<>();
@@ -215,13 +203,6 @@ public class PageCounterRebuildManager implements Runnable {
 
       logger.debug("Rebuilding page counter for address {}", pgStore.getAddress());
 
-      if (stopHere) {
-         for (int i = 0; i < 100; i++) {
-            logger.info("It is here!!!");
-         }
-         Thread.sleep(1000);
-      }
-
       for (long pgid = pgStore.getFirstPage(); pgid <= limitPageId; pgid++) {
          if (logger.isDebugEnabled()) {
             logger.trace("Rebuilding counter on messages from page {} on rebuildCounters for address {}", pgid, pgStore.getAddress());
@@ -283,10 +264,6 @@ public class PageCounterRebuildManager implements Runnable {
                for (long queueID : routedQueues) {
                   boolean ok = !isACK(queueID, msg.getPageNumber(), msg.getMessageNumber());
 
-                  if (ok) {
-                     logger.info("Retrying newok for page {} and message {}, isAck={}, server={}", msg.getPageNumber(), msg.getMessageNumber(), isACK(queueID, msg.getPageNumber(), msg.getMessageNumber()), ((PagingManagerImpl)pagingManager).getServer().getIdentity());
-                  }
-
                   // if the pageTransaction is in prepare state, we have to increment the counter after the commit
                   // notice that there is a check if the commit is done in afterCommit
                   if (preparedTX != null) {
@@ -316,10 +293,6 @@ public class PageCounterRebuildManager implements Runnable {
                      if (ok && txIncluded) { // not acked and TX is ok
                         if (logger.isTraceEnabled()) {
                            logger.trace("Message pageNumber={}/{} NOT acked on queue {} = {}", msg.getPageNumber(), msg.getMessageNumber(), queueID, msg.getMessage());
-                        }
-
-                        if (stopHere) {
-                           logger.info("message not acked on queue");
                         }
                         CopiedSubscription copiedSubscription = copiedSubscriptionMap.get(queueID);
                         if (copiedSubscription != null) {

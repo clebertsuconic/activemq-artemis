@@ -621,13 +621,9 @@ public final class PagingManagerImpl implements PagingManager {
       }
 
       currentStoreMap.forEach((address, pgStore) -> {
-         if (pgStore.isPaging()) {
-            PageCounterRebuildManager rebuildManager = new PageCounterRebuildManager(this, pgStore, transactionsSet, storedLargeMessages);
-            logger.debug("Setting destination {} to rebuild counters", address);
-            managerExecutor.execute(rebuildManager);
-         } else {
-            logger.info("Not paging... {}", pgStore.getAddress());
-         }
+         PageCounterRebuildManager rebuildManager = new PageCounterRebuildManager(this, pgStore, transactionsSet, storedLargeMessages);
+         logger.debug("Setting destination {} to rebuild counters", address);
+         managerExecutor.execute(rebuildManager);
       });
 
       managerExecutor.execute(() -> cleanupPageTransactions(transactionsSet, currentStoreMap));
