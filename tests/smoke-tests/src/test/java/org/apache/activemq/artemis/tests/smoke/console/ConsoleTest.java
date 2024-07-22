@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.File;
 import java.lang.invoke.MethodHandles;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.Paths;
 import java.time.Duration;
@@ -77,6 +78,13 @@ public abstract class ConsoleTest extends SmokeTestBase {
       this.webServerUrl = String.format("%s://%s:%d", "http", System.getProperty("sts-http-host", "localhost"), 8161);
    }
 
+   String webdriverName;
+   String webdriverLocation;
+   String webdriverArguments;
+   String webdriverRemoteServer;
+   Function<MutableCapabilities, WebDriver> webDriverConstructor;
+   BiConsumer<MutableCapabilities, String[]> webdriverArgumentsSetter;
+
    @BeforeEach
    public void before() throws Exception {
       File jolokiaAccessFile = Paths.get(getServerLocation(SERVER_NAME), "etc", Create.ETC_JOLOKIA_ACCESS_XML).toFile();
@@ -111,12 +119,6 @@ public abstract class ConsoleTest extends SmokeTestBase {
       // [4] https://github.com/mozilla/geckodriver/
 
       try {
-         String webdriverName;
-         String webdriverLocation;
-         String webdriverArguments;
-         String webdriverRemoteServer;
-         Function<MutableCapabilities, WebDriver> webDriverConstructor;
-         BiConsumer<MutableCapabilities, String[]> webdriverArgumentsSetter;
 
          if (browserOptions instanceof ChromeOptions) {
             webdriverName = "chrome";
@@ -142,17 +144,7 @@ public abstract class ConsoleTest extends SmokeTestBase {
             webdriverRemoteServer = System.getProperty("webdriver.remote.server");
          }
 
-         if (webdriverRemoteServer != null) {
-            driver = new RemoteWebDriver(new URL(webdriverRemoteServer), browserOptions);
-         } else if (webdriverLocation != null) {
-            driver = webDriverConstructor.apply(browserOptions);
-         } else {
-            Testcontainers.exposeHostPorts(8161);
-            webServerUrl = webServerUrl.replace("localhost", "host.testcontainers.internal");
-            browserWebDriverContainer = new BrowserWebDriverContainer().withCapabilities(this.browserOptions);
-            browserWebDriverContainer.start();
-            driver = browserWebDriverContainer.getWebDriver();
-         }
+         startDriver();
       } catch (Exception e) {
          assumeTrue(false, "Error on loading the web driver: " + e.getMessage());
       }
@@ -170,6 +162,20 @@ public abstract class ConsoleTest extends SmokeTestBase {
             return false;
          }
       });
+   }
+
+   protected void startDriver() throws MalformedURLException {
+      if (webdriverRemoteServer != null) {
+         driver = new RemoteWebDriver(new URL(webdriverRemoteServer), browserOptions);
+      } else if (webdriverLocation != null) {
+         driver = webDriverConstructor.apply(browserOptions);
+      } else {
+         Testcontainers.exposeHostPorts(8161);
+         webServerUrl = webServerUrl.replace("localhost", "host.testcontainers.internal");
+         browserWebDriverContainer = new BrowserWebDriverContainer().withCapabilities(this.browserOptions);
+         browserWebDriverContainer.start();
+         driver = browserWebDriverContainer.getWebDriver();
+      }
    }
 
    @AfterEach

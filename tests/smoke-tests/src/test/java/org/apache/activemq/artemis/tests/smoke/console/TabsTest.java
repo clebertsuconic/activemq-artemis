@@ -35,78 +35,30 @@ public class TabsTest extends ConsoleTest {
    }
 
    @TestTemplate
-   public void testConnectionsTab() {
+   public void testAllTabs() throws Throwable {
       testTab("connections", "Connections");
-   }
-
-   @TestTemplate
-   public void testSessionsTab() {
       testTab("sessions", "Sessions");
-   }
-
-   @TestTemplate
-   public void testConsumersTab() {
       testTab("consumers", "Consumers");
-   }
-
-   @TestTemplate
-   public void testProducersTab() {
       testTab("producers", "Producers");
-   }
-
-   @TestTemplate
-   public void testAddressesTab() {
       testTab("addresses", "Addresses");
-   }
-
-   @TestTemplate
-   public void testQueuesTab() {
       testTab("queues", "Queues");
-   }
-
-   private void testTab(String userpass, String tab) {
-      driver.get(webServerUrl + "/console");
-      new LoginPage(driver).loginValidUser(userpass, userpass, DEFAULT_TIMEOUT);
-      driver.findElement(By.xpath("//a[contains(text(),'" + tab + "')]"));
-   }
-
-   @TestTemplate
-   public void testConnectionsTabNegative() {
-      // use credentials for a valid user who cannot see the tab
       testTabNegative("queues", "Connections");
-   }
-
-   @TestTemplate
-   public void testSessionsTabNegative() {
-      // use credentials for a valid user who cannot see the tab
       testTabNegative("connections", "Sessions");
-   }
-
-   @TestTemplate
-   public void testConsumersTabNegative() {
-      // use credentials for a valid user who cannot see the tab
       testTabNegative("connections", "Consumers");
-   }
-
-   @TestTemplate
-   public void testProducersTabNegative() {
-      // use credentials for a valid user who cannot see the tab
       testTabNegative("connections", "roducers");
-   }
-
-   @TestTemplate
-   public void testAddressesTabNegative() {
-      // use credentials for a valid user who cannot see the tab
       testTabNegative("connections", "Addresses");
-   }
-
-   @TestTemplate
-   public void testQueuesTabNegative() {
-      // use credentials for a valid user who cannot see the tab
       testTabNegative("connections", "Queues");
    }
 
-   private void testTabNegative(String userpass, String tab) {
+   private void testTab(String userpass, String tab) throws Throwable {
+      driver.get(webServerUrl + "/console");
+      new LoginPage(driver).loginValidUser(userpass, userpass, DEFAULT_TIMEOUT);
+      driver.findElement(By.xpath("//a[contains(text(),'" + tab + "')]"));
+      driver.close();
+      startDriver();
+   }
+
+   private void testTabNegative(String userpass, String tab) throws Throwable {
       driver.get(webServerUrl + "/console");
       new LoginPage(driver).loginValidUser(userpass, userpass, DEFAULT_TIMEOUT);
       try {
@@ -115,5 +67,7 @@ public class TabsTest extends ConsoleTest {
       } catch (NoSuchElementException e) {
          // expected
       }
+      driver.close();
+      startDriver();
    }
 }
