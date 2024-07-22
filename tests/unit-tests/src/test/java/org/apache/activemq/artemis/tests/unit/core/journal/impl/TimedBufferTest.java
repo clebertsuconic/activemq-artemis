@@ -19,6 +19,7 @@ package org.apache.activemq.artemis.tests.unit.core.journal.impl;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -28,8 +29,11 @@ import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
 import org.apache.activemq.artemis.api.core.ActiveMQBuffers;
 import org.apache.activemq.artemis.core.io.DummyCallback;
 import org.apache.activemq.artemis.core.io.IOCallback;
+import org.apache.activemq.artemis.core.io.SequentialFile;
 import org.apache.activemq.artemis.core.io.buffer.TimedBuffer;
 import org.apache.activemq.artemis.core.io.buffer.TimedBufferObserver;
+import org.apache.activemq.artemis.core.io.nio.NIOSequentialFile;
+import org.apache.activemq.artemis.core.io.nio.NIOSequentialFileFactory;
 import org.apache.activemq.artemis.core.journal.EncodingSupport;
 import org.apache.activemq.artemis.tests.util.ActiveMQTestBase;
 import org.apache.activemq.artemis.utils.Env;
@@ -213,6 +217,99 @@ public class TimedBufferTest extends ActiveMQTestBase {
 
 
    }
+
+
+   @Test
+   public void testSyncOnClosed() throws Exception {
+      TimedBuffer timedBuffer = new TimedBuffer(null, 100, 1, false);
+      timedBuffer.start();
+
+      NIOSequentialFileFactory factory = new NIOSequentialFileFactory(getTestDirfile(), 1);
+      NIOSequentialFile nioSequentialFile = (NIOSequentialFile) factory.createSequentialFile("test.tst");
+      nioSequentialFile.open();
+
+      // just to steal the observer from the NIOSequentialFile
+      nioSequentialFile.setTimedBuffer(timedBuffer);
+      TimedBufferObserver realFileObserver = timedBuffer.geObserver();
+
+
+      AtomicInteger errors = new AtomicInteger(0);
+      ReusableLatch done = new ReusableLatch(1);
+      ReusableLatch enteredFlush = new ReusableLatch(1);
+      ReusableLatch blockOnFlush = new ReusableLatch(1);
+
+      final AtomicInteger flushes = new AtomicInteger(0);
+      class TestObserver implements TimedBufferObserver {
+
+         @Override
+         public void checkSync(boolean syncRequested, List<IOCallback> callbacks) {
+            realFileObserver.checkSync(syncRequested, callbacks);
+         }
+
+         @Override
+         public boolean supportSync() {
+            return true;
+         }
+
+         @Override
+         public void flushBuffer(final ByteBuf byteBuf, final boolean sync, final List<IOCallback> callbacks) {
+            realFileObserver.flushBuffer(byteBuf, sync, callbacks);
+            enteredFlush.countDown();
+            try {
+               blockOnFlush.await(1, TimeUnit.MINUTES);
+            } catch (Exception e) {
+               logger.warn(e.getMessage(), e);
+            }
+
+         }
+
+         @Override
+         public int getRemainingBytes() {
+            return realFileObserver.getRemainingBytes();
+         }
+      }
+
+      TestObserver delegateObserver = new TestObserver();
+      timedBuffer.setObserver(delegateObserver);
+
+
+      int x = 0;
+
+      byte[] bytes = new byte[10];
+      for (int j = 0; j < 10; j++) {
+         bytes[j] = ActiveMQTestBase.getSamplebyte(x++);
+      }
+
+      ActiveMQBuffer buff = ActiveMQBuffers.wrappedBuffer(bytes);
+
+      IOCallback callback = new IOCallback() {
+         @Override
+         public void done() {
+            done.countDown();
+         }
+
+         @Override
+         public void onError(int errorCode, String errorMessage) {
+            logger.warn("error= {} / {}", errorCode, errorMessage);
+            errors.incrementAndGet();
+         }
+      };
+
+      for (int i = 0; i < 1000; i++) {
+         done.setCount(1);
+         blockOnFlush.setCount(1);
+         enteredFlush.setCount(1);
+         nioSequentialFile.open(1, false);
+         // simulating a low load period
+         timedBuffer.addBytes(buff, true, callback);
+         Assert.assertTrue(enteredFlush.await(1, TimeUnit.MINUTES));
+         nioSequentialFile.close();
+         blockOnFlush.countDown();
+         Assert.assertTrue(done.await(1, TimeUnit.MINUTES));
+      }
+
+   }
+
 
    private static void spinSleep(long timeout) {
       if (timeout > 0) {
