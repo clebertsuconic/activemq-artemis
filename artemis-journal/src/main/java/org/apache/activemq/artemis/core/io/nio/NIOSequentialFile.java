@@ -317,17 +317,16 @@ public class NIOSequentialFile extends AbstractSequentialFile {
 
    @Override
    public void sync() throws IOException {
-      if (factory.isDatasync() && channel != null) {
+      FileChannel channel1 = channel;
+      if (factory.isDatasync() && channel1 != null && channel1.isOpen()) {
          try {
-            channelForce(channel);
+            syncChannel(channel1);
          } catch (IOException e) {
-            // We are performing the sync on TimedBuffer away from locks for optimization purposes.
-            // There's a chance the close could happen between the first verification on channel != null and now
-            // especially on slow devices.
-            // if the channel is already closed it means the intended syncs are already part of the file, on that case we just
-            // ignore the exception and proceed accordingly.
             if (e instanceof ClosedChannelException) {
-               logger.debug("ClosedChannelException for file {}", file);
+               // Closed here means the file was closed after TimedBuffer issue a sync, which is acceptable
+               // as the data will be part of the file and sync happened on close
+               // we are performing the sync away from locks to ensure scalability and this is an expected cost
+               logger.debug("ClosedChannelException for file {}", file, e);
             } else {
                factory.onIOError(new ActiveMQIOErrorException(e.getMessage(), e), e.getMessage(), this);
                throw e;
@@ -336,8 +335,8 @@ public class NIOSequentialFile extends AbstractSequentialFile {
       }
    }
 
-   protected void channelForce(FileChannel forceChannel) throws IOException {
-      forceChannel.force(false);
+   protected void syncChannel(FileChannel syncChannel) throws IOException {
+      syncChannel.force(false);
    }
 
    @Override

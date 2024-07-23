@@ -24,8 +24,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -35,6 +33,7 @@ import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
 import org.apache.activemq.artemis.api.core.ActiveMQBuffers;
 import org.apache.activemq.artemis.core.io.DummyCallback;
 import org.apache.activemq.artemis.core.io.IOCallback;
+import org.apache.activemq.artemis.core.io.SequentialFile;
 import org.apache.activemq.artemis.core.io.buffer.TimedBuffer;
 import org.apache.activemq.artemis.core.io.buffer.TimedBufferObserver;
 import org.apache.activemq.artemis.core.io.nio.NIOSequentialFile;
@@ -45,7 +44,6 @@ import org.apache.activemq.artemis.utils.Env;
 import org.apache.activemq.artemis.utils.ReusableLatch;
 import org.apache.activemq.artemis.utils.Wait;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.lang.invoke.MethodHandles;
@@ -226,20 +224,25 @@ public class TimedBufferTest extends ActiveMQTestBase {
       timedBuffer.start();
       runAfterEx(timedBuffer::stop);
 
-      NIOSequentialFileFactory factory = new NIOSequentialFileFactory(getTestDirfile(), 1);
-      NIOSequentialFile nioSequentialFile = new NIOSequentialFile(factory, factory.getDirectory(), "test.tst", 100, null) {
+      NIOSequentialFileFactory factory = new NIOSequentialFileFactory(getTestDirfile(), 1) {
          @Override
-         protected void channelForce(FileChannel channel) throws IOException {
-            try {
-               close(false, false);
-            } catch (Throwable e) {
-               logger.warn(e.getMessage(), e);
-            }
-            super.channelForce(channel);
+         public SequentialFile createSequentialFile(final String fileName) {
+            return new NIOSequentialFile(this, journalDir, fileName, maxIO, writeExecutor) {
+               @Override
+               protected void syncChannel(FileChannel channel) throws IOException {
+                  try {
+                     // you may want to comment out this code if you want to revert to the original condition
+                     // that would have happened in production
+                     // this is just making it to fail every time.
+                     close(true, true);
+                  } catch (Throwable e) {
+                     logger.warn(e.getMessage(), e);
+                  }
+                  super.syncChannel(channel);
+               }
+            };
          }
       };
-
-      nioSequentialFile.open();
       assertTrue(factory.isDatasync());
 
       AtomicInteger errors = new AtomicInteger(0);
@@ -268,16 +271,19 @@ public class TimedBufferTest extends ActiveMQTestBase {
       };
 
       try {
-         for (int i = 0; i < 1000; i++) {
-            if (i % 1000 == 0) {
+         for (int i = 0; i < 10_000; i++) {
+            if (i % 100 == 0) {
                logger.info("i {}", i);
             }
-            nioSequentialFile.open(100, false);
-            nioSequentialFile.setTimedBuffer(timedBuffer);
+            SequentialFile closeOnSyncFile = factory.createSequentialFile("test.txt", 1);
+            closeOnSyncFile.open(100, false);
+            closeOnSyncFile.position(0);
+            closeOnSyncFile.setTimedBuffer(timedBuffer);
             // simulating a low load period
             timedBuffer.addBytes(buff, true, callback);
             assertTrue(done.await(1, TimeUnit.MINUTES));
             assertEquals(0, errors.get());
+            closeOnSyncFile.close(true, true);
          }
       } catch (Throwable e) {
          logger.warn(e.getMessage(), e);
