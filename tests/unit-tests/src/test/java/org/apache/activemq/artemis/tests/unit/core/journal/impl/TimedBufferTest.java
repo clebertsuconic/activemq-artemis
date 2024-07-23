@@ -24,6 +24,7 @@ import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -216,11 +217,7 @@ public class TimedBufferTest extends ActiveMQTestBase {
       } finally {
          timedBuffer.stop();
       }
-
-
-
    }
-
 
    @Test
    public void testSyncOnClosed() throws Exception {
@@ -244,6 +241,7 @@ public class TimedBufferTest extends ActiveMQTestBase {
       ReusableLatch done = new ReusableLatch(1);
       ReusableLatch enteredFlush = new ReusableLatch(1);
       ReusableLatch blockOnFlush = new ReusableLatch(1);
+      CyclicBarrier barrierOut = new CyclicBarrier(2);
 
       final AtomicInteger flushes = new AtomicInteger(0);
       class TestObserver implements TimedBufferObserver {
@@ -260,13 +258,18 @@ public class TimedBufferTest extends ActiveMQTestBase {
 
          @Override
          public void flushBuffer(final ByteBuf byteBuf, final boolean sync, final List<IOCallback> callbacks) {
+            realFileObserver.flushBuffer(byteBuf, sync, callbacks);
             enteredFlush.countDown();
             try {
                blockOnFlush.await(1, TimeUnit.MINUTES);
             } catch (Exception e) {
                logger.warn(e.getMessage(), e);
             }
-            realFileObserver.flushBuffer(byteBuf, sync, callbacks);
+            try {
+               barrierOut.await(1, TimeUnit.MINUTES);
+            } catch (Throwable e) {
+               logger.warn(e.getMessage(), e);
+            }
 
          }
 
@@ -302,16 +305,20 @@ public class TimedBufferTest extends ActiveMQTestBase {
          }
       };
 
-      for (int i = 0; i < 10_000; i++) {
+      for (int i = 0; i < 600_000; i++) {
+         if (i % 1000 == 0) {
+            logger.info("i {}", i);
+         }
          blockOnFlush.setCount(1);
          enteredFlush.setCount(1);
-         nioSequentialFile.open(1, false);
+         nioSequentialFile.open(100, false);
          nioSequentialFile.position(0);
          // simulating a low load period
          timedBuffer.addBytes(buff, true, callback);
          assertTrue(enteredFlush.await(1, TimeUnit.MINUTES));
          blockOnFlush.countDown();
          nioSequentialFile.close();
+         barrierOut.await(1, TimeUnit.MINUTES);
          assertTrue(done.await(1, TimeUnit.MINUTES));
          assertEquals(0, errors.get());
       }
