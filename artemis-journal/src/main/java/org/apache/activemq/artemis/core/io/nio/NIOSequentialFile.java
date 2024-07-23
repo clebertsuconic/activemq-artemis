@@ -64,11 +64,11 @@ public class NIOSequentialFile extends AbstractSequentialFile {
     */
    private static final int CHUNK_SIZE = 2 * 1024 * 1024;
 
-   private FileChannel channel;
+   protected volatile  FileChannel channel;
 
-   private RandomAccessFile rfile;
+   protected volatile RandomAccessFile rfile;
 
-   private final int maxIO;
+   protected final int maxIO;
 
    public NIOSequentialFile(final SequentialFileFactory factory,
                             final File directory,
@@ -247,8 +247,9 @@ public class NIOSequentialFile extends AbstractSequentialFile {
          lock.unlock();
       }
 
-
-      notifyAll();
+      synchronized (this) {
+         notifyAll();
+      }
    }
 
    @Override
@@ -335,17 +336,25 @@ public class NIOSequentialFile extends AbstractSequentialFile {
    public void sync() throws IOException {
       if (factory.isDatasync() && channel != null) {
          try {
-            if (!channel.isOpen()) {
-               logger.info("It was already closed");
-            }
-            channel.force(false);
-         } catch (ClosedChannelException e) {
-            throw e;
+            channelForce(channel);
          } catch (IOException e) {
-            factory.onIOError(new ActiveMQIOErrorException(e.getMessage(), e), e.getMessage(), this);
-            throw e;
+            // We are performing the sync on TimedBuffer away from locks for optimization purposes.
+            // There's a chance the close could happen between the first verification on channel != null and now
+            // especially on slow devices.
+            // if the channel is already closed it means the intended syncs are already part of the file, on that case we just
+            // ignore the exception and proceed accordingly.
+            if (e instanceof ClosedChannelException) {
+               logger.debug("ClosedChannelException for file {}", file);
+            } else {
+               factory.onIOError(new ActiveMQIOErrorException(e.getMessage(), e), e.getMessage(), this);
+               throw e;
+            }
          }
       }
+   }
+
+   protected void channelForce(FileChannel forceChannel) throws IOException {
+      forceChannel.force(false);
    }
 
    @Override

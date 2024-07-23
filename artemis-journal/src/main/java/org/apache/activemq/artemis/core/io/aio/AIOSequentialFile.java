@@ -151,26 +151,31 @@ public class AIOSequentialFile extends AbstractSequentialFile  {
    }
 
    @Override
-   public synchronized void open(final int maxIO, final boolean useExecutor) throws ActiveMQException {
-      // in case we are opening a file that was just closed, we need to wait previous executions to be done
-      if (opened) {
-         return;
-      }
-      opened = true;
-
-      logger.trace("Opening file: {}", getFileName());
-
+   public void open(final int maxIO, final boolean useExecutor) throws ActiveMQException {
+      lock.lock();
       try {
-         aioFile = aioFactory.libaioContext.openFile(getFile(), factory.isDatasync());
-      } catch (IOException e) {
-         logger.error("Error opening file: {}", getFileName());
-         factory.onIOError(e, e.getMessage(), this);
-         throw new ActiveMQNativeIOError(e.getMessage(), e);
+         // in case we are opening a file that was just closed, we need to wait previous executions to be done
+         if (opened) {
+            return;
+         }
+         opened = true;
+
+         logger.trace("Opening file: {}", getFileName());
+
+         try {
+            aioFile = aioFactory.libaioContext.openFile(getFile(), factory.isDatasync());
+         } catch (IOException e) {
+            logger.error("Error opening file: {}", getFileName());
+            factory.onIOError(e, e.getMessage(), this);
+            throw new ActiveMQNativeIOError(e.getMessage(), e);
+         }
+
+         position.set(0);
+
+         fileSize = aioFile.getSize();
+      } finally {
+         lock.unlock();
       }
-
-      position.set(0);
-
-      fileSize = aioFile.getSize();
    }
 
    @Override

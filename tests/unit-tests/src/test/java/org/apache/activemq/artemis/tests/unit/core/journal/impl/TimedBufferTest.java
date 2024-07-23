@@ -19,6 +19,7 @@ package org.apache.activemq.artemis.tests.unit.core.journal.impl;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
@@ -225,10 +226,19 @@ public class TimedBufferTest extends ActiveMQTestBase {
       timedBuffer.start();
       runAfterEx(timedBuffer::stop);
 
-      FileChannel mockFile = Mockito.mock(FileChannel.class);
-
       NIOSequentialFileFactory factory = new NIOSequentialFileFactory(getTestDirfile(), 1);
-      NIOSequentialFile nioSequentialFile = (NIOSequentialFile) factory.createSequentialFile("test.tst");
+      NIOSequentialFile nioSequentialFile = new NIOSequentialFile(factory, factory.getDirectory(), "test.tst", 100, null) {
+         @Override
+         protected void channelForce(FileChannel channel) throws IOException {
+            try {
+               close(false, false);
+            } catch (Throwable e) {
+               logger.warn(e.getMessage(), e);
+            }
+            super.channelForce(channel);
+         }
+      };
+
       nioSequentialFile.open();
       assertTrue(factory.isDatasync());
 
@@ -239,49 +249,6 @@ public class TimedBufferTest extends ActiveMQTestBase {
 
       AtomicInteger errors = new AtomicInteger(0);
       ReusableLatch done = new ReusableLatch(1);
-      ReusableLatch enteredFlush = new ReusableLatch(1);
-      ReusableLatch blockOnFlush = new ReusableLatch(1);
-      CyclicBarrier barrierOut = new CyclicBarrier(2);
-
-      final AtomicInteger flushes = new AtomicInteger(0);
-      class TestObserver implements TimedBufferObserver {
-
-         @Override
-         public void checkSync(boolean syncRequested, List<IOCallback> callbacks) {
-            realFileObserver.checkSync(syncRequested, callbacks);
-         }
-
-         @Override
-         public boolean supportSync() {
-            return true;
-         }
-
-         @Override
-         public void flushBuffer(final ByteBuf byteBuf, final boolean sync, final List<IOCallback> callbacks) {
-            realFileObserver.flushBuffer(byteBuf, sync, callbacks);
-            enteredFlush.countDown();
-            try {
-               blockOnFlush.await(1, TimeUnit.MINUTES);
-            } catch (Exception e) {
-               logger.warn(e.getMessage(), e);
-            }
-            try {
-               barrierOut.await(1, TimeUnit.MINUTES);
-            } catch (Throwable e) {
-               logger.warn(e.getMessage(), e);
-            }
-
-         }
-
-         @Override
-         public int getRemainingBytes() {
-            return realFileObserver.getRemainingBytes();
-         }
-      }
-
-      TestObserver delegateObserver = new TestObserver();
-      timedBuffer.setObserver(delegateObserver);
-
 
       int x = 0;
 
@@ -305,22 +272,17 @@ public class TimedBufferTest extends ActiveMQTestBase {
          }
       };
 
-      for (int i = 0; i < 600_000; i++) {
+      for (int i = 0; i < 1000; i++) {
          if (i % 1000 == 0) {
             logger.info("i {}", i);
          }
-         blockOnFlush.setCount(1);
-         enteredFlush.setCount(1);
          nioSequentialFile.open(100, false);
-         nioSequentialFile.position(0);
+         nioSequentialFile.setTimedBuffer(timedBuffer);
          // simulating a low load period
          timedBuffer.addBytes(buff, true, callback);
-         assertTrue(enteredFlush.await(1, TimeUnit.MINUTES));
-         blockOnFlush.countDown();
-         nioSequentialFile.close();
-         barrierOut.await(1, TimeUnit.MINUTES);
          assertTrue(done.await(1, TimeUnit.MINUTES));
          assertEquals(0, errors.get());
+         nioSequentialFile.close();
       }
 
    }
