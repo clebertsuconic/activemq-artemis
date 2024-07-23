@@ -46,7 +46,6 @@ import org.apache.activemq.artemis.utils.Env;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.lang.invoke.MethodHandles;
-import java.util.concurrent.locks.Lock;
 
 public class NIOSequentialFile extends AbstractSequentialFile {
 
@@ -89,15 +88,9 @@ public class NIOSequentialFile extends AbstractSequentialFile {
       return position;
    }
 
-
    @Override
-   public boolean isOpen() {
-      lock.lock();
-      try {
-         return channel != null;
-      } finally {
-         lock.unlock();
-      }
+   public synchronized boolean isOpen() {
+      return channel != null;
    }
 
    /**
@@ -105,7 +98,7 @@ public class NIOSequentialFile extends AbstractSequentialFile {
     * Some operations while initializing files on the journal may require a different maxIO
     */
    @Override
-   public void open() throws IOException {
+   public synchronized void open() throws IOException {
       open(maxIO, true);
    }
 
@@ -150,7 +143,6 @@ public class NIOSequentialFile extends AbstractSequentialFile {
    private static Map<String, AtomicInteger> counters = new ConcurrentHashMap<>();
    @Override
    public void open(final int maxIO, final boolean useExecutor) throws IOException {
-      lock.lock();
       try {
          rfile = new RandomAccessFile(getFile(), "rw");
 
@@ -167,8 +159,6 @@ public class NIOSequentialFile extends AbstractSequentialFile {
       } catch (IOException e) {
          factory.onIOError(new ActiveMQIOErrorException(e.getMessage(), e), e.getMessage(), this);
          throw e;
-      } finally {
-         lock.unlock();
       }
    }
 
@@ -209,15 +199,13 @@ public class NIOSequentialFile extends AbstractSequentialFile {
    }
 
    @Override
-   public void close() throws IOException, InterruptedException, ActiveMQException {
+   public synchronized void close() throws IOException, InterruptedException, ActiveMQException {
       close(true, true);
    }
 
    @Override
-   public void close(boolean waitSync, boolean blockOnPending) throws IOException, InterruptedException, ActiveMQException {
+   public synchronized void close(boolean waitSync, boolean blockOnPending) throws IOException, InterruptedException, ActiveMQException {
       super.close();
-
-      lock.lock();
 
       if (DEBUG_OPENS) {
          getDebugCounter(new Exception("Close")).incrementAndGet();
@@ -244,12 +232,10 @@ public class NIOSequentialFile extends AbstractSequentialFile {
       } finally {
          channel = null;
          rfile = null;
-         lock.unlock();
       }
 
-      synchronized (this) {
-         notifyAll();
-      }
+
+      notifyAll();
    }
 
    @Override
@@ -289,9 +275,8 @@ public class NIOSequentialFile extends AbstractSequentialFile {
    }
 
    @Override
-   public int read(final ByteBuffer bytes,
+   public synchronized int read(final ByteBuffer bytes,
                                 final IOCallback callback) throws IOException, ActiveMQIllegalStateException {
-      lock.lock();
       try {
          if (channel == null) {
             throw new ActiveMQIllegalStateException("File " + this.getFileName() + " has a null channel");
@@ -327,8 +312,6 @@ public class NIOSequentialFile extends AbstractSequentialFile {
          factory.onIOError(new ActiveMQIOErrorException(e.getMessage(), e), e.getMessage(), this);
 
          throw e;
-      } finally {
-         lock.unlock();
       }
    }
 
@@ -428,7 +411,6 @@ public class NIOSequentialFile extends AbstractSequentialFile {
          return;
       }
 
-      lock.lock();
       position.addAndGet(bytes.limit());
 
       try {
@@ -437,8 +419,6 @@ public class NIOSequentialFile extends AbstractSequentialFile {
          throw e;
       } catch (IOException e) {
          factory.onIOError(new ActiveMQIOErrorException(e.getMessage(), e), e.getMessage(), this);
-      } finally {
-         lock.unlock();
       }
    }
 

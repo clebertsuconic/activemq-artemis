@@ -192,10 +192,6 @@ public final class TimedBuffer extends CriticalComponentImpl {
       }
    }
 
-   public TimedBufferObserver geObserver() {
-      return bufferObserver;
-   }
-
    public void setObserver(final TimedBufferObserver observer) {
       try (AutoCloseable measure = measureCritical(CRITICAL_PATH_SET_OBSERVER)) {
          synchronized (this) {

@@ -39,12 +39,8 @@ import org.apache.activemq.artemis.core.journal.impl.SimpleWaitIOCallback;
 import org.apache.activemq.artemis.journal.ActiveMQJournalBundle;
 import org.apache.activemq.artemis.journal.ActiveMQJournalLogger;
 import org.apache.activemq.artemis.utils.ByteUtil;
-import org.apache.activemq.artemis.utils.actors.SimpleLock;
 import org.slf4j.LoggerFactory;
 import java.lang.invoke.MethodHandles;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantLock;
-
 import org.slf4j.Logger;
 
 public abstract class AbstractSequentialFile implements SequentialFile {
@@ -62,8 +58,6 @@ public abstract class AbstractSequentialFile implements SequentialFile {
    protected final AtomicLong position = new AtomicLong(0);
 
    protected TimedBuffer timedBuffer;
-
-   protected SimpleLock lock = new SimpleLock();
 
    /**
     * Instead of having AIOSequentialFile implementing the Observer, I have done it on an inner class.
@@ -180,7 +174,7 @@ public abstract class AbstractSequentialFile implements SequentialFile {
     * @throws ActiveMQException
     */
    @Override
-   public void close() throws IOException, InterruptedException, ActiveMQException {
+   public synchronized void close() throws IOException, InterruptedException, ActiveMQException {
    }
 
    @Override

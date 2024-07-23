@@ -242,11 +242,6 @@ public class TimedBufferTest extends ActiveMQTestBase {
       nioSequentialFile.open();
       assertTrue(factory.isDatasync());
 
-      // just to steal the observer from the NIOSequentialFile
-      nioSequentialFile.setTimedBuffer(timedBuffer);
-      TimedBufferObserver realFileObserver = timedBuffer.geObserver();
-
-
       AtomicInteger errors = new AtomicInteger(0);
       ReusableLatch done = new ReusableLatch(1);
 
@@ -272,17 +267,21 @@ public class TimedBufferTest extends ActiveMQTestBase {
          }
       };
 
-      for (int i = 0; i < 1000; i++) {
-         if (i % 1000 == 0) {
-            logger.info("i {}", i);
+      try {
+         for (int i = 0; i < 1000; i++) {
+            if (i % 1000 == 0) {
+               logger.info("i {}", i);
+            }
+            nioSequentialFile.open(100, false);
+            nioSequentialFile.setTimedBuffer(timedBuffer);
+            // simulating a low load period
+            timedBuffer.addBytes(buff, true, callback);
+            assertTrue(done.await(1, TimeUnit.MINUTES));
+            assertEquals(0, errors.get());
          }
-         nioSequentialFile.open(100, false);
-         nioSequentialFile.setTimedBuffer(timedBuffer);
-         // simulating a low load period
-         timedBuffer.addBytes(buff, true, callback);
-         assertTrue(done.await(1, TimeUnit.MINUTES));
-         assertEquals(0, errors.get());
-         nioSequentialFile.close();
+      } catch (Throwable e) {
+         logger.warn(e.getMessage(), e);
+         throw e;
       }
 
    }
