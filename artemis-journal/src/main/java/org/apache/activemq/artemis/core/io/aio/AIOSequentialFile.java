@@ -101,37 +101,48 @@ public class AIOSequentialFile extends AbstractSequentialFile  {
    }
 
    @Override
-   public synchronized void close(boolean waitSync, boolean blockOnWait) throws IOException, InterruptedException, ActiveMQException {
-      // a double call on close, should result on it waitingNotPending before another close is called
-      if (!opened) {
-         return;
-      }
-
-      aioFactory.beforeClose();
-
-      super.close();
-      opened = false;
-      this.timedBuffer = null;
+   public void close(boolean waitSync, boolean blockOnWait) throws IOException, InterruptedException, ActiveMQException {
+      lock.lock();
 
       try {
-         aioFile.close();
-      } catch (Throwable e) {
-         // an exception here would means a double
-         logger.debug("Exeption while closing file", e);
+         // a double call on close, should result on it waitingNotPending before another close is called
+         if (!opened) {
+            return;
+         }
+
+         aioFactory.beforeClose();
+
+         super.close();
+         opened = false;
+         this.timedBuffer = null;
+
+         try {
+            aioFile.close();
+         } catch (Throwable e) {
+            // an exception here would means a double
+            logger.debug("Exeption while closing file", e);
+         } finally {
+            aioFile = null;
+            aioFactory.afterClose();
+         }
       } finally {
-         aioFile = null;
-         aioFactory.afterClose();
+         lock.unlock();
       }
    }
 
    @Override
-   public synchronized void fill(final int size) throws Exception {
-      logger.trace("Filling file: {}", getFileName());
+   public void fill(final int size) throws Exception {
+      lock.lock();
+      try {
+         logger.trace("Filling file: {}", getFileName());
 
-      checkOpened();
-      aioFile.fill(aioFactory.getAlignment(), size);
+         checkOpened();
+         aioFile.fill(aioFactory.getAlignment(), size);
 
-      fileSize = aioFile.getSize();
+         fileSize = aioFile.getSize();
+      } finally {
+         lock.unlock();
+      }
    }
 
    @Override
