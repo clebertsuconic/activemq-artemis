@@ -240,9 +240,18 @@ public class ReplicatedMirrorTargetTest extends SoakTestBase {
 
       Thread.sleep(5000);
    }
+   @Test
+   public void testMirrorOnReplicaAMQP() throws Exception {
+      testMirrorOnReplica("AMQP");
+   }
 
    @Test
-   public void testMirrorOnReplica() throws Exception {
+   public void testMirrorOnReplicaOPENWIRE() throws Exception {
+      testMirrorOnReplica("OPENWIRE");
+   }
+
+
+   private void testMirrorOnReplica(String protocol) throws Exception {
       createRealServers(true);
       startServers();
 
@@ -254,7 +263,7 @@ public class ReplicatedMirrorTargetTest extends SoakTestBase {
       String subscriptionID = "my-order";
       String snfQueue = "$ACTIVEMQ_ARTEMIS_MIRROR_mirror";
 
-      ConnectionFactory connectionFactoryDC1A = CFUtil.createConnectionFactory("amqp", DC1_URI);
+      ConnectionFactory connectionFactoryDC1A = CFUtil.createConnectionFactory(protocol, DC1_URI);
 
       consume(connectionFactoryDC1A, clientIDA, subscriptionID, 0, 0, false, false, RECEIVE_COMMIT);
       consume(connectionFactoryDC1A, clientIDB, subscriptionID, 0, 0, false, false, RECEIVE_COMMIT);

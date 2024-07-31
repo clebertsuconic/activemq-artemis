@@ -147,7 +147,16 @@ public class ClusteredMirrorSoakTest extends SoakTestBase {
    }
 
    @Test
-   public void testAvoidReflections() throws Exception {
+   public void testAvoidReflectionsAMQP() throws Exception {
+      testAvoidReflections("AMQP");
+   }
+
+   @Test
+   public void testAvoidReflectionsOpenWire() throws Exception {
+      testAvoidReflections("OPENWIRE");
+   }
+
+   public void testAvoidReflections(String protocol) throws Exception {
       createRealServers(true);
 
       String internalQueue = "INTERNAL_QUEUE";
@@ -195,7 +204,7 @@ public class ClusteredMirrorSoakTest extends SoakTestBase {
       } catch (Exception expected) {
       }
 
-      ConnectionFactory connectionFactoryDC1A = CFUtil.createConnectionFactory("amqp", DC1_NODEA_URI);
+      ConnectionFactory connectionFactoryDC1A = CFUtil.createConnectionFactory(protocol, DC1_NODEA_URI);
 
       int numberOfMessages = 1_000;
 
@@ -285,7 +294,16 @@ public class ClusteredMirrorSoakTest extends SoakTestBase {
    }
 
    @Test
-   public void testSimpleQueue() throws Exception {
+   public void testSimpleQueueAMQP() throws Exception {
+      testSimpleQueue("AMQP");
+   }
+
+   @Test
+   public void testSimpleQueueOPENWIRE() throws Exception {
+      testSimpleQueue("OPENWIRE");
+   }
+
+   private void testSimpleQueue(String protocol) throws Exception {
       createRealServers(false);
       startServers();
 
@@ -293,8 +311,8 @@ public class ClusteredMirrorSoakTest extends SoakTestBase {
 
       assertTrue(numberOfMessages % 2 == 0, "numberOfMessages must be even");
 
-      ConnectionFactory connectionFactoryDC1A = CFUtil.createConnectionFactory("amqp", DC1_NODEA_URI);
-      ConnectionFactory connectionFactoryDC2A = CFUtil.createConnectionFactory("amqp", DC2_NODEA_URI);
+      ConnectionFactory connectionFactoryDC1A = CFUtil.createConnectionFactory(protocol, DC1_NODEA_URI);
+      ConnectionFactory connectionFactoryDC2A = CFUtil.createConnectionFactory(protocol, DC2_NODEA_URI);
       String snfQueue = "$ACTIVEMQ_ARTEMIS_MIRROR_mirror";
 
       SimpleManagement simpleManagementDC1A = new SimpleManagement(DC1_NODEA_URI, null, null);
@@ -437,7 +455,16 @@ public class ClusteredMirrorSoakTest extends SoakTestBase {
    }
 
    @Test
-   public void testAutoCreateQueue() throws Exception {
+   public void testAutoCreateQueueAMQP() throws Exception {
+      testAutoCreateQueue("AMQP");
+   }
+
+   @Test
+   public void testAutoCreateQueueOPENWIRE() throws Exception {
+      testAutoCreateQueue("OPENWIRE");
+   }
+
+   public void testAutoCreateQueue(String protocol) throws Exception {
       ExecutorService executorService = Executors.newFixedThreadPool(2);
       runAfter(executorService::shutdownNow);
 
@@ -448,9 +475,9 @@ public class ClusteredMirrorSoakTest extends SoakTestBase {
 
       final int numberOfMessages = 50;
 
-      ConnectionFactory connectionFactoryDC1A = CFUtil.createConnectionFactory("amqp", DC1_NODEA_URI);
-      ConnectionFactory connectionFactoryDC2A = CFUtil.createConnectionFactory("amqp", DC2_NODEA_URI);
-      ConnectionFactory connectionFactoryDC2B = CFUtil.createConnectionFactory("amqp", DC2_NODEB_URI);
+      ConnectionFactory connectionFactoryDC1A = CFUtil.createConnectionFactory(protocol, DC1_NODEA_URI);
+      ConnectionFactory connectionFactoryDC2A = CFUtil.createConnectionFactory(protocol, DC2_NODEA_URI);
+      ConnectionFactory connectionFactoryDC2B = CFUtil.createConnectionFactory(protocol, DC2_NODEB_URI);
 
       AtomicBoolean runningConsumers = new AtomicBoolean(true);
       runAfter(() -> runningConsumers.set(false));
@@ -508,7 +535,16 @@ public class ClusteredMirrorSoakTest extends SoakTestBase {
    }
 
    @Test
-   public void testMirroredTopics() throws Exception {
+   public void testMirroredTopicsAMQP() throws Exception {
+      testMirroredTopics("AMQP");
+   }
+
+   @Test
+   public void testMirroredTopicsOPENWIRE() throws Exception {
+      testMirroredTopics("OPENWIRE");
+   }
+
+   public void testMirroredTopics(String protocol) throws Exception {
       createRealServers(false);
       startServers();
 
@@ -521,10 +557,10 @@ public class ClusteredMirrorSoakTest extends SoakTestBase {
       String subscriptionID = "my-order";
       String snfQueue = "$ACTIVEMQ_ARTEMIS_MIRROR_mirror";
 
-      ConnectionFactory connectionFactoryDC1A = CFUtil.createConnectionFactory("amqp", "tcp://localhost:61616");
-      ConnectionFactory connectionFactoryDC1B = CFUtil.createConnectionFactory("amqp", "tcp://localhost:61617");
-      ConnectionFactory connectionFactoryDC2A = CFUtil.createConnectionFactory("amqp", "tcp://localhost:61618");
-      ConnectionFactory connectionFactoryDC2B = CFUtil.createConnectionFactory("amqp", "tcp://localhost:61619");
+      ConnectionFactory connectionFactoryDC1A = CFUtil.createConnectionFactory(protocol, "tcp://localhost:61616");
+      ConnectionFactory connectionFactoryDC1B = CFUtil.createConnectionFactory(protocol, "tcp://localhost:61617");
+      ConnectionFactory connectionFactoryDC2A = CFUtil.createConnectionFactory(protocol, "tcp://localhost:61618");
+      ConnectionFactory connectionFactoryDC2B = CFUtil.createConnectionFactory(protocol, "tcp://localhost:61619");
 
       SimpleManagement simpleManagementDC1B = new SimpleManagement(DC1_NODEB_URI, null, null);
       SimpleManagement simpleManagementDC2B = new SimpleManagement(DC2_NODEB_URI, null, null);
