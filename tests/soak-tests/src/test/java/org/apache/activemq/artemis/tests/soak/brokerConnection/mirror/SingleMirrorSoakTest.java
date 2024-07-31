@@ -199,7 +199,21 @@ public class SingleMirrorSoakTest extends SoakTestBase {
    }
 
    @Test
-   public void testInterruptedMirrorTransfer() throws Exception {
+   public void testInterruptedMirrorTransferAMQP() throws Exception {
+      testInterruptedMirrorTransfer("AMQP");
+   }
+   @Test
+   public void testInterruptedMirrorTransferOPENWIRE() throws Exception {
+      testInterruptedMirrorTransfer("OPENWIRE");
+   }
+
+   @Test
+   public void testInterruptedMirrorTransferCORE() throws Exception {
+      testInterruptedMirrorTransfer("CORE");
+   }
+
+
+   public void testInterruptedMirrorTransfer(String protocol) throws Exception {
       createRealServers(true);
       startServers();
 

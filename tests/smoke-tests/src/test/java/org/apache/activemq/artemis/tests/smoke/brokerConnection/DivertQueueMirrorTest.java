@@ -129,9 +129,17 @@ public class DivertQueueMirrorTest extends SmokeTestBase {
 
    @Test
    @Timeout(value = 240_000L, unit = TimeUnit.MILLISECONDS)
-   public void testDivertAndMirror() throws Exception {
-      String protocol = "AMQP"; // no need to run this test using multiple protocols. this is about validating paging works correctly
+   public void testDivertAndMirrorAMQP() throws Exception {
+      testDivertAndMirror("AMQP");
+   }
 
+   @Test
+   @Timeout(value = 240_000L, unit = TimeUnit.MILLISECONDS)
+   public void testDivertAndMirrorOPENWIRE() throws Exception {
+      testDivertAndMirror("OPENWIRE");
+   }
+
+   public void testDivertAndMirror(String protocol) throws Exception {
       processDC1_node_A = startServer(DC1_NODE_A, -1, -1, new File(getServerLocation(DC1_NODE_A), "broker.properties"));
       processDC2_node_A = startServer(DC2_NODE_A, -1, -1, new File(getServerLocation(DC2_NODE_A), "broker.properties"));
       ServerUtil.waitForServerToStart(0, 10_000);

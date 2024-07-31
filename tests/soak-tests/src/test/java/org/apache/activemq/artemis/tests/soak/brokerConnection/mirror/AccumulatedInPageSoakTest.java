@@ -124,15 +124,21 @@ public class AccumulatedInPageSoakTest extends SoakTestBase {
 
    @Test
    @Timeout(value = 240_000L, unit = TimeUnit.MILLISECONDS)
-   public void testAccumulateWhileMirrorDown() throws Exception {
-      String protocol = "AMQP"; // no need to run this test using multiple protocols. this is about validating paging works correctly
+   public void testAccumulateWhileMirrorDownOpenWire() throws Exception {
+      testAccumulateWhileMirrorDown("OPENWIRE", 20_000, 100);
+   }
+
+   @Test
+   @Timeout(value = 240_000L, unit = TimeUnit.MILLISECONDS)
+   public void testAccumulateWhileMirrorDownAMQP() throws Exception {
+      testAccumulateWhileMirrorDown("AMQP", 20_000, 1000);
+   }
+
+   private void testAccumulateWhileMirrorDown(String protocol, final int numberOfMessages, final int commitInterval) throws Exception {
       startDC1();
 
       ExecutorService service = Executors.newFixedThreadPool(1);
       runAfter(service::shutdownNow);
-
-      final int numberOfMessages = 20_000;
-      final int commitInterval = 1000;
 
       ConnectionFactory connectionFactoryDC1A = CFUtil.createConnectionFactory(protocol, DC1_NODEA_URI);
       ConnectionFactory connectionFactoryDC2A = CFUtil.createConnectionFactory(protocol, DC2_NODEA_URI);
@@ -163,6 +169,7 @@ public class AccumulatedInPageSoakTest extends SoakTestBase {
          } catch (Throwable e) {
             logger.warn(e.getMessage(), e);
             errors.incrementAndGet();
+            System.exit(-1);
          } finally {
             done.countDown();
          }

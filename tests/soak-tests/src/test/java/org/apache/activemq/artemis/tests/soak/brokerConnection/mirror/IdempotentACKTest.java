@@ -164,11 +164,17 @@ public class IdempotentACKTest extends SoakTestBase {
       testACKs("CORE");
    }
 
+   @Test
+   public void testOPENWIRE() throws Exception {
+      testACKs("OPENWIRE");
+   }
+
+
    private void testACKs(final String protocol) throws Exception {
       startServers();
 
       final int consumers = 10;
-      final int numberOfMessages = 1000;
+      final int numberOfMessages = 10000;
       final int largeMessageFactor = 30;
       final int messagesPerConsumer = 30;
 

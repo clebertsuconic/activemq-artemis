@@ -268,16 +268,26 @@ public class ReplicatedBothNodesMirrorTest extends SoakTestBase {
    }
 
    @Test
-   public void testFailoverLaterStart() throws Exception {
-      testMirror(true);
+   public void testFailoverLaterStartAMQP() throws Exception {
+      testMirror("AMQP", true);
    }
 
    @Test
-   public void testFailoverWhileMirroring() throws Exception {
-      testMirror(false);
+   public void testFailoverWhileMirroringAMQP() throws Exception {
+      testMirror("AMQP", false);
    }
 
-   private void testMirror(boolean laterStart) throws Exception {
+   @Test
+   public void testFailoverLaterStartOPENWIRE() throws Exception {
+      testMirror("OPENWIRE", true);
+   }
+
+   @Test
+   public void testFailoverWhileMirroringOPENWIRE() throws Exception {
+      testMirror("OPENWIRE", false);
+   }
+
+   private void testMirror(String protocol, boolean laterStart) throws Exception {
       createRealServers();
 
       SimpleManagement managementDC1 = new SimpleManagement(uri(DC1_IP), null, null);
@@ -292,7 +302,7 @@ public class ReplicatedBothNodesMirrorTest extends SoakTestBase {
       runAfter(() -> managementDC1.close());
       runAfter(() -> managementDC2.close());
 
-      sendMessages(QUEUE_NAME);
+      sendMessages(protocol, QUEUE_NAME);
 
       processDC1.destroyForcibly();
       processDC1.waitFor(10, TimeUnit.SECONDS);
@@ -304,7 +314,7 @@ public class ReplicatedBothNodesMirrorTest extends SoakTestBase {
       // Mirror failover could challenge the order
       HashSet<Integer> receivedIDs = new HashSet<>();
 
-      ConnectionFactory connectionFactoryDC2 = CFUtil.createConnectionFactory("amqp", uri(DC2_IP));
+      ConnectionFactory connectionFactoryDC2 = CFUtil.createConnectionFactory(protocol, uri(DC2_IP));
       try (Connection connection = connectionFactoryDC2.createConnection()) {
          Session session = connection.createSession(true, Session.SESSION_TRANSACTED);
          connection.start();
@@ -328,9 +338,17 @@ public class ReplicatedBothNodesMirrorTest extends SoakTestBase {
       }
    }
 
+   @Test
+   public void testMultipleSendersAMQP() throws Exception {
+      testMultipleSenders("AMQP");
+   }
 
    @Test
-   public void testMultipleSenders() throws Exception {
+   public void testMultipleSendersOPENWIRE() throws Exception {
+      testMultipleSenders("OPENWIRE");
+   }
+
+   private void testMultipleSenders(String protocol) throws Exception {
       try {
          lsof();
       } catch (IOException e) {
@@ -359,7 +377,7 @@ public class ReplicatedBothNodesMirrorTest extends SoakTestBase {
          String destination = "queue" + i;
          executorService.execute(() -> {
             try {
-               sendMessages(destination);
+               sendMessages(protocol, destination);
             } catch (Throwable e) {
                logger.warn(e.getMessage(), e);
                errors.incrementAndGet();
@@ -402,8 +420,8 @@ public class ReplicatedBothNodesMirrorTest extends SoakTestBase {
       return filesCounter.get();
    }
 
-   private static void sendMessages(String queueName) throws JMSException {
-      ConnectionFactory connectionFactoryDC1A = CFUtil.createConnectionFactory("amqp", uri(DC1_IP));
+   private static void sendMessages(String protocol, String queueName) throws JMSException {
+      ConnectionFactory connectionFactoryDC1A = CFUtil.createConnectionFactory(protocol, uri(DC1_IP));
       try (Connection connection = connectionFactoryDC1A.createConnection()) {
          Session session = connection.createSession(true, Session.SESSION_TRANSACTED);
          MessageProducer producer = session.createProducer(session.createQueue(queueName));
