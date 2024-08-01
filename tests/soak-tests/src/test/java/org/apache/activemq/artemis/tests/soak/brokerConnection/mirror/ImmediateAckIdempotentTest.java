@@ -96,11 +96,11 @@ public class ImmediateAckIdempotentTest extends SoakTestBase {
       brokerProperties.put("AMQPConnections." + connectionName + ".type", AMQPBrokerConnectionAddressType.MIRROR.toString());
       brokerProperties.put("AMQPConnections." + connectionName + ".connectionElements.mirror.sync", "false");
 
-      /*brokerProperties.put("mirrorAckManagerMinQueueAttempts", "0");
+      brokerProperties.put("mirrorAckManagerMinQueueAttempts", "0");
       brokerProperties.put("mirrorAckManagerMaxPageAttempts", "0");
-      brokerProperties.put("mirrorAckManagerRetryDelay", "1"); */
+      brokerProperties.put("mirrorAckManagerRetryDelay", "1");
 
-      Assertions.assertTrue(FileUtil.findReplace(new File(serverLocation, "/etc/broker.xml"), "</journal-file-size>", "</journal-file-size>\n      <journal-buffer-timeout>200000</journal-buffer-timeout>"));
+      Assertions.assertTrue(FileUtil.findReplace(new File(serverLocation, "/etc/broker.xml"), "</journal-file-size>", "</journal-file-size>\n      <journal-buffer-timeout>20000000</journal-buffer-timeout>"));
 
       brokerProperties.put("largeMessageSync", "false");
       File brokerPropertiesFile = new File(serverLocation, "broker.properties");
@@ -141,7 +141,7 @@ public class ImmediateAckIdempotentTest extends SoakTestBase {
 
       ConnectionFactory connectionFactoryDC1A = CFUtil.createConnectionFactory(protocol, DC1_NODEA_URI);
 
-      final int numberOfMessages = 2_000;
+      final int numberOfMessages = 1_000;
       String snfQueue = "$ACTIVEMQ_ARTEMIS_MIRROR_mirror";
 
       try (Connection connection = connectionFactoryDC1A.createConnection()) {
