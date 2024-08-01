@@ -140,7 +140,10 @@ public class DivertImpl implements Divert {
 
             // We call reencode at the end only, in a single call.
             copy.reencode();
+
+            logger.info("Re-encoding message {} as {} on divert", message.getMessageID(), copy.getMessageID(), new Exception("Trace"));
          } else {
+            logger.info("Reusing message {} on divert", message.getMessageID(), new Exception("Trace"));
             copy = message;
          }
 

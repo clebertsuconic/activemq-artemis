@@ -80,7 +80,7 @@ public class PagedSNFSoakTest extends SoakTestBase {
    private static void createServer(String serverName,
                                     String connectionName,
                                     String mirrorURI,
-                                    int porOffset) throws Exception {
+                                    int porOffset, boolean paging) throws Exception {
       File serverLocation = getFileServerLocation(serverName);
       deleteDirectory(serverLocation);
 
@@ -102,17 +102,18 @@ public class PagedSNFSoakTest extends SoakTestBase {
       brokerProperties.put("AMQPConnections." + connectionName + ".connectionElements.mirror.sync", "false");
       brokerProperties.put("largeMessageSync", "false");
 
-      brokerProperties.put("addressSettings.#.maxSizeMessages", "100");
-      brokerProperties.put("addressSettings.#.addressFullMessagePolicy", "PAGING");
+      if (paging) {
+         brokerProperties.put("addressSettings.#.maxSizeMessages", "100");
+         brokerProperties.put("addressSettings.#.addressFullMessagePolicy", "PAGING");
+      }
 
       File brokerPropertiesFile = new File(serverLocation, "broker.properties");
       saveProperties(brokerProperties, brokerPropertiesFile);
    }
 
-   @BeforeAll
-   public static void createServers() throws Exception {
-      createServer(DC1_NODE_A, "mirror", DC2_NODEA_URI, 0);
-      createServer(DC2_NODE_A, "mirror", DC1_NODEA_URI, 2);
+   public static void createServers(boolean paging) throws Exception {
+      createServer(DC1_NODE_A, "mirror", DC2_NODEA_URI, 0, paging);
+      createServer(DC2_NODE_A, "mirror", DC1_NODEA_URI, 2, paging);
    }
 
    @BeforeEach
@@ -124,21 +125,28 @@ public class PagedSNFSoakTest extends SoakTestBase {
    @Test
    @Timeout(240)
    public void testAMQP() throws Exception {
-      testAccumulateAndSend("AMQP");
+      testAccumulateAndSend("AMQP", true);
    }
 
    @Test
    @Timeout(240)
    public void testCORE() throws Exception {
-      testAccumulateAndSend("CORE");
+      testAccumulateAndSend("CORE", true);
    }
 
    @Test
    public void testOpenWire() throws Exception {
-      testAccumulateAndSend("OPENWIRE");
+      testAccumulateAndSend("OPENWIRE", true);
    }
 
-   private void testAccumulateAndSend(final String protocol) throws Exception {
+   @Test
+   public void testOpenWireNoPaging() throws Exception {
+      testAccumulateAndSend("OPENWIRE", false);
+   }
+
+
+   private void testAccumulateAndSend(final String protocol, boolean paging) throws Exception {
+      createServers(paging);
       startDC1();
 
       final int numberOfMessages = 400;
@@ -192,6 +200,7 @@ public class PagedSNFSoakTest extends SoakTestBase {
 
    @Test
    public void testLargeBatches() throws Exception {
+      createServers(true);
       String protocol = "AMQP";
       startDC1();
       startDC2();

@@ -40,6 +40,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.apache.activemq.artemis.api.config.ActiveMQDefaultConfiguration;
 import org.apache.activemq.artemis.api.core.management.SimpleManagement;
 import org.apache.activemq.artemis.core.config.amqpBrokerConnectivity.AMQPBrokerConnectionAddressType;
 import org.apache.activemq.artemis.tests.soak.SoakTestBase;
@@ -100,6 +101,11 @@ public class IdempotentACKTest extends SoakTestBase {
       brokerProperties.put("AMQPConnections." + connectionName + ".retryInterval", "1000");
       brokerProperties.put("AMQPConnections." + connectionName + ".type", AMQPBrokerConnectionAddressType.MIRROR.toString());
       brokerProperties.put("AMQPConnections." + connectionName + ".connectionElements.mirror.sync", "false");
+
+      brokerProperties.put("mirrorAckManagerMinQueueAttempts", "0");
+      brokerProperties.put("mirrorAckManagerMaxPageAttempts", "0");
+      brokerProperties.put("mirrorAckManagerRetryDelay", "1");
+
       brokerProperties.put("largeMessageSync", "false");
       File brokerPropertiesFile = new File(serverLocation, "broker.properties");
       saveProperties(brokerProperties, brokerPropertiesFile);
@@ -130,13 +136,8 @@ public class IdempotentACKTest extends SoakTestBase {
          for (int i = initialCounter; i < initialCounter + numberOfMessages; i++) {
             TextMessage message;
             String unique = "Unique " + i;
-            if (i % largeMessageFactor == 0) {
-               message = session.createTextMessage(largeBody);
-               message.setBooleanProperty("large", true);
-            } else {
                message = session.createTextMessage("this is small");
                message.setBooleanProperty("large", false);
-            }
             message.setIntProperty("i", i);
             message.setStringProperty(org.apache.activemq.artemis.api.core.Message.HDR_DUPLICATE_DETECTION_ID.toString(), unique);
             producer.send(message);

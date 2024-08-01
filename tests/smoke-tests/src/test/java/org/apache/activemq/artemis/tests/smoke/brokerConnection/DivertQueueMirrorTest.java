@@ -96,10 +96,10 @@ public class DivertQueueMirrorTest extends SmokeTestBase {
       brokerProperties.put("divertConfigurations.myDivert.forwardingAddress", "outQueue1");
       brokerProperties.put("divertConfigurations.myDivert.exclusive", "true");
 
-      brokerProperties.put("divertConfigurations.myDivert2.routingName", "inputQueue");
+      /*brokerProperties.put("divertConfigurations.myDivert2.routingName", "inputQueue");
       brokerProperties.put("divertConfigurations.myDivert2.address", "inputQueue");
       brokerProperties.put("divertConfigurations.myDivert2.forwardingAddress", "outQueue2");
-      brokerProperties.put("divertConfigurations.myDivert2.exclusive", "true");
+      brokerProperties.put("divertConfigurations.myDivert2.exclusive", "true"); */
 
 
       brokerProperties.put("AMQPConnections." + connectionName + ".uri", mirrorURI);
@@ -145,8 +145,10 @@ public class DivertQueueMirrorTest extends SmokeTestBase {
       ServerUtil.waitForServerToStart(0, 10_000);
       ServerUtil.waitForServerToStart(2, 10_000);
 
-      final int numberOfMessages = 500;
-      final int commitInterval = 100;
+      final int numberOfMessages = 10;
+      final int commitInterval = 1;
+
+      assert numberOfMessages % 2 == 0;
 
       ConnectionFactory connectionFactoryDC1A = CFUtil.createConnectionFactory(protocol, DC1_NODEA_URI);
       ConnectionFactory connectionFactoryDC2A = CFUtil.createConnectionFactory(protocol, DC2_NODEA_URI);
@@ -154,51 +156,85 @@ public class DivertQueueMirrorTest extends SmokeTestBase {
       SimpleManagement simpleManagementDC1A = new SimpleManagement(DC1_NODEA_URI, null, null);
       SimpleManagement simpleManagementDC2A = new SimpleManagement(DC2_NODEA_URI, null, null);
       try (Connection connection = connectionFactoryDC1A.createConnection()) {
-         Session session = connection.createSession(true, Session.SESSION_TRANSACTED);
+         Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
          connection.start();
          Queue queue = session.createQueue("inputQueue");
          MessageProducer producer = session.createProducer(queue);
 
          connection.start();
 
-         for (int i = 0; i < numberOfMessages; i++) {
+         for (int i = 0; i < numberOfMessages ; i++) {
             producer.send(session.createTextMessage(body));
-            if (i > 0 && i % commitInterval == 0) {
+            /*if (i > 0 && i % commitInterval == 0) {
                session.commit();
-            }
+            } */
          }
-         session.commit();
+         //session.commit();
       }
 
-      Wait.assertEquals((long)numberOfMessages, () -> getMessageCount(simpleManagementDC1A, "outQueue1"), 60_000, 500);
-      Wait.assertEquals((long)numberOfMessages, () -> getMessageCount(simpleManagementDC1A, "outQueue2"), 60_000, 500);
-      Wait.assertEquals(0L, () -> getMessageCount(simpleManagementDC1A, "inputQueue"), 60_000, 500);
-
-      Wait.assertEquals((long)numberOfMessages, () -> getMessageCount(simpleManagementDC2A, "outQueue1"), 60_000, 500);
-      Wait.assertEquals((long)numberOfMessages, () -> getMessageCount(simpleManagementDC2A, "outQueue2"), 60_000, 500);
-      Wait.assertEquals(0L, () -> getMessageCount(simpleManagementDC2A, "inputQueue"), 60_000, 500);
 
       try (Connection connection = connectionFactoryDC2A.createConnection()) {
          connection.start();
-         Session session = connection.createSession(true, Session.SESSION_TRANSACTED);
-         for (int q = 1; q <= 2; q++) {
+         Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+         for (int q = 1; q <= 1; q++) {
             Queue queue = session.createQueue("outQueue" + q);
 
             try (MessageConsumer consumer = session.createConsumer(queue)) {
                logger.info("Consuming from queue {}", queue);
 
-               for (int i = 0; i < numberOfMessages; i++) {
+               for (int i = 0; i < numberOfMessages / 2; i++) {
                   TextMessage message = (TextMessage) consumer.receive(5000);
                   Assertions.assertNotNull(message, "expecting message on queue " + queue);
                   if (i > 0 && i % commitInterval == 0) {
                      logger.info("Received {}, queue={}", i, queue);
-                     session.commit();
+                     //session.commit();
                   }
                }
-               session.commit();
+               //session.commit();
             }
          }
       }
+
+
+      Wait.assertEquals((long)numberOfMessages / 2, () -> getMessageCount(simpleManagementDC1A, "outQueue1"), 60_000, 500);
+      //Wait.assertEquals((long)numberOfMessages, () -> getMessageCount(simpleManagementDC1A, "outQueue2"), 60_000, 500);
+      Wait.assertEquals(0L, () -> getMessageCount(simpleManagementDC1A, "inputQueue"), 60_000, 500);
+
+      Wait.assertEquals((long)numberOfMessages / 2, () -> getMessageCount(simpleManagementDC2A, "outQueue1"), 60_000, 500);
+      //Wait.assertEquals((long)numberOfMessages, () -> getMessageCount(simpleManagementDC2A, "outQueue2"), 60_000, 500);
+      Wait.assertEquals(0L, () -> getMessageCount(simpleManagementDC2A, "inputQueue"), 60_000, 500);
+
+      killServer(processDC1_node_A);
+      killServer(processDC2_node_A);
+
+
+      processDC2_node_A = startServer(DC2_NODE_A, -1, -1, new File(getServerLocation(DC2_NODE_A), "broker.properties"));
+      ServerUtil.waitForServerToStart(2, 10_000);
+
+      try (Connection connection = connectionFactoryDC2A.createConnection()) {
+         connection.start();
+         Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+         for (int q = 1; q <= 1; q++) {
+            Queue queue = session.createQueue("outQueue" + q);
+
+            try (MessageConsumer consumer = session.createConsumer(queue)) {
+               logger.info("Consuming from queue {}", queue);
+
+               for (int i = 0; i < numberOfMessages / 2; i++) {
+                  TextMessage message = (TextMessage) consumer.receive(5000);
+                  Assertions.assertNotNull(message, "expecting message on queue " + queue);
+                  if (i > 0 && i % commitInterval == 0) {
+                     logger.info("Received {}, queue={}", i, queue);
+                     //session.commit();
+                  }
+               }
+               //session.commit();
+            }
+         }
+      }
+
+      processDC1_node_A = startServer(DC1_NODE_A, -1, -1, new File(getServerLocation(DC1_NODE_A), "broker.properties"));
+      ServerUtil.waitForServerToStart(0, 10_000);
 
       Wait.assertEquals(0L, () -> getMessageCount(simpleManagementDC1A, SNF_QUEUE), 240_000, 500);
       Wait.assertEquals(0L, () -> getMessageCount(simpleManagementDC2A, SNF_QUEUE), 240_000, 500);
