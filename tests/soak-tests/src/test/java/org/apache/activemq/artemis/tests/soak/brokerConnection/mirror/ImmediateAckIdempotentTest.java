@@ -19,23 +19,15 @@ package org.apache.activemq.artemis.tests.soak.brokerConnection.mirror;
 
 import javax.jms.Connection;
 import javax.jms.ConnectionFactory;
-import javax.jms.JMSException;
-import javax.jms.Message;
 import javax.jms.MessageConsumer;
 import javax.jms.MessageProducer;
 import javax.jms.Queue;
 import javax.jms.Session;
 import javax.jms.TextMessage;
-import javax.jms.TransactionRolledBackException;
 import java.io.File;
 import java.io.StringWriter;
 import java.lang.invoke.MethodHandles;
 import java.util.Properties;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.activemq.artemis.api.core.management.SimpleManagement;
 import org.apache.activemq.artemis.core.config.amqpBrokerConnectivity.AMQPBrokerConnectionAddressType;
@@ -55,7 +47,7 @@ import org.slf4j.LoggerFactory;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class ImediateAckIdempotentTest extends SoakTestBase {
+public class ImmediateAckIdempotentTest extends SoakTestBase {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
@@ -71,8 +63,8 @@ public class ImediateAckIdempotentTest extends SoakTestBase {
 
    private static final String QUEUE_NAME = "myQueue";
 
-   public static final String DC1_NODE_A = "idempotentMirror/DC1";
-   public static final String DC2_NODE_A = "idempotentMirror/DC2";
+   public static final String DC1_NODE_A = "ImmediateAckIdempotentTest/DC1";
+   public static final String DC2_NODE_A = "ImmediateAckIdempotentTest/DC2";
 
    Process processDC1_node_A;
    Process processDC2_node_A;
