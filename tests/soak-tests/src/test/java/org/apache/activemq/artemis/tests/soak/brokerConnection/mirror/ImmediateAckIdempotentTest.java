@@ -35,6 +35,7 @@ import org.apache.activemq.artemis.tests.soak.SoakTestBase;
 import org.apache.activemq.artemis.tests.util.CFUtil;
 import org.apache.activemq.artemis.tests.util.RandomUtil;
 import org.apache.activemq.artemis.util.ServerUtil;
+import org.apache.activemq.artemis.utils.FileUtil;
 import org.apache.activemq.artemis.utils.Wait;
 import org.apache.activemq.artemis.utils.cli.helper.HelperCreate;
 import org.junit.jupiter.api.Assertions;
@@ -98,6 +99,8 @@ public class ImmediateAckIdempotentTest extends SoakTestBase {
       /*brokerProperties.put("mirrorAckManagerMinQueueAttempts", "0");
       brokerProperties.put("mirrorAckManagerMaxPageAttempts", "0");
       brokerProperties.put("mirrorAckManagerRetryDelay", "1"); */
+
+      Assertions.assertTrue(FileUtil.findReplace(new File(serverLocation, "/etc/broker.xml"), "</journal-file-size>", "</journal-file-size>\n      <journal-buffer-timeout>200000</journal-buffer-timeout>"));
 
       brokerProperties.put("largeMessageSync", "false");
       File brokerPropertiesFile = new File(serverLocation, "broker.properties");
