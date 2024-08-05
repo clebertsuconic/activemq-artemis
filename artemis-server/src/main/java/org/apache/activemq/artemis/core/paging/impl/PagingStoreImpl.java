@@ -228,11 +228,34 @@ public class PagingStoreImpl implements PagingStore {
       size.setMax(maxSize, maxSize, maxMessages, maxMessages);
    }
 
+   private boolean validateNewSettings(final AddressSettings addressSettings) {
+
+      Long newPageLimitBytes = addressSettings.getPageLimitBytes();
+
+      if (newPageLimitBytes != null && newPageLimitBytes.longValue() < 0) {
+         newPageLimitBytes = null;
+      }
+      int newPageSize = storageManager.getAllowedPageSize(addressSettings.getPageSizeBytes());
+      if (newPageLimitBytes != null && newPageSize > 0) {
+         long newEstimatedMaxPages = newPageLimitBytes / newPageSize;
+         if (this.numberOfPages > newEstimatedMaxPages) {
+            ActiveMQServerLogger.LOGGER.pageSettingsFailedApply(storeName, addressSettings, "estimated max pages " + newEstimatedMaxPages + " is less than current number of pages " + this.numberOfPages);
+            return false;
+         }
+      }
+      return true;
+   }
+
    /**
     * @param addressSettings
     */
    @Override
    public void applySetting(final AddressSettings addressSettings) {
+
+      if (!validateNewSettings(addressSettings)) {
+         return;
+      }
+
       maxSize = addressSettings.getMaxSizeBytes();
 
       maxPageReadMessages = addressSettings.getMaxReadPageMessages();
