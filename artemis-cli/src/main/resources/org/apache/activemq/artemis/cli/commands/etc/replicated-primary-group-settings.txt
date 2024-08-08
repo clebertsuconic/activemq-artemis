@@ -1,0 +1,9 @@
+
+      <ha-policy>
+         <replication>
+            <primary>
+               <vote-on-replication-failure>true</vote-on-replication-failure>
+               <group-name>${replica-group-name}</group-name>
+            </primary>
+         </replication>
+      </ha-policy>

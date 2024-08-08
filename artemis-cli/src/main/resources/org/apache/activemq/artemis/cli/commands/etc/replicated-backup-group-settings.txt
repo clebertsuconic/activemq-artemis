@@ -1,0 +1,8 @@
+
+      <ha-policy>
+         <replication>
+            <backup>
+               <group-name>${replica-group-name}</group-name>
+            </backup>
+         </replication>
+      </ha-policy>

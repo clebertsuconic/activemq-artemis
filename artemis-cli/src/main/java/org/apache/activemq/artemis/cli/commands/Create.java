@@ -87,7 +87,9 @@ public class Create extends InstallAbstract {
    private static final String ETC_LOGIN_CONFIG_WITH_GUEST = "etc/login-with-guest.config";
    private static final String ETC_LOGIN_CONFIG_WITHOUT_GUEST = "etc/login-without-guest.config";
    public static final String ETC_REPLICATED_PRIMARY_SETTINGS_TXT = "etc/replicated-primary-settings.txt";
+   public static final String ETC_REPLICATED_PRIMARY_GROUP_SETTINGS_TXT = "etc/replicated-primary-group-settings.txt";
    public static final String ETC_REPLICATED_BACKUP_SETTINGS_TXT = "etc/replicated-backup-settings.txt";
+   public static final String ETC_REPLICATED_BACKUP_GROUP_SETTINGS_TXT = "etc/replicated-backup-group-settings.txt";
    public static final String ETC_SHARED_STORE_SETTINGS_TXT = "etc/shared-store-settings.txt";
    public static final String ETC_CLUSTER_SECURITY_SETTINGS_TXT = "etc/cluster-security-settings.txt";
    public static final String ETC_CLUSTER_SETTINGS_TXT = "etc/cluster-settings.txt";
@@ -166,6 +168,9 @@ public class Create extends InstallAbstract {
 
    @Option(names = "--replicated", description = "Enable broker replication.")
    private boolean replicated = false;
+
+   @Option(names = "--replica-group-name", description = "Name of the replication group")
+   private String replicaGroupName;
 
    @Option(names = "--shared-store", description = "Enable broker shared store.")
    private boolean sharedStore = false;
@@ -369,6 +374,15 @@ public class Create extends InstallAbstract {
 
    public void setHome(File home) {
       this.home = home;
+   }
+
+   public String getReplicaGroupName() {
+      return replicaGroupName;
+   }
+
+   public Create setReplicaGroupName(String replicaGroupName) {
+      this.replicaGroupName = replicaGroupName;
+      return this;
    }
 
    public boolean isReplicated() {
@@ -585,7 +599,12 @@ public class Create extends InstallAbstract {
 
       if (replicated) {
          clustered = true;
-         filters.put("${replicated.settings}", readTextFile(isBackup() ? ETC_REPLICATED_BACKUP_SETTINGS_TXT : ETC_REPLICATED_PRIMARY_SETTINGS_TXT, filters));
+         if (replicaGroupName != null) {
+            filters.put("${replica-group-name}", replicaGroupName);
+            filters.put("${replicated.settings}", readTextFile(isBackup() ? ETC_REPLICATED_BACKUP_GROUP_SETTINGS_TXT : ETC_REPLICATED_PRIMARY_GROUP_SETTINGS_TXT, filters));
+         } else {
+            filters.put("${replicated.settings}", readTextFile(isBackup() ? ETC_REPLICATED_BACKUP_SETTINGS_TXT : ETC_REPLICATED_PRIMARY_SETTINGS_TXT, filters));
+         }
       } else {
          filters.put("${replicated.settings}", "");
       }
