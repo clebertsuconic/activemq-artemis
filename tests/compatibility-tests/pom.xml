@@ -106,6 +106,12 @@
          <version>${project.version}</version>
       </dependency>
       <dependency>
+         <groupId>org.apache.activemq.tests</groupId>
+         <artifactId>artemis-test-support</artifactId>
+         <version>${project.version}</version>
+         <scope>test</scope>
+      </dependency>
+      <dependency>
          <groupId>org.apache.activemq</groupId>
          <artifactId>artemis-features</artifactId>
          <classifier>features</classifier>
@@ -265,6 +271,39 @@
       </plugins>
    </build>
    <profiles>
+      <profile>
+         <id>compatibility-real-servers</id>
+         <properties>
+            <skipCompatibilityTests>false</skipCompatibilityTests>
+         </properties>
+         <build>
+            <plugins>
+               <plugin>
+                  <groupId>org.apache.activemq</groupId>
+                  <artifactId>artemis-maven-plugin</artifactId>
+                  <version>${project.version}</version>
+                  <executions>
+                     <!-- The executions of dependency-scan will calculate dependencies for each specific version used here on this testsuite. -->
+                     <execution>
+                        <id>snapshot-check</id>
+                        <phase>compile</phase>
+                        <goals>
+                           <goal>dependency-scan</goal>
+                        </goals>
+                        <configuration>
+                           <libList>
+                              <arg>org.apache.activemq:apache-artemis:zip:bin:2.30.0</arg>
+                              <arg>org.apache.activemq:apache-artemis:zip:bin:2.35.0</arg>
+                           </libList>
+                           <targetFolder>${basedir}/target/old-releases</targetFolder>
+                        </configuration>
+                     </execution><!-- The executions of dependency-scan will calculate dependencies for each specific version used here on this testsuite. -->
+
+                  </executions>
+               </plugin>
+            </plugins>
+         </build>
+      </profile>
       <profile>
          <id>compatibility-tests</id>
          <properties>

@@ -134,6 +134,8 @@ public interface Channel {
     */
    Packet sendBlocking(Packet packet, int reconnectID, byte expectedPacket) throws ActiveMQException;
 
+   Packet sendBlocking(Packet packet, int reconnectID, byte expectedPacket, long timeout, boolean failOnTimeout) throws ActiveMQException;
+
    /**
     * Sets the {@link org.apache.activemq.artemis.core.protocol.core.ChannelHandler} that this channel should
     * forward received packets to.

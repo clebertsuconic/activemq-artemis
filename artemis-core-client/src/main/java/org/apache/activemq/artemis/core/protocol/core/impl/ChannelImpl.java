@@ -452,6 +452,14 @@ public final class ChannelImpl implements Channel {
       return sendBlocking(packet, -1, expectedPacket);
    }
 
+   @Override
+   public Packet sendBlocking(final Packet packet,
+                              final int reconnectID,
+                              byte expectedPacket) throws ActiveMQException {
+
+      return sendBlocking(packet, reconnectID, expectedPacket, connection.getBlockingCallTimeout(), true);
+
+   }
    /**
     * Due to networking issues or server issues the server may take longer to answer than expected.. the client may timeout the call throwing an exception
     * and the client could eventually retry another call, but the server could then answer a previous command issuing a class-cast-exception.
@@ -460,7 +468,9 @@ public final class ChannelImpl implements Channel {
    @Override
    public Packet sendBlocking(final Packet packet,
                               final int reconnectID,
-                              byte expectedPacket) throws ActiveMQException {
+                              byte expectedPacket,
+                              final long timeout,
+                              boolean failOnTimeout) throws ActiveMQException {
       String interceptionResult = invokeInterceptors(packet, interceptors, connection);
 
       if (interceptionResult != null) {
@@ -478,7 +488,7 @@ public final class ChannelImpl implements Channel {
          throw ActiveMQClientMessageBundle.BUNDLE.connectionDestroyed();
       }
 
-      if (connection.getBlockingCallTimeout() == -1) {
+      if (timeout == -1) {
          if (logger.isTraceEnabled()) {
             logger.trace("RemotingConnectionID={} Cannot do a blocking call timeout on a server side connection", (connection == null ? "NULL" : connection.getID()));
          }
@@ -515,7 +525,7 @@ public final class ChannelImpl implements Channel {
 
             connection.getTransportConnection().write(buffer, false, false);
 
-            long toWait = connection.getBlockingCallTimeout();
+            long toWait = timeout;
 
             long start = System.currentTimeMillis();
 
@@ -546,8 +556,12 @@ public final class ChannelImpl implements Channel {
                throw ActiveMQClientMessageBundle.BUNDLE.unblockingACall(cause);
             }
 
+            if (!failOnTimeout && response == null) {
+               return null;
+            }
+
             if (response == null || (response.getType() != PacketImpl.EXCEPTION && response.getCorrelationID() != packet.getCorrelationID())) {
-               ActiveMQException e = ActiveMQClientMessageBundle.BUNDLE.timedOutSendingPacket(connection.getBlockingCallTimeout(), packet.getType());
+               ActiveMQException e = ActiveMQClientMessageBundle.BUNDLE.timedOutSendingPacket(timeout, packet.getType());
                connection.asyncFail(e);
                throw e;
             }
