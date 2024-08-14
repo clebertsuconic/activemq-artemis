@@ -330,6 +330,42 @@ public class ReplicatedBothNodesMirrorTest extends SoakTestBase {
 
 
    @Test
+   public void testFastSend() throws Exception {
+      createRealServers();
+
+      SimpleManagement managementDC1 = new SimpleManagement(uri(DC1_IP), null, null);
+      SimpleManagement managementDC2 = new SimpleManagement(uri(DC2_IP), null, null);
+
+      startDC1(managementDC1);
+      startDC2(managementDC2);
+
+      runAfter(() -> managementDC1.close());
+      runAfter(() -> managementDC2.close());
+
+      sendMessages(QUEUE_NAME);
+
+
+      ConnectionFactory connectionFactoryDC2 = CFUtil.createConnectionFactory("amqp", uri(DC2_IP));
+      try (Connection connection = connectionFactoryDC2.createConnection()) {
+         Session session = connection.createSession(true, Session.SESSION_TRANSACTED);
+         connection.start();
+         MessageConsumer consumer = session.createConsumer(session.createQueue(QUEUE_NAME));
+         for (int i = 0; i < NUMBER_MESSAGES; i++) {
+            TextMessage message = (TextMessage) consumer.receive(30_000);
+            Assertions.assertNotNull(message);
+            if (i > 0 && i % SEND_COMMIT == 0) {
+               logger.info("Received {} messages", i);
+               session.commit();
+            }
+         }
+
+         session.commit();
+      }
+
+   }
+
+
+   @Test
    public void testMultipleSenders() throws Exception {
       try {
          lsof();

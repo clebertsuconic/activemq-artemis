@@ -204,6 +204,13 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
    @Override
    protected void actualDelivery(Message message, Delivery delivery, DeliveryAnnotations deliveryAnnotations, Receiver receiver, Transaction tx) {
       recoverContext();
+
+      OperationContextImpl.getContext().setIgnoreReplicationCallbacks();
+
+      OperationContextImpl context = (OperationContextImpl) OperationContextImpl.getContext();
+
+      logger.info("actual delivery:: Replication lineup = {}. replicationDone = {}, pending = {}", context.getReplicationLineUpField(), context.getReplicated(), (context.getReplicationLineUpField() - context.getReplicated()));
+
       incrementSettle();
 
       logger.trace("{}::actualdelivery call for {}", server, message);

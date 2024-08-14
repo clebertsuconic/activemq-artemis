@@ -47,6 +47,14 @@ import org.apache.commons.collections.buffer.CircularFifoBuffer;
  */
 public class OperationContextImpl implements OperationContext {
 
+
+   boolean ignoreReplication = false;
+
+   @Override
+   public void setIgnoreReplicationCallbacks() {
+      this.ignoreReplication = true;
+   }
+
    private static final ThreadLocal<OperationContext> threadLocalContext = new ThreadLocal<>();
 
    public static void clearContext() {
@@ -94,6 +102,13 @@ public class OperationContextImpl implements OperationContext {
    static final AtomicLongFieldUpdater<OperationContextImpl> PAGE_LINEUP_UPDATER = AtomicLongFieldUpdater
       .newUpdater(OperationContextImpl.class, "pageLineUpField");
 
+   public long getReplicationLineUpField() {
+      return replicationLineUpField;
+   }
+
+   public long getReplicated() {
+      return replicated;
+   }
 
    volatile int executorsPendingField = 0;
    volatile long storeLineUpField = 0;
@@ -284,7 +299,7 @@ public class OperationContextImpl implements OperationContext {
       // no need to use an iterator here, we can save that cost
       for (int i = 0; i < size; i++) {
          final TaskHolder holder = tasks.peek();
-         if (stored < holder.storeLined || replicated < holder.replicationLined || paged < holder.pageLined) {
+         if (stored < holder.storeLined || !ignoreReplication && replicated < holder.replicationLined || paged < holder.pageLined) {
             // End of list here. No other task will be completed after this
             return;
          }

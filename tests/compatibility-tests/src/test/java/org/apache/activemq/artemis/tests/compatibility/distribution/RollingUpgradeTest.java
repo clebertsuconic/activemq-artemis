@@ -194,10 +194,10 @@ public class RollingUpgradeTest extends RealServerTestBase {
    // Define a System Property TEST_ROLLED_DISTRIBUTION_UPGRADE towards the new Artemis home (by default the test will use BaseHelper.getHome()
    @Test
    public void testRollUpgrade_Provided_Distribution() throws Exception {
-      String distribution = TestParameters.testProperty("ROLLED", "DISTRIBUTION", null);
+      String distribution = TestParameters.testProperty("ROLLED", "DISTRIBUTION", "/Volumes/SamsungClebert/work/brokers/apache-artemis-2.31.2");
       assumeTrue(distribution != null);
 
-      String distributionUpgrading = TestParameters.testProperty("ROLLED", "DISTRIBUTION_UPGRADE", HelperBase.getHome().getAbsolutePath());
+      String distributionUpgrading = TestParameters.testProperty("ROLLED", "DISTRIBUTION_UPGRADE", "/Volumes/SamsungClebert/work/brokers/apache-artemis-2.37.0");
       testRollUpgrade(new File(distribution),  new File(distributionUpgrading));
    }
 

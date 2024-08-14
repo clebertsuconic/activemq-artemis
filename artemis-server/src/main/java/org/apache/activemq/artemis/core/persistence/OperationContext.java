@@ -37,6 +37,9 @@ public interface OperationContext extends IOCompletion {
     */
    void executeOnCompletion(IOCallback runnable, boolean storeOnly);
 
+   default void setIgnoreReplicationCallbacks() {
+   }
+
    /**
     * Execute the task when all IO operations are complete,
     * Or execute it immediately if nothing is pending.
