@@ -244,6 +244,7 @@ public class ClusterNodeVerifier implements AutoCloseable {
          JsonString primary = node.getJsonString("primary");
          JsonString backup = node.getJsonString("backup");
          String nodeID = node.getString("nodeID");
+         System.out.println("node " + nodeID + ", primary = " + primary + ", backup = " + backup);
          TopologyItem item = new TopologyItem(nodeID, primary != null ? primary.getString() : null, backup != null ? backup.getString() : null);
          consumer.accept(item);
       }

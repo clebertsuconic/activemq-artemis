@@ -30,6 +30,8 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.activemq.artemis.api.core.Pair;
 import org.apache.activemq.artemis.api.core.management.SimpleManagement;
+import org.apache.activemq.artemis.cli.commands.ActionContext;
+import org.apache.activemq.artemis.cli.commands.check.ClusterNodeVerifier;
 import org.apache.activemq.artemis.tests.util.CFUtil;
 import org.apache.activemq.artemis.util.ServerUtil;
 import org.apache.activemq.artemis.utils.FileUtil;
@@ -160,7 +162,21 @@ public class RollingUpgradeTest extends RealServerTestBase {
          assertTrue(replacedSlave, "couldn't find slave on backup to replace on broker.xml");
       }
 
+      replaceLogs(serverLocation);
    }
+
+
+   private static void replaceLogs(File serverLocation) throws Exception {
+      File log4j = new File(serverLocation, "/etc/log4j2.properties");
+      assertTrue(FileUtil.findReplace(log4j, "logger.artemis_utils.level=INFO", "logger.artemis_utils.level=INFO\n" + "\n" +
+         "logger.quorum.name=org.apache.activemq.artemis.core.server.cluster.quorum\n" +
+         "logger.quorum.level=TRACE\n" +
+         "logger.topology.name=org.apache.activemq.artemis.core.client.impl.Topology\n" +
+         "logger.quorum.level=TRACE\n" +
+         "appender.console.filter.threshold.type = ThresholdFilter\n" +
+         "appender.console.filter.threshold.level = TRACE"));
+   }
+
 
    public static void createServers(File sourceHome) throws Exception {
       createServer(sourceHome, LIVE_0, 0, "live0", true, new int[]{1, 2, 3, 4, 5});
@@ -185,6 +201,11 @@ public class RollingUpgradeTest extends RealServerTestBase {
    }
 
    @Test
+   public void testRoll30_itself() throws Exception {
+      testRollUpgrade(new File(TWO_THIRTY), new File(TWO_THIRTY));
+   }
+
+   @Test
    public void testRollUpgrade_2_36() throws Exception {
       testRollUpgrade(new File(TWO_THIRTY_SIX), HelperBase.getHome());
    }
@@ -199,6 +220,12 @@ public class RollingUpgradeTest extends RealServerTestBase {
 
       String distributionUpgrading = TestParameters.testProperty("ROLLED", "DISTRIBUTION_UPGRADE", HelperBase.getHome().getAbsolutePath());
       testRollUpgrade(new File(distribution),  new File(distributionUpgrading));
+   }
+
+   private void verifyCluster(String uri) throws Exception {
+      try (ClusterNodeVerifier nodeVerifier = new ClusterNodeVerifier(uri, null, null)) {
+         assertTrue(nodeVerifier.verify(new ActionContext()));
+      }
    }
 
    private void testRollUpgrade(File artemisHome, File upgradingArtemisHome) throws Exception {
@@ -220,6 +247,8 @@ public class RollingUpgradeTest extends RealServerTestBase {
       runAfter(managementLive1::close);
       runAfter(managementLive2::close);
 
+      verifyCluster(LIVE0_URI);
+
       SimpleManagement managementBKP0 = new SimpleManagement(BACKUP0_URI, null, null);
       SimpleManagement managementBKP1 = new SimpleManagement(BACKUP1_URI, null, null);
       SimpleManagement managementBKP2 = new SimpleManagement(BACKUP2_URI, null, null);
@@ -234,6 +263,8 @@ public class RollingUpgradeTest extends RealServerTestBase {
       Wait.assertTrue(managementLive0::isReplicaSync, 10_000, 100);
       Wait.assertTrue(managementLive1::isReplicaSync, 10_000, 100);
       Wait.assertTrue(managementLive2::isReplicaSync, 10_000, 100);
+
+      verifyCluster(LIVE0_URI);
 
       sendMessage(LIVE0_URI, "AMQP");
       sendMessage(LIVE0_URI, "CORE");
@@ -322,7 +353,8 @@ public class RollingUpgradeTest extends RealServerTestBase {
       logger.info("Upgrading {}", liveServerToStop);
       upgrade(targetRelease, getFileServerLocation(liveServerToStop));
 
-      Thread.sleep(30_000);
+      verifyCluster(backupManagement.getUri());
+
 
       logger.info("Starting server {}", liveServerToStop);
       Process newLiveProcess = startServer(liveServerToStop, 0, 0);
@@ -330,7 +362,13 @@ public class RollingUpgradeTest extends RealServerTestBase {
       logger.info("Waiting replica to be sync");
       Wait.assertTrue(() -> repeatCallUntilConnected(backupManagement::isReplicaSync), 10_000, 100);
 
-      Thread.sleep(30_000);
+      for (int i = 0; i < 3; i++) {
+         try (ClusterNodeVerifier clusterCheck = new ClusterNodeVerifier(backupManagement.getUri(), null, null)) {
+            logger.info("Verify {}", i);
+            assertTrue(clusterCheck.verify(new ActionContext()));
+            Thread.sleep(1000);
+         }
+      }
 
       logger.info("Stopping backup {}", backupToStop);
       stopServerWithFile(getServerLocation(backupToStop), backupProcess, 10, TimeUnit.SECONDS);
@@ -339,7 +377,8 @@ public class RollingUpgradeTest extends RealServerTestBase {
       // waiting former live to activate after stopping backup
       ServerUtil.waitForServerToStart(liveID, 30_000);
 
-      Thread.sleep(30_000);
+      verifyCluster(liveManagement.getUri());
+
       logger.info("upgrading {}", backupToStop);
       upgrade(targetRelease, getFileServerLocation(backupToStop));
 
@@ -347,7 +386,8 @@ public class RollingUpgradeTest extends RealServerTestBase {
 
       logger.info("Waiting live to have its replica sync");
       Wait.assertTrue(() -> repeatCallUntilConnected(liveManagement::isReplicaSync), 10_000, 100);
-      Thread.sleep(30_000);
+
+      verifyCluster(liveManagement.getUri());
 
       return new Pair<>(newLiveProcess, newBackupProcess);
    }
