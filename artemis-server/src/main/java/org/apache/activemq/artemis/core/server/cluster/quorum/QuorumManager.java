@@ -225,6 +225,7 @@ public final class QuorumManager implements ClusterTopologyListener, ActiveMQCom
       final int maxClusterSize = this.maxClusterSize;
       vote(quorumVote);
       if (maxClusterSize > 1) {
+         logger.info("Waiting={}, unit={}", voteTimeout, voteTimeoutUnit);
          try {
             quorumVote.await(voteTimeout, voteTimeoutUnit);
          } catch (InterruptedException interruption) {

@@ -322,11 +322,15 @@ public class RollingUpgradeTest extends RealServerTestBase {
       logger.info("Upgrading {}", liveServerToStop);
       upgrade(targetRelease, getFileServerLocation(liveServerToStop));
 
+      Thread.sleep(30_000);
+
       logger.info("Starting server {}", liveServerToStop);
       Process newLiveProcess = startServer(liveServerToStop, 0, 0);
 
       logger.info("Waiting replica to be sync");
       Wait.assertTrue(() -> repeatCallUntilConnected(backupManagement::isReplicaSync), 10_000, 100);
+
+      Thread.sleep(30_000);
 
       logger.info("Stopping backup {}", backupToStop);
       stopServerWithFile(getServerLocation(backupToStop), backupProcess, 10, TimeUnit.SECONDS);
@@ -335,6 +339,7 @@ public class RollingUpgradeTest extends RealServerTestBase {
       // waiting former live to activate after stopping backup
       ServerUtil.waitForServerToStart(liveID, 30_000);
 
+      Thread.sleep(30_000);
       logger.info("upgrading {}", backupToStop);
       upgrade(targetRelease, getFileServerLocation(backupToStop));
 
@@ -342,6 +347,7 @@ public class RollingUpgradeTest extends RealServerTestBase {
 
       logger.info("Waiting live to have its replica sync");
       Wait.assertTrue(() -> repeatCallUntilConnected(liveManagement::isReplicaSync), 10_000, 100);
+      Thread.sleep(30_000);
 
       return new Pair<>(newLiveProcess, newBackupProcess);
    }
