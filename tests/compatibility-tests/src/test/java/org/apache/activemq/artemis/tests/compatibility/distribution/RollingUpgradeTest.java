@@ -201,8 +201,13 @@ public class RollingUpgradeTest extends RealServerTestBase {
    }
 
    @Test
-   public void testRoll30_itself() throws Exception {
-      testRollUpgrade(new File(TWO_THIRTY), new File(TWO_THIRTY));
+   public void testNewUpgrade() throws Exception {
+      testRollUpgrade(new File(TWO_THIRTY), HelperBase.getHome());
+   }
+
+   @Test
+   public void testAMQToAMQ() throws Exception {
+      testRollUpgrade(new File("/Volumes/SamsungClebert/work/brokers/activemq-artemis-2.28.0.PATCH.3272"), new File("/Volumes/SamsungClebert/work/brokers/activemq-artemis-2.33.0.PATCH.3286"));
    }
 
    @Test
@@ -362,16 +367,12 @@ public class RollingUpgradeTest extends RealServerTestBase {
       logger.info("Starting server {}", liveServerToStop);
       Process newLiveProcess = startServer(liveServerToStop, 0, 0);
 
+      verifyCluster(backupManagement.getUri());
+
       logger.info("Waiting replica to be sync");
       Wait.assertTrue(() -> repeatCallUntilConnected(backupManagement::isReplicaSync), 10_000, 100);
 
-      for (int i = 0; i < 3; i++) {
-         try (ClusterNodeVerifier clusterCheck = new ClusterNodeVerifier(backupManagement.getUri(), null, null)) {
-            logger.info("Verify {}", i);
-            assertTrue(clusterCheck.verify(new ActionContext()));
-            Thread.sleep(1000);
-         }
-      }
+      verifyCluster(backupManagement.getUri());
 
       logger.info("Stopping backup {}", backupToStop);
       stopServerWithFile(getServerLocation(backupToStop), backupProcess, 10, TimeUnit.SECONDS);
