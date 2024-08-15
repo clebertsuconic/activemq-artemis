@@ -165,8 +165,7 @@ public class ColocatedActivation extends PrimaryActivation {
       private final List<Pair<String, Integer>> nodes = new ArrayList<>();
 
       private RequestBackupQuorumVote() {
-         // there's no old name, we never renamed the ColocatedQuorumVote String
-         super(REQUEST_BACKUP_QUORUM_VOTE, null);
+         super(REQUEST_BACKUP_QUORUM_VOTE);
       }
 
       @Override
