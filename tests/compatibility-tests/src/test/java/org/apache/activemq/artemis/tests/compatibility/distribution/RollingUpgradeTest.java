@@ -125,7 +125,7 @@ public class RollingUpgradeTest extends RealServerTestBase {
       parameters.add("--port-offset");
       parameters.add(String.valueOf(getPortOffeset(serverID)));
       parameters.add("--allow-anonymous");
-      parameters.add("--no-web");
+      //parameters.add("--no-web");
       parameters.add("--no-autotune");
       parameters.add("--host");
       parameters.add("localhost");
@@ -162,7 +162,7 @@ public class RollingUpgradeTest extends RealServerTestBase {
          assertTrue(replacedSlave, "couldn't find slave on backup to replace on broker.xml");
       }
 
-      replaceLogs(serverLocation);
+      //replaceLogs(serverLocation);
    }
 
 
@@ -207,7 +207,7 @@ public class RollingUpgradeTest extends RealServerTestBase {
 
    @Test
    public void testAMQToAMQ() throws Exception {
-      testRollUpgrade(new File("/Volumes/SamsungClebert/work/brokers/activemq-artemis-2.28.0.PATCH.3272"), new File("/Volumes/SamsungClebert/work/brokers/activemq-artemis-2.33.0.PATCH.3286"));
+      testRollUpgrade(new File("/Volumes/SamsungClebert/work/brokers/apache-artemis-2.28.0.redhat-00003"), new File("/Volumes/SamsungClebert/work/brokers/activemq-artemis-2.33.0.PATCH.3286"));
    }
 
    @Test
