@@ -168,6 +168,7 @@ public class SharedNothingBackupQuorum implements Quorum, SessionFailureListener
     */
    @Override
    public void nodeDown(Topology topology, long eventUID, String nodeID) {
+      logger.debug("nodeDown {}", nodeID);
       // ignore it during a failback:
       // a failing slave close all connections but the one used for replication
       // triggering a nodeDown before the restarted primary receive a STOP_CALLED from it.

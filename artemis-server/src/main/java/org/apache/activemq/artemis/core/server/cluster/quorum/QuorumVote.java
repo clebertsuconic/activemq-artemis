@@ -84,4 +84,9 @@ public abstract class QuorumVote<V extends Vote, T> {
    public SimpleString getOldName() {
       return oldName;
    }
+
+   @Override
+   public String toString() {
+      return "QuorumVote{" + "name=" + name + ", oldName=" + oldName + '}';
+   }
 }

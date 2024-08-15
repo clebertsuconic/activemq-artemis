@@ -151,6 +151,7 @@ public final class QuorumManager implements ClusterTopologyListener, ActiveMQCom
     * @param quorum
     */
    public void registerQuorum(Quorum quorum) {
+      logger.debug("Registering quorum {}", quorum.getName());
       quorums.put(quorum.getName(), quorum);
       quorum.setQuorumManager(this);
    }
@@ -174,6 +175,7 @@ public final class QuorumManager implements ClusterTopologyListener, ActiveMQCom
     */
    @Override
    public void nodeUP(TopologyMember topologyMember, boolean last) {
+      logger.info("nodeUp", new Exception("trace"));
       final int newClusterSize = clusterController.getDefaultClusterSize();
       maxClusterSize = newClusterSize > maxClusterSize ? newClusterSize : maxClusterSize;
       for (Quorum quorum : quorums.values()) {
@@ -195,6 +197,7 @@ public final class QuorumManager implements ClusterTopologyListener, ActiveMQCom
    }
 
    public boolean hasPrimary(String nodeID, int quorumSize, int voteTimeout, TimeUnit voteTimeoutUnit) {
+      logger.debug("Checking if QuorumManager has primary {}", nodeID, new Exception("Trace"));
       Objects.requireNonNull(nodeID, "nodeID");
       if (!started) {
          throw new IllegalStateException("QuorumManager must start first");
@@ -211,6 +214,7 @@ public final class QuorumManager implements ClusterTopologyListener, ActiveMQCom
                                 int quorumSize,
                                 int voteTimeout,
                                 TimeUnit voteTimeoutUnit) {
+      logger.debug("Checking if nodeID {} still active", nodeID, new Exception("trace"));
       Objects.requireNonNull(nodeID, "nodeID");
       Objects.requireNonNull(connector, "connector");
       if (!started) {
@@ -255,6 +259,7 @@ public final class QuorumManager implements ClusterTopologyListener, ActiveMQCom
     * @param quorumVote the vote to acquire
     */
    public void vote(final QuorumVote quorumVote) {
+      logger.debug("Voting {}", quorumVote);
       List<VoteRunnable> runnables = new ArrayList<>();
       synchronized (voteRunnables) {
          if (!started)
