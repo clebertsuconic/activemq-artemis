@@ -175,7 +175,7 @@ public final class QuorumManager implements ClusterTopologyListener, ActiveMQCom
     */
    @Override
    public void nodeUP(TopologyMember topologyMember, boolean last) {
-      logger.info("nodeUp", new Exception("trace"));
+      logger.info("nodeUp {}", topologyMember, new Exception("trace"));
       final int newClusterSize = clusterController.getDefaultClusterSize();
       maxClusterSize = newClusterSize > maxClusterSize ? newClusterSize : maxClusterSize;
       for (Quorum quorum : quorums.values()) {
