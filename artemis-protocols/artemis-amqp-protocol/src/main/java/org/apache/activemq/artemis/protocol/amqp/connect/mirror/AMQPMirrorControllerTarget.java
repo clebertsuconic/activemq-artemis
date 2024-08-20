@@ -321,7 +321,7 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
          if (DEBUG_CONTEXT_PERIOD > 0 && scheduledRateDebugFuture == null) {
             OperationContextImpl context = (OperationContextImpl) OperationContextImpl.getContext();
             scheduledRateDebugFuture = server.getScheduledPool().scheduleAtFixedRate(() -> {
-               logger.debug(">>> OperationContext rate information: synReplica={}, replicationLineup = {}. replicationDone = {}, pending replica (back pressure) = {}, storeLineUp = {}, storeDone = {}, pageLineUp = {}, paged = {}", configuration.isMirrorReplicaSync(), context.getReplicationLineUpField(), context.getReplicated(), (context.getReplicationLineUpField() - context.getReplicated()), context.getStoreLineUpField(), context.getStored(), context.getPagedLinedUpField(), context.getPaged());
+               logger.debug(">>> OperationContext rate information: syncReplica={}, replicationLineup = {}. replicationDone = {}, pending replica (back pressure) = {}, storeLineUp = {}, storeDone = {}, pageLineUp = {}, paged = {}", context.isSyncReplication(), context.getReplicationLineUpField(), context.getReplicated(), (context.getReplicationLineUpField() - context.getReplicated()), context.getStoreLineUpField(), context.getStored(), context.getPagedLinedUpField(), context.getPaged());
             }, DEBUG_CONTEXT_PERIOD, DEBUG_CONTEXT_PERIOD, TimeUnit.MILLISECONDS);
          }
       } else {

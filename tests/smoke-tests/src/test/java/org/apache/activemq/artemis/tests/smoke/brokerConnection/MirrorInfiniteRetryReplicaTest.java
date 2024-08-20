@@ -131,12 +131,12 @@ public class MirrorInfiniteRetryReplicaTest extends SmokeTestBase {
       brokerProperties.put("addressSettings.#.maxReadPageMessages", "2000");
       brokerProperties.put("addressSettings.#.maxReadPageBytes", "-1");
       brokerProperties.put("addressSettings.#.prefetchPageMessages", "500");
-      // if we don't use pageTransactions we may eventually get a few duplicates
       brokerProperties.put("mirrorPageTransaction", "true");
 
       brokerProperties.put("mirrorAckManagerQueueAttempts", "2");
       brokerProperties.put("mirrorAckManagerPageAttempts", "500000");
       brokerProperties.put("mirrorAckManagerRetryDelay", "1000");
+      brokerProperties.put("mirrorReplicaSync", "false");
 
       File brokerPropertiesFile = new File(serverLocation, "broker.properties");
       saveProperties(brokerProperties, brokerPropertiesFile);
@@ -150,12 +150,14 @@ public class MirrorInfiniteRetryReplicaTest extends SmokeTestBase {
       assertTrue(FileUtil.findReplace(log4j, "logger.artemis_utils.level=INFO",
                                       "logger.artemis_utils.level=INFO\n" + "\n" +
                                       "logger.endpoint.name=org.apache.activemq.artemis.core.replication.ReplicationEndpoint\n" +
-                                      "logger.endpoint.level=DEBUG\n" +
+                                      "logger.endpoint.level=INFO\n" +
                                       "logger.ackmanager.name=org.apache.activemq.artemis.protocol.amqp.connect.mirror.AckManager\n" +
-                                      "logger.ackmanager.level=TRACE\n" +
+                                      "logger.ackmanager.level=DEBUG\n" +
 
                                       "logger.mirrorTarget.name=org.apache.activemq.artemis.protocol.amqp.connect.mirror.AMQPMirrorControllerTarget\n" +
-                                      "logger.mirrorTarget.level=TRACE\n" +
+                                      "logger.mirrorTarget.level=DEBUG\n" +
+                                      "logger.config.name=org.apache.activemq.artemis.core.config.impl.ConfigurationImpl\n" +
+                                      "logger.config.level=TRACE\n" +
 
                                       "appender.console.filter.threshold.type = ThresholdFilter\n" +
                                       "appender.console.filter.threshold.level = trace"));
@@ -196,6 +198,7 @@ public class MirrorInfiniteRetryReplicaTest extends SmokeTestBase {
       brokerProperties.put("mirrorAckManagerQueueAttempts", "200");
       brokerProperties.put("mirrorAckManagerPageAttempts", "200000");
       brokerProperties.put("mirrorAckManagerRetryDelay", "10");
+      brokerProperties.put("mirrorReplicaSync", "false");
 
       // if we don't use pageTransactions we may eventually get a few duplicates
       brokerProperties.put("mirrorPageTransaction", "true");
