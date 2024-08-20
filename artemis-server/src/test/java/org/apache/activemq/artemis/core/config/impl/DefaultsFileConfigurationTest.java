@@ -149,6 +149,8 @@ public class DefaultsFileConfigurationTest extends ConfigurationImplTest {
       Assert.assertEquals(ActiveMQDefaultConfiguration.getDefaultUptimeMetrics(), conf.getMetricsConfiguration().isUptime());
 
       Assert.assertEquals(ActiveMQDefaultConfiguration.getDefaultLoggingMetrics(), conf.getMetricsConfiguration().isLogging());
+
+      assertEquals(ActiveMQDefaultConfiguration.getMirrorReplicaSync(), conf.isMirrorReplicaSync());
    }
 
    // Protected ---------------------------------------------------------------------------------------------

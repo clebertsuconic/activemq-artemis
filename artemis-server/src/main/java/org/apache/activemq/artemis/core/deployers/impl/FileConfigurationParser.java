@@ -388,6 +388,8 @@ public final class FileConfigurationParser extends XMLConfigurationUtil {
 
    private static final String MIRROR_PAGE_TRANSACTION = "mirror-page-transaction";
 
+   private static final String MIRROR_REPLICA_SYNC = "mirror-replica-sync";
+
    private boolean validateAIO = false;
 
    private boolean printPageMaxSizeUsed = false;
@@ -858,6 +860,8 @@ public final class FileConfigurationParser extends XMLConfigurationUtil {
       config.setManagementRbacPrefix(getString(e, "management-rbac-prefix", config.getManagementRbacPrefix(), NO_CHECK));
 
       config.setMirrorPageTransaction(getBoolean(e, MIRROR_PAGE_TRANSACTION, config.isMirrorPageTransaction()));
+
+      config.setMirrorReplicaSync(getBoolean(e, MIRROR_REPLICA_SYNC, config.isMirrorReplicaSync()));
 
       config.setMirrorAckManagerPageAttempts(getInteger(e, MIRROR_ACK_MANAGER_PAGE_ATTEMPTS, config.getMirrorAckManagerPageAttempts(), GT_ZERO));
 

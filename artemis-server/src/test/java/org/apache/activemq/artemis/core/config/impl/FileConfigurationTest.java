@@ -511,6 +511,7 @@ public class FileConfigurationTest extends ConfigurationImplTest {
       Assert.assertEquals(222, conf.getMirrorAckManagerPageAttempts());
       Assert.assertEquals(333, conf.getMirrorAckManagerRetryDelay());
       Assert.assertTrue(conf.isMirrorPageTransaction());
+      assertFalse(conf.isMirrorReplicaSync());
 
       assertTrue(conf.getResourceLimitSettings().containsKey("myUser"));
       assertEquals(104, conf.getResourceLimitSettings().get("myUser").getMaxConnections());
