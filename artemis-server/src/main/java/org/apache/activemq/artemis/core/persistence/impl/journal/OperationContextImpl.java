@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.ActiveMQExceptionType;
 import org.apache.activemq.artemis.core.io.IOCallback;
+import org.apache.activemq.artemis.core.io.OperationConsistencyLevel;
 import org.apache.activemq.artemis.core.journal.impl.SimpleWaitIOCallback;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.server.ActiveMQServerLogger;
@@ -48,17 +49,7 @@ import org.apache.commons.collections.buffer.CircularFifoBuffer;
 public class OperationContextImpl implements OperationContext {
 
 
-   private boolean syncReplication = true;
-
-   @Override
-   public void setSyncReplication(boolean syncReplication) {
-      this.syncReplication = syncReplication;
-   }
-
-   @Override
-   public boolean isSyncReplication() {
-      return syncReplication;
-   }
+   private boolean relaxedReplication = true;
 
    private static final ThreadLocal<OperationContext> threadLocalContext = new ThreadLocal<>();
 
@@ -88,6 +79,7 @@ public class OperationContextImpl implements OperationContext {
    }
 
    LinkedList<TaskHolder> tasks;
+   LinkedList<TaskHolder> ignoreReplicationTasks;
    LinkedList<StoreOnlyTaskHolder> storeOnlyTasks;
 
    long minimalStore = Long.MAX_VALUE;
@@ -201,11 +193,11 @@ public class OperationContextImpl implements OperationContext {
 
    @Override
    public void executeOnCompletion(IOCallback runnable) {
-      executeOnCompletion(runnable, false);
+      executeOnCompletion(runnable, OperationConsistencyLevel.full);
    }
 
    @Override
-   public void executeOnCompletion(final IOCallback completion, final boolean storeOnly) {
+   public void executeOnCompletion(final IOCallback completion, final OperationConsistencyLevel consistencyLevel) {
       boolean executeNow = false;
 
       synchronized (this) {
@@ -213,44 +205,68 @@ public class OperationContextImpl implements OperationContext {
             final long storeLined = STORE_LINEUP_UPDATER.get(this);
             final long pageLined = PAGE_LINEUP_UPDATER.get(this);
             final long replicationLined = REPLICATION_LINEUP_UPDATER.get(this);
-            if (storeOnly) {
-               if (storeOnlyTasks == null) {
-                  storeOnlyTasks = new LinkedList<>();
-               }
-            } else {
-               if (tasks == null) {
-                  tasks = new LinkedList<>();
-                  minimalReplicated = replicationLined;
-                  minimalStore = storeLined;
-                  minimalPage = pageLined;
-               }
-            }
-            // On this case, we can just execute the context directly
-
-            if (replicationLined == replicated && storeLined == stored && pageLined == paged) {
-               // We want to avoid the executor if everything is complete...
-               // However, we can't execute the context if there are executions pending
-               // We need to use the executor on this case
-               if (EXECUTORS_PENDING_UPDATER.get(this) == 0) {
-                  // No need to use an executor here or a context switch
-                  // there are no actions pending.. hence we can just execute the task directly on the same thread
-                  executeNow = true;
-               } else {
-                  execute(completion);
-               }
-            } else {
-               if (storeOnly) {
-                  if (storeLined == stored && EXECUTORS_PENDING_UPDATER.get(this) == 0) {
-                     executeNow = true;
+            switch (consistencyLevel) {
+               case storage:
+                  if (storeOnlyTasks == null) {
+                     storeOnlyTasks = new LinkedList<>();
+                     if (minimalStore == Long.MAX_VALUE) minimalStore = storeLined;
+                  }
+                  if (storeLined == stored) {
+                     if (hasNoPendingExecution()) {
+                        executeNow = true;
+                     } else {
+                        execute(completion);
+                     }
                   } else {
-                     assert !storeOnlyTasks.isEmpty() ? storeOnlyTasks.peekLast().storeLined <= storeLined : true;
                      storeOnlyTasks.add(new StoreOnlyTaskHolder(completion, storeLined));
                   }
-               } else {
-                  // ensure total ordering
-                  assert validateTasksAdd(storeLined, replicationLined, pageLined);
-                  tasks.add(new TaskHolder(completion, storeLined, replicationLined, pageLined));
-               }
+                  break;
+
+               case ignoreReplication:
+                  if (ignoreReplicationTasks == null) {
+                     ignoreReplicationTasks = new LinkedList<>();
+                     if (minimalStore == Long.MAX_VALUE) minimalStore = storeLined;
+                     if (minimalPage == Long.MAX_VALUE) minimalPage = pageLined;
+                  }
+
+                  if (storeLined == stored && pageLined == paged) {
+                     if (hasNoPendingExecution()) {
+                        // No need to use an executor here or a context switch
+                        // there are no actions pending.. hence we can just execute the task directly on the same thread
+                        executeNow = true;
+                     } else {
+                        execute(completion);
+                     }
+                  } else {
+                     ignoreReplicationTasks.add(new TaskHolder(completion, storeLined, replicationLined, pageLined));
+                  }
+
+                  break;
+
+               case full:
+                  if (tasks == null) {
+                     tasks = new LinkedList<>();
+                     if (minimalReplicated == Long.MAX_VALUE) minimalReplicated = replicationLined;
+                     if (minimalStore == Long.MAX_VALUE) minimalStore = storeLined;
+                     if (minimalPage == Long.MAX_VALUE) minimalPage = pageLined;
+                  }
+
+                  if (replicationLined == replicated && storeLined == stored && pageLined == paged) {
+                     // We want to avoid the executor if everything is complete...
+                     // However, we can't execute the context if there are executions pending
+                     // We need to use the executor on this case
+                     if (hasNoPendingExecution()) {
+                        // No need to use an executor here or a context switch
+                        // there are no actions pending.. hence we can just execute the task directly on the same thread
+                        executeNow = true;
+                     } else {
+                        execute(completion);
+                     }
+                  } else {
+                     tasks.add(new TaskHolder(completion, storeLined, replicationLined, pageLined));
+                  }
+
+                  break;
             }
          }
       }
@@ -264,17 +280,8 @@ public class OperationContextImpl implements OperationContext {
 
    }
 
-   private boolean validateTasksAdd(long storeLined, long replicationLined, long pageLined) {
-      if (tasks.isEmpty()) {
-         return true;
-      }
-      final TaskHolder holder = tasks.peekLast();
-      if (holder.storeLined > storeLined ||
-         holder.replicationLined > replicationLined ||
-         holder.pageLined > pageLined) {
-         return false;
-      }
-      return true;
+   private boolean hasNoPendingExecution() {
+      return EXECUTORS_PENDING_UPDATER.get(this) == 0;
    }
 
    @Override
@@ -309,7 +316,7 @@ public class OperationContextImpl implements OperationContext {
       }
    }
 
-   private void checkCompleteContext() {
+   private void checkRegularCompletion() {
       final LinkedList<TaskHolder> tasks = this.tasks;
       assert tasks != null;
       final int size = this.tasks.size();
@@ -320,7 +327,28 @@ public class OperationContextImpl implements OperationContext {
       // no need to use an iterator here, we can save that cost
       for (int i = 0; i < size; i++) {
          final TaskHolder holder = tasks.peek();
-         if (stored < holder.storeLined || syncReplication && replicated < holder.replicationLined || paged < holder.pageLined) {
+         if (stored < holder.storeLined || replicated < holder.replicationLined || paged < holder.pageLined) {
+            // End of list here. No other task will be completed after this
+            return;
+         }
+         execute(holder.task);
+         final TaskHolder removed = tasks.poll();
+         assert removed == holder;
+      }
+   }
+
+   private void checkIgnoreReplicationCompletion() {
+      final LinkedList<TaskHolder> tasks = this.ignoreReplicationTasks;
+      assert tasks != null;
+      final int size = tasks.size();
+      if (size == 0) {
+         return;
+      }
+      assert size >= 1;
+      // no need to use an iterator here, we can save that cost
+      for (int i = 0; i < size; i++) {
+         final TaskHolder holder = tasks.peek();
+         if (stored < holder.storeLined || paged < holder.pageLined) {
             // End of list here. No other task will be completed after this
             return;
          }
@@ -336,8 +364,12 @@ public class OperationContextImpl implements OperationContext {
          checkStoreTasks();
       }
 
-      if (stored >= minimalStore && (!syncReplication || replicated >= minimalReplicated) && paged >= minimalPage) {
-         checkCompleteContext();
+      if (tasks != null && stored >= minimalStore && (replicated >= minimalReplicated) && paged >= minimalPage) {
+         checkRegularCompletion();
+      }
+
+      if (ignoreReplicationTasks != null && (stored >= minimalStore && paged >= minimalPage)) {
+         checkIgnoreReplicationCompletion();
       }
    }
 
