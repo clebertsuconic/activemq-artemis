@@ -377,8 +377,8 @@ public class ReplicatedBothNodesMirrorTest extends SoakTestBase {
 
       ConnectionFactory connectionFactoryDC1A = CFUtil.createConnectionFactory(protocol, uri(DC1_IP));
 
-      final int totalMessages = 600;
-      final int step1 = 100, step2 = 250, step3 = 400;
+      final int totalMessages = 1200;
+      final int step1 = 100, step2 = 900, step3 = 1150;
       String snfQueue = "$ACTIVEMQ_ARTEMIS_MIRROR_mirror";
 
       try (Connection connection = connectionFactoryDC1A.createConnection()) {
