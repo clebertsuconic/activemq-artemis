@@ -58,6 +58,9 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ReplicatedBothNodesMirrorTest extends SoakTestBase {
@@ -374,7 +377,8 @@ public class ReplicatedBothNodesMirrorTest extends SoakTestBase {
 
       ConnectionFactory connectionFactoryDC1A = CFUtil.createConnectionFactory(protocol, uri(DC1_IP));
 
-      final int numberOfMessages = 1_200;
+      final int totalMessages = 600;
+      final int step1 = 100, step2 = 250, step3 = 400;
       String snfQueue = "$ACTIVEMQ_ARTEMIS_MIRROR_mirror";
 
       try (Connection connection = connectionFactoryDC1A.createConnection()) {
@@ -384,24 +388,23 @@ public class ReplicatedBothNodesMirrorTest extends SoakTestBase {
          MessageProducer producer = session.createProducer(queue);
          MessageConsumer consumer = session.createConsumer(queue);
 
-         for (int i = 0; i < numberOfMessages; i++) {
-            logger.info("Sent {}", i);
+         for (int i = 0; i < totalMessages; i++) {
             if (i % 100 == 0) {
                logger.info("Sent and received {}", i);
             }
 
-            if (i == 250) { // start DC2
+            if (i == step1) { // start DC2
                processDC2 = startServer(DC2_NODE, -1, -1, new File(getServerLocation(DC2_NODE), "broker.properties"));
                processDC2_REPLICA = startServer(DC2_REPLICA_NODE, -1, -1, new File(getServerLocation(DC2_REPLICA_NODE), "broker.properties"));
-            } else if (i == 600) { // make sure everything is ok on DC2
+            } else if (i == step2) { // make sure everything is ok on DC2
                ServerUtil.waitForServerToStart(2, 10_000);
                Wait.assertTrue(managementDC2::isReplicaSync);
-            } else if (i == 1000) { // kill the live on DC2
+            } else if (i == step3) { // kill the live on DC2
                processDC2.destroyForcibly();
                assertTrue(processDC2.waitFor(10, TimeUnit.SECONDS));
             }
 
-            String text = "hello hello hello " + RandomUtil.randomString();
+            String text = "hello hello hello";
             producer.send(session.createTextMessage(text));
             TextMessage textMessage = (TextMessage) consumer.receive(5000);
             Assertions.assertNotNull(textMessage);
@@ -422,7 +425,7 @@ public class ReplicatedBothNodesMirrorTest extends SoakTestBase {
          Queue queue = session.createQueue(QUEUE_NAME);
          MessageProducer producer = session.createProducer(queue);
          for (int i = 0; i < oddSend; i++) {
-            producer.send(session.createTextMessage("oddSend"));
+            producer.send(session.createTextMessage("oddSend " + i));
          }
          session.commit();
       }
@@ -430,6 +433,28 @@ public class ReplicatedBothNodesMirrorTest extends SoakTestBase {
       Wait.assertEquals(0, () -> getMessageCount(managementDC1, snfQueue));
       Wait.assertEquals(oddSend, () -> getMessageCount(managementDC1, QUEUE_NAME));
       Wait.assertEquals(oddSend, () -> getMessageCount(managementDC2Backup, QUEUE_NAME));
+
+      ConnectionFactory cfDC2Backup = CFUtil.createConnectionFactory(protocol, uri(DC2_BACKUP_IP));
+
+      try (Connection connection = cfDC2Backup.createConnection()) {
+         connection.start();
+         Session session = connection.createSession(true, Session.SESSION_TRANSACTED);
+         Queue queue = session.createQueue(QUEUE_NAME);
+         MessageConsumer consumer = session.createConsumer(queue);
+         for (int i = 0; i < oddSend; i++) {
+            TextMessage message = (TextMessage) consumer.receive(5000);
+            Assertions.assertNotNull(message);
+            assertEquals("oddSend " + i, message.getText());
+         }
+         assertNull(consumer.receiveNoWait());
+         session.commit();
+      }
+
+      Wait.assertEquals(0, () -> getMessageCount(managementDC1, snfQueue));
+      Wait.assertEquals(0, () -> getMessageCount(managementDC2Backup, snfQueue));
+      Wait.assertEquals(0, () -> getMessageCount(managementDC1, QUEUE_NAME));
+      Wait.assertEquals(0, () -> getMessageCount(managementDC2Backup, QUEUE_NAME));
+
    }
 
    @Test

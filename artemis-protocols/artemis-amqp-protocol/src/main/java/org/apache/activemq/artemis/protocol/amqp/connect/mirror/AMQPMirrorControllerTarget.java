@@ -419,7 +419,7 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
 
       ackManager.ack(nodeID, targetQueue, messageID, reason, true);
 
-      OperationContextImpl.getContext().executeOnCompletion(ackMessageOperation);
+      OperationContextImpl.getContext().executeOnCompletion(ackMessageOperation, OperationConsistencyLevel.ignoreReplication);
    }
 
    /**
@@ -485,7 +485,6 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
       // however we will wait the roundtrip before acking the message
       // This is to alleviate a situation where messages would take too long to be delivered and be ready for ack
       final TransactionImpl transaction = new MirrorTransaction(server.getStorageManager()).setAllowPageTransaction(configuration.isMirrorPageTransaction()).setAsync(true);
-      transaction.addOperation(messageCompletionAck.tx);
       routingContext.setTransaction(transaction);
       duplicateIDCache.addToCache(duplicateIDBytes, transaction);
 
@@ -498,6 +497,7 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
       }
       // We use this as part of a transaction because of the duplicate detection cache that needs to be done atomically
       transaction.commit();
+      server.getStorageManager().afterCompleteOperations(messageCompletionAck, OperationConsistencyLevel.ignoreReplication);
       flow();
 
       // return true here will instruct the caller to ignore any references to messageCompletionAck
