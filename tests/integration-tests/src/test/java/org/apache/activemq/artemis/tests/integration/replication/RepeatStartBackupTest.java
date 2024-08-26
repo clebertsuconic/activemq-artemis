@@ -21,10 +21,12 @@ import javax.jms.ConnectionFactory;
 import javax.jms.MessageConsumer;
 import javax.jms.MessageProducer;
 import javax.jms.Session;
+import javax.jms.TextMessage;
 import java.io.File;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -32,8 +34,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import io.netty.util.collection.LongObjectHashMap;
+import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.api.core.QueueConfiguration;
 import org.apache.activemq.artemis.api.core.RoutingType;
+import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.config.ClusterConnectionConfiguration;
 import org.apache.activemq.artemis.core.config.Configuration;
 import org.apache.activemq.artemis.core.config.HAPolicyConfiguration;
@@ -41,14 +46,23 @@ import org.apache.activemq.artemis.core.config.ha.DistributedLockManagerConfigur
 import org.apache.activemq.artemis.core.config.ha.ReplicationBackupPolicyConfiguration;
 import org.apache.activemq.artemis.core.config.ha.ReplicationPrimaryPolicyConfiguration;
 import org.apache.activemq.artemis.core.config.impl.ConfigurationImpl;
+import org.apache.activemq.artemis.core.io.IOCallback;
+import org.apache.activemq.artemis.core.journal.collections.JournalHashMap;
+import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContextImpl;
+import org.apache.activemq.artemis.core.persistence.impl.journal.codec.AckRetry;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
 import org.apache.activemq.artemis.core.server.ActiveMQServers;
 import org.apache.activemq.artemis.core.server.JournalType;
+import org.apache.activemq.artemis.core.server.Queue;
+import org.apache.activemq.artemis.core.server.impl.AckReason;
 import org.apache.activemq.artemis.core.server.impl.AddressInfo;
 import org.apache.activemq.artemis.lockmanager.file.FileBasedLockManager;
 import org.apache.activemq.artemis.logs.AssertionLoggerHandler;
+import org.apache.activemq.artemis.protocol.amqp.connect.mirror.AckManager;
+import org.apache.activemq.artemis.protocol.amqp.connect.mirror.AckManagerProvider;
 import org.apache.activemq.artemis.tests.util.ActiveMQTestBase;
 import org.apache.activemq.artemis.tests.util.CFUtil;
+import org.apache.activemq.artemis.tests.util.RandomUtil;
 import org.apache.activemq.artemis.tests.util.Wait;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -74,7 +88,6 @@ public class RepeatStartBackupTest extends ActiveMQTestBase {
    @Override
    public void setUp() throws Exception {
       managerConfiguration = new DistributedLockManagerConfiguration(FileBasedLockManager.class.getName(), Collections.singletonMap("locks-folder", newTemporaryFolder("manager").toString()));
-      final int timeout = (int) TimeUnit.SECONDS.toMillis(30);
 
       // start live
       Configuration liveConfiguration = createLiveConfiguration();
@@ -93,6 +106,9 @@ public class RepeatStartBackupTest extends ActiveMQTestBase {
       ((ReplicationBackupPolicyConfiguration) backupConfiguration.getHAPolicyConfiguration()).setAllowFailBack(true);
       backupServer = addServer(ActiveMQServers.newActiveMQServer(backupConfiguration));
       backupServer.setIdentity("BACKUP");
+   }
+
+   private void startBackup(int timeout) throws Exception {
       backupServer.start();
 
       Wait.waitFor(backupServer::isStarted);
@@ -102,6 +118,7 @@ public class RepeatStartBackupTest extends ActiveMQTestBase {
 
    @Test
    public void testLoopStart() throws Exception {
+      startBackup(30_000);
 
       try (AssertionLoggerHandler loggerHandler = new AssertionLoggerHandler()) {
 
@@ -157,6 +174,199 @@ public class RepeatStartBackupTest extends ActiveMQTestBase {
          Assertions.assertEquals(0, errors.get());
       }
 
+
+   }
+
+   @Test
+   public void testValidateConsistency() throws Exception {
+
+      String queueName = "queue_" + RandomUtil.randomString();
+
+      try (AssertionLoggerHandler loggerHandler = new AssertionLoggerHandler()) {
+
+         ExecutorService executorService = Executors.newFixedThreadPool(2);
+         runAfter(executorService::shutdownNow);
+
+         AtomicInteger errors = new AtomicInteger(0);
+         AtomicBoolean running = new AtomicBoolean(true);
+
+         runAfter(() -> running.set(false));
+         CountDownLatch latch = new CountDownLatch(1);
+         CountDownLatch backupStarted = new CountDownLatch(1);
+
+         AtomicInteger messagesSent = new AtomicInteger(0);
+
+         int starBackupAt = 100;
+         Assertions.assertFalse(server.isReplicaSync());
+
+         executorService.execute(() -> {
+            try {
+               ConnectionFactory factory = CFUtil.createConnectionFactory("core", "tcp://localhost:61616");
+               try (Connection connection = factory.createConnection()) {
+                  Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+                  MessageProducer producer = session.createProducer(session.createQueue(queueName));
+                  while (running.get()) {
+                     int id = messagesSent.getAndIncrement();
+                     if (id == starBackupAt) {
+                        executorService.execute(() -> {
+                           try {
+                              backupServer.start();
+                           } catch (Throwable e) {
+                              logger.warn(e.getMessage(), e);
+                           } finally {
+                              backupStarted.countDown();
+                           }
+                        });
+                     }
+                     TextMessage message = session.createTextMessage("sent " + id);
+                     message.setIntProperty("id", id);;
+                     producer.send(message);
+                  }
+               }
+            } catch (Throwable e) {
+               logger.warn(e.getMessage(), e);
+               errors.incrementAndGet();
+            } finally {
+               latch.countDown();
+            }
+         });
+
+         Assertions.assertTrue(backupStarted.await(10, TimeUnit.SECONDS));
+
+         Wait.assertTrue(server::isReplicaSync);
+         Wait.assertTrue(() -> messagesSent.get() > 200);
+         running.set(false);
+         Assertions.assertTrue(latch.await(10, TimeUnit.SECONDS));
+
+         Assertions.assertEquals(0, errors.get());
+         server.stop();
+         Wait.assertTrue(backupServer::isActive);
+
+         ConnectionFactory factory = CFUtil.createConnectionFactory("core", "tcp://localhost:61617");
+         try (Connection connection = factory.createConnection()) {
+            Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+            MessageConsumer consumer = session.createConsumer(session.createQueue(queueName));
+            connection.start();
+            for (int id = 0; id < messagesSent.get(); id++) {
+               TextMessage message = (TextMessage) consumer.receive(5000);
+               Assertions.assertNotNull(message);
+               Assertions.assertEquals("sent " + id, message.getText());
+               Assertions.assertEquals(id, message.getIntProperty("id"));
+            }
+         }
+
+
+      }
+
+
+   }
+
+   @Test
+   public void testAckManagerRepetition() throws Exception {
+
+      String queueName = "queue_" + RandomUtil.randomString();
+
+      server.getConfiguration().setMirrorAckManagerQueueAttempts(300000);
+      server.getConfiguration().setMirrorAckManagerRetryDelay(1000);
+      backupServer.getConfiguration().setMirrorAckManagerPageAttempts(300000);
+      backupServer.getConfiguration().setMirrorAckManagerRetryDelay(1000);
+
+      ExecutorService executorService = Executors.newFixedThreadPool(2);
+      runAfter(executorService::shutdownNow);
+
+      AtomicInteger errors = new AtomicInteger(0);
+      AtomicBoolean running = new AtomicBoolean(true);
+
+      runAfter(() -> running.set(false));
+      CountDownLatch latch = new CountDownLatch(1);
+      CountDownLatch backupStarted = new CountDownLatch(1);
+
+      AtomicInteger messagesSent = new AtomicInteger(0);
+
+      int starBackupAt = 100;
+      Assertions.assertFalse(server.isReplicaSync());
+
+      AckManager ackManager = AckManagerProvider.getManager(server);
+      server.addAddressInfo(new AddressInfo(queueName).addRoutingType(RoutingType.ANYCAST));
+      Queue queueOnServerLive = server.createQueue(QueueConfiguration.of(queueName).setRoutingType(RoutingType.ANYCAST).setDurable(true));
+      long queueIdOnServerLive = queueOnServerLive.getID();
+
+      OperationContextImpl context = new OperationContextImpl(server.getExecutorFactory().getExecutor());
+
+      executorService.execute(() -> {
+         try {
+            OperationContextImpl.setContext(context);
+            while (running.get()) {
+               int id = messagesSent.getAndIncrement();
+               if (id == starBackupAt) {
+                  executorService.execute(() -> {
+                     try {
+                        backupServer.start();
+                     } catch (Throwable e) {
+                        logger.warn(e.getMessage(), e);
+                     } finally {
+                        backupStarted.countDown();
+                     }
+                  });
+               }
+               CountDownLatch latchAcked = new CountDownLatch(1);
+               ackManager.ack(server.getNodeID().toString(), queueOnServerLive, id, AckReason.NORMAL, true);
+               OperationContextImpl.getContext().executeOnCompletion(new IOCallback() {
+                  @Override
+                  public void done() {
+                     latchAcked.countDown();
+                  }
+
+                  @Override
+                  public void onError(int errorCode, String errorMessage) {
+                  }
+               });
+               if (!latchAcked.await(10, TimeUnit.SECONDS)) {
+                  logger.warn("Could not wait ack to finish");
+               }
+            }
+         } catch (Throwable e) {
+            logger.warn(e.getMessage(), e);
+            errors.incrementAndGet();
+         } finally {
+            latch.countDown();
+         }
+      });
+
+      Assertions.assertTrue(backupStarted.await(10, TimeUnit.SECONDS));
+
+      Wait.assertTrue(server::isReplicaSync);
+      Wait.assertTrue(() -> messagesSent.get() > 200);
+      running.set(false);
+      Assertions.assertTrue(latch.await(10, TimeUnit.SECONDS));
+
+      Assertions.assertEquals(0, errors.get());
+
+      {
+         AckManager liveManager = AckManagerProvider.getManager(server);
+         HashMap<SimpleString, LongObjectHashMap<JournalHashMap<AckRetry, AckRetry, Queue>>> sortedRetries = liveManager.sortRetries();
+         Assertions.assertEquals(1, sortedRetries.size());
+
+         LongObjectHashMap<JournalHashMap<AckRetry, AckRetry, Queue>> retryAddress = sortedRetries.get(SimpleString.of(queueName));
+         JournalHashMap<AckRetry, AckRetry, Queue> journalHashMapBackup = retryAddress.get(queueIdOnServerLive);
+         Assertions.assertEquals(messagesSent.get(), journalHashMapBackup.size());
+      }
+
+
+      server.stop();
+      Wait.assertTrue(backupServer::isActive);
+
+      Thread.sleep(5000);
+
+      {
+         AckManager backupAckManager = AckManagerProvider.getManager(backupServer);
+         HashMap<SimpleString, LongObjectHashMap<JournalHashMap<AckRetry, AckRetry, Queue>>> sortedRetries = backupAckManager.sortRetries();
+         Assertions.assertEquals(1, sortedRetries.size());
+
+         LongObjectHashMap<JournalHashMap<AckRetry, AckRetry, Queue>> retryAddress = sortedRetries.get(SimpleString.of(queueName));
+         JournalHashMap<AckRetry, AckRetry, Queue> journalHashMapBackup = retryAddress.get(queueIdOnServerLive);
+         Assertions.assertEquals(messagesSent.get(), journalHashMapBackup.size());
+      }
 
    }
 

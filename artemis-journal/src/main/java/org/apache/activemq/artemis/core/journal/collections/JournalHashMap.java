@@ -233,6 +233,7 @@ public class JournalHashMap<K, V, C> implements Map<K, V> {
 
    // callers must be synchronized
    private void removed(MapRecord<K, V> record) {
+      logger.info("removed {}", record);
       if (logger.isTraceEnabled()) {
          logger.info("Removing record {}", record, new Exception("trace"));
       }
@@ -245,6 +246,7 @@ public class JournalHashMap<K, V, C> implements Map<K, V> {
 
    // callers must be synchronized
    private void removed(MapRecord<K, V> record, long txid) {
+      logger.info("removed tx {}, {}", record, txid);
       try {
          journal.appendDeleteRecordTransactional(txid, record.id);
       } catch (Exception e) {
