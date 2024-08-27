@@ -245,7 +245,6 @@ public class RepeatStartBackupTest extends ActiveMQTestBase {
                if (!latchAcked.await(10, TimeUnit.SECONDS)) {
                   logger.warn("Could not wait ack to finish");
                }
-               server.getStorageManager().flush();
                Thread.yield();
             }
          } catch (Throwable e) {

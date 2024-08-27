@@ -39,6 +39,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.lang.invoke.MethodHandles;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Used by the {@link org.apache.activemq.artemis.core.persistence.impl.journal.JournalStorageManager} to replicate journal calls.
@@ -86,6 +87,9 @@ public class ReplicatedJournal implements Journal {
    public void flush() throws Exception {
       CountDownLatch done = new CountDownLatch(1);
       replicationManager.flush(done::countDown);
+      if (!done.await(10, TimeUnit.SECONDS)) {
+         logger.warn("Could not complete flush in 10 seconds"); //
+      }
       localJournal.flush();
 
    }

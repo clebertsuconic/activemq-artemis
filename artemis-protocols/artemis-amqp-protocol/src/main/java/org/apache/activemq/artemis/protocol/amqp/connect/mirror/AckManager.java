@@ -151,6 +151,8 @@ public class AckManager implements ActiveMQComponent {
          return false;
       }
 
+      server.getStorageManager().flush();
+
       HashMap<SimpleString, LongObjectHashMap<JournalHashMap<AckRetry, AckRetry, Queue>>> retries = sortRetries();
 
       if (retries.isEmpty()) {
