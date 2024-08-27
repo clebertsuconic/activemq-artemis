@@ -93,7 +93,7 @@ public interface StorageManager extends MapStorageManager, IDGenerator, ActiveMQ
    }
 
    /** Flush the callbacks guaranteeing nothing pending up to that point */
-   default void flush(IOCallback flushCalllback) {
+   default void flush() {
    }
 
    default SequentialFileFactory getJournalSequentialFileFactory() {

@@ -191,21 +191,12 @@ public class ReplicatedBothNodesMirrorTest extends SoakTestBase {
       brokerProperties.put("largeMessageSync", "false");
 
 
-      // we are setting a fairly large retry attempt.
-      // notice that the PageAttempt will always to a regular queue attempt before.
-      // so mirrorAckManagerPageAttempts will be used on both the paging and non paging case.
-      brokerProperties.put("mirrorAckManagerQueueAttempts", "2");
-      brokerProperties.put("mirrorAckManagerPageAttempts", "500000");
-      brokerProperties.put("mirrorAckManagerRetryDelay", "500");
-
-      // if we don't use pageTransactions we may eventually get a few duplicates
-      brokerProperties.put("mirrorPageTransaction", "true");
-
       if (paging) {
          brokerProperties.put("addressSettings.#.maxSizeMessages", "50");
          brokerProperties.put("addressSettings.#.maxReadPageMessages", "2000");
          brokerProperties.put("addressSettings.#.maxReadPageBytes", "-1");
          brokerProperties.put("addressSettings.#.prefetchPageMessages", "500");
+         brokerProperties.put("mirrorPageTransaction", "true");
       }
 
       File brokerPropertiesFile = new File(serverLocation, "broker.properties");
