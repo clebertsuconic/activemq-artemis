@@ -52,6 +52,7 @@ import org.apache.activemq.artemis.core.server.impl.AddressInfo;
 import org.apache.activemq.artemis.core.server.mirror.MirrorController;
 import org.apache.activemq.artemis.core.transaction.Transaction;
 import org.apache.activemq.artemis.core.transaction.impl.TransactionImpl;
+import org.apache.activemq.artemis.protocol.amqp.broker.ActiveMQProtonRemotingConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -77,12 +78,7 @@ public class AckManager implements ActiveMQComponent {
       this.ioCriticalErrorListener = server.getIoCriticalErrorListener();
       this.sequenceGenerator = server.getStorageManager()::generateID;
 
-      //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-      // We have to use the StorageManager here
-      // if we used the journal directly, we would not capture a switch between local journal and replicated journal that happens
-      // inside the storageManager
-      //
-      // also the switch has to be done while holding a read lock to avoid missing the current record as well.
+      // The JournalHashMap has to use the storage manager to guarantee we are using the Replicated Journal Wrapper in case this is a replicated journal
       journalHashMapProvider = new JournalHashMapProvider<>(sequenceGenerator, server.getStorageManager(), AckRetry.getPersister(), JournalRecordIds.ACK_RETRY, OperationContextImpl::getContext, server.getPostOffice()::findQueue, server.getIoCriticalErrorListener());
       this.referenceIDSupplier = new ReferenceIDSupplier(server);
    }
@@ -153,6 +149,10 @@ public class AckManager implements ActiveMQComponent {
 
       HashMap<SimpleString, LongObjectHashMap<JournalHashMap<AckRetry, AckRetry, Queue>>> retries = sortRetries();
 
+      server.getStorageManager().flush();
+
+      flushMirrorTargets();
+
       if (retries.isEmpty()) {
          logger.trace("Nothing to retry!, server={}", server);
          return false;
@@ -160,6 +160,18 @@ public class AckManager implements ActiveMQComponent {
 
       progress = new MultiStepProgress(sortRetries());
       return true;
+   }
+
+   private void flushMirrorTargets() {
+      // this will navigate on each connection, find the connection that has a mirror controller, and call flushMirrorTarget for each MirrorTargets. (it should be 1 in most cases)
+      server.getRemotingService().getConnections().stream().
+         filter(c -> c instanceof ActiveMQProtonRemotingConnection && ((ActiveMQProtonRemotingConnection) c).getAmqpConnection().getMirrorControllerTargets() != null).
+         forEach(c -> ((ActiveMQProtonRemotingConnection) c).getAmqpConnection().getMirrorControllerTargets().forEach(this::flushMirrorTarget));
+   }
+
+   private void flushMirrorTarget(AMQPMirrorControllerTarget target) {
+      logger.info("Flush mirror {}", target,  new Exception("Trace"));
+      target.flush();
    }
 
    // Sort the ACK list by address
@@ -454,7 +466,6 @@ public class AckManager implements ActiveMQComponent {
             } else {
                Map.Entry<SimpleString, LongObjectHashMap<JournalHashMap<AckRetry, AckRetry, Queue>>> entry = retryIterator.next();
 
-               server.getStorageManager().flush();
                //////////////////////////////////////////////////////////////////////
                // Issue a deliverAsync on each queue before doing the retries
                // to make it more likely to hit the ack retry on each queue

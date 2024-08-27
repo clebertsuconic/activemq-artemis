@@ -63,6 +63,8 @@ import org.apache.qpid.proton.engine.Receiver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.lang.invoke.MethodHandles;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import static org.apache.activemq.artemis.protocol.amqp.connect.mirror.AMQPMirrorControllerSource.ADDRESS;
 import static org.apache.activemq.artemis.protocol.amqp.connect.mirror.AMQPMirrorControllerSource.ADD_ADDRESS;
@@ -176,6 +178,39 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
    private MessageReader coreLargeMessageReader;
 
    private AckManager ackManager;
+
+   public void flush() {
+      CountDownLatch latch = new CountDownLatch(1);
+      connection.runNow(() -> {
+         OperationContext oldContext = OperationContextImpl.getContext();
+         try {
+            OperationContextImpl.setContext(mirrorContext);
+            mirrorContext.executeOnCompletion(new IOCallback() {
+               @Override
+               public void done() {
+                  latch.countDown();
+               }
+
+               @Override
+               public void onError(int errorCode, String errorMessage) {
+                  logger.warn("error code = {} / message = {}", errorCode, errorMessage);
+                  latch.countDown();
+               }
+            });
+         } finally {
+            OperationContextImpl.setContext(oldContext);
+         }
+      });
+
+      try {
+         if (latch.await(10, TimeUnit.SECONDS)) {
+            logger.info("Flushed alright!!!");
+         } else {
+            logger.info("WHATT?");
+         }
+      } catch (Throwable ignored) {
+      }
+   }
 
    public AMQPMirrorControllerTarget(AMQPSessionCallback sessionSPI,
                                      AMQPConnectionContext connection,
