@@ -38,6 +38,7 @@ import org.apache.activemq.artemis.utils.collections.SparseArrayLinkedList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.lang.invoke.MethodHandles;
+import java.util.concurrent.CountDownLatch;
 
 /**
  * Used by the {@link org.apache.activemq.artemis.core.persistence.impl.journal.JournalStorageManager} to replicate journal calls.
@@ -83,6 +84,9 @@ public class ReplicatedJournal implements Journal {
 
    @Override
    public void flush() throws Exception {
+      CountDownLatch done = new CountDownLatch(1);
+      replicationManager.flush(done::countDown);
+      localJournal.flush();
 
    }
 

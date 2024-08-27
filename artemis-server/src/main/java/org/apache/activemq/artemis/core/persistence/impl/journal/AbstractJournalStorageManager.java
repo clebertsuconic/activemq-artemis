@@ -429,6 +429,14 @@ public abstract class AbstractJournalStorageManager extends CriticalComponentImp
    }
 
    @Override
+   public void flush(IOCallback flushCallback) {
+      try (ArtemisCloseable lock = closeableReadLock()) {
+         messageJournal.flush();
+      }
+   }
+
+
+   @Override
    public void storeMessage(final Message message) throws Exception {
       if (message.getMessageID() <= 0) {
          // Sanity check only... this shouldn't happen unless there is a bug
