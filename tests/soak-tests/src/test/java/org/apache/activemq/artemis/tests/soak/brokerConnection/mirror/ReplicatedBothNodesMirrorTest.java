@@ -191,6 +191,14 @@ public class ReplicatedBothNodesMirrorTest extends SoakTestBase {
       brokerProperties.put("largeMessageSync", "false");
 
 
+      // we are setting a fairly large retry attempt.
+      // notice that the PageAttempt will always to a regular queue attempt before.
+      // so mirrorAckManagerPageAttempts will be used on both the paging and non paging case.
+      /*brokerProperties.put("mirrorAckManagerQueueAttempts", "2");
+      brokerProperties.put("mirrorAckManagerPageAttempts", "500000");
+      brokerProperties.put("mirrorAckManagerRetryDelay", "500"); */
+
+
       if (paging) {
          brokerProperties.put("addressSettings.#.maxSizeMessages", "50");
          brokerProperties.put("addressSettings.#.maxReadPageMessages", "2000");
@@ -266,6 +274,8 @@ public class ReplicatedBothNodesMirrorTest extends SoakTestBase {
          brokerProperties.put("addressSettings.#.maxReadPageMessages", "2000");
          brokerProperties.put("addressSettings.#.maxReadPageBytes", "-1");
          brokerProperties.put("addressSettings.#.prefetchPageMessages", "500");
+         // if we don't use pageTransactions we may eventually get a few duplicates
+         brokerProperties.put("mirrorPageTransaction", "true");
       }
 
       File brokerPropertiesFile = new File(serverLocation, "broker.properties");
@@ -349,11 +359,8 @@ public class ReplicatedBothNodesMirrorTest extends SoakTestBase {
    }
 
    @Test
-   @Disabled
    public void testQuickACKRandomProtocol() throws Exception {
-      String[] protocols = {"AMQP", "OPENWIRE", "CORE"};
-
-      String protocol = protocols[RandomUtil.randomPositiveInt() % 3];
+      String protocol = randomProtocol();
       logger.info("using protocol {}", protocol);
 
       // There shouldn't be any semantic difference for the test based on the protocol we choose to run
@@ -371,12 +378,11 @@ public class ReplicatedBothNodesMirrorTest extends SoakTestBase {
       SimpleManagement managementDC2Backup = new SimpleManagement(uri(DC2_BACKUP_IP), null, null);
 
       startDC1(managementDC1);
-      startDC2(managementDC2);
-
       ConnectionFactory connectionFactoryDC1A = CFUtil.createConnectionFactory(protocol, uri(DC1_IP));
 
       final int totalMessages = 1000;
       final int killAt = 800;
+      final int startAt = 300;
       String snfQueue = "$ACTIVEMQ_ARTEMIS_MIRROR_mirror";
 
       try (Connection connection = connectionFactoryDC1A.createConnection()) {
@@ -391,8 +397,12 @@ public class ReplicatedBothNodesMirrorTest extends SoakTestBase {
                logger.info("Sent and received {}", i);
             }
 
-            if (i == killAt) { // kill the live on DC2
+            if (i == startAt) {
+               processDC2 = startServer(DC2_NODE, -1, -1, new File(getServerLocation(DC2_NODE), "broker.properties"));
+               processDC2_REPLICA = startServer(DC2_REPLICA_NODE, -1, -1, new File(getServerLocation(DC2_REPLICA_NODE), "broker.properties"));
+            } else if (i == killAt) { // kill the live on DC2
                logger.info("KillAt {}", killAt);
+               Wait.assertTrue(managementDC2::isReplicaSync);
                processDC2.destroyForcibly();
                assertTrue(processDC2.waitFor(10, TimeUnit.SECONDS));
             }

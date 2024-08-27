@@ -469,6 +469,12 @@ public final class ReplicationManager implements ActiveMQComponent {
       }
       final ReplicatePacketRequest request = new ReplicatePacketRequest(packet, repliToken, done);
       replicatePacketRequests.add(request);
+      streamPackets();
+
+      return repliToken;
+   }
+
+   private void streamPackets() {
       replicationStream.execute(() -> {
          if (started) {
             sendReplicatedPackets(false);
@@ -476,16 +482,18 @@ public final class ReplicationManager implements ActiveMQComponent {
             releaseReplicatedPackets(replicatePacketRequests);
          }
       });
-
-      return repliToken;
    }
 
    private void releaseReplicatedPackets(Queue<ReplicatePacketRequest> requests) {
       assert checkEventLoop();
       ReplicatePacketRequest req;
       while ((req = requests.poll()) != null) {
-         req.packet.release();
-         req.context.replicationDone();
+         if (req.packet != null) {
+            req.packet.release();
+         }
+         if (req.context != null) {
+            req.context.replicationDone();
+         }
          if (req.done != null) {
             req.done.run();
          }
@@ -519,8 +527,9 @@ public final class ReplicationManager implements ActiveMQComponent {
    }
 
    public void flush(Runnable done) {
-      Ping pingPacket = new Ping();
-      sendReplicatePacket(pingPacket, false, done);
+      final ReplicatePacketRequest request = new ReplicatePacketRequest(null, null, done);
+      replicatePacketRequests.add(request);
+      streamPackets();
    }
 
    private void resume() {
@@ -553,13 +562,17 @@ public final class ReplicationManager implements ActiveMQComponent {
                // to check writability state to trigger the slow connection check
                return;
             }
-            pendingTokens.add(request.context);
+            if (request.context != null) {
+               pendingTokens.add(request.context);
+            }
             final Packet pack = request.packet;
             final Runnable done = request.done;
             if (done != null) {
                done.run();
             }
-            replicatingChannel.send(pack, false);
+            if (pack != null) {
+               replicatingChannel.send(pack, false);
+            }
          }
          replicatingChannel.flushConnection();
          assert !awaitingResume;

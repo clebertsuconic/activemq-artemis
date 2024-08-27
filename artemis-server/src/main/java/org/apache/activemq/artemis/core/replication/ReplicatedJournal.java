@@ -86,12 +86,12 @@ public class ReplicatedJournal implements Journal {
    @Override
    public void flush() throws Exception {
       CountDownLatch done = new CountDownLatch(1);
+      logger.info("flush", new Exception("flush"));
       replicationManager.flush(done::countDown);
       if (!done.await(10, TimeUnit.SECONDS)) {
-         logger.warn("Could not complete flush in 10 seconds"); //
+         logger.warn("Could not complete flush in 10 seconds"); // we will need a logger
       }
       localJournal.flush();
-
    }
 
    public Journal getLocalJournal() {

@@ -151,8 +151,6 @@ public class AckManager implements ActiveMQComponent {
          return false;
       }
 
-      server.getStorageManager().flush();
-
       HashMap<SimpleString, LongObjectHashMap<JournalHashMap<AckRetry, AckRetry, Queue>>> retries = sortRetries();
 
       if (retries.isEmpty()) {
@@ -456,6 +454,7 @@ public class AckManager implements ActiveMQComponent {
             } else {
                Map.Entry<SimpleString, LongObjectHashMap<JournalHashMap<AckRetry, AckRetry, Queue>>> entry = retryIterator.next();
 
+               server.getStorageManager().flush();
                //////////////////////////////////////////////////////////////////////
                // Issue a deliverAsync on each queue before doing the retries
                // to make it more likely to hit the ack retry on each queue
