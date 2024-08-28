@@ -92,10 +92,6 @@ public interface StorageManager extends MapStorageManager, IDGenerator, ActiveMQ
    default void recoverLargeMessagesOnFolder(Set<Long> files) throws Exception {
    }
 
-   /** Flush the callbacks guaranteeing nothing pending up to that point */
-   default void flush() {
-   }
-
    default SequentialFileFactory getJournalSequentialFileFactory() {
       return null;
    }

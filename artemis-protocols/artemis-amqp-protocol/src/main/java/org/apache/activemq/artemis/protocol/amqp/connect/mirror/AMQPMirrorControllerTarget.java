@@ -46,6 +46,7 @@ import org.apache.activemq.artemis.protocol.amqp.broker.AMQPMessage;
 import org.apache.activemq.artemis.protocol.amqp.broker.AMQPMessageBrokerAccessor;
 import org.apache.activemq.artemis.protocol.amqp.broker.AMQPSessionCallback;
 import org.apache.activemq.artemis.protocol.amqp.broker.ProtonProtocolManager;
+import org.apache.activemq.artemis.protocol.amqp.logger.ActiveMQAMQPProtocolLogger;
 import org.apache.activemq.artemis.protocol.amqp.proton.AMQPConnectionContext;
 import org.apache.activemq.artemis.protocol.amqp.proton.AMQPSessionContext;
 import org.apache.activemq.artemis.protocol.amqp.proton.AMQPTunneledCoreLargeMessageReader;
@@ -179,6 +180,7 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
 
    private AckManager ackManager;
 
+   /** This method will wait both replication and storage to finish their current operations. */
    public void flush() {
       CountDownLatch latch = new CountDownLatch(1);
       connection.runNow(() -> {
@@ -202,13 +204,21 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
          }
       });
 
+      long timeout;
       try {
-         if (latch.await(10, TimeUnit.SECONDS)) {
-            logger.info("Flushed alright!!!");
-         } else {
-            logger.info("WHATT?");
+         timeout = connection.getProtocolManager().getAckManagerFlushTimeout();
+      } catch (Throwable e) {
+         logger.warn(e.getMessage(), e);
+         timeout = 10_000;
+      }
+
+      try {
+         if (!latch.await(timeout, TimeUnit.MILLISECONDS)) {
+            ActiveMQAMQPProtocolLogger.LOGGER.timedOutAckManager(timeout);
          }
-      } catch (Throwable ignored) {
+      } catch (InterruptedException e) {
+         logger.warn(e.getMessage(), e);
+         Thread.currentThread().interrupt();
       }
    }
 

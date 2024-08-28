@@ -190,15 +190,6 @@ public class ReplicatedBothNodesMirrorTest extends SoakTestBase {
       brokerProperties.put("AMQPConnections." + connectionName + ".connectionElements.mirror.sync", "false");
       brokerProperties.put("largeMessageSync", "false");
 
-
-      // we are setting a fairly large retry attempt.
-      // notice that the PageAttempt will always to a regular queue attempt before.
-      // so mirrorAckManagerPageAttempts will be used on both the paging and non paging case.
-      /*brokerProperties.put("mirrorAckManagerQueueAttempts", "2");
-      brokerProperties.put("mirrorAckManagerPageAttempts", "500000");
-      brokerProperties.put("mirrorAckManagerRetryDelay", "500"); */
-
-
       if (paging) {
          brokerProperties.put("addressSettings.#.maxSizeMessages", "50");
          brokerProperties.put("addressSettings.#.maxReadPageMessages", "2000");
@@ -380,9 +371,9 @@ public class ReplicatedBothNodesMirrorTest extends SoakTestBase {
       startDC1(managementDC1);
       ConnectionFactory connectionFactoryDC1A = CFUtil.createConnectionFactory(protocol, uri(DC1_IP));
 
-      final int totalMessages = 1000;
-      final int killAt = 800;
       final int startAt = 300;
+      final int killAt = 800;
+      final int totalMessages = 1000;
       String snfQueue = "$ACTIVEMQ_ARTEMIS_MIRROR_mirror";
 
       try (Connection connection = connectionFactoryDC1A.createConnection()) {
@@ -398,6 +389,7 @@ public class ReplicatedBothNodesMirrorTest extends SoakTestBase {
             }
 
             if (i == startAt) {
+               // lazy start to allow messages accumulated in the SNF
                processDC2 = startServer(DC2_NODE, -1, -1, new File(getServerLocation(DC2_NODE), "broker.properties"));
                processDC2_REPLICA = startServer(DC2_REPLICA_NODE, -1, -1, new File(getServerLocation(DC2_REPLICA_NODE), "broker.properties"));
             } else if (i == killAt) { // kill the live on DC2
@@ -414,12 +406,6 @@ public class ReplicatedBothNodesMirrorTest extends SoakTestBase {
             TextMessage textMessage = (TextMessage) consumer.receive(5000);
             Assertions.assertNotNull(textMessage);
             Assertions.assertEquals(text, textMessage.getText());
-         }
-      } catch (Throwable e) {
-         logger.warn(e.getMessage(), e);
-         try {
-            Thread.sleep(100);
-         } catch (Throwable ignored) {
          }
       }
 
@@ -461,7 +447,6 @@ public class ReplicatedBothNodesMirrorTest extends SoakTestBase {
       Wait.assertEquals(0, () -> getMessageCount(managementDC2Backup, snfQueue));
       Wait.assertEquals(0, () -> getMessageCount(managementDC1, QUEUE_NAME));
       Wait.assertEquals(0, () -> getMessageCount(managementDC2Backup, QUEUE_NAME));
-
    }
 
    @Test

@@ -149,9 +149,7 @@ public class AckManager implements ActiveMQComponent {
 
       HashMap<SimpleString, LongObjectHashMap<JournalHashMap<AckRetry, AckRetry, Queue>>> retries = sortRetries();
 
-      server.getStorageManager().flush();
-
-      flushMirrorTargets();
+      scanAndFlushMirrorTargets();
 
       if (retries.isEmpty()) {
          logger.trace("Nothing to retry!, server={}", server);
@@ -162,15 +160,17 @@ public class AckManager implements ActiveMQComponent {
       return true;
    }
 
-   private void flushMirrorTargets() {
+   private void scanAndFlushMirrorTargets() {
       // this will navigate on each connection, find the connection that has a mirror controller, and call flushMirrorTarget for each MirrorTargets. (it should be 1 in most cases)
+      // An alternative design instead of going through the connections, would be to register the MirrorTargets within the AckManager, however to avoid memory leaks after disconnects and reconnects it is safer to
+      // scan through the connections
       server.getRemotingService().getConnections().stream().
          filter(c -> c instanceof ActiveMQProtonRemotingConnection && ((ActiveMQProtonRemotingConnection) c).getAmqpConnection().getMirrorControllerTargets() != null).
          forEach(c -> ((ActiveMQProtonRemotingConnection) c).getAmqpConnection().getMirrorControllerTargets().forEach(this::flushMirrorTarget));
    }
 
    private void flushMirrorTarget(AMQPMirrorControllerTarget target) {
-      logger.info("Flush mirror {}", target,  new Exception("Trace"));
+      logger.debug("Flushing mirror {}", target);
       target.flush();
    }
 

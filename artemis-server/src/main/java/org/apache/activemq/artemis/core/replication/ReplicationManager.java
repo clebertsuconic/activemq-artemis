@@ -42,7 +42,6 @@ import org.apache.activemq.artemis.api.core.ActiveMQReplicationTimeooutException
 import org.apache.activemq.artemis.api.core.Pair;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.api.core.client.SessionFailureListener;
-import org.apache.activemq.artemis.core.io.IOCallback;
 import org.apache.activemq.artemis.core.io.IOCriticalErrorListener;
 import org.apache.activemq.artemis.core.io.SequentialFile;
 import org.apache.activemq.artemis.core.journal.EncodingSupport;
@@ -59,7 +58,6 @@ import org.apache.activemq.artemis.core.protocol.core.CoreRemotingConnection;
 import org.apache.activemq.artemis.core.protocol.core.Packet;
 import org.apache.activemq.artemis.core.protocol.core.impl.ChannelImpl.CHANNEL_ID;
 import org.apache.activemq.artemis.core.protocol.core.impl.PacketImpl;
-import org.apache.activemq.artemis.core.protocol.core.impl.wireformat.Ping;
 import org.apache.activemq.artemis.core.protocol.core.impl.wireformat.ReplicationAddMessage;
 import org.apache.activemq.artemis.core.protocol.core.impl.wireformat.ReplicationAddTXMessage;
 import org.apache.activemq.artemis.core.protocol.core.impl.wireformat.ReplicationCommitMessage;
@@ -164,9 +162,12 @@ public final class ReplicationManager implements ActiveMQComponent {
 
       final Packet packet;
       final OperationContext context;
-      final Runnable done;
+      // Although this field is needed just during the initial sync,
+      // the JVM field layout would likely left 4 bytes of wasted space without it
+      // so it makes sense to use it instead.
+      final ReusableLatch done;
 
-      ReplicatePacketRequest(Packet packet, OperationContext context, Runnable done) {
+      ReplicatePacketRequest(Packet packet, OperationContext context, ReusableLatch done) {
          this.packet = packet;
          this.context = context;
          this.done = done;
@@ -454,7 +455,7 @@ public final class ReplicationManager implements ActiveMQComponent {
       return sendReplicatePacket(packet, lineUp, null);
    }
 
-   private OperationContext sendReplicatePacket(final Packet packet, boolean lineUp, Runnable done) {
+   private OperationContext sendReplicatePacket(final Packet packet, boolean lineUp, ReusableLatch done) {
       if (!started) {
          packet.release();
          return null;
@@ -462,19 +463,13 @@ public final class ReplicationManager implements ActiveMQComponent {
 
       final OperationContext repliToken = OperationContextImpl.getContext(ioExecutorFactory);
       if (repliToken == null) {
-         throw ActiveMQMessageBundle.BUNDLE.replicationFailureRepliTokenNull(String.valueOf(packet), String.valueOf(ioExecutorFactory));
+         throw ActiveMQMessageBundle.BUNDLE.replicationFailureRepliTokenNull(packet.toString(), ioExecutorFactory.toString());
       }
       if (lineUp) {
          repliToken.replicationLineUp();
       }
       final ReplicatePacketRequest request = new ReplicatePacketRequest(packet, repliToken, done);
       replicatePacketRequests.add(request);
-      streamPackets();
-
-      return repliToken;
-   }
-
-   private void streamPackets() {
       replicationStream.execute(() -> {
          if (started) {
             sendReplicatedPackets(false);
@@ -482,20 +477,18 @@ public final class ReplicationManager implements ActiveMQComponent {
             releaseReplicatedPackets(replicatePacketRequests);
          }
       });
+
+      return repliToken;
    }
 
    private void releaseReplicatedPackets(Queue<ReplicatePacketRequest> requests) {
       assert checkEventLoop();
       ReplicatePacketRequest req;
       while ((req = requests.poll()) != null) {
-         if (req.packet != null) {
-            req.packet.release();
-         }
-         if (req.context != null) {
-            req.context.replicationDone();
-         }
+         req.packet.release();
+         req.context.replicationDone();
          if (req.done != null) {
-            req.done.run();
+            req.done.countDown();
          }
       }
    }
@@ -524,12 +517,6 @@ public final class ReplicationManager implements ActiveMQComponent {
             logger.warn(e.getMessage(), e);
          }
       }
-   }
-
-   public void flush(Runnable done) {
-      final ReplicatePacketRequest request = new ReplicatePacketRequest(null, null, done);
-      replicatePacketRequests.add(request);
-      streamPackets();
    }
 
    private void resume() {
@@ -562,17 +549,13 @@ public final class ReplicationManager implements ActiveMQComponent {
                // to check writability state to trigger the slow connection check
                return;
             }
-            if (request.context != null) {
-               pendingTokens.add(request.context);
-            }
+            pendingTokens.add(request.context);
             final Packet pack = request.packet;
-            final Runnable done = request.done;
+            final ReusableLatch done = request.done;
             if (done != null) {
-               done.run();
+               done.countDown();
             }
-            if (pack != null) {
-               replicatingChannel.send(pack, false);
-            }
+            replicatingChannel.send(pack, false);
          }
          replicatingChannel.flushConnection();
          assert !awaitingResume;
@@ -781,7 +764,7 @@ public final class ReplicationManager implements ActiveMQComponent {
                final boolean flowControlCheck = (packetsSent % flowControlSize == 0) || lastPacket;
                if (flowControlCheck) {
                   flushed.setCount(1);
-                  sendReplicatePacket(new ReplicationSyncFileMessage(content, pageStore, id, toSend, buffer), true, flushed::countDown);
+                  sendReplicatePacket(new ReplicationSyncFileMessage(content, pageStore, id, toSend, buffer), true, flushed);
                   awaitFlushOfReplicationStream(flushed);
                } else {
                   sendReplicatePacket(new ReplicationSyncFileMessage(content, pageStore, id, toSend, buffer), true);
