@@ -29,8 +29,9 @@ import org.slf4j.LoggerFactory;
 /**
  * A linked list implementation which allows multiple iterators to exist at the same time on the queue, and which see any
  * elements added or removed from the queue either directly or via iterators.
- * <p>
- * This class is not thread safe.
+ *
+ * Note: even though this class implements some synchronization, you are expected to ensure single thread access to this class
+ * by either using an executor or a locking pattern.
  */
 public class LinkedListImpl<E> implements LinkedList<E> {
 
@@ -65,7 +66,7 @@ public class LinkedListImpl<E> implements LinkedList<E> {
    }
 
    @Override
-   public void clearID() {
+   public synchronized void clearID() {
       if (nodeStore != null) {
          nodeStore.clear();
       }
@@ -73,7 +74,7 @@ public class LinkedListImpl<E> implements LinkedList<E> {
    }
 
    @Override
-   public void setNodeStore(NodeStore<E> supplier) {
+   public synchronized void setNodeStore(NodeStore<E> supplier) {
       this.nodeStore = supplier;
 
       try (Iterator iterator = (Iterator) iterator()) {
@@ -85,12 +86,12 @@ public class LinkedListImpl<E> implements LinkedList<E> {
       }
    }
 
-   private void putID(E element, Node<E> node) {
+   private synchronized void putID(E element, Node<E> node) {
       nodeStore.storeNode(element, node);
    }
 
    @Override
-   public void addHead(E e) {
+   public synchronized void addHead(E e) {
       Node<E> node = Node.with(e);
 
       node.next = head.next;
@@ -112,7 +113,7 @@ public class LinkedListImpl<E> implements LinkedList<E> {
    }
 
    @Override
-   public E peek() {
+   public synchronized E peek() {
       Node<E> current = head.next;
       if (current == null) {
          return null;
@@ -122,7 +123,7 @@ public class LinkedListImpl<E> implements LinkedList<E> {
    }
 
    @Override
-   public E get(int position) {
+   public synchronized E get(int position) {
       Node<E> current = head.next;
 
       for (int i = 0; i < position && current != null; i++) {
@@ -153,7 +154,7 @@ public class LinkedListImpl<E> implements LinkedList<E> {
 
 
    @Override
-   public void forEach(Consumer<E> consumer) {
+   public synchronized void forEach(Consumer<E> consumer) {
       try (LinkedListIterator<E> iter = iterator()) {
          while (iter.hasNext()) {
             E nextValue = iter.next();
@@ -181,7 +182,7 @@ public class LinkedListImpl<E> implements LinkedList<E> {
    }
 
    @Override
-   public void addTail(E e) {
+   public synchronized void addTail(E e) {
       if (size == 0) {
          addHead(e);
       } else {
@@ -199,7 +200,7 @@ public class LinkedListImpl<E> implements LinkedList<E> {
       }
    }
 
-   public void addSorted(E e) {
+   public synchronized void addSorted(E e) {
       final Node<E> localLastAdd = lastAdd;
 
       logger.trace("**** addSorted element {}", e);
@@ -320,7 +321,7 @@ public class LinkedListImpl<E> implements LinkedList<E> {
    }
 
    @Override
-   public E poll() {
+   public synchronized E poll() {
       Node<E> ret = head.next;
 
       if (ret != null) {
@@ -333,7 +334,7 @@ public class LinkedListImpl<E> implements LinkedList<E> {
    }
 
    @Override
-   public void clear() {
+   public synchronized void clear() {
       // Clearing all of the links between nodes is "unnecessary", but:
       // - helps a generational GC if the discarded nodes inhabit
       //   more than one generation
