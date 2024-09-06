@@ -1817,22 +1817,6 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
    }
 
    @Override
-   public synchronized MessageReference getReference(final long id1) throws ActiveMQException {
-      try (LinkedListIterator<MessageReference> iterator = iterator()) {
-
-         while (iterator.hasNext()) {
-            MessageReference ref = iterator.next();
-
-            if (ref.getMessage().getMessageID() == id1) {
-               return ref;
-            }
-         }
-
-         return null;
-      }
-   }
-
-   @Override
    public long getMessageCount() {
       if (pageSubscription != null) {
          // messageReferences will have depaged messages which we need to discount from the counter as they are

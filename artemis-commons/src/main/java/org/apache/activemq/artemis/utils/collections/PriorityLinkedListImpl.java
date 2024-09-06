@@ -69,7 +69,7 @@ public class PriorityLinkedListImpl<E> implements PriorityLinkedList<E> {
    }
 
    @Override
-   public void addHead(final E e, final int priority) {
+   public synchronized void addHead(final E e, final int priority) {
       checkHighest(priority);
 
       levels[priority].addHead(e);
@@ -78,7 +78,7 @@ public class PriorityLinkedListImpl<E> implements PriorityLinkedList<E> {
    }
 
    @Override
-   public void addTail(final E e, final int priority) {
+   public synchronized void addTail(final E e, final int priority) {
       checkHighest(priority);
 
       levels[priority].addTail(e);
@@ -87,7 +87,7 @@ public class PriorityLinkedListImpl<E> implements PriorityLinkedList<E> {
    }
 
    @Override
-   public void addSorted(E e, int priority) {
+   public synchronized void addSorted(E e, int priority) {
       checkHighest(priority);
 
       levels[priority].addSorted(e);
@@ -96,14 +96,14 @@ public class PriorityLinkedListImpl<E> implements PriorityLinkedList<E> {
    }
 
    @Override
-   public void setNodeStore(NodeStore<E> supplier) {
+   public synchronized void setNodeStore(NodeStore<E> supplier) {
       for (LinkedList<E> list : levels) {
          list.setNodeStore(supplier);
       }
    }
 
    @Override
-   public E removeWithID(String listID, long id) {
+   public synchronized E removeWithID(String listID, long id) {
       // we start at 4 just as an optimization, since most times we only use level 4 as the level on messages
       if (levels.length > 4) {
          for (int l = 4; l < levels.length; l++) {
@@ -127,7 +127,7 @@ public class PriorityLinkedListImpl<E> implements PriorityLinkedList<E> {
    }
 
    @Override
-   public E peek() {
+   public synchronized E peek() {
       for (LinkedListImpl<E> level : levels) {
          E value = level.peek();
          if (value != null) {
@@ -139,7 +139,7 @@ public class PriorityLinkedListImpl<E> implements PriorityLinkedList<E> {
    }
 
    @Override
-   public E poll() {
+   public synchronized E poll() {
       E e = null;
 
       // We are just using a simple prioritization algorithm:
@@ -172,7 +172,7 @@ public class PriorityLinkedListImpl<E> implements PriorityLinkedList<E> {
    }
 
    @Override
-   public void clear() {
+   public synchronized void clear() {
       for (LinkedListImpl<E> list : levels) {
          list.clear();
       }
@@ -189,17 +189,17 @@ public class PriorityLinkedListImpl<E> implements PriorityLinkedList<E> {
    }
 
    @Override
-   public int size() {
+   public synchronized int size() {
       return size;
    }
 
    @Override
-   public boolean isEmpty() {
+   public synchronized boolean isEmpty() {
       return size == 0;
    }
 
    @Override
-   public LinkedListIterator<E> iterator() {
+   public synchronized LinkedListIterator<E> iterator() {
       return new PriorityLinkedListIterator();
    }
 
@@ -221,22 +221,26 @@ public class PriorityLinkedListImpl<E> implements PriorityLinkedList<E> {
 
       @Override
       public void repeat() {
-         if (lastIter == null) {
-            throw new NoSuchElementException();
-         }
+         synchronized (PriorityLinkedListImpl.this) {
+            if (lastIter == null) {
+               throw new NoSuchElementException();
+            }
 
-         lastIter.repeat();
+            lastIter.repeat();
+         }
       }
 
       @Override
       public void close() {
-         if (!closed) {
-            closed = true;
-            lastIter = null;
+         synchronized (PriorityLinkedListImpl.this) {
+            if (!closed) {
+               closed = true;
+               lastIter = null;
 
-            for (LinkedListIterator<E> iter : cachedIters) {
-               if (iter != null) {
-                  iter.close();
+               for (LinkedListIterator<E> iter : cachedIters) {
+                  if (iter != null) {
+                     iter.close();
+                  }
                }
             }
          }
@@ -252,55 +256,61 @@ public class PriorityLinkedListImpl<E> implements PriorityLinkedList<E> {
 
       @Override
       public boolean hasNext() {
-         checkReset();
+         synchronized (PriorityLinkedListImpl.this) {
+            checkReset();
 
-         while (index >= 0) {
-            lastIter = cachedIters[index];
+            while (index >= 0) {
+               lastIter = cachedIters[index];
 
-            if (lastIter == null) {
-               lastIter = cachedIters[index] = levels[index].iterator();
+               if (lastIter == null) {
+                  lastIter = cachedIters[index] = levels[index].iterator();
+               }
+
+               boolean b = lastIter.hasNext();
+
+               if (b) {
+                  return true;
+               }
+
+               index--;
+
+               if (index < 0) {
+                  index = levels.length - 1;
+
+                  break;
+               }
             }
-
-            boolean b = lastIter.hasNext();
-
-            if (b) {
-               return true;
-            }
-
-            index--;
-
-            if (index < 0) {
-               index = levels.length - 1;
-
-               break;
-            }
+            return false;
          }
-         return false;
       }
 
       @Override
       public E next() {
-         if (lastIter == null) {
-            throw new NoSuchElementException();
-         }
+         synchronized (PriorityLinkedListImpl.this) {
+            if (lastIter == null) {
+               throw new NoSuchElementException();
+            }
 
-         return lastIter.next();
+            return lastIter.next();
+         }
       }
 
       @Override
       public void remove() {
-         if (lastIter == null) {
-            throw new NoSuchElementException();
+         synchronized (PriorityLinkedListImpl.this) {
+            if (lastIter == null) {
+               throw new NoSuchElementException();
+            }
+
+            lastIter.remove();
+
+            // If the last message in the current priority is removed then find the next highest
+            for (int i = index; i >= 0 && levels[i].size() == 0; i--) {
+               highestPriority = i;
+            }
+
+            exclusiveIncrementSize(-1);
          }
-
-         lastIter.remove();
-
-         // If the last message in the current priority is removed then find the next highest
-         for (int i = index; i >= 0 && levels[i].size() == 0; i--) {
-            highestPriority = i;
-         }
-
-         exclusiveIncrementSize(-1);
       }
    }
 }
