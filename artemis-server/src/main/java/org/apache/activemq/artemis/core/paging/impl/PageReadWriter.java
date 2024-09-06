@@ -132,7 +132,7 @@ public class PageReadWriter {
       int processedBytes = 0;
       ByteBuffer fileBuffer = null;
       ChannelBufferWrapper fileBufferWrapper;
-      int totalMessageCount = 0;
+      int currentMessageRead = 0;
 
       try {
 
@@ -198,37 +198,37 @@ public class PageReadWriter {
                               messages.accept(msg);
                            }
 
-                           msg.setPageNumber(pageId).setMessageNumber(totalMessageCount);
+                           msg.setPageNumber(pageId).setMessageNumber(currentMessageRead);
                         }
 
-                        totalMessageCount++;
+                        currentMessageRead++;
                         fileBuffer.position(endPosition + 1);
                         processedBytes = nextPosition;
 
                      } else {
 
                         if (suspectFileCallback != null) {
-                           suspectFileCallback.onSuspect(file.getFileName(), processedBytes, totalMessageCount + 1);
+                           suspectFileCallback.onSuspect(file.getFileName(), processedBytes, currentMessageRead + 1);
                         }
 
-                        return totalMessageCount;
+                        return currentMessageRead;
 
                      }
                   } else {
 
                      if (suspectFileCallback != null) {
-                        suspectFileCallback.onSuspect(file.getFileName(), processedBytes, totalMessageCount + 1);
+                        suspectFileCallback.onSuspect(file.getFileName(), processedBytes, currentMessageRead + 1);
                      }
 
-                     return totalMessageCount;
+                     return currentMessageRead;
                   }
                } else {
 
                   if (suspectFileCallback != null) {
-                     suspectFileCallback.onSuspect(file.getFileName(), processedBytes, totalMessageCount + 1);
+                     suspectFileCallback.onSuspect(file.getFileName(), processedBytes, currentMessageRead + 1);
                   }
 
-                  return totalMessageCount;
+                  return currentMessageRead;
                }
 
                remainingBytes = fileSize - processedBytes;
@@ -242,7 +242,7 @@ public class PageReadWriter {
             logger.trace("{} has {} bytes of unknown data at position = {}", file.getFileName(), remainingBytes, processedBytes);
          }
 
-         return totalMessageCount;
+         return currentMessageRead;
       } finally {
          if (fileBuffer != null) {
             fileFactory.releaseBuffer(fileBuffer);

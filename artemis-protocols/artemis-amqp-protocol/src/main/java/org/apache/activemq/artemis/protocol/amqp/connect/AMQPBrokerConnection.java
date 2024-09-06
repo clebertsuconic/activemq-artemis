@@ -347,6 +347,14 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
       }
    }
 
+
+   private void doBeforeConnect() {
+      for (AMQPBrokerConnectionElement connectionElement : brokerConnectConfiguration.getConnectionElements()) {
+
+      }
+   }
+
+
    private void doConnect() {
       try {
          connecting = true;
@@ -425,30 +433,7 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
 
             for (AMQPBrokerConnectionElement connectionElement : brokerConnectConfiguration.getConnectionElements()) {
                if (connectionElement.getType() == AMQPBrokerConnectionAddressType.MIRROR) {
-                  AMQPMirrorBrokerConnectionElement replica = (AMQPMirrorBrokerConnectionElement)connectionElement;
-
-                  final Queue queue = server.locateQueue(getMirrorSNF(replica));
-
-                  final boolean coreTunnelingEnabled = isCoreMessageTunnelingEnabled(replica);
-                  final Symbol[] desiredCapabilities;
-
-                  if (coreTunnelingEnabled) {
-                     desiredCapabilities = new Symbol[] {AMQPMirrorControllerSource.MIRROR_CAPABILITY,
-                                                         AmqpSupport.CORE_MESSAGE_TUNNELING_SUPPORT};
-                  } else {
-                     desiredCapabilities = new Symbol[] {AMQPMirrorControllerSource.MIRROR_CAPABILITY};
-                  }
-
-                  final Symbol[] requiredOfferedCapabilities = new Symbol[] {AMQPMirrorControllerSource.MIRROR_CAPABILITY};
-
-                  connectSender(queue,
-                                queue.getName().toString(),
-                                mirrorControllerSource::setLink,
-                                (r) -> AMQPMirrorControllerSource.validateProtocolData(protonProtocolManager.getReferenceIDSupplier(), r, getMirrorSNF(replica)),
-                                server.getNodeID().toString(),
-                                desiredCapabilities,
-                                null,
-                                requiredOfferedCapabilities);
+                  connectMirror((AMQPMirrorBrokerConnectionElement) connectionElement, protonProtocolManager);
                } else if (connectionElement.getType() == AMQPBrokerConnectionAddressType.FEDERATION) {
                   // Starting the Federation triggers rebuild of federation links
                   // based on current broker state.
@@ -467,6 +452,35 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
       } catch (Throwable e) {
          error(e);
       }
+   }
+
+   private void connectMirror(AMQPMirrorBrokerConnectionElement mirror,
+                          ProtonProtocolManager protonProtocolManager) {
+
+      SimpleString mirrorSNF = getMirrorSNF(mirror);
+
+      final Queue queue = server.locateQueue(mirrorSNF);
+
+      final boolean coreTunnelingEnabled = isCoreMessageTunnelingEnabled(mirror);
+      final Symbol[] desiredCapabilities;
+
+      if (coreTunnelingEnabled) {
+         desiredCapabilities = new Symbol[] {AMQPMirrorControllerSource.MIRROR_CAPABILITY,
+                                             AmqpSupport.CORE_MESSAGE_TUNNELING_SUPPORT};
+      } else {
+         desiredCapabilities = new Symbol[] {AMQPMirrorControllerSource.MIRROR_CAPABILITY};
+      }
+
+      final Symbol[] requiredOfferedCapabilities = new Symbol[] {AMQPMirrorControllerSource.MIRROR_CAPABILITY};
+
+      connectSender(queue,
+                    queue.getName().toString(),
+                    mirrorControllerSource::setLink,
+                    (r) -> AMQPMirrorControllerSource.validateProtocolData(protonProtocolManager.getReferenceIDSupplier(), r, mirrorSNF),
+                    server.getNodeID().toString(),
+                    desiredCapabilities,
+                    null,
+                    requiredOfferedCapabilities);
    }
 
    public void retryConnection() {

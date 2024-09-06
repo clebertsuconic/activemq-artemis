@@ -381,6 +381,8 @@ public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> im
          MessageReference ref = MessageReference.Factory.createReference(message, snfQueue);
          setProtocolData(ref, nodeID, idSupplier.getID(ref), context);
 
+         logger.info("message had {} routes", ref.getMessage().getRefCount());
+
          snfQueue.refUp(ref);
 
          if (tx != null) {
