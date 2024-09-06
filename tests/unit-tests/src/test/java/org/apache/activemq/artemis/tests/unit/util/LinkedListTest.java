@@ -35,14 +35,18 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import io.netty.util.collection.LongObjectHashMap;
+import org.apache.activemq.artemis.api.core.Pair;
 import org.apache.activemq.artemis.tests.util.ActiveMQTestBase;
 import org.apache.activemq.artemis.utils.RandomUtil;
+import org.apache.activemq.artemis.utils.ReusableLatch;
 import org.apache.activemq.artemis.utils.collections.LinkedListImpl;
 import org.apache.activemq.artemis.utils.collections.LinkedListIterator;
 import org.apache.activemq.artemis.utils.collections.NodeStore;
+import org.jctools.queues.SpmcArrayQueue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -482,6 +486,134 @@ public class LinkedListTest extends ActiveMQTestBase {
       } finally {
          executor.shutdownNow();
       }
+   }
+
+   @Test
+   public void testRaceAddRemove() throws Exception {
+      int elements = 50_000;
+      int threads = 10;
+      AtomicInteger errors = new AtomicInteger(0);
+      CountDownLatch done = new CountDownLatch(threads);
+      ReusableLatch pending = new ReusableLatch(elements);
+
+      SpmcArrayQueue<Pair<String, Long>> queueToRemove = new SpmcArrayQueue<>(elements);
+
+      ExecutorService executor = Executors.newFixedThreadPool(threads);
+      runAfter(executor::shutdownNow);
+
+      LinkedListImpl<ObservableNode> objs = new LinkedListImpl<>((o1, o2) -> o2.id - o1.id);
+
+      ListNodeStore nodeStore = new ListNodeStore();
+      objs.setNodeStore(nodeStore);
+      final String serverID = RandomUtil.randomString();
+
+      AtomicBoolean running = new AtomicBoolean(true);
+      runAfter(() -> running.set(false));
+
+      for (int t = 0; t < threads; t++) {
+         executor.execute(() -> {
+            try {
+               while (running.get()) {
+                  try {
+                     Pair<String, Long> elToRemove = queueToRemove.poll();
+                     if (elToRemove != null) {
+                        assertNotNull(objs.removeWithID(elToRemove.getA(), elToRemove.getB()));
+                        pending.countDown();
+                     }
+                  } catch (Throwable e) {
+                     logger.warn(e.getMessage(), e);
+                     errors.incrementAndGet();
+                  }
+               }
+            } finally {
+               done.countDown();
+            }
+         });
+      }
+
+      pending.setCount(elements);
+      for (long el = 1; el <= elements; el++) {
+         objs.addTail(new ObservableNode(serverID, (int)el));
+         queueToRemove.offer(new Pair<>(serverID, el));
+      }
+      assertTrue(pending.await(10, TimeUnit.SECONDS));
+      assertEquals(0, errors.get());
+      assertEquals(0, objs.size());
+
+      pending.setCount(elements);
+      for (long el = 1; el <= elements; el++) {
+         objs.addHead(new ObservableNode(serverID, (int)el));
+         queueToRemove.offer(new Pair<>(serverID, el));
+      }
+      assertTrue(pending.await(10, TimeUnit.SECONDS));
+      assertEquals(0, objs.size());
+      assertEquals(0, errors.get());
+
+      pending.setCount(elements);
+      for (long el = 1; el <= elements; el++) {
+         objs.addSorted(new ObservableNode(serverID, (int)el));
+         queueToRemove.offer(new Pair<>(serverID, el));
+      }
+      assertTrue(pending.await(10, TimeUnit.SECONDS));
+      assertEquals(0, objs.size());
+      assertEquals(0, errors.get());
+
+      running.set(false);
+      assertTrue(done.await(10, TimeUnit.SECONDS));
+
+   }
+
+   @Test
+   public void testRaceOnPoll() throws Exception {
+      int elements = 50_000;
+      int threads = 10;
+      AtomicInteger errors = new AtomicInteger(0);
+      CountDownLatch done = new CountDownLatch(threads);
+      ReusableLatch pending = new ReusableLatch(elements);
+
+      ExecutorService executor = Executors.newFixedThreadPool(threads);
+      runAfter(executor::shutdownNow);
+
+      LinkedListImpl<ObservableNode> objs = new LinkedListImpl<>((o1, o2) -> o2.id - o1.id);
+
+      ListNodeStore nodeStore = new ListNodeStore();
+      objs.setNodeStore(nodeStore);
+      final String serverID = RandomUtil.randomString();
+
+      AtomicBoolean running = new AtomicBoolean(true);
+      runAfter(() -> running.set(false));
+
+      for (int t = 0; t < threads; t++) {
+         executor.execute(() -> {
+            try {
+               while (running.get()) {
+                  try {
+                     ObservableNode node = objs.poll();
+                     if (node != null) {
+                        pending.countDown();
+                     }
+                  } catch (Throwable e) {
+                     logger.warn(e.getMessage(), e);
+                     errors.incrementAndGet();
+                  }
+               }
+            } finally {
+               done.countDown();
+            }
+         });
+      }
+
+      pending.setCount(elements);
+      for (long el = 1; el <= elements; el++) {
+         objs.addTail(new ObservableNode(serverID, (int)el));
+      }
+      assertTrue(pending.await(10, TimeUnit.SECONDS));
+      assertEquals(0, errors.get());
+      assertEquals(0, objs.size());
+
+      running.set(false);
+      assertTrue(done.await(10, TimeUnit.SECONDS));
+
    }
 
    @Test

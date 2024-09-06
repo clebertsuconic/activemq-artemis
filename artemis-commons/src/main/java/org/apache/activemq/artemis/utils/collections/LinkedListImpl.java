@@ -90,7 +90,7 @@ public class LinkedListImpl<E> implements LinkedList<E> {
    }
 
    @Override
-   public void addHead(E e) {
+   public synchronized void addHead(E e) {
       Node<E> node = Node.with(e);
 
       node.next = head.next;
@@ -181,7 +181,7 @@ public class LinkedListImpl<E> implements LinkedList<E> {
    }
 
    @Override
-   public void addTail(E e) {
+   public synchronized void addTail(E e) {
       if (size == 0) {
          addHead(e);
       } else {
@@ -199,7 +199,7 @@ public class LinkedListImpl<E> implements LinkedList<E> {
       }
    }
 
-   public void addSorted(E e) {
+   public synchronized void addSorted(E e) {
       final Node<E> localLastAdd = lastAdd;
 
       logger.trace("**** addSorted element {}", e);
@@ -320,7 +320,7 @@ public class LinkedListImpl<E> implements LinkedList<E> {
    }
 
    @Override
-   public E poll() {
+   public synchronized E poll() {
       Node<E> ret = head.next;
 
       if (ret != null) {
