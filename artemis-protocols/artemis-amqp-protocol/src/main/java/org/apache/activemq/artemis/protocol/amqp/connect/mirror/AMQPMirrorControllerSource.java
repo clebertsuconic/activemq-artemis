@@ -313,15 +313,16 @@ public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> im
    }
 
 
-   Message copyMessageForPaging(Message message) {
+   Message copyMessageForPaging(Message originalMessage) {
       long newID = server.getStorageManager().generateID();
-      long originalID = message.getMessageID();
+      long originalID = originalMessage.getMessageID();
       if (logger.isTraceEnabled()) {
          logger.trace("copying message {} as {}", originalID, newID);
       }
-      message = message.copy(newID, false);
-      message.setBrokerProperty(INTERNAL_ID_EXTRA_PROPERTY, originalID);
-      return message;
+      Message newMessage = originalMessage.copy(newID, false);
+      newMessage.setBrokerProperty(INTERNAL_ID_EXTRA_PROPERTY, originalID);
+      newMessage.setBrokerProperty(SimpleString.of("amq_original_refs"), originalMessage.getRefCount());
+      return newMessage;
    }
 
 
@@ -369,6 +370,7 @@ public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> im
             return;
          }
 
+
          if (message.isPaged()) {
             // if the source was paged, we copy the message
             // this is because the ACK will happen on different queues.
@@ -376,6 +378,10 @@ public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> im
             // otherwise it must be a copy
             // this will also work better with large messages
             message = copyMessageForPaging(message);
+         } else {
+            int refCount = message.getRefCount();
+            message.setBrokerProperty(SimpleString.of("amq_original_refs"), refCount);
+            message.reencode();
          }
 
          MessageReference ref = MessageReference.Factory.createReference(message, snfQueue);

@@ -738,6 +738,9 @@ public interface Message {
 
    int refUp();
 
+   default void setRefCount(int refs) {
+   }
+
    int refDown();
 
    int durableUp();

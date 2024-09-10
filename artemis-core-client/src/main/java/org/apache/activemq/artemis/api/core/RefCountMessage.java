@@ -305,6 +305,14 @@ public class RefCountMessage {
       return count;
    }
 
+   public void setRefCount(int count) {
+      if (parentRef != null) {
+         throw new UnsupportedOperationException("setRefCount not supported through parentRef");
+      }
+
+      REF_COUNT_UPDATER.set(this, count);
+   }
+
    public int refUp() {
       if (parentRef != null) {
          return parentRef.refUp();
