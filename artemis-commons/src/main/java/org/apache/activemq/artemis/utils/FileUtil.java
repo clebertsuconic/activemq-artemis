@@ -27,6 +27,8 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Stream;
 
 import org.apache.activemq.artemis.logs.ActiveMQUtilLogger;
 import org.slf4j.Logger;
@@ -99,6 +101,20 @@ public class FileUtil {
             return FileVisitResult.CONTINUE;
          }
       });
+   }
+
+
+   public static boolean find(File file, String pattern) throws Exception {
+      AtomicBoolean found = new AtomicBoolean(false);
+
+      try (Stream<String> lines = Files.lines(file.toPath())) {
+         lines.filter(l -> l.contains(pattern)).forEach(l -> {
+            logger.info("pattern {} found on file {}", pattern, file);
+            found.set(true);
+         });
+      }
+
+      return found.get();
    }
 
 

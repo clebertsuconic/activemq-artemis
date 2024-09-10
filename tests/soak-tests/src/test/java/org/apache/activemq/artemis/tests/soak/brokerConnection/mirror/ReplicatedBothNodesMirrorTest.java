@@ -57,6 +57,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -180,12 +181,13 @@ public class ReplicatedBothNodesMirrorTest extends SoakTestBase {
       cliCreateServer.createServer();
 
       Properties brokerProperties = new Properties();
-      brokerProperties.put("messageExpiryScanPeriod", "1000");
+      brokerProperties.put("messageExpiryScanPeriod", "100");
       brokerProperties.put("AMQPConnections." + connectionName + ".uri", mirrorURI);
       brokerProperties.put("AMQPConnections." + connectionName + ".retryInterval", "1000");
       brokerProperties.put("AMQPConnections." + connectionName + ".type", AMQPBrokerConnectionAddressType.MIRROR.toString());
       brokerProperties.put("AMQPConnections." + connectionName + ".connectionElements.mirror.sync", "false");
       brokerProperties.put("largeMessageSync", "false");
+      brokerProperties.put("addressSettings.#.expiryDelay", "604800000");
 
       if (paging) {
          brokerProperties.put("addressSettings.#.maxSizeMessages", "50");
@@ -244,16 +246,13 @@ public class ReplicatedBothNodesMirrorTest extends SoakTestBase {
       cliCreateServer.createServer();
 
       Properties brokerProperties = new Properties();
-      brokerProperties.put("messageExpiryScanPeriod", "1000");
+      brokerProperties.put("messageExpiryScanPeriod", "100");
       brokerProperties.put("AMQPConnections.mirror.uri", mirrorURI);
       brokerProperties.put("AMQPConnections.mirror.retryInterval", "1000");
       brokerProperties.put("AMQPConnections.mirror.type", AMQPBrokerConnectionAddressType.MIRROR.toString());
       brokerProperties.put("AMQPConnections.mirror.connectionElements.mirror.sync", "false");
       brokerProperties.put("largeMessageSync", "false");
-
-      brokerProperties.put("mirrorAckManagerQueueAttempts", "5");
-      brokerProperties.put("mirrorAckManagerPageAttempts", "500000");
-      brokerProperties.put("mirrorAckManagerRetryDelay", "500");
+      brokerProperties.put("addressSettings.#.expiryDelay", "604800000");
 
       // if we don't use pageTransactions we may eventually get a few duplicates
       brokerProperties.put("mirrorPageTransaction", "true");
@@ -347,6 +346,10 @@ public class ReplicatedBothNodesMirrorTest extends SoakTestBase {
       for (int i = 0; i < NUMBER_MESSAGES; i++) {
          assertTrue(receivedIDs.contains(i));
       }
+      assertFalse(FileUtil.find(new File(getServerLocation(DC1_NODE), "log/artemis.log"), "NullPointerException"));
+      assertFalse(FileUtil.find(new File(getServerLocation(DC2_NODE), "log/artemis.log"), "NullPointerException"));
+      assertFalse(FileUtil.find(new File(getServerLocation(DC1_REPLICA_NODE), "log/artemis.log"), "NullPointerException"));
+      assertFalse(FileUtil.find(new File(getServerLocation(DC2_REPLICA_NODE), "log/artemis.log"), "NullPointerException"));
    }
 
    @Test
@@ -362,7 +365,6 @@ public class ReplicatedBothNodesMirrorTest extends SoakTestBase {
 
    private void testQuickACK(final String protocol) throws Exception {
       createRealServers(false);
-
 
       SimpleManagement managementDC1 = new SimpleManagement(uri(DC1_IP), null, null);
       SimpleManagement managementDC2 = new SimpleManagement(uri(DC2_IP), null, null);
@@ -455,6 +457,10 @@ public class ReplicatedBothNodesMirrorTest extends SoakTestBase {
       Wait.assertEquals(0, () -> getMessageCount(managementDC2Backup, snfQueue));
       Wait.assertEquals(0, () -> getMessageCount(managementDC1, QUEUE_NAME));
       Wait.assertEquals(0, () -> getMessageCount(managementDC2Backup, QUEUE_NAME));
+      assertFalse(FileUtil.find(new File(getServerLocation(DC1_NODE), "log/artemis.log"), "NullPointerException"));
+      assertFalse(FileUtil.find(new File(getServerLocation(DC2_NODE), "log/artemis.log"), "NullPointerException"));
+      assertFalse(FileUtil.find(new File(getServerLocation(DC1_REPLICA_NODE), "log/artemis.log"), "NullPointerException"));
+      assertFalse(FileUtil.find(new File(getServerLocation(DC2_REPLICA_NODE), "log/artemis.log"), "NullPointerException"));
    }
 
    @Test
