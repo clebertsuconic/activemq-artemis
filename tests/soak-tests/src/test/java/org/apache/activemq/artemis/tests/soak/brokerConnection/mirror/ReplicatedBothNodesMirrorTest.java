@@ -81,7 +81,7 @@ public class ReplicatedBothNodesMirrorTest extends SoakTestBase {
     * This sleep happens right before the commit.
     */
    private static final String QUEUE_NAME = "queueTest";
-   private static final String QUEUE_EXPIRY_NAME = "queueTest";
+   private static final String QUEUE_EXPIRY_NAME = "queueTestExpiry";
 
    private static String body;
 
