@@ -419,7 +419,7 @@ public class ReplicatedBothNodesMirrorTest extends SoakTestBase {
             assertNotNull(textMessage);
             assertEquals(text, textMessage.getText());
 
-            if (i >= failbackAt) {
+            if (i % 10 == 0) {
                producerExpiry.send(session.createTextMessage("toExpiry"));
             }
          }
