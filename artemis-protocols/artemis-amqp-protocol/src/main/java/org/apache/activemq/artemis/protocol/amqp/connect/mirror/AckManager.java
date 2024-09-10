@@ -294,6 +294,7 @@ public class AckManager implements ActiveMQComponent {
                if (logger.isDebugEnabled()) {
                   logger.debug("Retried {} {} times, giving up on the entry now. Configuration Page Attempts={}", retry, retry.getPageAttempts(), configuration.getMirrorAckManagerPageAttempts());
                }
+               logger.info("Retried {} {} times, giving up on the entry now. Configuration Page Attempts={}", retry, retry.getPageAttempts(), configuration.getMirrorAckManagerPageAttempts());
                retries.remove(retry);
             } else {
                if (logger.isDebugEnabled()) {
