@@ -81,6 +81,7 @@ public class ReplicatedBothNodesMirrorTest extends SoakTestBase {
     * This sleep happens right before the commit.
     */
    private static final String QUEUE_NAME = "queueTest";
+   private static final String QUEUE_EXPIRY_NAME = "queueTest";
 
    private static String body;
 
@@ -386,6 +387,8 @@ public class ReplicatedBothNodesMirrorTest extends SoakTestBase {
          Queue queue = session.createQueue(QUEUE_NAME);
          MessageProducer producer = session.createProducer(queue);
          MessageConsumer consumer = session.createConsumer(queue);
+         MessageProducer producerExpiry = session.createProducer(session.createQueue(QUEUE_EXPIRY_NAME));
+         producerExpiry.setTimeToLive(200);
 
          for (int i = 0; i < totalMessages; i++) {
             if (i % 100 == 0) {
@@ -415,6 +418,10 @@ public class ReplicatedBothNodesMirrorTest extends SoakTestBase {
             TextMessage textMessage = (TextMessage) consumer.receive(5000);
             assertNotNull(textMessage);
             assertEquals(text, textMessage.getText());
+
+            if (i >= failbackAt) {
+               producerExpiry.send(session.createTextMessage("toExpiry"));
+            }
          }
 
       }
@@ -457,6 +464,8 @@ public class ReplicatedBothNodesMirrorTest extends SoakTestBase {
       Wait.assertEquals(0, () -> getMessageCount(managementDC2Backup, snfQueue));
       Wait.assertEquals(0, () -> getMessageCount(managementDC1, QUEUE_NAME));
       Wait.assertEquals(0, () -> getMessageCount(managementDC2Backup, QUEUE_NAME));
+      Wait.assertEquals(0, () -> getMessageCount(managementDC1, QUEUE_EXPIRY_NAME));
+      Wait.assertEquals(0, () -> getMessageCount(managementDC2Backup, QUEUE_EXPIRY_NAME));
       assertFalse(FileUtil.find(new File(getServerLocation(DC1_NODE), "log/artemis.log"), "NullPointerException"));
       assertFalse(FileUtil.find(new File(getServerLocation(DC2_NODE), "log/artemis.log"), "NullPointerException"));
       assertFalse(FileUtil.find(new File(getServerLocation(DC1_REPLICA_NODE), "log/artemis.log"), "NullPointerException"));
