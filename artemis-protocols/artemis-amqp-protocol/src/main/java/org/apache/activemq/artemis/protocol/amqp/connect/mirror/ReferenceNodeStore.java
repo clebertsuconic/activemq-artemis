@@ -16,15 +16,22 @@
  */
 package org.apache.activemq.artemis.protocol.amqp.connect.mirror;
 
+import java.lang.invoke.MethodHandles;
 import java.util.HashMap;
+import java.util.Map;
 
 import io.netty.util.collection.LongObjectHashMap;
 import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.core.server.MessageReference;
+import org.apache.activemq.artemis.protocol.amqp.logger.ActiveMQAMQPProtocolLogger;
 import org.apache.activemq.artemis.utils.collections.NodeStore;
 import org.apache.activemq.artemis.utils.collections.LinkedListImpl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ReferenceNodeStore implements NodeStore<MessageReference> {
+
+   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
    private final ReferenceIDSupplier idSupplier;
 
@@ -35,9 +42,39 @@ public class ReferenceNodeStore implements NodeStore<MessageReference> {
    // This is where the messages are stored by server id...
    HashMap<String, LongObjectHashMap<LinkedListImpl.Node<MessageReference>>> lists;
 
+   String name;
+
    String lruListID;
    LongObjectHashMap<LinkedListImpl.Node<MessageReference>> lruMap;
 
+   @Override
+   public synchronized void debug() {
+      logger.info("*** Start debug ReferenceNodeStore {} with {} elements", name, lists.size());
+      for (Map.Entry<String, LongObjectHashMap<LinkedListImpl.Node<MessageReference>>> entry: lists.entrySet()) {
+         logger.info("List {} has {} elements ", entry.getKey(), entry.getValue().size());
+         entry.getValue().forEach((l, v) -> {
+            logger.info("{} = {}", l, v);
+         });
+      }
+      logger.info("*** End debug ReferenceNodeStore {} with {} elements", name, lists.size());
+
+   }
+
+   @Override
+   public String toString() {
+      return "ReferenceNodeStore{" + "name='" + name + '\'' + ", lruListID='" + lruListID + '\'' + '}' + "@" + Integer.toHexString(System.identityHashCode(ReferenceNodeStore.this));
+   }
+
+   @Override
+   public NodeStore<MessageReference> setName(String name) {
+      this.name = name;
+      return this;
+   }
+
+   @Override
+   public String getName() {
+      return name;
+   }
 
    @Override
    public void storeNode(MessageReference element, LinkedListImpl.Node<MessageReference> node) {
@@ -46,36 +83,33 @@ public class ReferenceNodeStore implements NodeStore<MessageReference> {
       storeNode(list, id, node);
    }
 
-   private void storeNode(String serverID, long id, LinkedListImpl.Node<MessageReference> node) {
+   private synchronized void storeNode(String serverID, long id, LinkedListImpl.Node<MessageReference> node) {
       LongObjectHashMap<LinkedListImpl.Node<MessageReference>> nodesMap = getMap(serverID);
       if (nodesMap != null) {
-         synchronized (nodesMap) {
-            nodesMap.put(id, node);
+         LinkedListImpl.Node<MessageReference> previousNode = nodesMap.put(id, node);
+         if (previousNode != null) {
+            ActiveMQAMQPProtocolLogger.LOGGER.duplicateNodeStoreID(name, serverID, id, new Exception("trace"));
          }
       }
    }
 
    @Override
-   public void removeNode(MessageReference element, LinkedListImpl.Node<MessageReference> node) {
+   public synchronized void removeNode(MessageReference element, LinkedListImpl.Node<MessageReference> node) {
       long id = getID(element);
       String serverID = getServerID(element);
       LongObjectHashMap<LinkedListImpl.Node<MessageReference>> nodeMap = getMap(serverID);
       if (nodeMap != null) {
-         synchronized (nodeMap) {
-            nodeMap.remove(id);
-         }
+         nodeMap.remove(id);
       }
    }
 
    @Override
-   public LinkedListImpl.Node<MessageReference> getNode(String serverID, long id) {
+   public synchronized LinkedListImpl.Node<MessageReference> getNode(String serverID, long id) {
       LongObjectHashMap<LinkedListImpl.Node<MessageReference>> nodeMap = getMap(serverID);
 
       assert nodeMap != null;
 
-      synchronized (nodeMap) {
-         return nodeMap.get(id);
-      }
+      return nodeMap.get(id);
    }
 
    /** notice getMap should always return an instance. It should never return null. */
@@ -131,4 +165,6 @@ public class ReferenceNodeStore implements NodeStore<MessageReference> {
       }
       return size;
    }
+
+
 }

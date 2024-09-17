@@ -125,6 +125,7 @@ import org.apache.activemq.artemis.utils.critical.EmptyCriticalAnalyzer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.lang.invoke.MethodHandles;
+
 import org.jctools.queues.MpscUnboundedArrayQueue;
 
 import static org.apache.activemq.artemis.utils.collections.IterableStream.iterableOf;
@@ -218,12 +219,12 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
    // This is where messages are stored
    protected final PriorityLinkedList<MessageReference> messageReferences = new PriorityLinkedListImpl<>(QueueImpl.NUM_PRIORITIES, MessageReferenceImpl.getSequenceComparator());
 
-   private NodeStore<MessageReference> nodeStore;
+   private NodeStoreFactory<MessageReference> nodeStoreFactory;
 
    private void checkIDSupplier(NodeStoreFactory<MessageReference> nodeStoreFactory) {
-      if (this.nodeStore == null) {
-         this.nodeStore = nodeStoreFactory.newNodeStore();
-         messageReferences.setNodeStore(nodeStore);
+      if (this.nodeStoreFactory == null) {
+         this.nodeStoreFactory = nodeStoreFactory;
+         messageReferences.setNodeStore( () -> nodeStoreFactory.newNodeStore().setName(String.valueOf(name)));
       }
    }
 

@@ -229,7 +229,8 @@ public class TypedPropertiesTest {
       TypedPropertiesTest.assertEqualsTypeProperties(emptyProps, decodedProps);
    }
 
-   private static final SimpleString PROP_NAME = SimpleString.toSimpleString("TEST_PROP");
+   private static final SimpleString PROP_NAME = new SimpleString("TEST_PROP");
+   private static final SimpleString AMQP_NAME = new SimpleString("AMQP_NAME");
 
    @Test
    public void testCannotClearInternalPropertiesIfEmpty() {
@@ -243,6 +244,19 @@ public class TypedPropertiesTest {
       properties.putBooleanProperty(PROP_NAME, RandomUtil.randomBoolean());
       Assert.assertTrue(properties.clearInternalProperties());
       Assert.assertFalse(properties.containsProperty(PROP_NAME));
+   }
+
+   @Test
+   public void testClearAMQPPropertiesIfAny() {
+      TypedProperties properties = new TypedProperties(PROP_NAME::equals, AMQP_NAME::equals);
+      properties.putBooleanProperty(PROP_NAME, RandomUtil.randomBoolean());
+      properties.putBooleanProperty(AMQP_NAME, RandomUtil.randomBoolean());
+      assertTrue(properties.clearInternalProperties());
+      assertFalse(properties.containsProperty(PROP_NAME));
+      assertTrue(properties.containsProperty(AMQP_NAME));
+      assertTrue(properties.clearAMQPProperties());
+      assertFalse(properties.clearInternalProperties());
+      assertFalse(properties.containsProperty(AMQP_NAME));
    }
 
    @Test

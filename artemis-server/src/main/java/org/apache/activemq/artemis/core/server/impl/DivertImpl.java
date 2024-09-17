@@ -92,6 +92,10 @@ public class DivertImpl implements Divert {
 
    @Override
    public void route(final Message message, final RoutingContext context) throws Exception {
+
+      if (logger.isTraceEnabled()) {
+         logger.trace("Routing message {} through context {}", message, context);
+      }
       // We must make a copy of the message, otherwise things like returning credits to the page won't work
       // properly on ack, since the original address will be overwritten
 
@@ -108,6 +112,8 @@ public class DivertImpl implements Divert {
          if (!forwardAddress.equals(context.getAddress(message))) {
             long id = storageManager.generateID();
             copy = message.copy(id);
+
+            logger.trace("Divert {} copied message {}", uniqueName, copy);
 
             // This will set the original MessageId, and the original address
             copy.referenceOriginalMessage(message, this.getUniqueName());

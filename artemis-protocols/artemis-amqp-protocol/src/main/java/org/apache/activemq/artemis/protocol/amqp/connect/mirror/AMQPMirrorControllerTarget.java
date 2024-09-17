@@ -229,6 +229,7 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
          if (!latch.await(timeout, TimeUnit.MILLISECONDS)) {
             ActiveMQAMQPProtocolLogger.LOGGER.timedOutAckManager(timeout);
          }
+         logger.info("Flushed target");
       } catch (InterruptedException e) {
          ActiveMQAMQPProtocolLogger.LOGGER.interruptedAckManager(e);
          Thread.currentThread().interrupt();
@@ -408,6 +409,7 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
 
    @Override
    public void createQueue(QueueConfiguration queueConfiguration) throws Exception {
+      logger.info("CreateQueue {}", queueConfiguration);
       logger.debug("{} adding queue {}", server, queueConfiguration);
 
       try {
@@ -541,7 +543,7 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
       routingContext.setTransaction(transaction);
       duplicateIDCache.addToCache(duplicateIDBytes, transaction);
 
-      routingContext.clear().setMirrorSource(this).setLoadBalancingType(MessageLoadBalancingType.LOCAL_ONLY);
+      routingContext.clear().setMirrorSource(this).setLoadBalancingType(MessageLoadBalancingType.LOCAL_ONLY).disableDivert();
       if (targetQueues != null) {
          targetQueuesRouting(message, routingContext, targetQueues);
          server.getPostOffice().processRoute(message, routingContext, false);

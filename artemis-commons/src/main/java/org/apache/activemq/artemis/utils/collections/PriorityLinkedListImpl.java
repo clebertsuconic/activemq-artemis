@@ -16,10 +16,15 @@
  */
 package org.apache.activemq.artemis.utils.collections;
 
+import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Array;
 import java.util.Comparator;
 import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
+import java.util.function.Supplier;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A priority linked list implementation
@@ -27,6 +32,8 @@ import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
  * It implements this by maintaining an individual LinkedBlockingDeque for each priority level.
  */
 public class PriorityLinkedListImpl<E> implements PriorityLinkedList<E> {
+
+   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
    private static final AtomicIntegerFieldUpdater<PriorityLinkedListImpl> SIZE_UPDATER = AtomicIntegerFieldUpdater.newUpdater(PriorityLinkedListImpl.class, "size");
 
@@ -96,9 +103,10 @@ public class PriorityLinkedListImpl<E> implements PriorityLinkedList<E> {
    }
 
    @Override
-   public synchronized void setNodeStore(NodeStore<E> supplier) {
+   public synchronized void setNodeStore(Supplier<NodeStore<E>> supplier) {
       for (LinkedList<E> list : levels) {
-         list.setNodeStore(supplier);
+         NodeStore<E> nodeStore = supplier.get();
+         list.setNodeStore(nodeStore);
       }
    }
 

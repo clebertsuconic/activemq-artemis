@@ -22,6 +22,9 @@ package org.apache.activemq.artemis.utils.collections;
  */
 public interface NodeStore<E> {
 
+   default void debug() {
+   }
+
    /** When you store the node, make sure you find what is the ID and ListID for the element you are storing
     *  as later one you will need to provide the node based on list and id as specified on {@link #getNode(String, long)} */
    void storeNode(E element, LinkedListImpl.Node<E> node);
@@ -29,6 +32,14 @@ public interface NodeStore<E> {
    LinkedListImpl.Node<E> getNode(String listID, long id);
 
    void removeNode(E element, LinkedListImpl.Node<E> node);
+
+   default NodeStore<E> setName(String name) {
+      return this;
+   }
+
+   default String getName() {
+      return null;
+   }
 
    /** this is meant to be a quick help to Garbage Collection.
     *  Whenever the IDSupplier list is being cleared, you should first call the clear method and

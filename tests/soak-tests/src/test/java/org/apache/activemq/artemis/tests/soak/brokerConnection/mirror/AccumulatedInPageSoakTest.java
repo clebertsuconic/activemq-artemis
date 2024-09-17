@@ -37,6 +37,7 @@ import org.apache.activemq.artemis.api.core.management.SimpleManagement;
 import org.apache.activemq.artemis.core.config.amqpBrokerConnectivity.AMQPBrokerConnectionAddressType;
 import org.apache.activemq.artemis.tests.soak.SoakTestBase;
 import org.apache.activemq.artemis.tests.util.CFUtil;
+import org.apache.activemq.artemis.tests.util.RandomUtil;
 import org.apache.activemq.artemis.util.ServerUtil;
 import org.apache.activemq.artemis.utils.Wait;
 import org.apache.activemq.artemis.utils.cli.helper.HelperCreate;
@@ -100,6 +101,9 @@ public class AccumulatedInPageSoakTest extends SoakTestBase {
 
       brokerProperties.put("addressSettings.#.maxSizeBytes", Integer.toString(100 * 1024 * 1024));
       brokerProperties.put("addressSettings.#.addressFullMessagePolicy", "PAGING");
+      brokerProperties.put("mirrorAckManagerQueueAttempts", "20");
+      brokerProperties.put("mirrorAckManagerPageAttempts", "20");
+      brokerProperties.put("mirrorAckManagerRetryDelay", "100");
 
       File brokerPropertiesFile = new File(serverLocation, "broker.properties");
       saveProperties(brokerProperties, brokerPropertiesFile);
@@ -168,6 +172,7 @@ public class AccumulatedInPageSoakTest extends SoakTestBase {
          MessageProducer producer = session.createProducer(queue);
 
          for (int i = 0; i < numberOfMessages; i++) {
+            producer.setPriority(RandomUtil.randomInterval(0, 9));
             producer.send(session.createTextMessage(body));
             if (i > 0 && i % commitInterval == 0) {
                logger.info("Sent {}", i);
@@ -183,6 +188,8 @@ public class AccumulatedInPageSoakTest extends SoakTestBase {
       startDC2();
       Wait.assertEquals(0L, () -> getMessageCount(simpleManagementDC1A, SNF_QUEUE), 240_000, 500);
       Wait.assertEquals(0L, () -> getMessageCount(simpleManagementDC2A, QUEUE_NAME), 60_000, 500);
+      LogAssert.assertServerLogsForMirror(getFileServerLocation(DC2_NODE_A));
+      LogAssert.assertServerLogsForMirror(getFileServerLocation(DC1_NODE_A));
 
    }
 
