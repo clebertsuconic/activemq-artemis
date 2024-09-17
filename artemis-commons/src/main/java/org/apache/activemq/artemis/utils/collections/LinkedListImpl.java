@@ -23,6 +23,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.function.Consumer;
 
+import org.apache.activemq.artemis.logs.ActiveMQUtilLogger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -138,17 +139,21 @@ public class LinkedListImpl<E> implements LinkedList<E> {
 
    @Override
    public synchronized E removeWithID(String listID, long id) {
-      assert nodeStore != null; // it is assumed the code will call setNodeStore before callin removeWithID
+      try {
+         assert nodeStore != null; // it is assumed the code will call setNodeStore before calling removeWithID
 
-      Node<E> node = nodeStore.getNode(listID, id);
+         Node<E> node = nodeStore.getNode(listID, id);
 
-      if (node == null) {
-         return null;
+         if (node == null) {
+            return null;
+         }
+
+         removeAfter(node.prev);
+         return node.val();
+      } catch (RuntimeException e) {
+         ActiveMQUtilLogger.LOGGER.runtimeExceptionRemoveWithID(listID, id, nodeStore, e);
+         throw e;
       }
-
-      // the node will always have a prev element
-      removeAfter(node.prev);
-      return node.val();
    }
 
 

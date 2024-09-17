@@ -83,4 +83,7 @@ public interface ActiveMQUtilLogger {
 
    @LogMessage(id = 202016, value = "Could not list files to clean up in {}", level = LogMessage.Level.WARN)
    void failedListFilesToCleanup(String path);
+
+   @LogMessage(id = 202017, value = "LinkedList::removeWithID failed with a RuntimeException, listID={}, messageID={}, nodeStore={}", level = LogMessage.Level.WARN)
+   void runtimeExceptionRemoveWithID(String listID, long messageID, Object nodeStore, Throwable exception);
 }
