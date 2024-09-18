@@ -20,7 +20,7 @@
    <groupId>org.apache.activemq</groupId>
    <artifactId>artemis-project</artifactId>
    <packaging>pom</packaging>
-   <version>2.33.0</version>
+   <version>2.33.0.no-more-npe</version>
 
    <parent>
       <groupId>org.apache</groupId>
@@ -75,7 +75,7 @@
    <url>https://activemq.apache.org/components/artemis/</url>
 
    <properties>
-      <amq.broker.version>7.12.2</amq.broker.version>
+      <amq.broker.version>7.12.2.no.more.NPE</amq.broker.version>
       <artemis.prometheus.metrics.plugin.version>2.1.0.redhat-00001</artemis.prometheus.metrics.plugin.version>
       <maven.compiler.source>11</maven.compiler.source>
       <maven.compiler.target>11</maven.compiler.target>
@@ -283,7 +283,7 @@
       <connection>scm:git:https://gitbox.apache.org/repos/asf/activemq-artemis.git</connection>
       <developerConnection>scm:git:https://gitbox.apache.org/repos/asf/activemq-artemis.git</developerConnection>
       <url>https://github.com/apache/activemq-artemis</url>
-      <tag>2.33.0</tag>
+      <tag>2.33.0.no-more-npe</tag>
    </scm>
 
    <issueManagement>
