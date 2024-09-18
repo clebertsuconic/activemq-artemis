@@ -19,7 +19,6 @@ package org.apache.activemq.artemis.tests.soak.brokerConnection.mirror;
 
 import javax.jms.Connection;
 import javax.jms.ConnectionFactory;
-import javax.jms.Message;
 import javax.jms.MessageConsumer;
 import javax.jms.MessageProducer;
 import javax.jms.Session;
@@ -41,15 +40,11 @@ import org.apache.activemq.artemis.utils.FileUtil;
 import org.apache.activemq.artemis.utils.TestParameters;
 import org.apache.activemq.artemis.utils.Wait;
 import org.apache.activemq.artemis.utils.cli.helper.HelperCreate;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
+import org.junit.After;
+import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 
 public class DivertSoakMirrorTest extends SoakTestBase {
 
@@ -79,7 +74,7 @@ public class DivertSoakMirrorTest extends SoakTestBase {
    volatile Process processDC1;
    volatile Process processDC2;
 
-   @AfterEach
+   @After
    public void destroyServers() throws Exception {
       if (processDC1 != null) {
          processDC1.destroyForcibly();
@@ -339,7 +334,7 @@ public class DivertSoakMirrorTest extends SoakTestBase {
                try (Connection connection = connectionFactoryConsume.createConnection()) {
                   try (Session session = connection.createSession(true, Session.SESSION_TRANSACTED)) {
                      try (MessageConsumer consumer = session.createConsumer(session.createQueue("Div." + div))) {
-                        assertNull(consumer.receiveNoWait(), "div " + div + " received a message");
+                        assertNull(consumer.receiveNoWait());
                      }
                      session.commit();
                   }

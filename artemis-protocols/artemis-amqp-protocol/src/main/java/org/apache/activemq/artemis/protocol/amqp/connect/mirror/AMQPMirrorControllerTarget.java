@@ -229,7 +229,6 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
          if (!latch.await(timeout, TimeUnit.MILLISECONDS)) {
             ActiveMQAMQPProtocolLogger.LOGGER.timedOutAckManager(timeout);
          }
-         logger.info("Flushed target");
       } catch (InterruptedException e) {
          ActiveMQAMQPProtocolLogger.LOGGER.interruptedAckManager(e);
          Thread.currentThread().interrupt();

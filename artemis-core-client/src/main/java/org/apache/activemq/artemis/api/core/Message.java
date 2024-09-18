@@ -80,7 +80,7 @@ public interface Message {
    // The value is somewhat higher on 64 bit architectures, probably due to different alignment
    int memoryOffset = 352;
 
-   SimpleString PREFIX_AMQP_ANNOTATIONS = SimpleString.of("x-opt-amq");
+   SimpleString PREFIX_AMQP_ANNOTATIONS = new SimpleString("x-opt-amq");
 
    // We use properties to establish routing context on clustering.
    // However if the client resends the message after receiving, it needs to be removed, so we mark these internal

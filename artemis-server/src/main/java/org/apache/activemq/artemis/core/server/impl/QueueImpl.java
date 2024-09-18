@@ -3065,6 +3065,9 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
    }
 
    private int getPriority(MessageReference ref) {
+      if (isInternalQueue()) {
+         return 4;
+      }
       try {
          return ref.getMessage().getPriority();
       } catch (Throwable e) {

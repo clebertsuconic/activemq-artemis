@@ -101,9 +101,9 @@ public class AccumulatedInPageSoakTest extends SoakTestBase {
 
       brokerProperties.put("addressSettings.#.maxSizeBytes", Integer.toString(100 * 1024 * 1024));
       brokerProperties.put("addressSettings.#.addressFullMessagePolicy", "PAGING");
-      brokerProperties.put("mirrorAckManagerQueueAttempts", "20");
-      brokerProperties.put("mirrorAckManagerPageAttempts", "20");
-      brokerProperties.put("mirrorAckManagerRetryDelay", "100");
+      //brokerProperties.put("mirrorAckManagerQueueAttempts", "20");
+      //brokerProperties.put("mirrorAckManagerPageAttempts", "20");
+      //brokerProperties.put("mirrorAckManagerRetryDelay", "100");
 
       File brokerPropertiesFile = new File(serverLocation, "broker.properties");
       saveProperties(brokerProperties, brokerPropertiesFile);

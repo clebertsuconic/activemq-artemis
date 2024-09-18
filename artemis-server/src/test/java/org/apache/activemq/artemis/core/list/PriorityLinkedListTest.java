@@ -941,7 +941,7 @@ public final class PriorityLinkedListTest extends Assert {
          }
       }
 
-      list.setNodeStore(new WibbleNodeStore());
+      list.setNodeStore(WibbleNodeStore::new);
 
       // remove every 3rd
       for (int i = 3; i <= 3000; i += 3) {
