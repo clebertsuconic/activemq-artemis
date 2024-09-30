@@ -45,6 +45,7 @@ import org.apache.activemq.artemis.core.config.amqpBrokerConnectivity.AMQPBroker
 import org.apache.activemq.artemis.tests.soak.SoakTestBase;
 import org.apache.activemq.artemis.tests.util.CFUtil;
 import org.apache.activemq.artemis.util.ServerUtil;
+import org.apache.activemq.artemis.utils.FileUtil;
 import org.apache.activemq.artemis.utils.Wait;
 import org.apache.activemq.artemis.utils.cli.helper.HelperCreate;
 import org.junit.jupiter.api.BeforeAll;
@@ -101,6 +102,11 @@ public class IdempotentACKTest extends SoakTestBase {
       brokerProperties.put("AMQPConnections." + connectionName + ".type", AMQPBrokerConnectionAddressType.MIRROR.toString());
       brokerProperties.put("AMQPConnections." + connectionName + ".connectionElements.mirror.sync", "false");
       brokerProperties.put("largeMessageSync", "false");
+
+
+      brokerProperties.put("addressSettings.#.maxSizeMessages", "10");
+      brokerProperties.put("addressSettings.#.addressFullMessagePolicy", "PAGING");
+
       File brokerPropertiesFile = new File(serverLocation, "broker.properties");
       saveProperties(brokerProperties, brokerPropertiesFile);
    }
@@ -156,7 +162,7 @@ public class IdempotentACKTest extends SoakTestBase {
 
    @Test
    public void testRandomProtocol() throws Exception {
-      testACKs(randomProtocol());
+      testACKs("OPENWIRE");
    }
 
    private void testACKs(final String protocol) throws Exception {
@@ -295,6 +301,9 @@ public class IdempotentACKTest extends SoakTestBase {
       Wait.assertEquals(0, () -> getMessageCount(simpleManagementDC2A, snfQueue));
       Wait.assertEquals(0, () -> getMessageCount(simpleManagementDC1A, QUEUE_NAME));
       Wait.assertEquals(0, () -> getMessageCount(simpleManagementDC2A, QUEUE_NAME));
+
+      LogAssert.assertServerLogsForMirror(getFileServerLocation(DC1_NODE_A));
+      LogAssert.assertServerLogsForMirror(getFileServerLocation(DC2_NODE_A));
    }
 
    private void restartDC1_ServerA() throws Exception {

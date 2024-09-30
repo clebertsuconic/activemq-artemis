@@ -203,7 +203,10 @@ public class PageSubscriptionCounterImpl extends BasePagingCounter {
       }
 
       if (isRebuilding()) {
-         recordedValueUpdater.addAndGet(this, add);
+         long newValue = recordedValueUpdater.addAndGet(this, add);
+         if (newValue < 0) {
+            logger.warn("Value was negative with {}", newValue, new Exception("Trace"));
+         }
          recordedSizeUpdater.addAndGet(this, size);
       }
    }

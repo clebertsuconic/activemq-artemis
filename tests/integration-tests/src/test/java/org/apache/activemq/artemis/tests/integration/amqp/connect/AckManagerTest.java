@@ -91,6 +91,96 @@ public class AckManagerTest extends ActiveMQTestBase {
       server1.start();
    }
 
+
+   @Test
+   public void testValidateDoubleAck() throws Throwable {
+
+      String protocol = "AMQP";
+
+      SimpleString TOPIC_NAME = SimpleString.of("tp" + RandomUtil.randomString());
+
+      server1.addAddressInfo(new AddressInfo(TOPIC_NAME).addRoutingType(RoutingType.MULTICAST));
+
+      ConnectionFactory connectionFactory = CFUtil.createConnectionFactory(protocol, "tcp://localhost:61616");
+
+      // creating a subscriptions
+      try (Connection connection = connectionFactory.createConnection()) {
+         connection.setClientID("myClient");
+         Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+         Topic topic = session.createTopic(TOPIC_NAME.toString());
+         session.createDurableSubscriber(topic, "mySub");
+      }
+
+      int numberOfMessages = 500;
+
+      Queue mySub = server1.locateQueue("myClient.mySub");
+      assertNotNull(mySub);
+
+      mySub.pause();
+
+      PagingStore store = server1.getPagingManager().getPageStore(TOPIC_NAME);
+      store.startPaging();
+      store.disableCleanup();
+
+      try (Connection connection = connectionFactory.createConnection()) {
+         Session session = connection.createSession(true, Session.SESSION_TRANSACTED);
+         Topic topic = session.createTopic(TOPIC_NAME.toString());
+         MessageProducer producer = session.createProducer(topic);
+
+         for (int i = 0; i < numberOfMessages; i++) {
+            Message m = session.createTextMessage("hello " + i);
+            m.setIntProperty("i", i);
+            producer.send(m);
+            if ((i + 1) % 100 == 0) {
+               session.commit();
+            }
+         }
+         session.commit();
+      }
+
+      ReferenceIDSupplier referenceIDSupplier = new ReferenceIDSupplier(server1);
+
+      AckManager ackManager = AckManagerProvider.getManager(server1);
+
+      ackManager.stop();
+
+      for (long pageID = store.getFirstPage(); pageID <= store.getCurrentWritingPage(); pageID++) {
+         Page page = store.usePage(pageID);
+         try {
+            page.getMessages().forEach(pagedMessage -> {
+               ackManager.addRetry(referenceIDSupplier.getServerID(pagedMessage.getMessage()), mySub, referenceIDSupplier.getID(pagedMessage.getMessage()), AckReason.NORMAL);
+            });
+         } finally {
+            page.usageDown();
+         }
+      }
+
+      ackManager.start();
+
+      Wait.assertEquals(0L, mySub::getMessageCount, 5000, 100);
+
+      ackManager.stop();
+
+      for (long pageID = store.getFirstPage(); pageID <= store.getCurrentWritingPage(); pageID++) {
+         Page page = store.usePage(pageID);
+         try {
+            page.getMessages().forEach(pagedMessage -> {
+               logger.info("Adding retry {}", pagedMessage);
+               ackManager.addRetry(referenceIDSupplier.getServerID(pagedMessage.getMessage()), mySub, referenceIDSupplier.getID(pagedMessage.getMessage()), AckReason.NORMAL);
+            });
+         } finally {
+            page.usageDown();
+         }
+      }
+
+      ackManager.start();
+      Thread.sleep(2000);
+      Wait.assertEquals(0L, mySub::getMessageCount, 5000, 100);
+
+   }
+
+
+
    @Test
    public void testDirectACK() throws Throwable {
 
