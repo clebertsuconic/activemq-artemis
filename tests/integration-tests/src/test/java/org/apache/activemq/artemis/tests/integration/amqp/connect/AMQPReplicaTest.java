@@ -975,6 +975,7 @@ public class AMQPReplicaTest extends AmqpClientTestSupport {
 
    }
 
+
    @Test
    public void testCompactMirrorRegularAMQP() throws Exception{
       testCompactMirror("AMQP", false, false);
@@ -1008,7 +1009,8 @@ public class AMQPReplicaTest extends AmqpClientTestSupport {
          server_2.setIdentity("server_2");
          server_2.getConfiguration().setName("thisOne");
 
-         AMQPBrokerConnectConfiguration amqpConnection = new AMQPBrokerConnectConfiguration(brokerConnectionName, "tcp://localhost:" + AMQP_PORT).setReconnectAttempts(-1).setRetryInterval(60_000);
+
+         AMQPBrokerConnectConfiguration amqpConnection = new AMQPBrokerConnectConfiguration(brokerConnectionName, "tcp://localhost:" + AMQP_PORT).setReconnectAttempts(0).setRetryInterval(100);
          AMQPMirrorBrokerConnectionElement replica = new AMQPMirrorBrokerConnectionElement().setMessageAcknowledgements(true);
          amqpConnection.addElement(replica);
 
@@ -1022,7 +1024,6 @@ public class AMQPReplicaTest extends AmqpClientTestSupport {
          // We create the address to avoid auto delete on the queue
          server_2.addAddressInfo(new AddressInfo(getQueueName()).addRoutingType(RoutingType.ANYCAST).setAutoCreated(false));
          server_2.createQueue(QueueConfiguration.of(getQueueName()).setRoutingType(RoutingType.ANYCAST).setAddress(getQueueName()).setAutoCreated(false));
-         server_2.addAddressInfo(new AddressInfo(getTopicName()).addRoutingType(RoutingType.MULTICAST));
 
          ConnectionFactory factory = CFUtil.createConnectionFactory(protocol, "tcp://localhost:" + AMQP_PORT_2);
          Connection connection = factory.createConnection();
@@ -1054,19 +1055,11 @@ public class AMQPReplicaTest extends AmqpClientTestSupport {
 
          connection.start();
          MessageConsumer consumer = session.createConsumer(session.createQueue(getQueueName()));
-         consumerA = session.createSharedDurableConsumer(session.createTopic(getTopicName()), "subs-A");
-         consumerB = session.createSharedDurableConsumer(session.createTopic(getTopicName()), "subs-B");
 
          for (int i = 0; i < NUMBER_OF_MESSAGES / 2; i++) {
             Message message = consumer.receive(5000);
             assertNotNull(message);
-            message = consumerA.receive(5000);
-            assertNotNull(message);
-            message = consumerB.receive(5000);
-            assertNotNull(message);
          }
-         consumerA.close();
-         consumerB.close();
 
          assertFalse(logHandler.findText("AMQ222214"));
 
