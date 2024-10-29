@@ -1055,10 +1055,14 @@ public class AMQPReplicaTest extends AmqpClientTestSupport {
 
          connection.start();
          MessageConsumer consumer = session.createConsumer(session.createQueue(getQueueName()));
+         consumerA = session.createSharedDurableConsumer(session.createTopic(getTopicName()), "subs-A");
+         consumerB = session.createSharedDurableConsumer(session.createTopic(getTopicName()), "subs-B");
 
          for (int i = 0; i < NUMBER_OF_MESSAGES / 2; i++) {
             Message message = consumer.receive(5000);
             assertNotNull(message);
+            assertNotNull(consumerA.receive(5000));
+            assertNotNull(consumerB.receive(5000));
          }
 
          assertFalse(logHandler.findText("AMQ222214"));

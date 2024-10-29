@@ -20,6 +20,7 @@ package org.apache.activemq.artemis.protocol.amqp.connect.mirror;
 import java.lang.invoke.MethodHandles;
 
 import org.apache.activemq.artemis.api.core.Message;
+import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.server.MessageReference;
 import org.apache.activemq.artemis.core.server.Queue;
@@ -34,24 +35,27 @@ public class MirrorSourceCompactor {
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
    final StorageManager storageManager;
-   final Queue queue;
+   final Queue snfQueue;
 
-   public MirrorSourceCompactor(StorageManager storageManager, Queue queue) {
+   public MirrorSourceCompactor(StorageManager storageManager, Queue snfQueue) {
       this.storageManager = storageManager;
-      this.queue = queue;
+      this.snfQueue = snfQueue;
    }
 
    // To be executed within the Queue's executor
    public void compact() throws Exception {
       Transaction tx = new TransactionImpl(storageManager);
-      logger.info("Queue {} has {} messages", queue.getName(), queue.getMessageCount());
-      try (LinkedListIterator<MessageReference> messages = queue.iterator()) {
+      logger.info("Queue {} has {} messages", snfQueue.getName(), snfQueue.getMessageCount());
+      try (LinkedListIterator<MessageReference> messages = snfQueue.iterator()) {
          while (messages.hasNext()) {
             MessageReference ref = messages.next();
             Message message = ref.getMessage();
 
-            logger.info("compacting message with {} references, message={}", message.getRefCount(), message);
-
+            if (message.getAddress().equals(String.valueOf(snfQueue.getAddress()))) {
+               logger.info("snf {}", message);
+            } else {
+               logger.info("compacting message with {} references, message={}", message.getRefCount(), message);
+            }
          }
       }
    }
