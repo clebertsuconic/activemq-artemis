@@ -22,6 +22,7 @@ import java.lang.invoke.MethodHandles;
 import java.sql.Connection;
 import java.util.Properties;
 
+import org.apache.activemq.artemis.newjdbc.driver.AsyncJDBCDriver;
 import org.apache.activemq.artemis.newjdbc.driver.SyncJDBCDriver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,6 +52,12 @@ public class PropertySQLProvider implements SQLProvider {
    }
 
    @Override
+   public AsyncJDBCDriver createStoreMessagesDriver(Connection connection) throws Exception {
+      return new AsyncJDBCDriver(connection, getInsertMessagesTable());
+   }
+
+
+   @Override
    public String getCreateMessagesTable() {
       return sqlProperties.getProperty("CREATE_MESSAGE_TABLE", "CREATE TABLE Messages (messageId BIGINT PRIMARY KEY, messageData BLOB)");
    }
@@ -72,7 +79,8 @@ public class PropertySQLProvider implements SQLProvider {
       private SQLDialect dialect;
 
       public enum SQLDialect {
-         GENERIC("generic", "generic");
+         GENERIC("generic", "generic"),
+         DERBY("derby", "derby");
 
          private final String key;
          private final String[] driverKeys;

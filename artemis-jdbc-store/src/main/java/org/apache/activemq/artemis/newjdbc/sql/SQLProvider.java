@@ -19,9 +19,13 @@ package org.apache.activemq.artemis.newjdbc.sql;
 import java.sql.Connection;
 import java.sql.SQLException;
 
+import org.apache.activemq.artemis.newjdbc.driver.AsyncJDBCDriver;
+
 public interface SQLProvider {
 
    void createTables(Connection connection) throws Exception;
+
+   AsyncJDBCDriver createStoreMessagesDriver(Connection connection) throws Exception;
 
    String getCreateMessagesTable();
 
