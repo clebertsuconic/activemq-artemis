@@ -52,7 +52,6 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.mockito.Spy;
 
@@ -111,7 +110,7 @@ public class AMQPTunneledCoreMessageWriterTest {
 
       when(protonSender.getLocalState()).thenReturn(EndpointState.CLOSED);
 
-      writer.open(Mockito.mock(MessageReference.class));
+      writer.open();
 
       try {
          writer.writeBytes(reference);
@@ -172,7 +171,7 @@ public class AMQPTunneledCoreMessageWriterTest {
          return null;
       }).when(message).persist(any(ActiveMQBuffer.class));
 
-      writer.open(Mockito.mock(MessageReference.class));
+      writer.open();
 
       try {
          writer.writeBytes(reference);

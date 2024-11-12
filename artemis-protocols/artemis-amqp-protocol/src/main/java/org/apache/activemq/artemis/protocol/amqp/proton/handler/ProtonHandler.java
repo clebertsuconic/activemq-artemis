@@ -95,8 +95,6 @@ public class ProtonHandler extends ProtonInitializable implements SaslListener {
 
    boolean flushInstantly = false;
 
-   volatile boolean readable = true;
-
    /** afterFlush and afterFlushSet properties
     *  are set by afterFlush methods.
     *  This is to be called after the flush loop.
@@ -109,15 +107,6 @@ public class ProtonHandler extends ProtonInitializable implements SaslListener {
     *  */
    private Runnable afterFlush;
    protected Set<Runnable> afterFlushSet;
-
-   public boolean isReadable() {
-      return readable;
-   }
-
-   public ProtonHandler setReadable(boolean readable) {
-      this.readable = readable;
-      return this;
-   }
 
    @Override
    public void initialize() throws Exception {
@@ -401,6 +390,11 @@ public class ProtonHandler extends ProtonInitializable implements SaslListener {
          flush();
       });
 
+      /*try {
+         Thread.sleep(1000);
+      } catch (Exception e) {
+         e.printStackTrace();
+      } */
       // this needs to be done in two steps
       // we first flush what we have to the client
       // after flushed, we close the local connection
@@ -577,7 +571,7 @@ public class ProtonHandler extends ProtonInitializable implements SaslListener {
                AuditLogger.setRemoteAddress(h.getRemoteAddress());
             }
          }
-         while (isReadable() && (ev = collector.peek()) != null) {
+         while ((ev = collector.peek()) != null) {
             for (EventHandler h : handlers) {
                logger.trace("Handling {} towards {}", ev, h);
 

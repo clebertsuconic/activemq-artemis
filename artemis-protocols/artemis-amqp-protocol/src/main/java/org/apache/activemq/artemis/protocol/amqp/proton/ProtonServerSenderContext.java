@@ -485,7 +485,7 @@ public class ProtonServerSenderContext extends ProtonInitializable implements Pr
          credits--;
       }
 
-      final MessageWriter messageWriter = controller.selectOutgoingMessageWriter(this, messageReference).open(messageReference);
+      final MessageWriter messageWriter = controller.selectOutgoingMessageWriter(this, messageReference).open();
 
       // Preserve for hasCredits to check for busy state and possible abort on close
       this.messageWriter = messageWriter;

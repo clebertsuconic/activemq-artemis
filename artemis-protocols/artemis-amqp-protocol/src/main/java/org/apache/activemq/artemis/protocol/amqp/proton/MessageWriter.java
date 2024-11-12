@@ -90,7 +90,7 @@ public interface MessageWriter extends Consumer<MessageReference> {
     * be called on every handler by the sender context as it doesn't know which instances need
     * opened.
     */
-   default MessageWriter open(MessageReference reference) {
+   default MessageWriter open() {
       // Default for stateless handlers is to do nothing here.
       return this;
    }

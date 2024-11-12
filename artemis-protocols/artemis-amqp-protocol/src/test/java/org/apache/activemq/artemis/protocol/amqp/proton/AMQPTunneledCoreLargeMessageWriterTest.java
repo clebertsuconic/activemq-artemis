@@ -55,7 +55,6 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.mockito.Spy;
 
@@ -151,7 +150,7 @@ public class AMQPTunneledCoreLargeMessageWriterTest {
 
       when(protonSender.getLocalState()).thenReturn(EndpointState.CLOSED);
 
-      writer.open(Mockito.mock(MessageReference.class));
+      writer.open();
 
       try {
          writer.writeBytes(reference);
@@ -178,7 +177,7 @@ public class AMQPTunneledCoreLargeMessageWriterTest {
    private void doTestMessageEncodingWrittenToDeliveryWithAnnotations(boolean deliveryAnnotations) throws Exception {
       AMQPTunneledCoreLargeMessageWriter writer = new AMQPTunneledCoreLargeMessageWriter(serverSender);
 
-      writer.open(Mockito.mock(MessageReference.class));
+      writer.open();
 
       final ByteBuf expectedEncoding = Unpooled.buffer();
 
@@ -277,7 +276,7 @@ public class AMQPTunneledCoreLargeMessageWriterTest {
    public void testLargeMessageUsageLoweredOnCloseWhenWriteNotCompleted() throws Exception {
       AMQPTunneledCoreLargeMessageWriter writer = new AMQPTunneledCoreLargeMessageWriter(serverSender);
 
-      writer.open(Mockito.mock(MessageReference.class));
+      writer.open();
 
       when(protonSender.getLocalState()).thenReturn(EndpointState.ACTIVE);
       when(protonDelivery.isPartial()).thenReturn(true);
