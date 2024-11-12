@@ -44,6 +44,7 @@ import org.apache.activemq.artemis.api.config.ActiveMQDefaultConfiguration;
 import org.apache.activemq.artemis.api.core.RoutingType;
 import org.apache.activemq.artemis.api.core.management.ObjectNameBuilder;
 import org.apache.activemq.artemis.api.core.management.QueueControl;
+import org.apache.activemq.artemis.api.core.management.SimpleManagement;
 import org.apache.activemq.artemis.tests.soak.SoakTestBase;
 import org.apache.activemq.artemis.tests.util.CFUtil;
 import org.apache.activemq.artemis.utils.Wait;
@@ -183,6 +184,8 @@ public class LargeMessageInterruptTest extends SoakTestBase {
             for (int i = 0; i < 1000; i++) {
                TextMessage textMessage = session.createTextMessage("forcePage");
                textMessage.setIntProperty("forceI", i);
+               textMessage.setStringProperty("location", "forcePage");
+               textMessage.setStringProperty("localI", String.valueOf(i));
                producer.send(textMessage);
             }
             session.commit();
@@ -205,6 +208,8 @@ public class LargeMessageInterruptTest extends SoakTestBase {
                   try {
                      TextMessage message = session.createTextMessage(largebody);
                      message.setIntProperty("largeI", largeI.incrementAndGet());
+                     message.setStringProperty("location", "largeBody");
+                     message.setStringProperty("localI", String.valueOf(largeI.get()));
                      producer.send(message);
                      if (tx) {
                         session.commit();
@@ -265,17 +270,24 @@ public class LargeMessageInterruptTest extends SoakTestBase {
       assertTrue(done.await(60, TimeUnit.SECONDS));
       assertEquals(0, errors.get());
 
-      QueueControl queueControl = getQueueControl(liveURI, nameBuilder, queueName, queueName, RoutingType.ANYCAST, 5000);
 
-      long numberOfMessages = queueControl.getMessageCount();
+      logger.info("*******************************************************************************************************************************");
+
+      SimpleManagement simpleManagement = new SimpleManagement("tcp://localhost:61616", null, null);
+      long numberOfMessages = simpleManagement.getMessageCountOnQueue(queueName);
       logger.info("there are {} messages", numberOfMessages);
 
       try (Connection connection = factory.createConnection()) {
-         Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+         Session session = connection.createSession(true, Session.SESSION_TRANSACTED);
          MessageConsumer consumer = session.createConsumer(session.createQueue(queueName));
          connection.start();
-         for (int i = 0; i < numberOfMessages; i++) {
+        for (int i = 0; i < numberOfMessages; i++) {
             Message message = consumer.receive(5000);
+            try {
+               logger.info("PreRec {} / {} on {}", message.getStringProperty("location"), message.getStringProperty("localI"), message);
+            } catch (Throwable e) {
+               logger.info("could not find property location on {}", message);
+            }
             if (!(message instanceof TextMessage)) {
                Enumeration<String> properties = message.getPropertyNames();
                StringBuilder builder = new StringBuilder();
@@ -283,17 +295,41 @@ public class LargeMessageInterruptTest extends SoakTestBase {
                   String p = properties.nextElement();
                   builder.append(p).append("=").append(message.getObjectProperty(p)).append(", ");
                }
-               fail("Message is not a TextMessage -> " + builder.toString());
+
+               /*serverProcess.destroyForcibly();
+               serverProcess.waitFor(1, TimeUnit.MINUTES);
+               serverProcess = startServer(SERVER_NAME_0, 0, 60_000);
+               try (Connection connection2 = factory.createConnection()) {
+                  Session session2 = connection2.createSession(true, Session.SESSION_TRANSACTED);
+                  MessageConsumer consumer2 = session2.createConsumer(session2.createQueue(queueName));
+                  connection2.start();
+                  while (true) {
+                     Message message2 = consumer2.receive(5000);
+                     if (message2 != null) {
+                        logger.info("Received message after restart - {}", message2);
+                     } else {
+                        break;
+                     }
+                  }
+               } */
+               logger.warn("Message is not a text message -> {}", builder);
+               errors.incrementAndGet();
+               logger.info("WHOAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA!!!!!!!!!!");
+               Thread.sleep(10_000);
+            } else {
+               TextMessage textMessage = (TextMessage) message;
+               assertNotNull(message);
+               assertTrue(textMessage.getText().equals("forcePage") || textMessage.getText().equals(largebody));
             }
-            TextMessage textMessage = (TextMessage) message;
-            assertNotNull(message);
-            assertTrue(textMessage.getText().equals("forcePage") || textMessage.getText().equals(largebody));
          }
+         session.commit();
       }
+
 
       File lmFolder = new File(getServerLocation(SERVER_NAME_0) + "/data/large-messages");
       assertTrue(lmFolder.exists());
       Wait.assertEquals(0, () -> lmFolder.listFiles().length);
+      assertEquals(0, errors.get());
 
    }
 

@@ -679,9 +679,10 @@ public class ServerConsumerImpl implements ServerConsumer, ReadyListener {
    @Override
    public void forceDelivery(final long sequence)  {
       forceDelivery(sequence, () -> {
+         logger.info("Forcing delivery");
          Message forcedDeliveryMessage = new CoreMessage(storageManager.generateID(), 50)
             .putLongProperty(ClientConsumerImpl.FORCED_DELIVERY_MESSAGE, sequence)
-            .setAddress(messageQueue.getName());
+            .setAddress(messageQueue.getName()).putLongProperty("Deleteme", 1000L);
 
          MessageReference reference = MessageReference.Factory.createReference(forcedDeliveryMessage, messageQueue);
          reference.setDeliveryCount(0);
@@ -700,6 +701,7 @@ public class ServerConsumerImpl implements ServerConsumer, ReadyListener {
             // We execute this on the same executor to make sure the force delivery message is written after
             // any delivery is completed
 
+            logger.info("Forcing delivery");
             synchronized (lock) {
                if (transferring) {
                   // Case it's transferring (reattach), we will retry later

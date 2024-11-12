@@ -464,12 +464,14 @@ public class ProtonServerSenderContext extends ProtonInitializable implements Pr
    }
 
    /**
-    * handle an out going message from ActiveMQ Artemis, send via the Proton Sender
+    * handle an outgoing message from ActiveMQ Artemis, send via the Proton Sender
     */
    public int deliverMessage(final MessageReference messageReference, final ServerConsumer consumer) throws Exception {
       if (closed) {
          return 0;
       }
+
+      logger.info("Sending {}", messageReference.getMessage());
 
       if (beforeDelivery != null) {
          beforeDelivery.accept(messageReference);
