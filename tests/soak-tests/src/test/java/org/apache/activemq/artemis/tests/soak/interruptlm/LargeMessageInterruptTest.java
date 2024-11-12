@@ -20,20 +20,24 @@ package org.apache.activemq.artemis.tests.soak.interruptlm;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import javax.jms.Connection;
 import javax.jms.ConnectionFactory;
+import javax.jms.Message;
 import javax.jms.MessageConsumer;
 import javax.jms.MessageProducer;
 import javax.jms.Session;
 import javax.jms.TextMessage;
 import java.io.File;
 import java.lang.invoke.MethodHandles;
+import java.util.Enumeration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.activemq.artemis.api.config.ActiveMQDefaultConfiguration;
@@ -65,7 +69,7 @@ public class LargeMessageInterruptTest extends SoakTestBase {
          HelperCreate cliCreateServer = helperCreate();
          cliCreateServer.setRole("amq").setUser("artemis").setPassword("artemis").setAllowAnonymous(true).setNoWeb(false).setArtemisInstance(serverLocation).
             setConfiguration("./src/main/resources/servers/interruptlm");
-         cliCreateServer.setArgs("--java-options", "-Djava.rmi.server.hostname=localhost", "--clustered", "--static-cluster", "tcp://localhost:61716", "--queues", "ClusteredLargeMessageInterruptTest", "--name", "lmbroker1");
+         cliCreateServer.setArgs("--java-options", "-Djava.rmi.server.hostname=localhost", "--queues", "ClusteredLargeMessageInterruptTest", "--name", "lmbroker1");
          cliCreateServer.createServer();
       }
    }
@@ -177,24 +181,31 @@ public class LargeMessageInterruptTest extends SoakTestBase {
             Session session = connection.createSession(true, Session.SESSION_TRANSACTED);
             MessageProducer producer = session.createProducer(session.createQueue(queueName));
             for (int i = 0; i < 1000; i++) {
-               producer.send(session.createTextMessage("forcePage"));
+               TextMessage textMessage = session.createTextMessage("forcePage");
+               textMessage.setIntProperty("forceI", i);
+               producer.send(textMessage);
             }
             session.commit();
          }
       }
 
+      AtomicInteger largeI = new AtomicInteger(0);
+
       for (int i = 0; i < SENDING_THREADS; i++) {
          executorService.execute(() -> {
             int numberOfMessages = 0;
+            Connection connection = null;
             try {
-               Connection connection = factory.createConnection();
+               connection = factory.createConnection();
                Session session = connection.createSession(tx, tx ? Session.SESSION_TRANSACTED : Session.AUTO_ACKNOWLEDGE);
                MessageProducer producer = session.createProducer(session.createQueue(queueName));
 
                startFlag.await(10, TimeUnit.SECONDS);
                while (numberOfMessages < NUMBER_OF_MESSAGES) {
                   try {
-                     producer.send(session.createTextMessage(largebody));
+                     TextMessage message = session.createTextMessage(largebody);
+                     message.setIntProperty("largeI", largeI.incrementAndGet());
+                     producer.send(message);
                      if (tx) {
                         session.commit();
                      }
@@ -232,6 +243,13 @@ public class LargeMessageInterruptTest extends SoakTestBase {
             } catch (Exception e) {
                logger.warn("Error getting the initial connection", e);
                errors.incrementAndGet();
+            } finally {
+               if (connection != null) {
+                  try {
+                     connection.close();
+                  } catch (Throwable ignored) {
+                  }
+               }
             }
 
             logger.info("Done sending");
@@ -257,9 +275,19 @@ public class LargeMessageInterruptTest extends SoakTestBase {
          MessageConsumer consumer = session.createConsumer(session.createQueue(queueName));
          connection.start();
          for (int i = 0; i < numberOfMessages; i++) {
-            TextMessage message = (TextMessage) consumer.receive(5000);
+            Message message = consumer.receive(5000);
+            if (!(message instanceof TextMessage)) {
+               Enumeration<String> properties = message.getPropertyNames();
+               StringBuilder builder = new StringBuilder();
+               while (properties.hasMoreElements()) {
+                  String p = properties.nextElement();
+                  builder.append(p).append("=").append(message.getObjectProperty(p)).append(", ");
+               }
+               fail("Message is not a TextMessage -> " + builder.toString());
+            }
+            TextMessage textMessage = (TextMessage) message;
             assertNotNull(message);
-            assertTrue(message.getText().equals("forcePage") || message.getText().equals(largebody));
+            assertTrue(textMessage.getText().equals("forcePage") || textMessage.getText().equals(largebody));
          }
       }
 
