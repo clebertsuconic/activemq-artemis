@@ -24,6 +24,7 @@ import org.apache.activemq.artemis.api.core.ActiveMQQueueMaxConsumerLimitReached
 import org.apache.activemq.artemis.api.core.ActiveMQSecurityException;
 import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.api.core.RefCountMessage;
+import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.io.IOCallback;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.postoffice.impl.LocalQueueBinding;
@@ -471,7 +472,13 @@ public class ProtonServerSenderContext extends ProtonInitializable implements Pr
          return 0;
       }
 
-      logger.info("Sending {}", messageReference.getMessage());
+      try {
+         if (!String.valueOf(messageReference.getMessage().getAnnotation(SimpleString.of("x-opt-jms-msg-type"))).equals("5")) {
+            logger.info("Sending {}", messageReference.getMessage());
+         }
+      } catch (Throwable e) {
+         logger.info("Error sending {}", messageReference.getMessage());
+      }
 
       if (beforeDelivery != null) {
          beforeDelivery.accept(messageReference);
@@ -485,7 +492,7 @@ public class ProtonServerSenderContext extends ProtonInitializable implements Pr
          credits--;
       }
 
-      final MessageWriter messageWriter = controller.selectOutgoingMessageWriter(this, messageReference).open();
+      final MessageWriter messageWriter = controller.selectOutgoingMessageWriter(this, messageReference).open(messageReference);
 
       // Preserve for hasCredits to check for busy state and possible abort on close
       this.messageWriter = messageWriter;

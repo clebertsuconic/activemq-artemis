@@ -139,7 +139,7 @@ public class AMQPLargeMessageWriterTest {
 
       when(protonSender.getLocalState()).thenReturn(EndpointState.CLOSED);
 
-      writer.open();
+      writer.open(reference);
 
       try {
          writer.writeBytes(reference);
@@ -159,7 +159,7 @@ public class AMQPLargeMessageWriterTest {
    public void testLargeMessageUsageLoweredOnCloseWhenWriteNotCompleted() throws Exception {
       AMQPLargeMessageWriter writer = new AMQPLargeMessageWriter(serverSender);
 
-      writer.open();
+      writer.open(reference);
 
       when(protonSender.getLocalState()).thenReturn(EndpointState.ACTIVE);
       when(protonDelivery.isPartial()).thenReturn(true);
@@ -198,7 +198,7 @@ public class AMQPLargeMessageWriterTest {
    public void testTryDeliveringRunAfterClosedDoesNotThrow() throws Exception {
       AMQPLargeMessageWriter writer = new AMQPLargeMessageWriter(serverSender);
 
-      writer.open();
+      writer.open(reference);
 
       when(protonSender.getLocalState()).thenReturn(EndpointState.ACTIVE);
       when(protonDelivery.isPartial()).thenReturn(true);

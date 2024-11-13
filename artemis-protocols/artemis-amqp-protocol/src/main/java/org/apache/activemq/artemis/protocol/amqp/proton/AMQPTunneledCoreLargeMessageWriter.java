@@ -129,7 +129,7 @@ public class AMQPTunneledCoreLargeMessageWriter implements MessageWriter {
    }
 
    @Override
-   public AMQPTunneledCoreLargeMessageWriter open() {
+   public AMQPTunneledCoreLargeMessageWriter open(MessageReference reference) {
       if (state != State.CLOSED) {
          throw new IllegalStateException("Trying to open an AMQP Large Message writer that was not closed");
       }
@@ -164,6 +164,8 @@ public class AMQPTunneledCoreLargeMessageWriter implements MessageWriter {
          throw new IllegalStateException(
             "Cannot write to an AMQP Large Message Writer that was already used to write a message and was not reset");
       }
+
+      logger.info("Sending CoreLarge {}", messageReference.getMessage());
 
       reference = messageReference;
       message = (LargeServerMessageImpl) messageReference.getMessage();

@@ -320,9 +320,14 @@ public class LargeMessageInterruptTest extends SoakTestBase {
                TextMessage textMessage = (TextMessage) message;
                assertNotNull(message);
                assertTrue(textMessage.getText().equals("forcePage") || textMessage.getText().equals(largebody));
+               if (errors.get() == 0 && i % 100 == 0) {
+                  session.commit();
+               }
             }
          }
-         session.commit();
+        if (errors.get() != 0) {
+           session.commit();
+        }
       }
 
 
