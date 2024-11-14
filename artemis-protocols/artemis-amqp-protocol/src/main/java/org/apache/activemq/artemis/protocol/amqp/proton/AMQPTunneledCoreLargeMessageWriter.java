@@ -165,7 +165,7 @@ public class AMQPTunneledCoreLargeMessageWriter implements MessageWriter {
             "Cannot write to an AMQP Large Message Writer that was already used to write a message and was not reset");
       }
 
-      logger.info("Sending CoreLarge {}", messageReference.getMessage());
+      logger.info("XXX Sending CoreLarge {}", messageReference.getMessage());
 
       reference = messageReference;
       message = (LargeServerMessageImpl) messageReference.getMessage();

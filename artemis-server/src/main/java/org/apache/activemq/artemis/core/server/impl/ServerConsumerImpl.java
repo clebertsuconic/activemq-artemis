@@ -514,6 +514,8 @@ public class ServerConsumerImpl implements ServerConsumer, ReadyListener {
             server.callBrokerMessagePlugins(plugin -> plugin.beforeDeliver(this, reference));
          }
 
+         logger.info("ProceedDeliver {}", reference.getMessage());
+
          if (reference.getMessage() instanceof CoreLargeServerMessage && supportLargeMessage) {
             if (largeMessageDeliverer == null) {
                // This can't really happen as handle had already created the deliverer

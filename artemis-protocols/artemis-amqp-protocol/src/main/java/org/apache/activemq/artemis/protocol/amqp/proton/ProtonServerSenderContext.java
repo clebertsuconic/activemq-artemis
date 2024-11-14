@@ -492,6 +492,8 @@ public class ProtonServerSenderContext extends ProtonInitializable implements Pr
          credits--;
       }
 
+      logger.info("DeliverMessage {}", messageReference.getMessage(), new Exception("Trace"));
+
       final MessageWriter messageWriter = controller.selectOutgoingMessageWriter(this, messageReference).open(messageReference);
 
       // Preserve for hasCredits to check for busy state and possible abort on close

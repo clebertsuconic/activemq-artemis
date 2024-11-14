@@ -60,6 +60,8 @@ public class LargeMessageInterruptTest extends SoakTestBase {
 
    public static final String SERVER_NAME_0 = "interruptlm";
 
+   AtomicInteger sequence = new AtomicInteger(1);
+
 
    @BeforeAll
    public static void createServers() throws Exception {
@@ -157,7 +159,6 @@ public class LargeMessageInterruptTest extends SoakTestBase {
       final int SENDING_THREADS = 10;
       CyclicBarrier startFlag = new CyclicBarrier(SENDING_THREADS);
       final CountDownLatch done = new CountDownLatch(SENDING_THREADS);
-      final AtomicInteger produced = new AtomicInteger(0);
       final ConnectionFactory factory = createConnectionFactory(protocol);
       final AtomicInteger errors = new AtomicInteger(0); // I don't expect many errors since this test is disconnecting and reconnecting the server
       final CountDownLatch killAt = new CountDownLatch(40);
@@ -182,17 +183,18 @@ public class LargeMessageInterruptTest extends SoakTestBase {
             Session session = connection.createSession(true, Session.SESSION_TRANSACTED);
             MessageProducer producer = session.createProducer(session.createQueue(queueName));
             for (int i = 0; i < 1000; i++) {
+               int nextSequence = sequence.incrementAndGet();
                TextMessage textMessage = session.createTextMessage("forcePage");
-               textMessage.setIntProperty("forceI", i);
+               textMessage.setIntProperty("forceI", nextSequence);
                textMessage.setStringProperty("location", "forcePage");
-               textMessage.setStringProperty("localI", String.valueOf(i));
+               textMessage.setStringProperty("localI", String.valueOf(nextSequence));
                producer.send(textMessage);
             }
             session.commit();
          }
+         SimpleManagement simpleManagement = new SimpleManagement("tcp://localhost:61616", null, null);
+         Wait.assertEquals(1000L, () -> simpleManagement.getMessageCountOnQueue(queueName), 5000, 100);
       }
-
-      AtomicInteger largeI = new AtomicInteger(0);
 
       for (int i = 0; i < SENDING_THREADS; i++) {
          executorService.execute(() -> {
@@ -207,14 +209,14 @@ public class LargeMessageInterruptTest extends SoakTestBase {
                while (numberOfMessages < NUMBER_OF_MESSAGES) {
                   try {
                      TextMessage message = session.createTextMessage(largebody);
-                     message.setIntProperty("largeI", largeI.incrementAndGet());
+                     int nextSequence = sequence.incrementAndGet();
+                     message.setIntProperty("largeI", nextSequence);
                      message.setStringProperty("location", "largeBody");
-                     message.setStringProperty("localI", String.valueOf(largeI.get()));
+                     message.setStringProperty("localI", String.valueOf(nextSequence));
                      producer.send(message);
                      if (tx) {
                         session.commit();
                      }
-                     produced.incrementAndGet();
                      killAt.countDown();
                      if (numberOfMessages++ % 10 == 0) {
                         logger.info("Sent {}", numberOfMessages);
@@ -277,6 +279,11 @@ public class LargeMessageInterruptTest extends SoakTestBase {
       long numberOfMessages = simpleManagement.getMessageCountOnQueue(queueName);
       logger.info("there are {} messages", numberOfMessages);
 
+      killProcess(serverProcess);
+      assertTrue(serverProcess.waitFor(1, TimeUnit.MINUTES));
+
+      serverProcess = startServer(SERVER_NAME_0, 0, 60_000);
+
       try (Connection connection = factory.createConnection()) {
          Session session = connection.createSession(true, Session.SESSION_TRANSACTED);
          MessageConsumer consumer = session.createConsumer(session.createQueue(queueName));
@@ -315,19 +322,14 @@ public class LargeMessageInterruptTest extends SoakTestBase {
                logger.warn("Message is not a text message -> {}", builder);
                errors.incrementAndGet();
                logger.info("WHOAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA!!!!!!!!!!");
-               Thread.sleep(10_000);
+               System.exit(-1);
             } else {
                TextMessage textMessage = (TextMessage) message;
                assertNotNull(message);
                assertTrue(textMessage.getText().equals("forcePage") || textMessage.getText().equals(largebody));
-               if (errors.get() == 0 && i % 100 == 0) {
-                  session.commit();
-               }
             }
          }
-        if (errors.get() != 0) {
-           session.commit();
-        }
+        session.rollback();
       }
 
 

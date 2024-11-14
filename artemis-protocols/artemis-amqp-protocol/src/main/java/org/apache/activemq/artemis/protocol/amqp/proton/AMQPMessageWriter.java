@@ -58,9 +58,7 @@ public class AMQPMessageWriter implements MessageWriter {
          return;
       }
 
-     if (!(messageReference.getMessage() instanceof AMQPMessage))  {
-        logger.info("Sending non AMQP Message {}", messageReference.getMessage(), new Exception("Trace"));
-     }
+      logger.info("XXX Regular {}", messageReference.getMessage(), new Exception("Trace"));
 
 
       try {
@@ -74,7 +72,7 @@ public class AMQPMessageWriter implements MessageWriter {
          final Delivery delivery = serverSender.createDelivery(messageReference, (int) amqpMessage.getMessageFormat());
          final ReadableBuffer sendBuffer = amqpMessage.getSendBuffer(messageReference.getDeliveryCount(), messageReference);
 
-         logger.info("Sending messageFormat {}, properties={}", amqpMessage.getMessageFormat(), amqpMessage.getApplicationProperties());
+         logger.info("Sending messageFormat {}, properties={}", amqpMessage.getMessageFormat(), amqpMessage.getApplicationProperties(), new Exception("Trace"));
          boolean releaseRequired = sendBuffer instanceof NettyReadable;
 
          try {

@@ -107,7 +107,7 @@ public class AMQPLargeMessageWriter implements MessageWriter {
          throw new IllegalStateException("Trying to open an AMQP Large Message writer that was not closed");
       }
 
-      logger.info("Opening delivery for {}", reference.getMessage());
+      logger.info("Opening delivery for {}", reference.getMessage(), new Exception("Trace"));
 
       this.reference = reference;
       this.message = (AMQPLargeMessage) reference.getMessage();
@@ -152,7 +152,7 @@ public class AMQPLargeMessageWriter implements MessageWriter {
          throw new IllegalStateException("Cannot write to an AMQP Large Message Writer that has been closed");
       }
 
-      logger.info("Sending Large {}", messageReference.getMessage());
+      logger.info("XXX Sending Large {}", messageReference.getMessage(), new Exception("Trace"));
 
       if (sessionSPI.invokeOutgoing(message, (ActiveMQProtonRemotingConnection) sessionSPI.getTransportConnection().getProtocolConnection()) != null) {
          // an interceptor rejected the delivery

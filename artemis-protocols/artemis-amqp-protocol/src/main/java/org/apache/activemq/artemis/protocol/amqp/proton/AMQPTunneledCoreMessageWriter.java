@@ -70,7 +70,7 @@ public class AMQPTunneledCoreMessageWriter implements MessageWriter {
          return;
       }
 
-      logger.info("sending messages {} as a tunneled core message", messageReference.getMessage());
+      logger.info("XXX sending messages {} as a tunneled core message", messageReference.getMessage());
 
       try {
          final ICoreMessage message = (ICoreMessage) messageReference.getMessage();
