@@ -186,6 +186,12 @@ public interface PostOffice extends ActiveMQComponent {
                        boolean rejectDuplicates,
                        Binding binding) throws Exception;
 
+   RoutingStatus route(Message message,
+                       RoutingContext context,
+                       boolean direct,
+                       boolean rejectDuplicates,
+                       Binding binding, boolean applyExpiry) throws Exception;
+
    /**
     * This method was renamed as reload, use the new method instead
     * @param message

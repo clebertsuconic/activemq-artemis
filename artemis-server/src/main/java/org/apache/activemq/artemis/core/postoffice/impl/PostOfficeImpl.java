@@ -1133,7 +1133,7 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
    public RoutingStatus route(final Message message,
                               final RoutingContext context,
                               final boolean direct) throws Exception {
-      return route(message, context, direct, true, null, false);
+      return route(message, context, direct, true, null, false, true);
    }
 
    @Override
@@ -1142,8 +1142,17 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
                               final boolean direct,
                               boolean rejectDuplicates,
                               final Binding bindingMove) throws Exception {
+      return route(message, context, direct, rejectDuplicates, bindingMove, false, true);
+   }
 
-      return route(message, context, direct, rejectDuplicates, bindingMove, false);
+   @Override
+   public RoutingStatus route(final Message message,
+                              final RoutingContext context,
+                              final boolean direct,
+                              boolean rejectDuplicates,
+                              final Binding bindingMove,
+                              boolean applyExpiry) throws Exception {
+      return route(message, context, direct, rejectDuplicates, bindingMove, false, applyExpiry);
    }
 
 
@@ -1156,7 +1165,8 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
                                final boolean direct,
                                final boolean rejectDuplicates,
                                final Binding bindingMove,
-                               final boolean sendToDLA) throws Exception {
+                               final boolean sendToDLA,
+                               final boolean applyExpire) throws Exception {
 
       // Sanity check
       if (message.getRefCount() > 0) {
@@ -1165,7 +1175,7 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
 
       final SimpleString address = context.getAddress(message);
       final AddressSettings settings = addressSettingsRepository.getMatch(address.toString());
-      if (settings != null) {
+      if (applyExpire && settings != null) {
          applyExpiryDelay(message, settings);
       }
 

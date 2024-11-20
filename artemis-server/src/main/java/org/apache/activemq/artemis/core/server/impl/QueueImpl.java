@@ -2129,6 +2129,8 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
     *           hence no information about delivering statistics should be updated. */
    @Override
    public void expire(final MessageReference ref, final ServerConsumer consumer, boolean delivering) throws Exception {
+      logger.info("Expiring {} on queue {}", ref.getMessage(), name);
+      System.err.println("expiring " + ref.getMessage() + " on " + name);
       if (addressSettings.getExpiryAddress() != null) {
          createExpiryResources();
 
@@ -3662,7 +3664,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
             context.setMirrorOption(MirrorOption.disabled);
          }
 
-         routingStatus = postOffice.route(copyMessage, context, false, rejectDuplicate, binding);
+         routingStatus = postOffice.route(copyMessage, context, false, rejectDuplicate, binding, reason != AckReason.EXPIRED);
       }
 
       acknowledge(tx, ref, reason, consumer, delivering);
