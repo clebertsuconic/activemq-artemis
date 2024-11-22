@@ -504,7 +504,7 @@ public abstract class ClusterTestBase extends ActiveMQTestBase {
 
       logAndSystemOut(writer.toString());
 
-      throw new IllegalStateException("Didn't get the expected number of bindings, look at the logging for more information");
+      throw new IllegalStateException("Didn't get the expected number of bindings, look at the logging for more information::" + writer.toString());
    }
 
    protected String debugBindings(final ActiveMQServer server, final String address) throws Exception {

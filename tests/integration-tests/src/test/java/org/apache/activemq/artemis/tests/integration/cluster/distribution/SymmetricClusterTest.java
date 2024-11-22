@@ -24,6 +24,7 @@ import org.apache.activemq.artemis.core.server.cluster.impl.MessageLoadBalancing
 import org.apache.activemq.artemis.core.server.impl.AddressInfo;
 import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
 import org.apache.activemq.artemis.tests.util.ActiveMQTestBase;
+import org.apache.activemq.artemis.tests.util.Wait;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -1405,6 +1406,14 @@ public class SymmetricClusterTest extends ClusterTestBase {
       setupSessionFactory(2, isNetty());
       setupSessionFactory(3, isNetty());
       setupSessionFactory(4, isNetty());
+
+      Wait.assertEquals(5, () -> sfs[0].getServerLocator().getTopology().getMembers().size());
+      Wait.assertEquals(5, () -> sfs[1].getServerLocator().getTopology().getMembers().size());
+      Wait.assertEquals(5, () -> sfs[2].getServerLocator().getTopology().getMembers().size());
+      Wait.assertEquals(5, () -> sfs[3].getServerLocator().getTopology().getMembers().size());
+      Wait.assertEquals(5, () -> sfs[4].getServerLocator().getTopology().getMembers().size());
+
+      System.out.println("topology size " + sfs[0].getServerLocator().getTopology().getMembers().size());
 
       createQueue(0, "queues.testaddress", "queue0", null, false);
       createQueue(1, "queues.testaddress", "queue1", null, false);

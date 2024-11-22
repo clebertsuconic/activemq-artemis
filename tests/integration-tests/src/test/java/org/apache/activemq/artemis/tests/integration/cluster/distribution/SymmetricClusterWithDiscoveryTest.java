@@ -31,6 +31,11 @@ public class SymmetricClusterWithDiscoveryTest extends SymmetricClusterTest {
       return false;
    }
 
+   @Test
+   public void testStartStopServers() throws Exception {
+      doTestStartStopServers(1, 3000);
+   }
+
    @Override
    protected void setupCluster() throws Exception {
       setupCluster(MessageLoadBalancingType.ON_DEMAND);
