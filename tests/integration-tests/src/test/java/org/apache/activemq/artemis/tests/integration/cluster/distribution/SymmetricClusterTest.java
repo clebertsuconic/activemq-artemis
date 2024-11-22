@@ -1535,9 +1535,13 @@ public class SymmetricClusterTest extends ClusterTestBase {
 
       stopServers(0, 3);
 
+      Thread.sleep(pauseBeforeServerRestarts);
+
       validateTopologSize(3, 1, 2, 4);
 
       startServers(3, 0);
+
+      Thread.sleep(pauseAfterServerRestarts);
 
       validateTopologSize(5, 0, 1, 2, 3, 4);
 
