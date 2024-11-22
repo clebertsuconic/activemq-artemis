@@ -20,11 +20,13 @@ import java.lang.invoke.MethodHandles;
 
 import org.apache.activemq.artemis.api.core.RoutingType;
 import org.apache.activemq.artemis.api.core.SimpleString;
+import org.apache.activemq.artemis.core.server.cluster.ClusterConnection;
 import org.apache.activemq.artemis.core.server.cluster.impl.MessageLoadBalancingType;
 import org.apache.activemq.artemis.core.server.impl.AddressInfo;
 import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
 import org.apache.activemq.artemis.tests.util.ActiveMQTestBase;
 import org.apache.activemq.artemis.tests.util.Wait;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -1396,6 +1398,19 @@ public class SymmetricClusterTest extends ClusterTestBase {
       doTestStartStopServers(1, 3000);
    }
 
+   void validateTopologSize(int expectedSize, int ... serverParameters) throws Exception {
+      for (int s : serverParameters) {
+         final int finalS = s;
+         logger.info("Checking {}", s);
+
+         Assertions.assertNotNull(servers[s], "Server[" + s + "] is null");
+
+         for (ClusterConnection c : servers[s].getClusterManager().getClusterConnections()) {
+            Wait.assertEquals(expectedSize, () -> c.getTopology().getMembers().size(), 5000);
+         }
+      }
+   }
+
    public void doTestStartStopServers(long pauseBeforeServerRestarts, long pauseAfterServerRestarts) throws Exception {
       setupCluster();
 
@@ -1407,13 +1422,7 @@ public class SymmetricClusterTest extends ClusterTestBase {
       setupSessionFactory(3, isNetty());
       setupSessionFactory(4, isNetty());
 
-      Wait.assertEquals(5, () -> sfs[0].getServerLocator().getTopology().getMembers().size());
-      Wait.assertEquals(5, () -> sfs[1].getServerLocator().getTopology().getMembers().size());
-      Wait.assertEquals(5, () -> sfs[2].getServerLocator().getTopology().getMembers().size());
-      Wait.assertEquals(5, () -> sfs[3].getServerLocator().getTopology().getMembers().size());
-      Wait.assertEquals(5, () -> sfs[4].getServerLocator().getTopology().getMembers().size());
-
-      System.out.println("topology size " + sfs[0].getServerLocator().getTopology().getMembers().size());
+      validateTopologSize(5, 0, 1, 2, 3, 4);
 
       createQueue(0, "queues.testaddress", "queue0", null, false);
       createQueue(1, "queues.testaddress", "queue1", null, false);
@@ -1526,14 +1535,16 @@ public class SymmetricClusterTest extends ClusterTestBase {
 
       stopServers(0, 3);
 
-      Thread.sleep(pauseBeforeServerRestarts);
+      validateTopologSize(3, 1, 2, 4);
 
       startServers(3, 0);
 
-      Thread.sleep(pauseAfterServerRestarts);
+      validateTopologSize(5, 0, 1, 2, 3, 4);
 
       setupSessionFactory(0, isNetty());
       setupSessionFactory(3, isNetty());
+
+      validateTopologSize(5, 0, 1, 2, 3, 4);
 
       createQueue(0, "queues.testaddress", "queue0", null, false);
       createQueue(3, "queues.testaddress", "queue3", null, false);
