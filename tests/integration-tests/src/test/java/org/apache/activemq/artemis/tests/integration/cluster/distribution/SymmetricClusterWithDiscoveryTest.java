@@ -71,4 +71,23 @@ public class SymmetricClusterWithDiscoveryTest extends SymmetricClusterTest {
    public void testStartStopServersWithPauseBeforeRestarting() throws Exception {
       doTestStartStopServers(10000, 3000);
    }
+
+
+
+   @Test
+   public void testTopologyUpdates() throws Exception {
+      setupCluster();
+      startServers(0, 1, 2);
+      for (int i = 0; i < 100; i++) {
+         validateTopologSize(2, 0, 1, 2);
+         stopServers(2);
+         validateTopologSize(1, 0, 1);
+         startServers(2);
+         stopServers(1);
+         validateTopologSize(1, 0, 2);
+         startServers(1);
+      }
+
+   }
+
 }
