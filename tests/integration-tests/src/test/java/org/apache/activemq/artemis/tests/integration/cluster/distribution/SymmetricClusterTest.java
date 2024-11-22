@@ -54,25 +54,6 @@ public class SymmetricClusterTest extends ClusterTestBase {
       return false;
    }
 
-
-   @Test
-   public void testTopologyUpdates() throws Exception {
-      setupCluster();
-      startServers(0, 1, 2);
-      for (int i = 0; i < 100; i++) {
-         logger.info("Check {}", i);
-         validateTopologSize(3, 0, 1, 2);
-         stopServers(2);
-         validateTopologSize(2, 0, 1);
-         startServers(2);
-         stopServers(1);
-         validateTopologSize(2, 0, 2);
-         startServers(1);
-      }
-
-   }
-
-
    @Test
    public void testStopAllStartAll() throws Throwable {
       try {

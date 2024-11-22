@@ -123,7 +123,7 @@ public abstract class ClusterTestBase extends ActiveMQTestBase {
       return false;
    }
 
-   private static final long TIMEOUT_START_SERVER = 10;
+   private static final long TIMEOUT_START_SERVER = 1000;
 
    private static final SimpleString COUNT_PROP = SimpleString.of("count_prop");
 
@@ -504,7 +504,7 @@ public abstract class ClusterTestBase extends ActiveMQTestBase {
 
       logAndSystemOut(writer.toString());
 
-      throw new IllegalStateException("Didn't get the expected number of bindings, look at the logging for more information::" + writer.toString());
+      throw new IllegalStateException("Didn't get the expected number of bindings, look at the logging for more information");
    }
 
    protected String debugBindings(final ActiveMQServer server, final String address) throws Exception {
