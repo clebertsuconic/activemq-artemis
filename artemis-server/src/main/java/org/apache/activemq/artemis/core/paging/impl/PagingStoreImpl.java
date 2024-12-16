@@ -206,8 +206,10 @@ public class PagingStoreImpl implements PagingStore {
       this.syncNonTransactional = syncNonTransactional;
 
       if (scheduledExecutor != null && syncTimeout > 0) {
+         logger.info("syncTimeout = {}", syncTimeout, new Exception("Trace"));
          this.syncTimer = new PageSyncTimer(this, scheduledExecutor, ioExecutor, syncTimeout);
       } else {
+         logger.info("no sync timeout");
          this.syncTimer = null;
       }
 

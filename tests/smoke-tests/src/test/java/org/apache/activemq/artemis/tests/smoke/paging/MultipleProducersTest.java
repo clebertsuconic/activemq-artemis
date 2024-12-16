@@ -74,9 +74,9 @@ public class MultipleProducersTest extends SmokeTestBase {
    @Test
    public void testMultipleProducers() throws Exception {
       String protocol = "amqp";
-      int producers = 1;
+      int producers = 100;
       int consumers = 1;
-      int messagesPerProducer = 10_000;
+      int messagesPerProducer = 1_000;
       int totalMessages = producers * messagesPerProducer;
       assertTrue(totalMessages % consumers == 0, "totalMessages % consumers must be 0");
       int messagesPerConsumer = totalMessages / consumers;
@@ -85,7 +85,7 @@ public class MultipleProducersTest extends SmokeTestBase {
       AtomicInteger errors = new AtomicInteger();
 
       CountDownLatch done = new CountDownLatch(producers + consumers);
-      Semaphore bufferConsumer = new Semaphore(1);
+      AtomicInteger distance = new AtomicInteger(0);
 
       final AtomicInteger[] messagesSent = new AtomicInteger[producers];
       for (int i = 0; i < messagesSent.length; i++) {
@@ -105,14 +105,19 @@ public class MultipleProducersTest extends SmokeTestBase {
       executor.execute(() -> {
          try {
             while (running.get()) {
+               done.await(1, TimeUnit.SECONDS);
                StringBuilder builder = new StringBuilder();
+               int produced = 0, consumed = 0;
                for (int i = 0; i < producers; i++) {
                   builder.append("Producer[" + i + "] sent " + messagesSent[i] + "\n");
+                  produced += messagesSent[i].get();
                }
                for (int i = 0; i < consumers; i++) {
                   builder.append("Consumer[" + i + "] received " + messagesConsumed[i] + "\n");
+                  consumed += messagesConsumed[i].get();
                }
-               done.await(5, TimeUnit.SECONDS);
+               builder.append("Total produced: " + produced + "\n");
+               builder.append("Total consumed: " + consumed + "\n");
                logger.info("\n{}", builder.toString());
             }
          } catch (InterruptedException expected) {
@@ -131,6 +136,7 @@ public class MultipleProducersTest extends SmokeTestBase {
                for (int produced = 0; produced < messagesPerProducer; produced++) {
                   producer.send(session.createTextMessage("hello hello"));
                   messagesSent[producerID].incrementAndGet();
+                  distance.incrementAndGet();
                }
             } catch (Exception e) {
                errors.incrementAndGet();
@@ -151,12 +157,13 @@ public class MultipleProducersTest extends SmokeTestBase {
                Queue queue = session.createQueue(queueName);
                MessageConsumer consumer = session.createConsumer(queue);
                for (int consumed = 0; consumed < messagesPerConsumer; consumed++) {
-                  if (consumed % 100 == 0) {
+                  if (distance.get() < 2) {
                      Thread.sleep(500);
                   }
                   Message message = consumer.receive(10_000);
                   assertNotNull(message);
                   messagesConsumed[consumerID].incrementAndGet();
+                  distance.decrementAndGet();
                }
             } catch (Throwable e) {
                errors.incrementAndGet();
