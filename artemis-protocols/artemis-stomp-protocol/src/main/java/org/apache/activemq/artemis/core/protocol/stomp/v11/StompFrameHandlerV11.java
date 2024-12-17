@@ -55,6 +55,7 @@ public class StompFrameHandlerV11 extends VersionedStompFrameHandler implements 
                                ScheduledExecutorService scheduledExecutorService,
                                ExecutorFactory executorFactory) {
       super(connection, scheduledExecutorService, executorFactory);
+      logger.info("new handler {}", System.identityHashCode(StompFrameHandlerV11.this), new Exception("Trace"));
       connection.addStompEventListener(this);
       decoder = new StompDecoderV11(this);
       decoder.init();
@@ -266,8 +267,6 @@ public class StompFrameHandlerV11 extends VersionedStompFrameHandler implements 
 
       private static final int MIN_SERVER_PING = 500;
 
-      private boolean previouslyStopped = false;
-
       long serverPingPeriod = 0;
       long clientPingResponse;
       AtomicLong lastPingTimestamp = new AtomicLong(0);
@@ -278,6 +277,7 @@ public class StompFrameHandlerV11 extends VersionedStompFrameHandler implements 
                           final long clientPing,
                           final long clientAcceptPing) {
          super(scheduledExecutorService, executor, clientAcceptPing > MIN_SERVER_PING ? clientAcceptPing : MIN_SERVER_PING, TimeUnit.MILLISECONDS, false);
+         logger.info("New HearBeater-{}", System.identityHashCode(this));
 
          if (clientAcceptPing != 0) {
             serverPingPeriod = super.getPeriod();
@@ -323,14 +323,8 @@ public class StompFrameHandlerV11 extends VersionedStompFrameHandler implements 
 
       public void shutdown() {
          this.stop();
-         previouslyStopped = true;
-      }
+         logger.info("shutdown HearBeater :: {} - {}", this.isStarted(), System.identityHashCode(this), new Exception("Trace"));
 
-      @Override
-      public void start() {
-         if (!previouslyStopped) {
-            super.start();
-         }
       }
 
       public void pinged() {

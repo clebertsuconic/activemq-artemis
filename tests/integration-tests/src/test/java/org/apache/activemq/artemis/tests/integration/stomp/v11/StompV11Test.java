@@ -2255,11 +2255,14 @@ public class StompV11Test extends StompTestBase {
       subFrame.addHeader("destination", getTopicPrefix() + getTopicName());
       subFrame.addHeader("id", "0");
 
+      Wait.assertTrue(() -> "HeartBeater is not running!! -> " + System.identityHashCode(stompFrameHandler.getHeartBeater()), () -> stompFrameHandler.getHeartBeater().isStarted(), 5000, 100);
+
       ClientStompFrame f = conn.sendFrame(subFrame);
       f = conn.sendFrame(subFrame);
 
       // Send subscription with a duplicate ID, triggering a server error and closing of the session.
       f = conn.sendFrame(subFrame);
+
 
       f = conn.receiveFrame(1000);
       logger.debug("Received {}", f.toString());
