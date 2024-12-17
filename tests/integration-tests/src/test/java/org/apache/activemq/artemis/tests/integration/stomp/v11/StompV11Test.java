@@ -2269,7 +2269,7 @@ public class StompV11Test extends StompTestBase {
 
       Wait.assertEquals(0, () -> server.getRemotingService().getConnections().size());
 
-      Wait.assertFalse("HeartBeater is still running!!", () -> stompFrameHandler.getHeartBeater().isStarted());
+      Wait.assertFalse(() -> "HeartBeater is still running!! -> " + System.identityHashCode(stompFrameHandler.getHeartBeater()), () -> stompFrameHandler.getHeartBeater().isStarted(), 5000, 100);
    }
 
 
