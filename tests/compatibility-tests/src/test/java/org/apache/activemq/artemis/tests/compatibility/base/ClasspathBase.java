@@ -28,10 +28,12 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 
+import io.github.checkleak.core.CheckLeak;
 import org.apache.activemq.artemis.tests.compatibility.GroovyRun;
 import org.apache.activemq.artemis.tests.extensions.LogTestNameExtension;
 import org.apache.activemq.artemis.tests.extensions.TargetTempDirFactory;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.Logger;
@@ -48,6 +50,22 @@ public class ClasspathBase {
       loaderMap.values().forEach((ClasspathBase::clearClassLoader));
       clearClassLoader(VersionedBase.class.getClassLoader());
       loaderMap.clear();
+      checkLeaks();
+   }
+
+   public static void checkLeaks() throws Exception {
+      checkLeaks("groovy.lang.GroovyShell");
+   }
+
+   private static void checkLeaks(String clazz) throws Exception {
+      CheckLeak checkLeak = new CheckLeak();
+      checkLeak.forceGC();
+      Object[] objects = checkLeak.getAllObjects(clazz);
+      if (objects.length > 0) {
+         String report = checkLeak.exploreObjectReferences(15, 1, true, objects);
+         System.out.println(report);
+         Assertions.fail(report);
+      }
    }
 
    public static void clearClassLoader(ClassLoader loader) {

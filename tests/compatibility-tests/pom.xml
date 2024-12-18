@@ -220,6 +220,14 @@
          <artifactId>jboss-marshalling-river</artifactId>
          <version>2.2.1.Final</version>
       </dependency>
+      <!-- check-leak, which is a library to inspect the VM using JVMTI and assert successful garbage cleanups.
+     https://github.com/check-leak/check-leak -->
+      <dependency>
+         <groupId>io.github.check-leak</groupId>
+         <artifactId>check-leak</artifactId>
+         <version>${check-leak-version}</version>
+         <scope>test</scope>
+      </dependency>
 
       <!-- The johnzon-core and json-api contents are repackaged in -commons,
            However maven can still need them during tests, which run against
@@ -246,6 +254,26 @@
       </testResources>
       <plugins>
          <plugin>
+            <!-- It will install the proper native library required for the current platform. -->
+            <groupId>io.github.check-leak</groupId>
+            <artifactId>checkleak-maven-plugin</artifactId>
+            <version>${check-leak-version}</version>
+            <executions>
+               <execution>
+                  <phase>generate-sources</phase>
+                  <id>find-native</id>
+                  <goals>
+                     <goal>install</goal>
+                  </goals>
+                  <configuration>
+                     <target>${project.basedir}/target/lib</target>
+                     <!-- I'm selecting a name for the deployed file here. it can be any name and extension you choose as long as it matches the one passed on the JDK argument -->
+                     <lib>${check-leak-deploy-name}</lib>
+                  </configuration>
+               </execution>
+            </executions>
+         </plugin>
+         <plugin>
             <groupId>org.apache.servicemix.tooling</groupId>
             <artifactId>depends-maven-plugin</artifactId>
             <version>1.5.0</version>
@@ -265,7 +293,7 @@
                <forkCount>1</forkCount>
                <reuseForks>false</reuseForks>
                <skipTests>${skipCompatibilityTests}</skipTests>
-               <argLine>${activemq-surefire-argline}</argLine>
+               <argLine>-agentpath:${project.basedir}/target/lib/${check-leak-deploy-name} ${activemq-surefire-argline}</argLine>
             </configuration>
          </plugin>
       </plugins>

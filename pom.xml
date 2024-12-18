@@ -186,6 +186,8 @@
       <groovy.version>4.0.24</groovy.version>
       <hadoop.minikdc.version>3.4.1</hadoop.minikdc.version>
       <mockserver.version>5.15.0</mockserver.version>
+      <check-leak-version>0.11</check-leak-version>
+      <check-leak-deploy-name>checkleak.lib</check-leak-deploy-name>
 
       <owasp.version>11.1.1</owasp.version>
       <spring.version>5.3.39</spring.version>
