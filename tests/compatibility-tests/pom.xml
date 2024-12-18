@@ -30,6 +30,9 @@
    <properties>
       <activemq.basedir>${project.basedir}/../..</activemq.basedir>
       <skipCompatibilityTests>true</skipCompatibilityTests>
+      <check-leak-version>0.12-SNAPSHOT</check-leak-version>
+      <!-- whatever name you choose it has to match between the check-leak-maven-plugin install call and the JVM argument -->
+      <check-leak-deploy-name>checkleak.lib</check-leak-deploy-name>
    </properties>
 
    <dependencies>
@@ -220,6 +223,14 @@
          <artifactId>jboss-marshalling-river</artifactId>
          <version>2.2.1.Final</version>
       </dependency>
+      <!-- check-leak, which is a library to inspect the VM using JVMTI and assert successful garbage cleanups.
+     https://github.com/check-leak/check-leak -->
+      <dependency>
+         <groupId>io.github.check-leak</groupId>
+         <artifactId>check-leak</artifactId>
+         <version>${check-leak-version}</version>
+         <scope>test</scope>
+      </dependency>
 
       <!-- The johnzon-core and json-api contents are repackaged in -commons,
            However maven can still need them during tests, which run against
@@ -246,6 +257,26 @@
       </testResources>
       <plugins>
          <plugin>
+            <!-- It will install the proper native library required for the current platform. -->
+            <groupId>io.github.check-leak</groupId>
+            <artifactId>checkleak-maven-plugin</artifactId>
+            <version>${check-leak-version}</version>
+            <executions>
+               <execution>
+                  <phase>generate-sources</phase>
+                  <id>find-native</id>
+                  <goals>
+                     <goal>install</goal>
+                  </goals>
+                  <configuration>
+                     <target>${project.basedir}/target/lib</target>
+                     <!-- I'm selecting a name for the deployed file here. it can be any name and extension you choose as long as it matches the one passed on the JDK argument -->
+                     <lib>${check-leak-deploy-name}</lib>
+                  </configuration>
+               </execution>
+            </executions>
+         </plugin>
+         <plugin>
             <groupId>org.apache.servicemix.tooling</groupId>
             <artifactId>depends-maven-plugin</artifactId>
             <version>1.5.0</version>
@@ -265,7 +296,7 @@
                <forkCount>1</forkCount>
                <reuseForks>true</reuseForks>
                <skipTests>${skipCompatibilityTests}</skipTests>
-               <argLine>${activemq-surefire-argline}</argLine>
+               <argLine>-agentpath:${project.basedir}/target/lib/${check-leak-deploy-name} ${activemq-surefire-argline}</argLine>
             </configuration>
          </plugin>
       </plugins>
@@ -621,29 +652,6 @@
                         </configuration>
                      </execution>
                      <execution>
-                        <phase>compile</phase>
-                        <goals>
-                           <goal>dependency-scan</goal>
-                        </goals>
-                        <id>200-check</id>
-                        <configuration>
-                           <libListWithDeps>
-                              <arg>org.apache.activemq:artemis-jms-server:2.0.0</arg>
-                              <arg>org.apache.activemq:artemis-jms-client:2.0.0</arg>
-                              <arg>org.apache.activemq:artemis-cli:2.0.0</arg>
-                              <arg>org.apache.activemq:artemis-hornetq-protocol:2.0.0</arg>
-                              <arg>org.apache.activemq:artemis-amqp-protocol:2.0.0</arg>
-                              <arg>org.apache.activemq:artemis-hornetq-protocol:2.0.0</arg>
-                              <arg>org.apache.qpid:qpid-jms-client:0.20.0</arg>
-                              <arg>org.apache.groovy:groovy-all:pom:${groovy.version}</arg>
-                           </libListWithDeps>
-                           <libList>
-                              <arg>org.apache.activemq.tests:compatibility-tests:${project.version}</arg>
-                           </libList>
-                           <file>${basedir}/target/ARTEMIS-200.cp</file>
-                        </configuration>
-                     </execution>
-                     <execution>
                         <id>140-check</id>
                         <phase>compile</phase>
                         <goals>
@@ -663,29 +671,6 @@
                               <arg>org.apache.activemq.tests:compatibility-tests:${project.version}</arg>
                            </libList>
                            <file>${basedir}/target/ARTEMIS-140.cp</file>
-                        </configuration>
-                     </execution>
-                     <execution>
-                        <id>155-check</id>
-                        <phase>compile</phase>
-                        <goals>
-                           <goal>dependency-scan</goal>
-                        </goals>
-                        <configuration>
-                           <libListWithDeps>
-                              <arg>org.apache.activemq:artemis-jms-server:1.5.5</arg>
-                              <arg>org.apache.activemq:artemis-jms-client:1.5.5</arg>
-                              <arg>org.apache.activemq:artemis-cli:1.5.5</arg>
-                              <arg>org.apache.activemq:artemis-hornetq-protocol:1.5.5</arg>
-                              <arg>org.apache.activemq:artemis-amqp-protocol:1.5.5</arg>
-                              <arg>org.apache.activemq:artemis-hornetq-protocol:1.5.5</arg>
-                              <arg>org.apache.groovy:groovy-all:pom:${groovy.version}</arg>
-                              <arg>org.jboss.marshalling:jboss-marshalling-river:2.0.9.Final</arg>
-                           </libListWithDeps>
-                           <libList>
-                              <arg>org.apache.activemq.tests:compatibility-tests:${project.version}</arg>
-                           </libList>
-                           <file>${basedir}/target/ARTEMIS-155.cp</file>
                         </configuration>
                      </execution>
                      <execution>

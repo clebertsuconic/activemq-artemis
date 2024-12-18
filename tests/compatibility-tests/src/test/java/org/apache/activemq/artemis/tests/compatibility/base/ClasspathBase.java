@@ -29,6 +29,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 
+import groovy.lang.GroovyShell;
+import io.github.checkleak.core.CheckLeak;
 import org.apache.activemq.artemis.tests.compatibility.GroovyRun;
 import org.apache.activemq.artemis.tests.extensions.LogTestNameExtension;
 import org.apache.activemq.artemis.tests.extensions.TargetTempDirFactory;
@@ -45,12 +47,45 @@ public class ClasspathBase {
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
    @AfterAll
-   public static void cleanup() {
-      loaderMap.values().forEach((cl -> clearClassLoader(cl)));
+   public static void cleanup() throws Exception {
+      loaderMap.values().forEach((ClasspathBase::clearClassLoader));
       clearClassLoader(VersionedBase.class.getClassLoader());
+      loaderMap.clear();
+      check();
+      GroovyRun.clear();
+   }
+
+   public static void check() throws Exception {
+      System.out.println("checkup on cleanup");
+      validateObjects("groovy.lang.GroovyShell");
+      validateObjects("org.apache.activemq.artemis.tests.compatibility.base.TestClassLoader");
+   }
+
+   private static void validateObjects(String clazz) throws Exception {
+      CheckLeak checkLeak = new CheckLeak();
+      checkLeak.forceGC();
+      checkLeak.forceGC();
+      checkLeak.forceGC();
+      checkLeak.forceGC();
+      checkLeak.forceGC();
+      Object[] objects = checkLeak.getAllObjects(clazz);
+      if (objects.length > 0) {
+         for (Object shell : objects) {
+            if (shell.getClass().getName().equals("groovy.lang.GroovyShell")) {
+               System.out.println("Shell in use is " + shell.getClass().getClassLoader());
+            }
+         }
+
+         String report = checkLeak.exploreObjectReferences(15, 1, true, System.currentTimeMillis() + 20_000, objects);
+         for (int i = 0 ; i < 10; i++) {
+            System.out.println(report);
+            Thread.sleep(1000);
+         }
+      }
    }
 
    public static void clearClassLoader(ClassLoader loader) {
+      logger.info("Clearning loader " + loader);
       try {
          execute(loader, "org.apache.activemq.artemis.api.core.client.ActiveMQClient.clearThreadPools()");
       } catch (Throwable e) {
@@ -132,10 +167,6 @@ public class ClasspathBase {
    }
 
    protected ClassLoader getClasspath(String name, boolean forceNew) throws Exception {
-
-      if (name.equals(GroovyRun.ONE_FIVE) || name.equals(GroovyRun.TWO_ZERO)) {
-         assumeTrue(getJavaVersion() < 16, "This version of artemis cannot be ran against JDK16+");
-      }
 
       if (!forceNew) {
          if (name.equals(SNAPSHOT)) {
