@@ -1270,16 +1270,13 @@ public abstract class ClusterTestBase extends ActiveMQTestBase {
 
          receivedCounts.add(list);
 
-         ClientMessage message;
-         do {
-            message = holder.consumer.receive(100);
+         for (long timeout = System.currentTimeMillis() + 5000; !matchCounters(messageCounts, counts) && timeout > System.currentTimeMillis();) {
+            ClientMessage message = holder.consumer.receiveImmediate();
 
             if (message != null) {
                int count = (Integer) message.getObjectProperty(ClusterTestBase.COUNT_PROP);
 
                checkMessageBody(message);
-
-               // logger.debug("consumer {} received message {}", consumerIDs[i], count);
 
                assertFalse(counts.contains(count));
 
@@ -1292,12 +1289,9 @@ public abstract class ClusterTestBase extends ActiveMQTestBase {
                }
             }
          }
-         while (message != null);
       }
 
-      for (int messageCount : messageCounts) {
-         assertTrue(counts.contains(messageCount));
-      }
+      assertTrue(matchCounters(messageCounts, counts));
 
       @SuppressWarnings("unchecked")
       LinkedList<Integer>[] lists = new LinkedList[consumerIDs.length];
@@ -1331,6 +1325,15 @@ public abstract class ClusterTestBase extends ActiveMQTestBase {
          }
       }
 
+   }
+
+   private static boolean matchCounters(int[] messageCounts, Set<Integer> counts) {
+      for (int messageCount : messageCounts) {
+         if (!counts.contains(messageCount)) {
+            return false;
+         }
+      }
+      return true;
    }
 
    /**
