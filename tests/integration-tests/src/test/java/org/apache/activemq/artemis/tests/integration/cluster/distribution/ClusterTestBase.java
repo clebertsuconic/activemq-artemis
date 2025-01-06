@@ -1957,7 +1957,7 @@ public abstract class ClusterTestBase extends ActiveMQTestBase {
          .setName(name)
          .setAddress(address)
          .setConnectorName(connectorFrom.getName())
-         .setRetryInterval(250)
+         .setRetryInterval(250).setCallFailoverTimeout(100).setCallTimeout(100)
          .setMessageLoadBalancingType(messageLoadBalancingType)
          .setMaxHops(maxHops)
          .setConfirmationWindowSize(1024)

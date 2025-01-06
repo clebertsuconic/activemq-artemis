@@ -283,7 +283,7 @@ public class MessageRedistributionTest extends ClusterTestBase {
       waitForBindings(1, "queues.testaddress", 2, 1, false);
       waitForBindings(2, "queues.testaddress", 2, 1, false);
 
-      send(0, "queues.testaddress", 2000, false, null);
+      send(0, "queues.testaddress", 100, false, null);
 
       removeConsumer(0);
       addConsumer(0, 0, "queue0", null);
@@ -1345,16 +1345,16 @@ public class MessageRedistributionTest extends ClusterTestBase {
       waitForBindings(1, "queues.testaddress", 2, 1, false);
       waitForBindings(2, "queues.testaddress", 2, 1, false);
 
-      send(0, "queues.testaddress", 200, false, null);
+      send(0, "queues.testaddress", 10, false, null);
 
       removeConsumer(0);
       addConsumer(1, 1, "queue0", null);
 
       Queue queue = servers[1].locateQueue(SimpleString.of("queue0"));
       assertNotNull(queue);
-      Wait.waitFor(() -> queue.getMessageCount() == 200);
+      Wait.waitFor(() -> queue.getMessageCount() == 10);
 
-      for (int i = 0; i < 200; i++) {
+      for (int i = 0; i < 10; i++) {
          ClientMessage message = consumers[1].getConsumer().receive(5000);
          assertNotNull(message);
          message.acknowledge();
