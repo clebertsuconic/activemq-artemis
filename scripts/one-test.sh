@@ -17,3 +17,4 @@
 # under the License.
 
 mvn -Ptests -DfailIfNoTests=false -Ptests-retry -DskipStyleCheck=true -Dmaven.test.redirectTestOutputToFile=false -DskipPerformanceTests=false -DskipSoakTests=false -Dtest=$1 test
+mvn surefire-report:report-only
