@@ -141,8 +141,6 @@ public class InterruptedLargeMessageTest extends LargeMessageTestBase {
 
       server.fail(false);
 
-      ActiveMQTestBase.forceGC();
-
       server.start();
 
       server.stop();

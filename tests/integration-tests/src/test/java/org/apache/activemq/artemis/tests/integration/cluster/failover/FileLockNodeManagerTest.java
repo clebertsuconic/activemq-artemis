@@ -180,7 +180,7 @@ public class FileLockNodeManagerTest extends FailoverTestBase {
    @AfterEach
    public void shutDownExecutors() {
       if (!scheduledExecutorServices.isEmpty()) {
-         ThreadLeakCheckExtension.addKownThread("oracle.jdbc.driver.BlockSource.ThreadedCachingBlockSource.BlockReleaser");
+         ThreadLeakCheckExtension.addKnownThread("oracle.jdbc.driver.BlockSource.ThreadedCachingBlockSource.BlockReleaser");
          executors.forEach(ExecutorService::shutdown);
          scheduledExecutorServices.forEach(ExecutorService::shutdown);
          executors.clear();

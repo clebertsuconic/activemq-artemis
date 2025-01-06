@@ -78,8 +78,6 @@ public class ThreadLeakCheckDelegate {
                   }
                   failedOnce = true;
 
-                  forceGC();
-
                   if (timeout > 0) {
                      try {
                         Thread.sleep(500);
@@ -113,61 +111,6 @@ public class ThreadLeakCheckDelegate {
 
    }
 
-   private static int failedGCCalls = 0;
-
-   public static void forceGC() {
-
-      if (failedGCCalls >= 10) {
-         logger.info("ignoring forceGC call since it seems System.gc is not working anyways");
-         return;
-      }
-      logger.info("#test forceGC");
-      CountDownLatch finalized = new CountDownLatch(1);
-      WeakReference<DumbReference> dumbReference = new WeakReference<>(new DumbReference(finalized));
-
-      long timeout = System.currentTimeMillis() + 1000;
-
-      // A loop that will wait GC, using the minimal time as possible
-      while (!(dumbReference.get() == null && finalized.getCount() == 0) && System.currentTimeMillis() < timeout) {
-         System.gc();
-         System.runFinalization();
-         try {
-            finalized.await(100, TimeUnit.MILLISECONDS);
-         } catch (InterruptedException e) {
-         }
-      }
-
-      if (dumbReference.get() != null) {
-         failedGCCalls++;
-         logger.info("It seems that GC is disabled at your VM");
-      } else {
-         // a success would reset the count
-         failedGCCalls = 0;
-      }
-      logger.info("#test forceGC Done ");
-   }
-
-   public static void forceGC(final Reference<?> ref, final long timeout) {
-      long waitUntil = System.currentTimeMillis() + timeout;
-      // A loop that will wait GC, using the minimal time as possible
-      while (ref.get() != null && System.currentTimeMillis() < waitUntil) {
-         ArrayList<String> list = new ArrayList<>();
-         for (int i = 0; i < 1000; i++) {
-            list.add("Some string with garbage with concatenation " + i);
-         }
-         list.clear();
-         list = null;
-         System.gc();
-         try {
-            Thread.sleep(500);
-         } catch (InterruptedException e) {
-         }
-      }
-   }
-
-   public static void removeKownThread(String name) {
-      knownThreads.remove(name);
-   }
 
    public static void addKownThread(String name) {
       knownThreads.add(name);

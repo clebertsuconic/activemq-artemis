@@ -108,8 +108,6 @@ public class ActiveMQServerImplTest extends ServerTestBase {
 
       scheduledRunnable = null;
 
-      forceGC();
-
       assertNull(scheduledRunnableRef.get());
 
       server.stop();

@@ -31,15 +31,6 @@ import org.springframework.jms.listener.DefaultMessageListenerContainer;
 
 public class SpringIntegrationTest extends ActiveMQTestBase {
 
-   @Override
-   @BeforeEach
-   public void setUp() throws Exception {
-      super.setUp();
-      // Need to force GC as the connection on the spring needs to be cleared
-      // otherwise the sprint thread may leak here
-      forceGC();
-   }
-
    @Test
    public void testSpring() throws Exception {
       ApplicationContext context = null;

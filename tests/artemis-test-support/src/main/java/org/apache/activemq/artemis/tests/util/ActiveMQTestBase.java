@@ -595,30 +595,6 @@ public abstract class ActiveMQTestBase extends ArtemisTestCase {
     *
     * @param references
     */
-   public static void checkWeakReferences(final WeakReference<?>... references) {
-      int i = 0;
-      boolean hasValue = false;
-
-      do {
-         hasValue = false;
-
-         if (i > 0) {
-            forceGC();
-         }
-
-         for (WeakReference<?> ref : references) {
-            if (ref.get() != null) {
-               hasValue = true;
-               break;
-            }
-         }
-      }
-      while (i++ <= 200 && hasValue);
-
-      for (WeakReference<?> ref : references) {
-         assertNull(ref.get());
-      }
-   }
 
    public static String threadDump(final String msg) {
 

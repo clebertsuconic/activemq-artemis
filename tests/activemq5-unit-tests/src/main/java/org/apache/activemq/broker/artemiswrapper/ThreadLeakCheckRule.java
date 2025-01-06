@@ -57,19 +57,4 @@ public class ThreadLeakCheckRule extends TestWatcher {
       delegate.afterTest(failure, testDescription.getMethodName(), failMsg -> fail(failMsg));
    }
 
-   public static void forceGC() {
-      ThreadLeakCheckDelegate.forceGC();
-   }
-
-   public static void forceGC(final Reference<?> ref, final long timeout) {
-      ThreadLeakCheckDelegate.forceGC(ref, timeout);
-   }
-
-   public static void removeKownThread(String name) {
-      ThreadLeakCheckDelegate.removeKownThread(name);
-   }
-
-   public static void addKownThread(String name) {
-      ThreadLeakCheckDelegate.addKownThread(name);
-   }
 }

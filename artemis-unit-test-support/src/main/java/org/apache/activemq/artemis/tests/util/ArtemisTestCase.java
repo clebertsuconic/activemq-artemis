@@ -133,10 +133,6 @@ public abstract class ArtemisTestCase {
       }
    }
 
-   public static void forceGC() {
-      ThreadLeakCheckExtension.forceGC();
-   }
-
    public MBeanServer createMBeanServer() {
       MBeanServer mBeanServer = MBeanServerFactory.createMBeanServer();
       runAfter(() -> MBeanServerFactory.releaseMBeanServer(mBeanServer));

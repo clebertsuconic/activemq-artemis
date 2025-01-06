@@ -169,8 +169,6 @@ public abstract class ClusterTestBase extends ActiveMQTestBase {
    public void setUp() throws Exception {
       super.setUp();
 
-      forceGC();
-
       consumers = new ConsumerHolder[ClusterTestBase.MAX_CONSUMERS];
 
       servers = new ActiveMQServer[ClusterTestBase.MAX_SERVERS];
@@ -1274,7 +1272,7 @@ public abstract class ClusterTestBase extends ActiveMQTestBase {
 
          ClientMessage message;
          do {
-            message = holder.consumer.receive(1000);
+            message = holder.consumer.receive(100);
 
             if (message != null) {
                int count = (Integer) message.getObjectProperty(ClusterTestBase.COUNT_PROP);
@@ -1387,7 +1385,7 @@ public abstract class ClusterTestBase extends ActiveMQTestBase {
       ClientMessage message = null;
 
       do {
-         message = consumer.consumer.receive(500);
+         message = consumer.consumer.receive(100);
          if (message != null) {
 
             if (isLargeMessage()) {

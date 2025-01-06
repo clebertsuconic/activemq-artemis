@@ -69,7 +69,7 @@ public class ZookeeperLockManagerSinglePairTest extends LockManagerSinglePairTes
    @AfterEach
    public void after() throws Exception {
       // zk bits that leak from servers
-      ThreadLeakCheckExtension.addKownThread("ListenerHandler-");
+      ThreadLeakCheckExtension.addKnownThread("ListenerHandler-");
       try {
          super.after();
       } finally {
