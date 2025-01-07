@@ -87,8 +87,6 @@ public class InterruptedLargeMessageTest extends LargeMessageTestBase {
 
    private final int LARGE_MESSAGE_SIZE = ActiveMQClient.DEFAULT_MIN_LARGE_MESSAGE_SIZE * 3;
 
-   protected ServerLocator locator;
-
    public InterruptedLargeMessageTest(StoreConfiguration.StoreType storeType) {
       super(storeType);
    }
@@ -98,7 +96,6 @@ public class InterruptedLargeMessageTest extends LargeMessageTestBase {
    public void setUp() throws Exception {
       super.setUp();
       LargeMessageTestInterceptorIgnoreLastPacket.clearInterrupt();
-      locator = createFactory(isNetty());
    }
 
    protected boolean isNetty() {

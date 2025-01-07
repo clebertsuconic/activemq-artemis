@@ -101,13 +101,7 @@ public class LargeMessageTest extends LargeMessageTestBase {
 
    protected ServerLocator locator;
 
-   protected boolean isCompressedTest = false;
-
    private int largeMessageSize;
-
-   protected boolean isNetty() {
-      return false;
-   }
 
    public LargeMessageTest(StoreConfiguration.StoreType storeType) {
       super(storeType);
@@ -480,23 +474,6 @@ public class LargeMessageTest extends LargeMessageTestBase {
       session.commit();
 
       validateNoFilesOnLargeDir();
-   }
-
-   protected void validateLargeMessageComplete(ActiveMQServer server) throws Exception {
-      Queue queue = server.locateQueue(ADDRESS);
-
-      Wait.assertEquals(1, queue::getMessageCount);
-
-      LinkedListIterator<MessageReference> browserIterator = queue.browserIterator();
-
-      while (browserIterator.hasNext()) {
-         MessageReference ref = browserIterator.next();
-         Message message = ref.getMessage();
-
-         assertNotNull(message);
-         assertTrue(message instanceof LargeServerMessage);
-      }
-      browserIterator.close();
    }
 
    @TestTemplate
