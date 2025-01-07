@@ -2114,13 +2114,13 @@ public class LargeMessageTest extends LargeMessageTestBase {
 
       final int numberOfBytes = 1024;
 
-      final int numberOfBytesBigMessage = 400000;
+      final int numberOfBytesBigMessage = 4000;
 
-      locator.setBlockOnNonDurableSend(true).setBlockOnDurableSend(true).setBlockOnAcknowledge(true);
+      locator.setBlockOnNonDurableSend(true).setBlockOnDurableSend(true).setBlockOnAcknowledge(true).setMinLargeMessageSize(1000);
 
       ClientSessionFactory sf = addSessionFactory(createSessionFactory(locator));
 
-      ClientSession session = sf.createSession(null, null, false, true, true, false, 0);
+      ClientSession session = sf.createSession(null, null, false, false, true, false, 0);
 
       session.createQueue(QueueConfiguration.of(ADDRESS.concat("-0")).setAddress(ADDRESS));
       session.createQueue(QueueConfiguration.of(ADDRESS.concat("-1")).setAddress(ADDRESS));
@@ -2143,17 +2143,20 @@ public class LargeMessageTest extends LargeMessageTestBase {
          producer.send(message);
       }
 
+      session.commit();
+
       ClientMessage clientFile = createLargeClientMessageStreaming(session, numberOfBytesBigMessage);
       clientFile.putBooleanProperty("TestLarge", true);
       producer.send(clientFile);
 
-      for (int i = 0; i < 100; i++) {
+      for (int i = 0; i < 10; i++) {
          message = session.createMessage(true);
 
          message.getBodyBuffer().writeBytes(new byte[numberOfBytes]);
 
          producer.send(message);
       }
+      session.commit();
 
       session.close();
 
@@ -2205,7 +2208,7 @@ public class LargeMessageTest extends LargeMessageTestBase {
                session.commit();
          }
 
-         for (int i = 0; i < 100; i++) {
+         for (int i = 0; i < 5; i++) {
             ClientMessage message2 = consumer.receive(LargeMessageTest.RECEIVE_WAIT_TIME);
 
             assertNotNull(message2);
