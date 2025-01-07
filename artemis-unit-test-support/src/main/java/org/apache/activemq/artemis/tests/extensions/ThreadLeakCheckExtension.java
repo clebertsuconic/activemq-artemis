@@ -61,7 +61,7 @@ public class ThreadLeakCheckExtension implements BeforeAllCallback, AfterAllCall
       ThreadLeakCheckDelegate.removeKownThread(name);
    }
 
-   public static void addKownThread(String name) {
+   public static void addKnownThread(String name) {
       ThreadLeakCheckDelegate.addKownThread(name);
    }
 }
