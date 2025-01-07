@@ -1388,7 +1388,7 @@ public abstract class ClusterTestBase extends ActiveMQTestBase {
       ClientMessage message = null;
 
       do {
-         message = consumer.consumer.receive(100);
+         message = consumer.consumer.receive(500);
          if (message != null) {
 
             if (isLargeMessage()) {

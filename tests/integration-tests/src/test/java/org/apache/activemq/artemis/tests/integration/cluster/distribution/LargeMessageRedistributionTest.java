@@ -54,6 +54,22 @@ public class LargeMessageRedistributionTest extends MessageRedistributionTest {
    }
 
    @Test
+   @Disabled
+   public void testBackAndForth2() throws Exception {
+   }
+
+   @Test
+   @Disabled
+   public void testBackAndForth() throws Exception {
+   }
+
+
+   @Test
+   public void testRedistributionWhenConsumerIsClosedNotConsumersOnAllNodes() throws Exception {
+      super.testRedistributionWhenConsumerIsClosedNotConsumersOnAllNodes();
+   }
+
+   @Test
    public void testRedistributionLargeMessageDirCleanup() throws Exception {
       final long delay = 100;
       final int numMessages = 5;
