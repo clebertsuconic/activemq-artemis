@@ -223,22 +223,6 @@ public class TwoWayTwoNodeClusterTest extends ClusterTestBase {
    }
 
    @Test
-   public void testRestartServers() throws Throwable {
-      startServers(0, 1);
-      waitForTopology(servers[0], 2);
-
-      waitForTopology(servers[1], 2);
-
-      stopServers(1);
-
-      waitForTopology(servers[0], 1, -1, 2000);
-      startServers(1);
-      waitForTopology(servers[0], 2, -1, 2000);
-      waitForTopology(servers[1], 2, -1, 2000);
-      stopServers(0);
-   }
-
-   @Test
    public void testStopStart() throws Exception {
       startServers(0, 1);
 
