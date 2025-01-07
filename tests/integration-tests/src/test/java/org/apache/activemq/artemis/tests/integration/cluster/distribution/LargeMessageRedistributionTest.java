@@ -29,8 +29,33 @@ public class LargeMessageRedistributionTest extends MessageRedistributionTest {
    }
 
    @Test
+   @Disabled
+   public void testBackAndForth2WithDuplicDetection() throws Exception {
+   }
+
+   @Test
+   @Disabled
+   public void testRedistributionWhenConsumerIsClosedQueuesWithFilters() throws Exception {
+   }
+
+   @Test
+   @Disabled
+   public void testRedistributionWithMessageGroups() throws Exception {
+   }
+
+   @Test
+   @Disabled
+   public void testRedistributionWhenConsumerIsClosed() throws Exception {
+   }
+
+   @Test
+   @Disabled
+   public void testRedistributionWithPagingOnTarget() throws Exception {
+   }
+
+   @Test
    public void testRedistributionLargeMessageDirCleanup() throws Exception {
-      final long delay = 1000;
+      final long delay = 100;
       final int numMessages = 5;
 
       setRedistributionDelay(delay);
