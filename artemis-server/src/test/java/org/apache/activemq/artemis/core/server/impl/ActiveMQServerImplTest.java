@@ -82,35 +82,4 @@ public class ActiveMQServerImplTest extends ServerTestBase {
       }
    }
 
-   @Test
-   public void testScheduledPoolGC() throws Exception {
-      ActiveMQServer server = createServer(false);
-
-      server.start();
-
-      // if this is converted to a lambda or method references the test will fail
-      Runnable scheduledRunnable = new Runnable() {
-         @Override
-         public void run() {
-            fail();
-         }
-      };
-      WeakReference<Runnable> scheduledRunnableRef = new WeakReference<>(scheduledRunnable);
-
-      ScheduledExecutorService scheduledPool = server.getScheduledPool();
-      ScheduledFuture scheduledFuture = scheduledPool.schedule(scheduledRunnable, 5000, TimeUnit.MILLISECONDS);
-
-      assertFalse(scheduledFuture.isCancelled());
-      assertTrue(scheduledFuture.cancel(true));
-      assertTrue(scheduledFuture.isCancelled());
-
-      assertNotNull(scheduledRunnableRef.get());
-
-      scheduledRunnable = null;
-
-      assertNull(scheduledRunnableRef.get());
-
-      server.stop();
-   }
-
 }

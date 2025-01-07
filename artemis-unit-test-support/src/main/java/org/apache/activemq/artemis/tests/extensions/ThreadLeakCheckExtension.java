@@ -18,6 +18,8 @@ package org.apache.activemq.artemis.tests.extensions;
 
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.lang.ref.Reference;
+
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.Extension;
@@ -47,7 +49,19 @@ public class ThreadLeakCheckExtension implements BeforeAllCallback, AfterAllCall
    }
 
 
-   public static void addKnownThread(String name) {
+   public static void forceGC() {
+      ThreadLeakCheckDelegate.forceGC();
+   }
+
+   public static void forceGC(final Reference<?> ref, final long timeout) {
+      ThreadLeakCheckDelegate.forceGC(ref, timeout);
+   }
+
+   public static void removeKownThread(String name) {
+      ThreadLeakCheckDelegate.removeKownThread(name);
+   }
+
+   public static void addKownThread(String name) {
       ThreadLeakCheckDelegate.addKownThread(name);
    }
 }

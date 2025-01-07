@@ -37,6 +37,7 @@ import org.apache.activemq.command.ActiveMQQueue;
 import org.apache.activemq.command.ActiveMQTextMessage;
 import org.apache.activemq.command.ActiveMQTopic;
 import org.apache.activemq.util.Wait;
+import org.junit.Assert;
 
 public class RedeliveryPolicyTest extends JmsTestSupport {
 
@@ -526,6 +527,7 @@ public class RedeliveryPolicyTest extends JmsTestSupport {
          final ActiveMQSession session = (ActiveMQSession) connection.createSession(true, Session.SESSION_TRANSACTED);
          session.setMessageListener(message -> {
             try {
+               System.out.println("Received " + message);
                ActiveMQTextMessage m = (ActiveMQTextMessage) message;
                assertEquals("1st", m.getText());
                assertEquals(receivedCount.get(), m.getRedeliveryCounter());
