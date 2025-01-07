@@ -18,14 +18,10 @@ package org.apache.activemq.artemis.tests.extensions;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.lang.ref.Reference;
-import java.lang.ref.WeakReference;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import org.slf4j.Logger;

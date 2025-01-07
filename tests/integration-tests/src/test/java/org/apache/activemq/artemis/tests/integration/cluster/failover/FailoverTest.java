@@ -16,30 +16,11 @@
  */
 package org.apache.activemq.artemis.tests.integration.cluster.failover;
 
-import javax.transaction.xa.XAException;
-import javax.transaction.xa.XAResource;
-import javax.transaction.xa.Xid;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Field;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.activemq.artemis.api.core.ActiveMQDuplicateIdException;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
-import org.apache.activemq.artemis.api.core.ActiveMQExceptionType;
-import org.apache.activemq.artemis.api.core.ActiveMQInternalErrorException;
-import org.apache.activemq.artemis.api.core.ActiveMQObjectClosedException;
-import org.apache.activemq.artemis.api.core.ActiveMQTransactionOutcomeUnknownException;
-import org.apache.activemq.artemis.api.core.ActiveMQTransactionRolledBackException;
-import org.apache.activemq.artemis.api.core.Interceptor;
-import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.api.core.QueueConfiguration;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.api.core.TransportConfiguration;
@@ -48,41 +29,16 @@ import org.apache.activemq.artemis.api.core.client.ClientMessage;
 import org.apache.activemq.artemis.api.core.client.ClientProducer;
 import org.apache.activemq.artemis.api.core.client.ClientSession;
 import org.apache.activemq.artemis.api.core.client.ClientSessionFactory;
-import org.apache.activemq.artemis.api.core.client.FailoverEventType;
 import org.apache.activemq.artemis.api.core.client.ServerLocator;
-import org.apache.activemq.artemis.api.core.client.SessionFailureListener;
 import org.apache.activemq.artemis.core.client.impl.ClientSessionFactoryImpl;
 import org.apache.activemq.artemis.core.client.impl.ClientSessionFactoryInternal;
-import org.apache.activemq.artemis.core.client.impl.ClientSessionInternal;
-import org.apache.activemq.artemis.core.client.impl.ServerLocatorImpl;
-import org.apache.activemq.artemis.core.protocol.core.Channel;
-import org.apache.activemq.artemis.core.protocol.core.Packet;
-import org.apache.activemq.artemis.core.protocol.core.impl.ActiveMQSessionContext;
-import org.apache.activemq.artemis.core.protocol.core.impl.ChannelImpl;
-import org.apache.activemq.artemis.core.protocol.core.impl.PacketImpl;
-import org.apache.activemq.artemis.core.protocol.core.impl.RemotingConnectionImpl;
-import org.apache.activemq.artemis.core.protocol.core.impl.wireformat.ActiveMQExceptionMessage;
-import org.apache.activemq.artemis.core.server.cluster.BackupManager;
-import org.apache.activemq.artemis.core.server.cluster.ClusterController;
-import org.apache.activemq.artemis.core.server.cluster.ha.BackupPolicy;
 import org.apache.activemq.artemis.core.server.cluster.ha.HAPolicy;
 import org.apache.activemq.artemis.core.server.cluster.ha.ReplicaPolicy;
-import org.apache.activemq.artemis.core.server.cluster.ha.ReplicatedPolicy;
 import org.apache.activemq.artemis.core.server.cluster.ha.ReplicationBackupPolicy;
-import org.apache.activemq.artemis.core.server.cluster.ha.ReplicationPrimaryPolicy;
-import org.apache.activemq.artemis.core.server.cluster.ha.SharedStoreBackupPolicy;
-import org.apache.activemq.artemis.core.server.cluster.ha.SharedStorePrimaryPolicy;
-import org.apache.activemq.artemis.core.server.cluster.impl.ClusterConnectionImpl;
 import org.apache.activemq.artemis.core.server.files.FileMoveManager;
-import org.apache.activemq.artemis.core.server.impl.ActiveMQServerImpl;
-import org.apache.activemq.artemis.core.server.impl.InVMNodeManager;
-import org.apache.activemq.artemis.core.transaction.impl.XidImpl;
 import org.apache.activemq.artemis.jms.client.ActiveMQTextMessage;
-import org.apache.activemq.artemis.spi.core.protocol.RemotingConnection;
 import org.apache.activemq.artemis.tests.integration.cluster.util.TestableServer;
-import org.apache.activemq.artemis.tests.util.CountDownSessionFailureListener;
 import org.apache.activemq.artemis.tests.util.TransportConfigurationUtils;
-import org.apache.activemq.artemis.utils.RandomUtil;
 import org.apache.activemq.artemis.utils.Wait;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -95,8 +51,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 public class FailoverTest extends FailoverTestBase {
 
@@ -182,13 +136,16 @@ public class FailoverTest extends FailoverTestBase {
       }
    }
 
-   protected void setSFFieldValue(ClientSessionFactoryInternal sf, String tcName, Object value) throws NoSuchFieldException, IllegalAccessException {
+   protected void setSFFieldValue(ClientSessionFactoryInternal sf,
+                                  String tcName,
+                                  Object value) throws NoSuchFieldException, IllegalAccessException {
       Field tcField = ClientSessionFactoryImpl.class.getDeclaredField(tcName);
       tcField.setAccessible(true);
       tcField.set(sf, value);
    }
 
-   protected TransportConfiguration getFieldFromSF(ClientSessionFactoryInternal sf, String tcName) throws NoSuchFieldException, IllegalAccessException {
+   protected TransportConfiguration getFieldFromSF(ClientSessionFactoryInternal sf,
+                                                   String tcName) throws NoSuchFieldException, IllegalAccessException {
       Field tcField = ClientSessionFactoryImpl.class.getDeclaredField(tcName);
       tcField.setAccessible(true);
       return (TransportConfiguration) tcField.get(sf);
@@ -347,6 +304,7 @@ public class FailoverTest extends FailoverTestBase {
 
       sf = createSessionFactoryAndWaitForTopology(locator, 2);
    }
+
    /**
     * @return
     * @throws Exception
@@ -512,6 +470,5 @@ public class FailoverTest extends FailoverTestBase {
 
       return session;
    }
-
 
 }

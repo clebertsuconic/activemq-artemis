@@ -30,43 +30,44 @@ public class LargeMessageRedistributionTest extends MessageRedistributionTest {
 
    @Test
    @Disabled
+   @Override
    public void testBackAndForth2WithDuplicDetection() throws Exception {
    }
 
    @Test
    @Disabled
+   @Override
    public void testRedistributionWhenConsumerIsClosedQueuesWithFilters() throws Exception {
    }
 
    @Test
    @Disabled
+   @Override
    public void testRedistributionWithMessageGroups() throws Exception {
    }
 
    @Test
    @Disabled
+   @Override
    public void testRedistributionWhenConsumerIsClosed() throws Exception {
    }
 
    @Test
    @Disabled
+   @Override
    public void testRedistributionWithPagingOnTarget() throws Exception {
    }
 
    @Test
    @Disabled
+   @Override
    public void testBackAndForth2() throws Exception {
    }
 
    @Test
    @Disabled
+   @Override
    public void testBackAndForth() throws Exception {
-   }
-
-
-   @Test
-   public void testRedistributionWhenConsumerIsClosedNotConsumersOnAllNodes() throws Exception {
-      super.testRedistributionWhenConsumerIsClosedNotConsumersOnAllNodes();
    }
 
    @Test

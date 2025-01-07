@@ -29,7 +29,6 @@ import javax.jms.Topic;
 import javax.jms.TopicConnectionFactory;
 import javax.jms.XAConnectionFactory;
 import javax.naming.InitialContext;
-import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
