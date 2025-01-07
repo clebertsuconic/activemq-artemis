@@ -23,20 +23,6 @@ import org.junit.jupiter.api.Test;
 
 public class LargeMessageFailoverTest extends FailoverTest {
 
-   @Override
-   @Test
-   @Disabled
-   public void testPrimaryAndBackupPrimaryComesBackNewFactory() throws Exception {
-      // skip test because it triggers OutOfMemoryError.
-   }
-
-   @Override
-   @Test
-   @Disabled
-   public void testPrimaryAndBackupBackupComesBackNewFactory() throws Exception {
-      // skip test because it triggers OutOfMemoryError.
-   }
-
    /**
     * @param i
     * @param message
