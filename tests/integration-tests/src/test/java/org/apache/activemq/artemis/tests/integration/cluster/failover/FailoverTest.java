@@ -56,44 +56,11 @@ public class FailoverTest extends FailoverTestBase {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
-   protected static final int NUM_MESSAGES = 100;
-
-   protected ServerLocator locator;
-   protected ClientSessionFactoryInternal sf;
-
    @Override
    @BeforeEach
    public void setUp() throws Exception {
       super.setUp();
       locator = getServerLocator();
-   }
-
-   protected ClientSession createSession(ClientSessionFactory sf1,
-                                         boolean autoCommitSends,
-                                         boolean autoCommitAcks,
-                                         int ackBatchSize) throws Exception {
-      return addClientSession(sf1.createSession(autoCommitSends, autoCommitAcks, ackBatchSize));
-   }
-
-   protected ClientSession createSession(ClientSessionFactory sf1,
-                                         boolean autoCommitSends,
-                                         boolean autoCommitAcks) throws Exception {
-      return addClientSession(sf1.createSession(autoCommitSends, autoCommitAcks));
-   }
-
-   protected ClientSession createSession(ClientSessionFactory sf1) throws Exception {
-      return addClientSession(sf1.createSession());
-   }
-
-   protected ClientSession createSession(ClientSessionFactory sf1,
-                                         boolean xa,
-                                         boolean autoCommitSends,
-                                         boolean autoCommitAcks) throws Exception {
-      return addClientSession(sf1.createSession(xa, autoCommitSends, autoCommitAcks));
-   }
-
-   protected void createClientSessionFactory() throws Exception {
-      sf = (ClientSessionFactoryInternal) createSessionFactory(locator);
    }
 
    @Test
@@ -323,53 +290,6 @@ public class FailoverTest extends FailoverTestBase {
       }
    }
 
-   protected void receiveDurableMessages(ClientConsumer consumer) throws ActiveMQException {
-      // During failover non-persistent messages may disappear but in certain cases they may survive.
-      // For that reason the test is validating all the messages but being permissive with non-persistent messages
-      // The test will just ack any non-persistent message, however when arriving it must be in order
-      ClientMessage repeatMessage = null;
-      for (int i = 0; i < NUM_MESSAGES; i++) {
-         ClientMessage message;
-
-         if (repeatMessage != null) {
-            message = repeatMessage;
-            repeatMessage = null;
-         } else {
-            message = consumer.receive(50);
-         }
-
-         if (message != null) {
-            int msgInternalCounter = message.getIntProperty("counter").intValue();
-
-            if (msgInternalCounter == i + 1) {
-               // The test can only jump to the next message if the current iteration is meant for non-durable
-               assertFalse(isDurable(i), "a message on counter=" + i + " was expected");
-               // message belongs to the next iteration.. let's just ignore it
-               repeatMessage = message;
-               continue;
-            }
-         }
-
-         if (isDurable(i)) {
-            assertNotNull(message);
-         }
-
-         if (message != null) {
-            assertMessageBody(i, message);
-            assertEquals(i, message.getIntProperty("counter").intValue());
-            message.acknowledge();
-         }
-      }
-   }
-
-   protected boolean isDurable(int i) {
-      return i % 2 == 0;
-   }
-
-   protected void receiveMessages(ClientConsumer consumer) throws ActiveMQException {
-      receiveMessages(consumer, 0, NUM_MESSAGES, true);
-   }
-
    @Test
    @Timeout(120)
    public void testSimpleSendAfterFailoverDurableTemporary() throws Exception {
@@ -432,43 +352,6 @@ public class FailoverTest extends FailoverTestBase {
 
    protected void decrementActivationSequenceForForceRestartOf(TestableServer primaryServer) throws Exception {
       // no-op
-   }
-
-   protected ClientSession sendAndConsume(final ClientSessionFactory sf1, final boolean createQueue) throws Exception {
-      ClientSession session = createSession(sf1, false, true, true);
-
-      if (createQueue) {
-         session.createQueue(QueueConfiguration.of(FailoverTestBase.ADDRESS).setDurable(false));
-      }
-
-      ClientProducer producer = session.createProducer(FailoverTestBase.ADDRESS);
-
-      for (int i = 0; i < NUM_MESSAGES; i++) {
-         ClientMessage message = session.createMessage(ActiveMQTextMessage.TYPE, false, 0, System.currentTimeMillis(), (byte) 1);
-         message.putIntProperty(SimpleString.of("count"), i);
-         message.getBodyBuffer().writeString("aardvarks");
-         producer.send(message);
-      }
-
-      ClientConsumer consumer = session.createConsumer(FailoverTestBase.ADDRESS);
-
-      session.start();
-
-      for (int i = 0; i < NUM_MESSAGES; i++) {
-         ClientMessage message2 = consumer.receive();
-
-         assertEquals("aardvarks", message2.getBodyBuffer().readString());
-
-         assertEquals(i, message2.getObjectProperty(SimpleString.of("count")));
-
-         message2.acknowledge();
-      }
-
-      ClientMessage message3 = consumer.receiveImmediate();
-
-      assertNull(message3);
-
-      return session;
    }
 
 }

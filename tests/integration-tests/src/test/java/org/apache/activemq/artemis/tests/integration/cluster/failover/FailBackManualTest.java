@@ -129,45 +129,6 @@ public class FailBackManualTest extends FailoverTestBase {
       return TransportConfigurationUtils.getInVMConnector(live);
    }
 
-   private ClientSession sendAndConsume(final ClientSessionFactory sf, final boolean createQueue) throws Exception {
-      ClientSession session = sf.createSession(false, true, true);
-
-      if (createQueue) {
-         session.createQueue(QueueConfiguration.of(ADDRESS).setDurable(false));
-      }
-
-      ClientProducer producer = session.createProducer(ADDRESS);
-
-      final int numMessages = 1000;
-
-      for (int i = 0; i < numMessages; i++) {
-         ClientMessage message = session.createMessage(ActiveMQTextMessage.TYPE, false, 0, System.currentTimeMillis(), (byte) 1);
-         message.putIntProperty(SimpleString.of("count"), i);
-         message.getBodyBuffer().writeString("aardvarks");
-         producer.send(message);
-      }
-
-      ClientConsumer consumer = session.createConsumer(ADDRESS);
-
-      session.start();
-
-      for (int i = 0; i < numMessages; i++) {
-         ClientMessage message2 = consumer.receive();
-
-         assertEquals("aardvarks", message2.getBodyBuffer().readString());
-
-         assertEquals(i, message2.getObjectProperty(SimpleString.of("count")));
-
-         message2.acknowledge();
-      }
-
-      ClientMessage message3 = consumer.receiveImmediate();
-
-      assertNull(message3);
-
-      return session;
-   }
-
    /**
     * @param i
     * @param message

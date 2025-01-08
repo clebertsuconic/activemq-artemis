@@ -18,6 +18,7 @@ package org.apache.activemq.artemis.tests.util;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -40,6 +41,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.lang.management.ManagementFactory;
+import java.lang.ref.WeakReference;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -543,7 +545,7 @@ public abstract class ActiveMQTestBase extends ArtemisTestCase {
          setName("cluster1").setAddress("jms").setConnectorName(connectorName).
          setRetryInterval(100).setDuplicateDetection(false).setMaxHops(1).
          setConfirmationWindowSize(1).setMessageLoadBalancingType(MessageLoadBalancingType.STRICT).
-         setStaticConnectors(connectors0).setCallTimeout(500).setCallFailoverTimeout(500);
+         setStaticConnectors(connectors0).setCallTimeout(1000).setCallFailoverTimeout(1000);
 
       return clusterConnectionConfiguration;
    }
@@ -593,6 +595,30 @@ public abstract class ActiveMQTestBase extends ArtemisTestCase {
     *
     * @param references
     */
+   public static void checkWeakReferences(final WeakReference<?>... references) {
+      int i = 0;
+      boolean hasValue = false;
+
+      do {
+         hasValue = false;
+
+         if (i > 0) {
+            forceGC();
+         }
+
+         for (WeakReference<?> ref : references) {
+            if (ref.get() != null) {
+               hasValue = true;
+               break;
+            }
+         }
+      }
+      while (i++ <= 200 && hasValue);
+
+      for (WeakReference<?> ref : references) {
+         assertNull(ref.get());
+      }
+   }
 
    public static String threadDump(final String msg) {
 
