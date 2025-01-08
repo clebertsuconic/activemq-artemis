@@ -27,12 +27,9 @@ import org.apache.activemq.artemis.api.core.management.ResourceNames;
 import org.apache.activemq.artemis.tests.extensions.parameterized.ParameterizedTestExtension;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-// Parameters set in super class
-@ExtendWith(ParameterizedTestExtension.class)
 public class QueueControlUsingCoreTest extends QueueControlTest {
 
-   public QueueControlUsingCoreTest(boolean durable) {
-      super(durable);
+   public QueueControlUsingCoreTest() {
    }
 
    @Override

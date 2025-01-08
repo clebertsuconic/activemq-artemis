@@ -90,8 +90,6 @@ import org.apache.activemq.artemis.core.transaction.impl.XidImpl;
 import org.apache.activemq.artemis.jms.client.ActiveMQConnectionFactory;
 import org.apache.activemq.artemis.json.JsonArray;
 import org.apache.activemq.artemis.json.JsonObject;
-import org.apache.activemq.artemis.tests.extensions.parameterized.ParameterizedTestExtension;
-import org.apache.activemq.artemis.tests.extensions.parameterized.Parameters;
 import org.apache.activemq.artemis.tests.integration.jms.server.management.JMSUtil;
 import org.apache.activemq.artemis.tests.util.CFUtil;
 import org.apache.activemq.artemis.tests.util.Wait;
@@ -99,8 +97,7 @@ import org.apache.activemq.artemis.utils.Base64;
 import org.apache.activemq.artemis.utils.RandomUtil;
 import org.apache.qpid.jms.JmsConnectionFactory;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.TestTemplate;
-import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -114,7 +111,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-@ExtendWith(ParameterizedTestExtension.class)
 public class QueueControlTest extends ManagementTestBase {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
@@ -124,23 +120,16 @@ public class QueueControlTest extends ManagementTestBase {
    private ActiveMQServer server;
    private ClientSession session;
    private ServerLocator locator;
-   private final boolean durable;
 
-   @Parameters(name = "durable={0}")
-   public static Collection<Object[]> getParams() {
-      return Arrays.asList(new Object[][] {{true}, {false}});
-   }
+   // toss a coin if it's durable or not
+   // it shouldh't really matter, but we will switch durable and non durable
+   private final boolean durable = RandomUtil.randomBoolean();
 
-
-   /**
-    * @param durable
-    */
-   public QueueControlTest(boolean durable) {
+   public QueueControlTest() {
       super();
-      this.durable = durable;
    }
 
-   @TestTemplate
+   @Test
    public void testMoveMessagesInPagingMode() throws Exception {
       final int TOTAL_MESSAGES = 100;
       final String DLA = "DLA";
@@ -197,7 +186,7 @@ public class QueueControlTest extends ManagementTestBase {
       assertEquals(0, count);
    }
 
-   @TestTemplate
+   @Test
    public void testGetPreparedTransactionMessageCount() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -242,7 +231,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testGetPreparedTransactionMessageCountDifferentQueues() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString address2 = RandomUtil.randomSimpleString();
@@ -302,7 +291,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue2);
    }
 
-   @TestTemplate
+   @Test
    public void testGetPreparedTransactionMessageCountNoTX() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -318,7 +307,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testAttributes() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -336,7 +325,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testRegisterInternalQueues() throws Exception {
       SimpleString queue = RandomUtil.randomSimpleString();
 
@@ -356,7 +345,7 @@ public class QueueControlTest extends ManagementTestBase {
       assertFalse(queueControl.isPaused());
    }
 
-   @TestTemplate
+   @Test
    public void testAutoDeleteAttribute() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -385,7 +374,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testGroupAttributes() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -400,7 +389,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testRetroactiveResourceAttribute() throws Exception {
       SimpleString baseAddress = RandomUtil.randomSimpleString();
       String internalNamingPrefix = server.getInternalNamingPrefix();
@@ -421,7 +410,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(anycastQueue);
    }
 
-   @TestTemplate
+   @Test
    public void testGetNullFilter() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -435,7 +424,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testGetDeadLetterAddress() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -452,7 +441,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testSetDeadLetterAddress() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -470,7 +459,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testGetExpiryAddress() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -488,7 +477,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testSetExpiryAddress() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -509,7 +498,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testGetConsumerCount() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -529,7 +518,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testGetConsumerJSON() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -561,7 +550,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testGetConsumerWithMessagesJSON() throws Exception {
       long currentTime = System.currentTimeMillis();
       SimpleString address = RandomUtil.randomSimpleString();
@@ -650,24 +639,24 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testGetConsumerMessageCountsAutoAckCore() throws Exception {
       ActiveMQConnectionFactory factory = ActiveMQJMSClient.createConnectionFactoryWithoutHA(JMSFactoryType.CF, new TransportConfiguration(INVM_CONNECTOR_FACTORY));
       factory.setConsumerWindowSize(1);
       testGetConsumerMessageCountsAutoAck(factory, false);
    }
 
-   @TestTemplate
+   @Test
    public void testGetConsumerMessageCountsAutoAckAMQP() throws Exception {
       testGetConsumerMessageCountsAutoAck(new JmsConnectionFactory("amqp://localhost:61616"), false);
    }
 
-   @TestTemplate
+   @Test
    public void testGetConsumerMessageCountsAutoAckOpenWire() throws Exception {
       testGetConsumerMessageCountsAutoAck(new org.apache.activemq.ActiveMQConnectionFactory("tcp://localhost:61616"), false);
    }
 
-   @TestTemplate
+   @Test
    public void testGetConsumerMessageCountsAutoAckCoreIndividualAck() throws Exception {
       ActiveMQConnectionFactory factory = ActiveMQJMSClient.createConnectionFactoryWithoutHA(JMSFactoryType.CF, new TransportConfiguration(INVM_CONNECTOR_FACTORY));
       testGetConsumerMessageCountsAutoAck(factory, true);
@@ -736,19 +725,19 @@ public class QueueControlTest extends ManagementTestBase {
       }
    }
 
-   @TestTemplate
+   @Test
    public void testGetConsumerMessageCountsClientAckCore() throws Exception {
       ActiveMQConnectionFactory factory = ActiveMQJMSClient.createConnectionFactoryWithoutHA(JMSFactoryType.CF, new TransportConfiguration(INVM_CONNECTOR_FACTORY));
       factory.setConsumerWindowSize(1);
       testGetConsumerMessageCountsClientAck(factory, false);
    }
 
-   @TestTemplate
+   @Test
    public void testGetConsumerMessageCountsClientAckAMQP() throws Exception {
       testGetConsumerMessageCountsClientAck(new JmsConnectionFactory("amqp://localhost:61616"), false);
    }
 
-   @TestTemplate
+   @Test
    public void testGetConsumerMessageCountsClientAckOpenWire() throws Exception {
       testGetConsumerMessageCountsClientAck(new org.apache.activemq.ActiveMQConnectionFactory("tcp://localhost:61616"), false);
    }
@@ -817,19 +806,19 @@ public class QueueControlTest extends ManagementTestBase {
       }
    }
 
-   @TestTemplate
+   @Test
    public void testGetConsumerMessageCountsTransactedCore() throws Exception {
       ActiveMQConnectionFactory factory = ActiveMQJMSClient.createConnectionFactoryWithoutHA(JMSFactoryType.CF, new TransportConfiguration(INVM_CONNECTOR_FACTORY));
       factory.setConsumerWindowSize(1);
       testGetConsumerMessageCountsTransacted(factory, false);
    }
 
-   @TestTemplate
+   @Test
    public void testGetConsumerMessageCountsTransactedAMQP() throws Exception {
       testGetConsumerMessageCountsTransacted(new JmsConnectionFactory("amqp://localhost:61616"), false);
    }
 
-   @TestTemplate
+   @Test
    public void testGetConsumerMessageCountsTransactedOpenWire() throws Exception {
       testGetConsumerMessageCountsTransacted(new org.apache.activemq.ActiveMQConnectionFactory("tcp://localhost:61616"), false);
    }
@@ -897,14 +886,14 @@ public class QueueControlTest extends ManagementTestBase {
       }
    }
 
-   @TestTemplate
+   @Test
    public void testGetConsumerMessageCountsTransactedXACore() throws Exception {
       ActiveMQConnectionFactory factory = ActiveMQJMSClient.createConnectionFactoryWithoutHA(JMSFactoryType.CF, new TransportConfiguration(INVM_CONNECTOR_FACTORY));
       factory.setConsumerWindowSize(1);
       testGetConsumerMessageCountsTransactedXA(factory, false);
    }
 
-   @TestTemplate
+   @Test
    public void testGetConsumerMessageCountsTransactedXAOpenWire() throws Exception {
       testGetConsumerMessageCountsTransactedXA(new org.apache.activemq.ActiveMQXAConnectionFactory("tcp://localhost:61616"), false);
    }
@@ -997,7 +986,7 @@ public class QueueControlTest extends ManagementTestBase {
       }
    }
 
-   @TestTemplate
+   @Test
    public void testGetMessageCount() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -1018,7 +1007,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testGetFirstMessage() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -1046,7 +1035,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testPeekFirstMessage() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -1069,7 +1058,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testPeekFirstScheduledMessage() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -1117,7 +1106,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testMessageAttributeLimits() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -1196,7 +1185,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testBytesMessageBodyWithoutLimits() throws Exception {
       final int BYTE_COUNT = 2048;
       SimpleString address = RandomUtil.randomSimpleString();
@@ -1238,7 +1227,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testTextMessageAttributeLimits() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -1276,7 +1265,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testGetMessagesAdded() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -1299,7 +1288,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testGetMessagesAcknowledged() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -1324,7 +1313,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testGetMessagesAcknowledgedOnXARollback() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -1370,7 +1359,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testGetMessagesAcknowledgedOnRegularRollback() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -1410,7 +1399,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testGetScheduledCount() throws Exception {
       long delay = 500;
       SimpleString address = RandomUtil.randomSimpleString();
@@ -1447,7 +1436,7 @@ public class QueueControlTest extends ManagementTestBase {
    }
 
    //https://issues.jboss.org/browse/HORNETQ-1231
-   @TestTemplate
+   @Test
    public void testListDeliveringMessagesWithRASession() throws Exception {
       ServerLocator locator1 = createInVMNonHALocator().setBlockOnNonDurableSend(true).setConsumerWindowSize(10240).setAckBatchSize(0);
       ClientSessionFactory sf = locator1.createSessionFactory();
@@ -1540,7 +1529,7 @@ public class QueueControlTest extends ManagementTestBase {
       }
    }
 
-   @TestTemplate
+   @Test
    public void testListDeliveringMessages() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -1582,7 +1571,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testListDeliveringMessagesOnClosedConsumer() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -1617,7 +1606,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testListScheduledMessages() throws Exception {
       long delay = 2000;
       SimpleString address = RandomUtil.randomSimpleString();
@@ -1651,7 +1640,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testListScheduledMessagesAsJSON() throws Exception {
       long delay = 2000;
       SimpleString address = RandomUtil.randomSimpleString();
@@ -1688,7 +1677,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testGetDeliveringCount() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -1714,7 +1703,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testMessagesAddedAndMessagesAcknowledged() throws Exception {
       final int THREAD_COUNT = 5;
       final int MSG_COUNT = 1000;
@@ -1794,7 +1783,7 @@ public class QueueControlTest extends ManagementTestBase {
       }
    }
 
-   @TestTemplate
+   @Test
    public void testListMessagesAsJSONWithNullFilter() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -1826,7 +1815,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testListMessagesWithFilter() throws Exception {
       SimpleString key = SimpleString.of("key");
       long matchingValue = RandomUtil.randomLong();
@@ -1861,7 +1850,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testListMessagesWithNullFilter() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -1882,7 +1871,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testListMessagesWithEmptyFilter() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -1903,7 +1892,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testListMessagesAsJSONWithFilter() throws Exception {
       SimpleString key = SimpleString.of("key");
       long matchingValue = RandomUtil.randomLong();
@@ -1945,7 +1934,7 @@ public class QueueControlTest extends ManagementTestBase {
    /**
     * Test retry - get a message from DLQ and put on original queue.
     */
-   @TestTemplate
+   @Test
    public void testRetryMessage() throws Exception {
       final SimpleString dla = SimpleString.of("DLA");
       final SimpleString qName = SimpleString.of("q1");
@@ -2000,7 +1989,7 @@ public class QueueControlTest extends ManagementTestBase {
    /**
     * Test retry - get a message from auto-created DLA/DLQ and put on original queue.
     */
-   @TestTemplate
+   @Test
    public void testRetryMessageWithAutoCreatedResources() throws Exception {
       final SimpleString dla = SimpleString.of("DLA");
       final SimpleString qName = SimpleString.of("q1");
@@ -2052,7 +2041,7 @@ public class QueueControlTest extends ManagementTestBase {
       clientConsumer.close();
    }
 
-   @TestTemplate
+   @Test
    public void testRetryMessageWithoutDLQ() throws Exception {
       final SimpleString qName = SimpleString.of("q1");
       final SimpleString qName2 = SimpleString.of("q2");
@@ -2106,7 +2095,7 @@ public class QueueControlTest extends ManagementTestBase {
    /**
     * Test retry - get a diverted message from DLQ and put on original queue.
     */
-   @TestTemplate
+   @Test
    public void testRetryDivertedMessage() throws Exception {
       final SimpleString dla = SimpleString.of("DLA");
       final SimpleString dlq = SimpleString.of("DLQ");
@@ -2169,7 +2158,7 @@ public class QueueControlTest extends ManagementTestBase {
    /**
     * Test retry multiple messages from  DLQ to original queue.
     */
-   @TestTemplate
+   @Test
    public void testRetryMultipleMessages() throws Exception {
       final SimpleString dla = SimpleString.of("DLA");
       final SimpleString qName = SimpleString.of("q1");
@@ -2248,7 +2237,7 @@ public class QueueControlTest extends ManagementTestBase {
    /**
     * Test send to DLA while paging includes paged messages
     */
-   @TestTemplate
+   @Test
    public void testSendToDLAIncludesPagedMessages() throws Exception {
       final SimpleString dla = SimpleString.of("DLA");
       final SimpleString qName = SimpleString.of("q1");
@@ -2288,7 +2277,7 @@ public class QueueControlTest extends ManagementTestBase {
    /**
     * Test send single message to DLA while paging includes paged message
     */
-   @TestTemplate
+   @Test
    public void testSendMessageToDLAIncludesPagedMessage() throws Exception {
       final SimpleString dla = SimpleString.of("DLA");
       final SimpleString qName = SimpleString.of("q1");
@@ -2339,7 +2328,7 @@ public class QueueControlTest extends ManagementTestBase {
     * <li>consume the message from otherQueue</li>
     * </ol>
     */
-   @TestTemplate
+   @Test
    public void testMoveMessages() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -2389,7 +2378,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(otherQueue);
    }
 
-   @TestTemplate
+   @Test
    public void testMoveMessages2() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queueA = SimpleString.of("A");
@@ -2453,7 +2442,7 @@ public class QueueControlTest extends ManagementTestBase {
 
    }
 
-   @TestTemplate
+   @Test
    public void testMoveMessagesToUnknownQueue() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -2494,7 +2483,7 @@ public class QueueControlTest extends ManagementTestBase {
     * <li>consume the message which <strong>did</strong> matches the filter from otherQueue</li>
     * </ol>
     */
-   @TestTemplate
+   @Test
    public void testMoveMessagesWithFilter() throws Exception {
       SimpleString key = SimpleString.of("key");
       long matchingValue = RandomUtil.randomLong();
@@ -2545,7 +2534,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(otherQueue);
    }
 
-   @TestTemplate
+   @Test
    public void testMoveMessagesWithMessageCount() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -2583,7 +2572,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(otherQueue);
    }
 
-   @TestTemplate
+   @Test
    public void testMoveMessage() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -2620,7 +2609,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(otherQueue);
    }
 
-   @TestTemplate
+   @Test
    public void testCopyMessage() throws Exception {
       SimpleString address = SimpleString.of("address");//RandomUtil.randomSimpleString();
       SimpleString queue = SimpleString.of("queue");//RandomUtil.randomSimpleString();
@@ -2674,7 +2663,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(otherQueue2);
    }
 
-   @TestTemplate
+   @Test
    public void testCopyLargeMessage() throws Exception {
       SimpleString address = SimpleString.of("address");//RandomUtil.randomSimpleString();
       SimpleString queue = SimpleString.of("queue");//RandomUtil.randomSimpleString();
@@ -2764,33 +2753,33 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(otherQueue2);
    }
 
-   @TestTemplate
+   @Test
    public void testCoreCopyMessage() throws Exception {
       testCopyMessage("CORE", false);
    }
 
-   @TestTemplate
+   @Test
    public void testCoreCopyLargeMessage() throws Exception {
       testCopyMessage("CORE", true);
    }
 
-   @TestTemplate
+   @Test
    public void testAMQPCopyMessage() throws Exception {
       testCopyMessage("AMQP", false);
    }
 
-   @TestTemplate
+   @Test
    public void testAMQPCopyLargeMessage() throws Exception {
       testCopyMessage("AMQP", true);
    }
 
-   @TestTemplate
+   @Test
    public void testOpenwireCopyMessage() throws Exception {
       testCopyMessage("OPENWIRE", false);
    }
 
 
-   @TestTemplate
+   @Test
    public void testOpenwireCopyLargeMessage() throws Exception {
       testCopyMessage("OPENWIRE", true);
    }
@@ -2897,7 +2886,7 @@ public class QueueControlTest extends ManagementTestBase {
     *             </multicast>
     *          </address>
     */
-   @TestTemplate
+   @Test
    public void testMoveMessageToFQQN() throws Exception {
       SimpleString address = SimpleString.of("ErrorQueue");
       SimpleString queue = SimpleString.of("ErrorQueue");
@@ -2939,7 +2928,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(otherQueue2);
    }
 
-   @TestTemplate
+   @Test
    public void testMoveMessageToUnknownQueue() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -2972,7 +2961,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testCopiedMessageProperties() throws Exception {
       final String testAddress = "testAddress";
       final SimpleString queue = SimpleString.of("queue");
@@ -3021,7 +3010,7 @@ public class QueueControlTest extends ManagementTestBase {
     * </ol>
     */
 
-   @TestTemplate
+   @Test
    public void testRemoveMessages() throws Exception {
       SimpleString key = SimpleString.of("key");
       long matchingValue = RandomUtil.randomLong();
@@ -3065,7 +3054,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testRemoveMessagesWithLimit() throws Exception {
       SimpleString key = SimpleString.of("key");
       long matchingValue = RandomUtil.randomLong();
@@ -3109,7 +3098,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testRemoveMessagesWithNullFilter() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -3132,7 +3121,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testRemoveAllMessages() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -3155,7 +3144,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testRemoveAllWithPagingMode() throws Exception {
 
       final int MESSAGE_SIZE = 1024 * 3; // 3k
@@ -3206,7 +3195,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queueName);
    }
 
-   @TestTemplate
+   @Test
    public void testRemoveMessagesWithEmptyFilter() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -3229,7 +3218,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testRemoveMessage() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -3260,7 +3249,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testRemoveScheduledMessage() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -3300,7 +3289,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testRemoveScheduledMessageRestart() throws Exception {
       assumeTrue(durable);
       SimpleString address = RandomUtil.randomSimpleString();
@@ -3338,7 +3327,7 @@ public class QueueControlTest extends ManagementTestBase {
       assertScheduledMetrics(queueControl, 1, durable);
    }
 
-   @TestTemplate
+   @Test
    public void testRemoveMessage2() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -3386,7 +3375,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testCountDeliveringMessageCountWithFilter() throws Exception {
       SimpleString key = SimpleString.of("key");
       long matchingValue = RandomUtil.randomPositiveLong();
@@ -3422,7 +3411,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testCountDeliveringMessageCountNoFilter() throws Exception {
       SimpleString key = SimpleString.of("key");
       long matchingValue = RandomUtil.randomLong();
@@ -3454,7 +3443,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testCountDeliveringMessageCountNoGroupNoFilter() throws Exception {
       SimpleString key = SimpleString.of("key");
       long matchingValue = RandomUtil.randomLong();
@@ -3492,7 +3481,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testCountDeliveringMessageCountGroupNoFilter() throws Exception {
       String key = new String("key_group");
       String valueGroup1 = "group_1";
@@ -3531,7 +3520,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testCountDeliveringMessageCountGroupFilter() throws Exception {
       String key = new String("key_group");
       long valueGroup1 = RandomUtil.randomLong();
@@ -3571,7 +3560,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testCountMessagesWithFilter() throws Exception {
       SimpleString key = SimpleString.of("key");
       long matchingValue = RandomUtil.randomLong();
@@ -3602,7 +3591,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testCountMessagesWithInvalidFilter() throws Exception {
       SimpleString key = SimpleString.of("key");
       String matchingValue = "MATCH";
@@ -3649,7 +3638,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testCountMessagesPropertyExist() throws Exception {
       String key = new String("key_group");
       String valueGroup1 = "group_1";
@@ -3686,7 +3675,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testCountMessagesPropertyWithNullFilter() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -3709,7 +3698,7 @@ public class QueueControlTest extends ManagementTestBase {
    }
 
 
-   @TestTemplate
+   @Test
    public void testExpireMessagesWithFilter() throws Exception {
       SimpleString key = SimpleString.of("key");
       long matchingValue = RandomUtil.randomLong();
@@ -3753,7 +3742,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.close();
    }
 
-   @TestTemplate
+   @Test
    public void testExpireMessage() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -3794,7 +3783,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.close();
    }
 
-   @TestTemplate
+   @Test
    public void testSendMessageToDeadLetterAddress() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -3838,7 +3827,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(deadLetterQueue);
    }
 
-   @TestTemplate
+   @Test
    public void testChangeMessagePriority() throws Exception {
       byte originalPriority = (byte) 1;
       byte newPriority = (byte) 8;
@@ -3873,7 +3862,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testChangeMessagePriorityWithInvalidValue() throws Exception {
       byte invalidPriority = (byte) 23;
 
@@ -3909,7 +3898,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testListMessageCounter() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -3971,7 +3960,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testResetMessageCounter() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -4023,7 +4012,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testListMessageCounterAsHTML() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -4037,7 +4026,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testListMessageCounterHistory() throws Exception {
       long counterPeriod = 1000;
       SimpleString address = RandomUtil.randomSimpleString();
@@ -4057,7 +4046,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testListMessageCounterHistoryAsHTML() throws Exception {
       long counterPeriod = 1000;
       SimpleString address = RandomUtil.randomSimpleString();
@@ -4077,7 +4066,7 @@ public class QueueControlTest extends ManagementTestBase {
 
    }
 
-   @TestTemplate
+   @Test
    public void testMoveMessagesBack() throws Exception {
       server.createQueue(QueueConfiguration.of("q1").setRoutingType(RoutingType.MULTICAST).setDurable(durable));
       server.createQueue(QueueConfiguration.of("q2").setRoutingType(RoutingType.MULTICAST).setDurable(durable));
@@ -4141,7 +4130,7 @@ public class QueueControlTest extends ManagementTestBase {
 
    }
 
-   @TestTemplate
+   @Test
    public void testMoveMessagesBack2() throws Exception {
       server.createQueue(QueueConfiguration.of("q1").setRoutingType(RoutingType.MULTICAST).setDurable(durable));
       server.createQueue(QueueConfiguration.of("q2").setRoutingType(RoutingType.MULTICAST).setDurable(durable));
@@ -4214,7 +4203,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.close();
    }
 
-   @TestTemplate
+   @Test
    public void testPauseAndResume() {
       long counterPeriod = 1000;
       SimpleString address = RandomUtil.randomSimpleString();
@@ -4237,7 +4226,7 @@ public class QueueControlTest extends ManagementTestBase {
       }
    }
 
-   @TestTemplate
+   @Test
    public void testResetMessagesAdded() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -4264,7 +4253,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testResetMessagesAcknowledged() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -4289,7 +4278,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testResetMessagesExpired() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -4334,7 +4323,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testResetMessagesKilled() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -4383,7 +4372,7 @@ public class QueueControlTest extends ManagementTestBase {
 
    //make sure notifications are always received no matter whether
    //a Queue is created via QueueControl or by JMSServerManager directly.
-   @TestTemplate
+   @Test
    public void testCreateQueueNotification() throws Exception {
       JMSUtil.JMXListener listener = new JMSUtil.JMXListener();
       this.mbeanServer.addNotificationListener(ObjectNameBuilder.DEFAULT.getActiveMQServerObjectName(), listener, null, null);
@@ -4414,7 +4403,7 @@ public class QueueControlTest extends ManagementTestBase {
       assertEquals(CoreNotificationType.BINDING_REMOVED.toString(), notif.getType());
    }
 
-   @TestTemplate
+   @Test
    public void testSendMessage() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -4447,7 +4436,7 @@ public class QueueControlTest extends ManagementTestBase {
    }
 
 
-   @TestTemplate
+   @Test
    public void testSendMessageWithAMQP() throws Exception {
       SimpleString address = SimpleString.of("address_testSendMessageWithAMQP");
       SimpleString queue = SimpleString.of("queue_testSendMessageWithAMQP");
@@ -4517,7 +4506,7 @@ public class QueueControlTest extends ManagementTestBase {
    }
 
 
-   @TestTemplate
+   @Test
    public void testSendMessageWithAMQPLarge() throws Exception {
       SimpleString address = SimpleString.of("address_testSendMessageWithAMQP");
       SimpleString queue = SimpleString.of("queue_testSendMessageWithAMQP");
@@ -4575,7 +4564,7 @@ public class QueueControlTest extends ManagementTestBase {
 
    }
 
-   @TestTemplate
+   @Test
    public void testSendMessageWithMessageId() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -4615,7 +4604,7 @@ public class QueueControlTest extends ManagementTestBase {
       assertEquals(new String(body), "theBody");
    }
 
-   @TestTemplate
+   @Test
    public void testSendMessageToQueueWithFilter() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -4630,7 +4619,7 @@ public class QueueControlTest extends ManagementTestBase {
       Wait.assertEquals(1, () -> getMessageCount(queueControl));
    }
 
-   @TestTemplate
+   @Test
    public void testSendMessageWithProperties() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -4671,7 +4660,7 @@ public class QueueControlTest extends ManagementTestBase {
       assertEquals(new String(body), "theBody");
    }
 
-   @TestTemplate
+   @Test
    public void testBrowseLimitOnListBrowseAndFilteredCount() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -4705,7 +4694,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testBrowseWithNullPropertyValue() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -4725,7 +4714,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testBrowseWithNullPropertyValueWithAMQP() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -4748,7 +4737,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testResetGroups() throws Exception {
       SimpleString address = RandomUtil.randomSimpleString();
       SimpleString queue = RandomUtil.randomSimpleString();
@@ -4785,7 +4774,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.deleteQueue(queue);
    }
 
-   @TestTemplate
+   @Test
    public void testGetScheduledCountOnRemove() throws Exception {
       long delay = Integer.MAX_VALUE;
       SimpleString address = RandomUtil.randomSimpleString();
@@ -4818,7 +4807,7 @@ public class QueueControlTest extends ManagementTestBase {
    /**
     * Test retry - get a message from auto-created DLA/DLQ with HDR_ORIG_RoutingType set and put on original queue.
     */
-   @TestTemplate
+   @Test
    public void testRetryMessageWithAutoCreatedResourcesAndOrigRoutingType() throws Exception {
       final SimpleString dla = SimpleString.of("DLA");
       final SimpleString qName = SimpleString.of("q1");
@@ -4877,7 +4866,7 @@ public class QueueControlTest extends ManagementTestBase {
    /**
     * Test retry - get a message from auto-created DLA/DLQ and put on original queue.
     */
-   @TestTemplate
+   @Test
    public void testRetryMessageReturnedWhenNoOrigQueue() throws Exception {
       final SimpleString dla = SimpleString.of("DLA");
       final SimpleString qName = SimpleString.of("q1");
