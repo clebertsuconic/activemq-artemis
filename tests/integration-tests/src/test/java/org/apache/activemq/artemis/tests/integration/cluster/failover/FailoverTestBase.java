@@ -66,6 +66,7 @@ import org.apache.activemq.artemis.tests.integration.cluster.util.SameProcessAct
 import org.apache.activemq.artemis.tests.integration.cluster.util.TestableServer;
 import org.apache.activemq.artemis.tests.util.ActiveMQTestBase;
 import org.apache.activemq.artemis.tests.util.ReplicatedBackupUtils;
+import org.apache.activemq.artemis.tests.util.TransportConfigurationUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 
@@ -467,9 +468,13 @@ public abstract class FailoverTestBase extends ActiveMQTestBase {
       }
    }
 
-   protected abstract TransportConfiguration getAcceptorTransportConfiguration(boolean live);
+   protected TransportConfiguration getAcceptorTransportConfiguration(final boolean primary) {
+      return TransportConfigurationUtils.getInVMAcceptor(primary);
+   }
 
-   protected abstract TransportConfiguration getConnectorTransportConfiguration(boolean live);
+   protected TransportConfiguration getConnectorTransportConfiguration(final boolean primary) {
+      return TransportConfigurationUtils.getInVMConnector(primary);
+   }
 
    protected ServerLocatorInternal getServerLocator() throws Exception {
       return (ServerLocatorInternal) addServerLocator(ActiveMQClient.createServerLocatorWithHA(getConnectorTransportConfiguration(true), getConnectorTransportConfiguration(false))).setRetryInterval(50).setInitialConnectAttempts(50);
