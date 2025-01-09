@@ -123,7 +123,7 @@ public abstract class ClusterTestBase extends ActiveMQTestBase {
       return false;
    }
 
-   private static final long TIMEOUT_START_SERVER = 1000;
+   private static final long TIMEOUT_START_SERVER = 10;
 
    private static final SimpleString COUNT_PROP = SimpleString.of("count_prop");
 
@@ -168,8 +168,6 @@ public abstract class ClusterTestBase extends ActiveMQTestBase {
    @BeforeEach
    public void setUp() throws Exception {
       super.setUp();
-
-      forceGC();
 
       consumers = new ConsumerHolder[ClusterTestBase.MAX_CONSUMERS];
 
@@ -1272,16 +1270,13 @@ public abstract class ClusterTestBase extends ActiveMQTestBase {
 
          receivedCounts.add(list);
 
-         ClientMessage message;
-         do {
-            message = holder.consumer.receive(1000);
+         for (long timeout = System.currentTimeMillis() + 5000; !matchCounters(messageCounts, counts) && timeout > System.currentTimeMillis();) {
+            ClientMessage message = holder.consumer.receiveImmediate();
 
             if (message != null) {
                int count = (Integer) message.getObjectProperty(ClusterTestBase.COUNT_PROP);
 
                checkMessageBody(message);
-
-               // logger.debug("consumer {} received message {}", consumerIDs[i], count);
 
                assertFalse(counts.contains(count));
 
@@ -1294,12 +1289,9 @@ public abstract class ClusterTestBase extends ActiveMQTestBase {
                }
             }
          }
-         while (message != null);
       }
 
-      for (int messageCount : messageCounts) {
-         assertTrue(counts.contains(messageCount));
-      }
+      assertTrue(matchCounters(messageCounts, counts));
 
       @SuppressWarnings("unchecked")
       LinkedList<Integer>[] lists = new LinkedList[consumerIDs.length];
@@ -1333,6 +1325,15 @@ public abstract class ClusterTestBase extends ActiveMQTestBase {
          }
       }
 
+   }
+
+   private static boolean matchCounters(int[] messageCounts, Set<Integer> counts) {
+      for (int messageCount : messageCounts) {
+         if (!counts.contains(messageCount)) {
+            return false;
+         }
+      }
+      return true;
    }
 
    /**
@@ -1790,7 +1791,7 @@ public abstract class ClusterTestBase extends ActiveMQTestBase {
       }
       Configuration config = serverFrom.getConfiguration();
 
-      ClusterConnectionConfiguration clusterConf = new ClusterConnectionConfiguration().setName(name).setAddress(address).setConnectorName(name).setRetryInterval(100).setMessageLoadBalancingType(messageLoadBalancingType).setMaxHops(maxHops).setConfirmationWindowSize(1024).setStaticConnectors(pairs).setAllowDirectConnectionsOnly(allowDirectConnectionsOnly);
+      ClusterConnectionConfiguration clusterConf = new ClusterConnectionConfiguration().setName(name).setAddress(address).setConnectorName(name).setRetryInterval(100).setMessageLoadBalancingType(messageLoadBalancingType).setMaxHops(maxHops).setConfirmationWindowSize(1024).setStaticConnectors(pairs).setAllowDirectConnectionsOnly(allowDirectConnectionsOnly).setCallTimeout(100);
 
       config.getClusterConfigurations().add(clusterConf);
    }
@@ -1956,7 +1957,7 @@ public abstract class ClusterTestBase extends ActiveMQTestBase {
          .setName(name)
          .setAddress(address)
          .setConnectorName(connectorFrom.getName())
-         .setRetryInterval(250)
+         .setRetryInterval(250).setCallFailoverTimeout(100).setCallTimeout(100)
          .setMessageLoadBalancingType(messageLoadBalancingType)
          .setMaxHops(maxHops)
          .setConfirmationWindowSize(1024)
