@@ -114,11 +114,8 @@ class PageTimedWriter extends ActiveMQScheduledComponent {
       if (pendingEvents == null) {
          return;
       }
-      OperationContext beforeContext = OperationContextImpl.getContext();
-
       try {
          for (PageEvent event : pendingEvents) {
-            OperationContextImpl.setContext(event.context);
             store.directWritePage(event.message, event.tx, event.listCtx, false);
          }
          store.ioSync();
@@ -134,8 +131,6 @@ class PageTimedWriter extends ActiveMQScheduledComponent {
          for (PageEvent event : pendingEvents) {
             event.context.done();
          }
-
-         OperationContextImpl.setContext(beforeContext);
       }
    }
 }
