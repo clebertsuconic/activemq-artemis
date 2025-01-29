@@ -268,7 +268,7 @@ class DelayPagingStoreImpl extends PagingStoreImpl {
                                AddressSettings addressSettings,
                                ArtemisExecutor executor, ArtemisExecutor ioExecutor,
                                boolean syncNonTransactional) {
-      super(address, scheduledExecutor, syncTimeout, pagingManager, storageManager, fileFactory, storeFactory, storeName, addressSettings, executor, ioExecutor, syncNonTransactional);
+      super(address, scheduledExecutor, syncTimeout, pagingManager, storageManager, fileFactory, storeFactory, storeName, addressSettings, executor, syncNonTransactional);
    }
 
    @Override
