@@ -108,6 +108,8 @@ public class PageSyncTimerUnitTest extends ArtemisTestCase {
          }
       };
 
+      timer.start();
+
    }
 
    // a test to validate if the Mocks are correctly setup
@@ -188,21 +190,6 @@ public class PageSyncTimerUnitTest extends ArtemisTestCase {
       runAfter(() -> OperationContextImpl.clearContext());
 
       OrderedExecutorFactory executorFactory = new OrderedExecutorFactory(executorService);
-
-      CountDownLatch allowRunning = new CountDownLatch(1);
-
-      PageTimedWriter timer = new PageTimedWriter(mockStore, scheduledExecutorService, executorFactory.getExecutor(), 100) {
-         @Override
-         public void run() {
-            try {
-               allowRunning.await();
-            } catch (InterruptedException e) {
-               logger.warn(e.getMessage(), e);
-               Thread.currentThread().interrupt();
-            }
-            super.run();
-         }
-      };
 
       OperationContextImpl.clearContext();
 
