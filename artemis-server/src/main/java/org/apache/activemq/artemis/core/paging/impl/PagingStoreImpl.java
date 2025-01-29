@@ -1258,12 +1258,19 @@ public class PagingStoreImpl implements PagingStore {
          message.setPaged();
 
          PagedMessage pagedMessage = new PagedMessageImpl(message, routeQueues(tx, listCtx), transactionID);
+         long persistentSize = pagedMessage.getPersistentSize() > 0 ? pagedMessage.getPersistentSize() : 0;
+
+         if (tx != null && tx.isAllowPageTransaction()) {
+            installPageTransaction(tx, listCtx);
+         }
 
          if (timedWriter == null) {
             directWritePage(pagedMessage, tx, listCtx);
          } else {
             timedWriter.addTask(storageManager.getContext(), pagedMessage, tx, listCtx);
          }
+
+         applyPageCounters(tx, listCtx, persistentSize);
 
          return true;
       } finally {
@@ -1281,18 +1288,12 @@ public class PagingStoreImpl implements PagingStore {
          currentPageSize += bytesToWrite;
       }
 
-      if (tx != null && tx.isAllowPageTransaction()) {
-         installPageTransaction(tx, listCtx);
-      }
-
       // the apply counter will make sure we write a record on journal
       // especially on the case for non transactional sends and paging
       // doing this will give us a possibility of recovering the page counters
-      long persistentSize = pagedMessage.getPersistentSize() > 0 ? pagedMessage.getPersistentSize() : 0;
       final Page page = currentPage;
 
       page.write(pagedMessage);
-      applyPageCounters(tx, page, listCtx, persistentSize);
 
       if (logger.isTraceEnabled()) {
          logger.trace("Paging message {} on pageStore {} pageNr={}", pagedMessage, getStoreName(), page.getPageId());
@@ -1337,11 +1338,10 @@ public class PagingStoreImpl implements PagingStore {
     * This is done to prevent non tx to get out of sync in case of failures
     *
     * @param tx
-    * @param page
     * @param ctx
     * @throws Exception
     */
-   private void applyPageCounters(Transaction tx, Page page, RouteContextList ctx, long size) throws Exception {
+   private void applyPageCounters(Transaction tx, RouteContextList ctx, long size) throws Exception {
       List<org.apache.activemq.artemis.core.server.Queue> durableQueues = ctx.getDurableQueues();
       List<org.apache.activemq.artemis.core.server.Queue> nonDurableQueues = ctx.getNonDurableQueues();
       for (org.apache.activemq.artemis.core.server.Queue q : durableQueues) {
@@ -1400,6 +1400,9 @@ public class PagingStoreImpl implements PagingStore {
    public boolean hasPendingIO() {
       lock.writeLock().lock();
       try {
+         if (timedWriter == null) {
+            return false;
+         }
          return timedWriter.hasPendingIO();
       } finally {
          lock.writeLock().unlock();
