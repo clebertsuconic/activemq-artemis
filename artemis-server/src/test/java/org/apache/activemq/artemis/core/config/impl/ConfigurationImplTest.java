@@ -1441,7 +1441,7 @@ public class ConfigurationImplTest extends AbstractConfigurationTestBase {
       assertEquals(300000L, configuration.getAddressSettings().get("#").getPageLimitBytes().longValue());
       assertEquals("DROP", configuration.getAddressSettings().get("#").getPageFullMessagePolicy().toString());
 
-      PagingStore storeImpl = new PagingStoreImpl(SimpleString.of("Test"), (ScheduledExecutorService) null, 100L, Mockito.mock(PagingManager.class), Mockito.mock(StorageManager.class), Mockito.mock(SequentialFileFactory.class), Mockito.mock(PagingStoreFactory.class), SimpleString.of("Test"), configuration.getAddressSettings().get("#"), null, null, true);
+      PagingStore storeImpl = new PagingStoreImpl(SimpleString.of("Test"), (ScheduledExecutorService) null, 100L, Mockito.mock(PagingManager.class), Mockito.mock(StorageManager.class), Mockito.mock(SequentialFileFactory.class), Mockito.mock(PagingStoreFactory.class), SimpleString.of("Test"), configuration.getAddressSettings().get("#"), null, true);
 
       assertEquals(300L, storeImpl.getPageLimitMessages().longValue());
       assertEquals(300000L, storeImpl.getPageLimitBytes().longValue());
@@ -1471,7 +1471,7 @@ public class ConfigurationImplTest extends AbstractConfigurationTestBase {
       assertEquals((Long)300000L, configuration.getAddressSettings().get("#").getPageLimitBytes());
       assertNull(configuration.getAddressSettings().get("#").getPageFullMessagePolicy());
 
-      PagingStore storeImpl = new PagingStoreImpl(SimpleString.of("Test"), (ScheduledExecutorService) null, 100L, Mockito.mock(PagingManager.class), Mockito.mock(StorageManager.class), Mockito.mock(SequentialFileFactory.class), Mockito.mock(PagingStoreFactory.class), SimpleString.of("Test"), configuration.getAddressSettings().get("#"), null, null, true);
+      PagingStore storeImpl = new PagingStoreImpl(SimpleString.of("Test"), (ScheduledExecutorService) null, 100L, Mockito.mock(PagingManager.class), Mockito.mock(StorageManager.class), Mockito.mock(SequentialFileFactory.class), Mockito.mock(PagingStoreFactory.class), SimpleString.of("Test"), configuration.getAddressSettings().get("#"), null, true);
 
       assertNull(storeImpl.getPageLimitMessages());
       assertNull(storeImpl.getPageLimitBytes());
@@ -1502,7 +1502,7 @@ public class ConfigurationImplTest extends AbstractConfigurationTestBase {
       assertNull(configuration.getAddressSettings().get("#").getPageLimitBytes());
       assertNull(configuration.getAddressSettings().get("#").getPageFullMessagePolicy());
 
-      PagingStore storeImpl = new PagingStoreImpl(SimpleString.of("Test"), (ScheduledExecutorService) null, 100L, Mockito.mock(PagingManager.class), Mockito.mock(StorageManager.class), Mockito.mock(SequentialFileFactory.class), Mockito.mock(PagingStoreFactory.class), SimpleString.of("Test"), configuration.getAddressSettings().get("#"), null, null, true);
+      PagingStore storeImpl = new PagingStoreImpl(SimpleString.of("Test"), (ScheduledExecutorService) null, 100L, Mockito.mock(PagingManager.class), Mockito.mock(StorageManager.class), Mockito.mock(SequentialFileFactory.class), Mockito.mock(PagingStoreFactory.class), SimpleString.of("Test"), configuration.getAddressSettings().get("#"), null, true);
 
       assertNull(storeImpl.getPageLimitMessages());
       assertNull(storeImpl.getPageLimitBytes());
@@ -1532,7 +1532,7 @@ public class ConfigurationImplTest extends AbstractConfigurationTestBase {
       assertEquals((Long)300000L, configuration.getAddressSettings().get("#").getPageLimitBytes());
       assertNull(configuration.getAddressSettings().get("#").getPageFullMessagePolicy());
 
-      PagingStore storeImpl = new PagingStoreImpl(SimpleString.of("Test"), (ScheduledExecutorService) null, 100L, Mockito.mock(PagingManager.class), Mockito.mock(StorageManager.class), Mockito.mock(SequentialFileFactory.class), Mockito.mock(PagingStoreFactory.class), SimpleString.of("Test"), configuration.getAddressSettings().get("#"), null, null, true);
+      PagingStore storeImpl = new PagingStoreImpl(SimpleString.of("Test"), (ScheduledExecutorService) null, 100L, Mockito.mock(PagingManager.class), Mockito.mock(StorageManager.class), Mockito.mock(SequentialFileFactory.class), Mockito.mock(PagingStoreFactory.class), SimpleString.of("Test"), configuration.getAddressSettings().get("#"), null, true);
 
       assertNull(storeImpl.getPageLimitMessages());
       assertNull(storeImpl.getPageLimitBytes());
@@ -1562,7 +1562,7 @@ public class ConfigurationImplTest extends AbstractConfigurationTestBase {
       assertNull(configuration.getAddressSettings().get("#").getPageLimitBytes());
       assertEquals("DROP", configuration.getAddressSettings().get("#").getPageFullMessagePolicy().toString());
 
-      PagingStore storeImpl = new PagingStoreImpl(SimpleString.of("Test"), (ScheduledExecutorService) null, 100L, Mockito.mock(PagingManager.class), Mockito.mock(StorageManager.class), Mockito.mock(SequentialFileFactory.class), Mockito.mock(PagingStoreFactory.class), SimpleString.of("Test"), configuration.getAddressSettings().get("#"), null, null, true);
+      PagingStore storeImpl = new PagingStoreImpl(SimpleString.of("Test"), (ScheduledExecutorService) null, 100L, Mockito.mock(PagingManager.class), Mockito.mock(StorageManager.class), Mockito.mock(SequentialFileFactory.class), Mockito.mock(PagingStoreFactory.class), SimpleString.of("Test"), configuration.getAddressSettings().get("#"), null, true);
 
       assertNull(storeImpl.getPageLimitMessages());
       assertNull(storeImpl.getPageLimitBytes());
@@ -1592,7 +1592,7 @@ public class ConfigurationImplTest extends AbstractConfigurationTestBase {
       assertEquals(-1L, configuration.getAddressSettings().get("#").getPageLimitBytes().longValue());
       assertEquals("DROP", configuration.getAddressSettings().get("#").getPageFullMessagePolicy().toString());
 
-      PagingStore storeImpl = new PagingStoreImpl(SimpleString.of("Test"), (ScheduledExecutorService) null, 100L, Mockito.mock(PagingManager.class), Mockito.mock(StorageManager.class), Mockito.mock(SequentialFileFactory.class), Mockito.mock(PagingStoreFactory.class), SimpleString.of("Test"), configuration.getAddressSettings().get("#"), null, null, true);
+      PagingStore storeImpl = new PagingStoreImpl(SimpleString.of("Test"), (ScheduledExecutorService) null, 100L, Mockito.mock(PagingManager.class), Mockito.mock(StorageManager.class), Mockito.mock(SequentialFileFactory.class), Mockito.mock(PagingStoreFactory.class), SimpleString.of("Test"), configuration.getAddressSettings().get("#"), null, true);
 
       assertNull(storeImpl.getPageLimitMessages());
       assertNull(storeImpl.getPageLimitBytes());
@@ -1618,7 +1618,7 @@ public class ConfigurationImplTest extends AbstractConfigurationTestBase {
       assertEquals(333, configuration.getAddressSettings().get("#").getPrefetchPageMessages());
       assertEquals(777, configuration.getAddressSettings().get("#").getPrefetchPageBytes());
 
-      PagingStore storeImpl = new PagingStoreImpl(SimpleString.of("Test"), (ScheduledExecutorService) null, 100L, Mockito.mock(PagingManager.class), Mockito.mock(StorageManager.class), Mockito.mock(SequentialFileFactory.class), Mockito.mock(PagingStoreFactory.class), SimpleString.of("Test"), configuration.getAddressSettings().get("#"), null, null, true);
+      PagingStore storeImpl = new PagingStoreImpl(SimpleString.of("Test"), (ScheduledExecutorService) null, 100L, Mockito.mock(PagingManager.class), Mockito.mock(StorageManager.class), Mockito.mock(SequentialFileFactory.class), Mockito.mock(PagingStoreFactory.class), SimpleString.of("Test"), configuration.getAddressSettings().get("#"), null, true);
 
       assertEquals(333, storeImpl.getPrefetchPageMessages());
       assertEquals(777, storeImpl.getPrefetchPageBytes());
@@ -1643,7 +1643,7 @@ public class ConfigurationImplTest extends AbstractConfigurationTestBase {
       assertEquals(333, configuration.getAddressSettings().get("#").getMaxReadPageMessages());
       assertEquals(777, configuration.getAddressSettings().get("#").getMaxReadPageBytes());
 
-      PagingStore storeImpl = new PagingStoreImpl(SimpleString.of("Test"), (ScheduledExecutorService) null, 100L, Mockito.mock(PagingManager.class), Mockito.mock(StorageManager.class), Mockito.mock(SequentialFileFactory.class), Mockito.mock(PagingStoreFactory.class), SimpleString.of("Test"), configuration.getAddressSettings().get("#"), null, null, true);
+      PagingStore storeImpl = new PagingStoreImpl(SimpleString.of("Test"), (ScheduledExecutorService) null, 100L, Mockito.mock(PagingManager.class), Mockito.mock(StorageManager.class), Mockito.mock(SequentialFileFactory.class), Mockito.mock(PagingStoreFactory.class), SimpleString.of("Test"), configuration.getAddressSettings().get("#"), null, true);
 
       assertEquals(333, storeImpl.getPrefetchPageMessages());
       assertEquals(777, storeImpl.getPrefetchPageBytes());
