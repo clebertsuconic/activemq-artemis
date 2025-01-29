@@ -16,6 +16,7 @@
  */
 package org.apache.activemq.artemis.tests.soak.replicationflow;
 
+import static org.junit.jupiter.api.Assertions.assertTimeout;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -27,6 +28,7 @@ import javax.jms.MessageProducer;
 import javax.jms.Queue;
 import javax.jms.Session;
 import java.io.File;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -103,12 +105,12 @@ public class ReplicationFlowControlTest extends SoakTestBase {
 
    @Test
    public void testPageWhileSynchronizingReplica() throws Exception {
-      internalTest(false);
+      assertTimeout(Duration.ofMinutes(2), () -> internalTest(false));
    }
 
    @Test
    public void testPageWhileSyncFailover() throws Exception {
-      internalTest(true);
+      assertTimeout(Duration.ofMinutes(2), () -> internalTest(true));
    }
 
    private void internalTest(boolean failover) throws Exception {
