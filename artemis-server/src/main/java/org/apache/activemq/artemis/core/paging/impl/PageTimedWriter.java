@@ -1,0 +1,134 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.activemq.artemis.core.paging.impl;
+
+import java.lang.invoke.MethodHandles;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
+import org.apache.activemq.artemis.api.core.ActiveMQExceptionType;
+import org.apache.activemq.artemis.core.paging.PagedMessage;
+import org.apache.activemq.artemis.core.persistence.OperationContext;
+import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContextImpl;
+import org.apache.activemq.artemis.core.server.ActiveMQScheduledComponent;
+import org.apache.activemq.artemis.core.server.RouteContextList;
+import org.apache.activemq.artemis.core.transaction.Transaction;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+class PageTimedWriter extends ActiveMQScheduledComponent {
+
+   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
+
+   private final PagingStoreImpl store;
+
+   protected final List<PageEvent> pageEvents = new ArrayList<>();
+
+   public boolean hasPendingIO() {
+      return !pageEvents.isEmpty();
+   }
+
+   public static class PageEvent {
+
+      PageEvent(OperationContext context, PagedMessage message, Transaction tx, RouteContextList listCtx) {
+         this.context = context;
+         this.message = message;
+         this.listCtx = listCtx;
+         this.tx = tx;
+      }
+
+      PagedMessage message;
+      OperationContext context;
+      RouteContextList listCtx;
+      Transaction tx;
+   }
+
+   PageTimedWriter(PagingStoreImpl store, ScheduledExecutorService scheduledExecutor, Executor executor, long timeSync) {
+      super(scheduledExecutor, executor, timeSync, TimeUnit.NANOSECONDS, true);
+      this.store = store;
+   }
+
+   @Override
+   public synchronized void stop() {
+      super.stop();
+      processMessages();
+   }
+
+   public synchronized void addTask(OperationContext context,
+                                    PagedMessage message,
+                                    Transaction tx,
+                                    RouteContextList listCtx) {
+
+      if (!isStarted()) {
+         throw new IllegalStateException("PageWriter Service is stopped");
+      }
+      PageEvent event = new PageEvent(context, message, tx, listCtx);
+      context.storeLineUp();
+      this.pageEvents.add(event);
+      delay();
+   }
+
+   private PageEvent[] extractPendingEvents() {
+      synchronized (this) {
+         if (pageEvents.isEmpty()) {
+            return null;
+         }
+         PageEvent[] pendingsWrites = new PageEvent[pageEvents.size()];
+         pendingsWrites = pageEvents.toArray(pendingsWrites);
+         pageEvents.clear();
+         return pendingsWrites;
+      }
+   }
+
+   @Override
+   public void run() {
+      processMessages();
+   }
+
+   protected void processMessages() {
+      PageEvent[] pendingEvents = extractPendingEvents();
+      if (pendingEvents == null) {
+         return;
+      }
+      OperationContext beforeContext = OperationContextImpl.getContext();
+
+      try {
+         for (PageEvent event : pendingEvents) {
+            OperationContextImpl.setContext(event.context);
+            store.directWritePage(event.message, event.tx, event.listCtx);
+         }
+         store.ioSync();
+
+      } catch (Exception e) {
+         for (PageEvent event : pendingEvents) {
+            event.context.onError(ActiveMQExceptionType.IO_ERROR.getCode(), e.getClass() + " during ioSync for paging on " + store.getStoreName() + ": " + e.getMessage());
+         }
+      } finally {
+         // In case of failure, The context should propagate an exception to the client
+         // We send an exception to the client even on the case of a failure
+         // to avoid possible locks and the client not getting the exception back
+         for (PageEvent event : pendingEvents) {
+            event.context.done();
+         }
+
+         OperationContextImpl.setContext(beforeContext);
+      }
+   }
+}

@@ -199,6 +199,25 @@ public class PageCursorProviderImpl implements PageCursorProvider {
 
       return future;
    }
+   public Future<Boolean> forceScheduleCleanup() {
+      final SimpleFutureImpl<Boolean> future = new SimpleFutureImpl<>();
+
+      pagingStore.execute(() -> {
+         storageManager.setContext(storageManager.newSingleThreadContext());
+         try {
+            System.out.println("Forcing cleanup");
+            if (cleanupEnabled) {
+               cleanup();
+            }
+         } finally {
+            storageManager.clearContext();
+            future.set(true);
+         }
+      });
+
+      return future;
+   }
+
 
    /**
     * Delete everything associated with any queue on this address.
@@ -258,6 +277,11 @@ public class PageCursorProviderImpl implements PageCursorProvider {
 
       if (!rebuildDone) {
          logger.debug("Counters were not rebuilt yet, cleanup has to be ignored on address {}", pagingStore != null ? pagingStore.getAddress() : "NULL");
+         return;
+      }
+
+      if (pagingStore.hasPendingIO()) {
+         forceScheduleCleanup();
          return;
       }
 

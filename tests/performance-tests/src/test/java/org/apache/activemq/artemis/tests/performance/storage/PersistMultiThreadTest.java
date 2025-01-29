@@ -401,11 +401,6 @@ public class PersistMultiThreadTest extends ActiveMQTestBase {
       }
 
       @Override
-      public void addSyncPoint(OperationContext context) throws Exception {
-
-      }
-
-      @Override
       public Page usePage(long page, boolean create) {
          return null;
       }

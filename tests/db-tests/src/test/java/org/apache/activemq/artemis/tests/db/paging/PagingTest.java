@@ -1697,15 +1697,82 @@ public class PagingTest extends ParameterDBTestBase {
    }
 
    @TestTemplate
-   public void testDeleteQueueRestart() throws Exception {
-      Configuration config = createDefaultInVMConfig().setJournalDirectory(getJournalDir()).setJournalSyncNonTransactional(false).setJournalCompactMinFiles(0); // disable compact
+   public void testCleberts() throws Exception {
+      Configuration config = createDefaultInVMConfig().setJournalDirectory(getJournalDir()).setJournalSyncNonTransactional(false).setJournalCompactMinFiles(0).setPageSyncTimeout(1000); // disable compact
 
       server = createServer(true, config, PagingTest.PAGE_SIZE, PagingTest.PAGE_MAX);
 
       server.start();
 
       final int NUM_MESSAGES = 100;
-      final int COMMIT_INTERVAL = 10;
+      final int COMMIT_INTERVAL = 1;
+
+      locator = createInVMNonHALocator().setConsumerWindowSize(10 * 1024 * 1024).setBlockOnNonDurableSend(true).setBlockOnDurableSend(true).setBlockOnAcknowledge(true);
+
+      SimpleString QUEUE2 = ADDRESS.concat("-2");
+
+      ClientSessionFactory sf = locator.createSessionFactory();
+
+      ClientSession session = sf.createSession(false, false, false);
+
+      session.createQueue(QueueConfiguration.of(PagingTest.ADDRESS));
+
+      session.createQueue(QueueConfiguration.of(QUEUE2).setAddress(PagingTest.ADDRESS));
+
+      ClientProducer producer = session.createProducer(PagingTest.ADDRESS);
+
+      // This is just to hold some messages as being delivered
+      ClientConsumerInternal cons = (ClientConsumerInternal) session.createConsumer(ADDRESS);
+
+      ClientMessage message = null;
+
+      byte[] body = new byte[MESSAGE_SIZE];
+
+      ByteBuffer bb = ByteBuffer.wrap(body);
+
+      for (int j = 1; j <= MESSAGE_SIZE; j++) {
+         bb.put(getSamplebyte(j));
+      }
+
+      for (int i = 0; i < NUM_MESSAGES; i++) {
+         message = session.createMessage(true);
+
+         ActiveMQBuffer bodyLocal = message.getBodyBuffer();
+
+         bodyLocal.writeBytes(body);
+
+         producer.send(message);
+         if (i % COMMIT_INTERVAL == 0) {
+            session.commit();
+            Thread.sleep(100);
+            server.getPagingManager().getPageStore(ADDRESS).startPaging();
+         }
+      }
+      session.commit();
+      session.start();
+      producer.close();
+
+      for (int i = 0; i < NUM_MESSAGES; i++) {
+         message = cons.receive(1000);
+         assertNotNull(message);
+         message.acknowledge();
+         if (i % COMMIT_INTERVAL == 0) {
+            session.commit();
+         }
+      }
+   }
+
+
+   @TestTemplate
+   public void testDeleteQueueRestart() throws Exception {
+      Configuration config = createDefaultInVMConfig().setJournalDirectory(getJournalDir()).setJournalSyncNonTransactional(false).setJournalCompactMinFiles(0).setPageSyncTimeout(1000); // disable compact
+
+      server = createServer(true, config, PagingTest.PAGE_SIZE, PagingTest.PAGE_MAX);
+
+      server.start();
+
+      final int NUM_MESSAGES = 100;
+      final int COMMIT_INTERVAL = 1;
 
       locator = createInVMNonHALocator().setConsumerWindowSize(10 * 1024 * 1024).setBlockOnNonDurableSend(true).setBlockOnDurableSend(true).setBlockOnAcknowledge(true);
 
@@ -1745,6 +1812,7 @@ public class PagingTest extends ParameterDBTestBase {
          producer.send(message);
          if (i % COMMIT_INTERVAL == 0) {
             session.commit();
+            server.getPagingManager().getPageStore(ADDRESS).startPaging();
          }
       }
       session.commit();
@@ -1760,12 +1828,17 @@ public class PagingTest extends ParameterDBTestBase {
 
       long deletedQueueID = queue.getID();
 
+      Thread.sleep(5000);
       server.destroyQueue(QUEUE2);
+      Thread.sleep(5000);
 
       sf.close();
       locator.close();
       locator = null;
       sf = null;
+
+      Thread.sleep(5000);
+
 
       server.stop();
 
@@ -4212,74 +4285,6 @@ public class PagingTest extends ParameterDBTestBase {
    }
 
    @TestTemplate
-   public void testSyncPage() throws Exception {
-      Configuration config = createDefaultInVMConfig();
-
-      server = createServer(true, config, PagingTest.PAGE_SIZE, PagingTest.PAGE_MAX);
-
-      server.start();
-
-      try {
-         server.addAddressInfo(new AddressInfo(PagingTest.ADDRESS, RoutingType.ANYCAST));
-         server.createQueue(QueueConfiguration.of(PagingTest.ADDRESS).setRoutingType(RoutingType.ANYCAST));
-
-         final CountDownLatch pageUp = new CountDownLatch(0);
-         final CountDownLatch pageDone = new CountDownLatch(1);
-
-         OperationContext ctx = new DummyOperationContext(pageUp, pageDone);
-
-         OperationContextImpl.setContext(ctx);
-
-         PagingManager paging = server.getPagingManager();
-
-         PagingStore store = paging.getPageStore(ADDRESS);
-
-         store.addSyncPoint(OperationContextImpl.getContext());
-
-         assertTrue(pageUp.await(10, TimeUnit.SECONDS));
-
-         assertTrue(pageDone.await(10, TimeUnit.SECONDS));
-
-         server.stop();
-
-      } finally {
-         try {
-            server.stop();
-         } catch (Throwable ignored) {
-         }
-
-         OperationContextImpl.clearContext();
-      }
-
-   }
-
-   @TestTemplate
-   public void testSyncPageTX() throws Exception {
-      Configuration config = createDefaultInVMConfig();
-
-      server = createServer(true, config, PagingTest.PAGE_SIZE, PagingTest.PAGE_MAX);
-
-      server.start();
-      server.createQueue(QueueConfiguration.of(PagingTest.ADDRESS).setRoutingType(RoutingType.ANYCAST));
-
-      final CountDownLatch pageUp = new CountDownLatch(0);
-      final CountDownLatch pageDone = new CountDownLatch(1);
-
-      OperationContext ctx = new DummyOperationContext(pageUp, pageDone);
-      OperationContextImpl.setContext(ctx);
-
-      PagingManager paging = server.getPagingManager();
-
-      PagingStore store = paging.getPageStore(ADDRESS);
-
-      store.addSyncPoint(OperationContextImpl.getContext());
-
-      assertTrue(pageUp.await(10, TimeUnit.SECONDS));
-
-      assertTrue(pageDone.await(10, TimeUnit.SECONDS));
-   }
-
-   @TestTemplate
    public void testPagingOneDestinationOnly() throws Exception {
       SimpleString PAGED_ADDRESS = SimpleString.of("paged");
       SimpleString NON_PAGED_ADDRESS = SimpleString.of("non-paged");
@@ -6042,7 +6047,7 @@ public class PagingTest extends ParameterDBTestBase {
                                      AddressSettings addressSettings,
                                      ArtemisExecutor executor,
                                      boolean syncNonTransactional) {
-            super(address, scheduledExecutor, syncTimeout, pagingManager, storageManager, fileFactory, storeFactory, storeName, addressSettings, executor, executor, syncNonTransactional);
+            super(address, scheduledExecutor, syncTimeout, pagingManager, storageManager, fileFactory, storeFactory, storeName, addressSettings, executor, syncNonTransactional);
          }
 
          /**

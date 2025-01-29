@@ -115,11 +115,6 @@ public interface PagingStore extends ActiveMQComponent, RefCountMessageListener 
    boolean isPaging();
 
    /**
-    * Schedules sync to the file storage.
-    */
-   void addSyncPoint(OperationContext context) throws Exception;
-
-   /**
     * Performs a real sync on the current IO file.
     */
    void ioSync() throws Exception;
@@ -264,6 +259,10 @@ public interface PagingStore extends ActiveMQComponent, RefCountMessageListener 
    void block();
 
    void unblock();
+
+   default boolean hasPendingIO() {
+      return false;
+   }
 
    default StorageManager getStorageManager() {
       return null;

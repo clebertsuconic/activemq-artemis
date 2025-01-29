@@ -96,7 +96,7 @@ public class PagingStoreImpl implements PagingStore {
    private final PagingStoreFactory storeFactory;
 
    // Used to schedule sync threads
-   private final PageSyncTimer syncTimer;
+   private final PageTimedWriter timedWriter;
 
    private long maxSize;
 
@@ -177,7 +177,6 @@ public class PagingStoreImpl implements PagingStore {
                           final SimpleString storeName,
                           final AddressSettings addressSettings,
                           final ArtemisExecutor executor,
-                          final ArtemisExecutor ioExecutor,
                           final boolean syncNonTransactional) {
       if (pagingManager == null) {
          throw new IllegalStateException("Paging Manager can't be null");
@@ -206,9 +205,10 @@ public class PagingStoreImpl implements PagingStore {
       this.syncNonTransactional = syncNonTransactional;
 
       if (scheduledExecutor != null && syncTimeout > 0) {
-         this.syncTimer = new PageSyncTimer(this, scheduledExecutor, ioExecutor, syncTimeout);
+         this.timedWriter = new PageTimedWriter(this, scheduledExecutor, executor, syncTimeout);
+         this.timedWriter.start();
       } else {
-         this.syncTimer = null;
+         this.timedWriter = null;
       }
 
       this.cursorProvider = storeFactory.newCursorProvider(this, this.storageManager, addressSettings, executor);
@@ -527,28 +527,9 @@ public class PagingStoreImpl implements PagingStore {
    }
 
    @Override
-   public void addSyncPoint(OperationContext context) throws Exception {
-      if (fileFactory == null || !fileFactory.supportsIndividualContext()) {
-         if (syncTimer != null) {
-            syncTimer.addSync(context);
-         } else {
-            ioSync();
-         }
-      }
-   }
-
-   @Override
    public void ioSync() throws Exception {
       if (!fileFactory.supportsIndividualContext()) {
-         Page page;
-         lock.readLock().lock();
-
-         try {
-            page = currentPage;
-         } finally {
-            lock.readLock().unlock();
-         }
-
+         Page page = currentPage;
          if (page != null) {
             page.trySync();
          }
@@ -1278,39 +1259,43 @@ public class PagingStoreImpl implements PagingStore {
 
          PagedMessage pagedMessage = new PagedMessageImpl(message, routeQueues(tx, listCtx), transactionID);
 
-         int bytesToWrite = pagedMessage.getEncodeSize() + PageReadWriter.SIZE_RECORD;
-
-         currentPageSize += bytesToWrite;
-         if (currentPageSize > pageSize && currentPage.getNumberOfMessages() > 0) {
-            // Make sure nothing is currently validating or using currentPage
-            openNewPage();
-            currentPageSize += bytesToWrite;
-         }
-
-         if (tx != null && tx.isAllowPageTransaction()) {
-            installPageTransaction(tx, listCtx);
-         }
-
-         // the apply counter will make sure we write a record on journal
-         // especially on the case for non transactional sends and paging
-         // doing this will give us a possibility of recovering the page counters
-         long persistentSize = pagedMessage.getPersistentSize() > 0 ? pagedMessage.getPersistentSize() : 0;
-         final Page page = currentPage;
-         applyPageCounters(tx, page, listCtx, persistentSize);
-
-         page.write(pagedMessage);
-
-         if (tx == null && syncNonTransactional && message.isDurable()) {
-            addSyncPoint(storageManager.getContext());
-         }
-
-         if (logger.isTraceEnabled()) {
-            logger.trace("Paging message {} on pageStore {} pageNr={}", pagedMessage, getStoreName(), page.getPageId());
+         if (timedWriter == null) {
+            directWritePage(pagedMessage, tx, listCtx);
+         } else {
+            timedWriter.addTask(storageManager.getContext(), pagedMessage, tx, listCtx);
          }
 
          return true;
       } finally {
          lock.writeLock().unlock();
+      }
+   }
+
+   void directWritePage(PagedMessage pagedMessage, Transaction tx, RouteContextList listCtx) throws Exception {
+      int bytesToWrite = pagedMessage.getEncodeSize() + PageReadWriter.SIZE_RECORD;
+
+      currentPageSize += bytesToWrite;
+      if (currentPageSize > pageSize && currentPage.getNumberOfMessages() > 0) {
+         // Make sure nothing is currently validating or using currentPage
+         openNewPage();
+         currentPageSize += bytesToWrite;
+      }
+
+      if (tx != null && tx.isAllowPageTransaction()) {
+         installPageTransaction(tx, listCtx);
+      }
+
+      // the apply counter will make sure we write a record on journal
+      // especially on the case for non transactional sends and paging
+      // doing this will give us a possibility of recovering the page counters
+      long persistentSize = pagedMessage.getPersistentSize() > 0 ? pagedMessage.getPersistentSize() : 0;
+      final Page page = currentPage;
+
+      page.write(pagedMessage);
+      applyPageCounters(tx, page, listCtx, persistentSize);
+
+      if (logger.isTraceEnabled()) {
+         logger.trace("Paging message {} on pageStore {} pageNr={}", pagedMessage, getStoreName(), page.getPageId());
       }
    }
 
@@ -1412,8 +1397,19 @@ public class PagingStoreImpl implements PagingStore {
       return;
    }
 
+   public boolean hasPendingIO() {
+      lock.writeLock().lock();
+      try {
+         return timedWriter.hasPendingIO();
+      } finally {
+         lock.writeLock().unlock();
+      }
+   }
+
    @Override
    public void destroy() throws Exception {
+      new Exception("Destroy is being called").printStackTrace();
+      this.timedWriter.stop();
       // destroy has to be executed in the same executor as the cleanup
       execute(this::internalDestroy);
       OperationContext context = OperationContextImpl.getContext();
@@ -1427,8 +1423,12 @@ public class PagingStoreImpl implements PagingStore {
    private void internalDestroy() {
       try (ArtemisCloseable readLock = storageManager.closeableReadLock()) {
          while (true) {
-            if (lock(100)) {
-               break;
+            try {
+               if (lock.writeLock().tryLock(100, TimeUnit.MILLISECONDS)) {
+                  break;
+               }
+            } catch (InterruptedException e) {
+               throw new RuntimeException("Cannot lock resource on paging");
             }
          }
 
@@ -1442,7 +1442,7 @@ public class PagingStoreImpl implements PagingStore {
                }
             }
          } finally {
-            unlock();
+            lock.writeLock().unlock();
             try {
                stop();
             } catch (Exception e2) {
@@ -1497,24 +1497,11 @@ public class PagingStoreImpl implements PagingStore {
 
       @Override
       public void beforeCommit(final Transaction tx) throws Exception {
-         if (!tx.isAsync()) {
-            syncStore();
-         }
          storePageTX(tx);
-      }
-
-      /**
-       * @throws Exception
-       */
-      private void syncStore() throws Exception {
-         for (PagingStore store : usedStores) {
-            store.addSyncPoint(storageManager.getContext());
-         }
       }
 
       @Override
       public void beforePrepare(final Transaction tx) throws Exception {
-         syncStore();
          storePageTX(tx);
       }
 
