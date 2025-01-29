@@ -27,7 +27,6 @@ import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.paging.cursor.PageCursorProvider;
 import org.apache.activemq.artemis.core.paging.cursor.PageSubscription;
 import org.apache.activemq.artemis.core.paging.impl.Page;
-import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.replication.ReplicationManager;
 import org.apache.activemq.artemis.core.server.ActiveMQComponent;
@@ -115,11 +114,6 @@ public interface PagingStore extends ActiveMQComponent, RefCountMessageListener 
    boolean isPaging();
 
    /**
-    * Schedules sync to the file storage.
-    */
-   void addSyncPoint(OperationContext context) throws Exception;
-
-   /**
     * Performs a real sync on the current IO file.
     */
    void ioSync() throws Exception;
@@ -162,7 +156,11 @@ public interface PagingStore extends ActiveMQComponent, RefCountMessageListener 
 
    Page removePage(int pageId);
 
-   void forceAnotherPage() throws Exception;
+   default void forceAnotherPage() throws Exception {
+      forceAnotherPage(false);
+   }
+
+   void forceAnotherPage(boolean useExecutor) throws Exception;
 
    Page getCurrentPage();
 
@@ -174,7 +172,7 @@ public interface PagingStore extends ActiveMQComponent, RefCountMessageListener 
     */
    boolean startPaging() throws Exception;
 
-   void stopPaging() throws Exception;
+   boolean tryStopPaging() throws Exception;
 
    /** *
     *
@@ -204,6 +202,9 @@ public interface PagingStore extends ActiveMQComponent, RefCountMessageListener 
     */
    boolean checkReleasedMemory();
 
+   default void writeLock() {
+      writeLock(-1);
+   }
    /**
     * Write lock the PagingStore.
     *
@@ -211,12 +212,22 @@ public interface PagingStore extends ActiveMQComponent, RefCountMessageListener 
     *                indefinitely.
     * @return {@code true} if the lock was obtained, {@code false} otherwise
     */
-   boolean lock(long timeout);
+   boolean writeLock(long timeout);
+
+   default void readLock() {
+      readLock(-1);
+   }
+   default boolean readLock(long timeout) {
+      return true;
+   }
+
+   default void readUnlock() {
+   }
 
    /**
-    * Releases locks acquired with {@link PagingStore#lock(long)}.
+    * Releases locks acquired with {@link PagingStore#writeLock(long)}.
     */
-   void unlock();
+   void writeUnlock();
 
    /**
     * This is used mostly by tests.
@@ -264,6 +275,10 @@ public interface PagingStore extends ActiveMQComponent, RefCountMessageListener 
    void block();
 
    void unblock();
+
+   default boolean hasPendingIO() {
+      return false;
+   }
 
    default StorageManager getStorageManager() {
       return null;

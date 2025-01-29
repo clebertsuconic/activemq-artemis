@@ -45,6 +45,7 @@ import org.junit.jupiter.api.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.lang.invoke.MethodHandles;
+import java.util.concurrent.TimeUnit;
 
 public class PageCleanupWhileReplicaCatchupTest extends FailoverTestBase {
 
@@ -88,7 +89,7 @@ public class PageCleanupWhileReplicaCatchupTest extends FailoverTestBase {
    }
 
    @Test
-   @Timeout(160)
+   @Timeout(value = 2, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
    public void testPageCleanup() throws Throwable {
 
       Worker[] workers = new Worker[NUMBER_OF_WORKERS];

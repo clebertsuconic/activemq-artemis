@@ -199,6 +199,25 @@ public class PageCursorProviderImpl implements PageCursorProvider {
 
       return future;
    }
+   public Future<Boolean> forceScheduleCleanup() {
+      final SimpleFutureImpl<Boolean> future = new SimpleFutureImpl<>();
+
+      pagingStore.execute(() -> {
+         storageManager.setContext(storageManager.newSingleThreadContext());
+         try {
+            System.out.println("Forcing cleanup");
+            if (cleanupEnabled) {
+               cleanup();
+            }
+         } finally {
+            storageManager.clearContext();
+            future.set(true);
+         }
+      });
+
+      return future;
+   }
+
 
    /**
     * Delete everything associated with any queue on this address.
@@ -261,6 +280,11 @@ public class PageCursorProviderImpl implements PageCursorProvider {
          return;
       }
 
+      /*if (pagingStore.hasPendingIO()) {
+         forceScheduleCleanup();
+         return;
+      } */
+
       List<Page> depagedPages = new ArrayList<>();
       LongHashSet depagedPagesSet = new LongHashSet();
 
@@ -275,7 +299,7 @@ public class PageCursorProviderImpl implements PageCursorProvider {
       try (ArtemisCloseable readLock = storageManager.closeableReadLock()) {
 
          while (true) {
-            if (pagingStore.lock(100)) {
+            if (pagingStore.writeLock(100)) {
                break;
             }
             if (!pagingStore.isStarted())
@@ -319,8 +343,10 @@ public class PageCursorProviderImpl implements PageCursorProvider {
                assert pagingStore.getNumberOfPages() >= 0;
 
                if (pagingStore.getNumberOfPages() == 0 || pagingStore.getNumberOfPages() == 1 && (pagingStore.getCurrentPage() == null || pagingStore.getCurrentPage().getNumberOfMessages() == 0)) {
-                  logger.trace("StopPaging being called on {}", pagingStore);
-                  pagingStore.stopPaging();
+                  logger.trace("StopPaging being called on {}, pending={}", pagingStore, pagingStore.hasPendingIO());
+                  if (!pagingStore.tryStopPaging()) {
+                     logger.trace("tryStopPaging did not succeed");
+                  }
                } else {
                   if (logger.isTraceEnabled()) {
                      logger.trace("Couldn't cleanup page on address {} as numberOfPages == {}  and currentPage.numberOfMessages = {}",
@@ -333,7 +359,7 @@ public class PageCursorProviderImpl implements PageCursorProvider {
                return;
             } finally {
                logger.trace("<<<< Cleanup end on {}", pagingStore.getAddress());
-               pagingStore.unlock();
+               pagingStore.writeUnlock();
             }
          }
       }
@@ -452,7 +478,7 @@ public class PageCursorProviderImpl implements PageCursorProvider {
 
       storeBookmark(cursorList, currentPage);
 
-      pagingStore.stopPaging();
+      pagingStore.tryStopPaging();
    }
 
    // Protected as a way to inject testing

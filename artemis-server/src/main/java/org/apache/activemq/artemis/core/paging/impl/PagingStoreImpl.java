@@ -62,6 +62,7 @@ import org.apache.activemq.artemis.core.transaction.TransactionOperation;
 import org.apache.activemq.artemis.core.transaction.TransactionPropertyIndexes;
 import org.apache.activemq.artemis.utils.ArtemisCloseable;
 import org.apache.activemq.artemis.utils.FutureLatch;
+import org.apache.activemq.artemis.utils.SimpleFutureImpl;
 import org.apache.activemq.artemis.utils.SizeAwareMetric;
 import org.apache.activemq.artemis.utils.actors.ArtemisExecutor;
 import org.apache.activemq.artemis.utils.runnables.AtomicRunnable;
@@ -96,7 +97,7 @@ public class PagingStoreImpl implements PagingStore {
    private final PagingStoreFactory storeFactory;
 
    // Used to schedule sync threads
-   private final PageSyncTimer syncTimer;
+   private final PageTimedWriter timedWriter;
 
    private long maxSize;
 
@@ -177,7 +178,6 @@ public class PagingStoreImpl implements PagingStore {
                           final SimpleString storeName,
                           final AddressSettings addressSettings,
                           final ArtemisExecutor executor,
-                          final ArtemisExecutor ioExecutor,
                           final boolean syncNonTransactional) {
       if (pagingManager == null) {
          throw new IllegalStateException("Paging Manager can't be null");
@@ -206,9 +206,10 @@ public class PagingStoreImpl implements PagingStore {
       this.syncNonTransactional = syncNonTransactional;
 
       if (scheduledExecutor != null && syncTimeout > 0) {
-         this.syncTimer = new PageSyncTimer(this, scheduledExecutor, ioExecutor, syncTimeout);
+         this.timedWriter = new PageTimedWriter(storageManager, this, scheduledExecutor, executor, syncNonTransactional, syncTimeout);
+         this.timedWriter.start();
       } else {
-         this.syncTimer = null;
+         this.timedWriter = null;
       }
 
       this.cursorProvider = storeFactory.newCursorProvider(this, this.storageManager, addressSettings, executor);
@@ -392,7 +393,25 @@ public class PagingStoreImpl implements PagingStore {
    }
 
    @Override
-   public boolean lock(long timeout) {
+   public boolean readLock(long timeout) {
+      if (timeout == -1) {
+         lock.readLock().lock();
+         return true;
+      }
+      try {
+         return lock.readLock().tryLock(timeout, TimeUnit.MILLISECONDS);
+      } catch (InterruptedException e) {
+         return false;
+      }
+   }
+
+   @Override
+   public void readUnlock() {
+      lock.readLock().unlock();
+   }
+
+   @Override
+   public boolean writeLock(long timeout) {
       if (timeout == -1) {
          lock.writeLock().lock();
          return true;
@@ -405,7 +424,7 @@ public class PagingStoreImpl implements PagingStore {
    }
 
    @Override
-   public void unlock() {
+   public void writeUnlock() {
       lock.writeLock().unlock();
    }
 
@@ -527,28 +546,9 @@ public class PagingStoreImpl implements PagingStore {
    }
 
    @Override
-   public void addSyncPoint(OperationContext context) throws Exception {
-      if (fileFactory == null || !fileFactory.supportsIndividualContext()) {
-         if (syncTimer != null) {
-            syncTimer.addSync(context);
-         } else {
-            ioSync();
-         }
-      }
-   }
-
-   @Override
    public void ioSync() throws Exception {
       if (!fileFactory.supportsIndividualContext()) {
-         Page page;
-         lock.readLock().lock();
-
-         try {
-            page = currentPage;
-         } finally {
-            lock.readLock().unlock();
-         }
-
+         Page page = currentPage;
          if (page != null) {
             page.trySync();
          }
@@ -631,7 +631,7 @@ public class PagingStoreImpl implements PagingStore {
 
    @Override
    public void start() throws Exception {
-      lock.writeLock().lock();
+      writeLock();
 
       try {
 
@@ -688,7 +688,7 @@ public class PagingStoreImpl implements PagingStore {
          }
 
       } finally {
-         lock.writeLock().unlock();
+         writeUnlock();
       }
    }
 
@@ -729,20 +729,25 @@ public class PagingStoreImpl implements PagingStore {
    }
 
    @Override
-   public void stopPaging() {
+   public boolean tryStopPaging() {
       logger.debug("stopPaging being called, while isPaging={} on {}", this.paging, this.storeName);
-      lock.writeLock().lock();
+      writeLock();
       try {
          final boolean isPaging = this.paging;
          if (isPaging) {
+            if (timedWriter != null && timedWriter.hasPendingIO()) {
+               logger.trace("There are pending timed writes.. can't clear paging now");
+               return false;
+            }
             paging = false;
             ActiveMQServerLogger.LOGGER.pageStoreStop(storeName, getPageInfo());
             pageLimitReleased();
          }
          this.cursorProvider.onPageModeCleared();
       } finally {
-         lock.writeLock().unlock();
+         writeUnlock();
       }
+      return true;
    }
 
    private String getPageInfo() {
@@ -755,19 +760,19 @@ public class PagingStoreImpl implements PagingStore {
          return false;
       }
 
-      lock.readLock().lock();
+      readLock();
       try {
          // I'm not calling isPaging() here because i need to be atomic and hold a lock.
          if (paging) {
             return false;
          }
       } finally {
-         lock.readLock().unlock();
+         readUnlock();
       }
 
       // if the first check failed, we do it again under a global currentPageLock
       // (writeLock) this time
-      lock.writeLock().lock();
+      writeLock();
 
       try {
          // Same notes from previous if (paging) on this method will apply here
@@ -795,7 +800,7 @@ public class PagingStoreImpl implements PagingStore {
 
          return true;
       } finally {
-         lock.writeLock().unlock();
+         writeUnlock();
       }
    }
 
@@ -894,7 +899,28 @@ public class PagingStoreImpl implements PagingStore {
 
    @Override
    public void forceAnotherPage() throws Exception {
-      openNewPage();
+      forceAnotherPage(false);
+   }
+
+   @Override
+   public void forceAnotherPage(boolean useExecutor) throws Exception {
+      // we need to open a new page inside the executor
+      // as the PageTimedWriter will write on the currentPage without holding a writeLock
+      // the current page must be changed within the executor's
+      if (useExecutor) {
+         SimpleFutureImpl future = new SimpleFutureImpl();
+         execute(() -> {
+            try {
+               openNewPage();
+               future.set(true);
+            } catch (Exception e) {
+               future.fail(e);
+            }
+         });
+         future.get();
+      } else {
+         openNewPage();
+      }
    }
 
 
@@ -913,7 +939,7 @@ public class PagingStoreImpl implements PagingStore {
    @Override
    public Page removePage(int pageId) {
       try {
-         lock.writeLock().lock(); // Make sure no checks are done on currentPage while we are depaging
+         writeLock();
          try {
             if (!running) {
                return null;
@@ -955,7 +981,7 @@ public class PagingStoreImpl implements PagingStore {
 
             return page;
          } finally {
-            lock.writeLock().unlock();
+            writeUnlock();
          }
       } catch (Throwable e) {
          logger.warn(e.getMessage(), e);
@@ -982,7 +1008,7 @@ public class PagingStoreImpl implements PagingStore {
     */
    @Override
    public Page depage() throws Exception {
-      lock.writeLock().lock(); // Make sure no checks are done on currentPage while we are depaging
+      writeLock();
       try {
          if (!running) {
             return null;
@@ -1011,8 +1037,7 @@ public class PagingStoreImpl implements PagingStore {
                resetCurrentPage(null);
 
                // The current page is empty... which means we reached the end of the pages
-               if (returnPage.getNumberOfMessages() == 0) {
-                  stopPaging();
+               if (returnPage.getNumberOfMessages() == 0 && tryStopPaging()) {
                   returnPage.open(true);
                   returnPage.delete(null);
 
@@ -1053,7 +1078,7 @@ public class PagingStoreImpl implements PagingStore {
             return returnPage;
          }
       } finally {
-         lock.writeLock().unlock();
+         writeUnlock();
       }
 
    }
@@ -1224,7 +1249,7 @@ public class PagingStoreImpl implements PagingStore {
       }
 
       // We need to ensure a read lock, as depage could change the paging state
-      lock.readLock().lock();
+      readLock();
 
       try {
          // First check done concurrently, to avoid synchronization and increase throughput
@@ -1232,7 +1257,7 @@ public class PagingStoreImpl implements PagingStore {
             return false;
          }
       } finally {
-         lock.readLock().unlock();
+         readUnlock();
       }
 
       if (pageFull) {
@@ -1261,56 +1286,55 @@ public class PagingStoreImpl implements PagingStore {
                              Transaction tx,
                              RouteContextList listCtx,
                              Function<Message, Message> pageDecorator) throws Exception {
-      lock.writeLock().lock();
+      if (!paging) {
+         return false;
+      }
 
-      try {
-         if (!paging) {
-            return false;
-         }
+      final long transactionID = (tx != null && tx.isAllowPageTransaction()) ? tx.getID() : -1L;
 
-         final long transactionID = (tx != null && tx.isAllowPageTransaction()) ? tx.getID() : -1L;
+      if (pageDecorator != null) {
+         message = pageDecorator.apply(message);
+      }
 
-         if (pageDecorator != null) {
-            message = pageDecorator.apply(message);
-         }
+      message.setPaged();
 
-         message.setPaged();
+      PagedMessage pagedMessage = new PagedMessageImpl(message, routeQueues(tx, listCtx), transactionID);
+      long persistentSize = pagedMessage.getPersistentSize() > 0 ? pagedMessage.getPersistentSize() : 0;
 
-         PagedMessage pagedMessage = new PagedMessageImpl(message, routeQueues(tx, listCtx), transactionID);
+      if (tx != null && tx.isAllowPageTransaction()) {
+         installPageTransaction(tx, listCtx);
+      }
 
-         int bytesToWrite = pagedMessage.getEncodeSize() + PageReadWriter.SIZE_RECORD;
+      if (timedWriter == null) {
+         directWritePage(pagedMessage, true, false);
+      } else {
+         timedWriter.addTask(storageManager.getContext(), pagedMessage, tx, listCtx);
+      }
 
+      applyPageCounters(tx, listCtx, persistentSize);
+
+      return true;
+   }
+
+   void directWritePage(PagedMessage pagedMessage, boolean lineUp, boolean originalReplicated) throws Exception {
+      int bytesToWrite = pagedMessage.getEncodeSize() + PageReadWriter.SIZE_RECORD;
+
+      currentPageSize += bytesToWrite;
+      if (currentPageSize > pageSize && currentPage.getNumberOfMessages() > 0) {
+         // Make sure nothing is currently validating or using currentPage
+         openNewPage();
          currentPageSize += bytesToWrite;
-         if (currentPageSize > pageSize && currentPage.getNumberOfMessages() > 0) {
-            // Make sure nothing is currently validating or using currentPage
-            openNewPage();
-            currentPageSize += bytesToWrite;
-         }
+      }
 
-         if (tx != null && tx.isAllowPageTransaction()) {
-            installPageTransaction(tx, listCtx);
-         }
+      // the apply counter will make sure we write a record on journal
+      // especially on the case for non transactional sends and paging
+      // doing this will give us a possibility of recovering the page counters
+      final Page page = currentPage;
 
-         // the apply counter will make sure we write a record on journal
-         // especially on the case for non transactional sends and paging
-         // doing this will give us a possibility of recovering the page counters
-         long persistentSize = pagedMessage.getPersistentSize() > 0 ? pagedMessage.getPersistentSize() : 0;
-         final Page page = currentPage;
-         applyPageCounters(tx, page, listCtx, persistentSize);
+      page.write(pagedMessage, lineUp, originalReplicated);
 
-         page.write(pagedMessage);
-
-         if (tx == null && syncNonTransactional && message.isDurable()) {
-            addSyncPoint(storageManager.getContext());
-         }
-
-         if (logger.isTraceEnabled()) {
-            logger.trace("Paging message {} on pageStore {} pageNr={}", pagedMessage, getStoreName(), page.getPageId());
-         }
-
-         return true;
-      } finally {
-         lock.writeLock().unlock();
+      if (logger.isTraceEnabled()) {
+         logger.trace("Paging message {} on pageStore {} pageNr={}", pagedMessage, getStoreName(), page.getPageId());
       }
    }
 
@@ -1352,11 +1376,10 @@ public class PagingStoreImpl implements PagingStore {
     * This is done to prevent non tx to get out of sync in case of failures
     *
     * @param tx
-    * @param page
     * @param ctx
     * @throws Exception
     */
-   private void applyPageCounters(Transaction tx, Page page, RouteContextList ctx, long size) throws Exception {
+   private void applyPageCounters(Transaction tx, RouteContextList ctx, long size) throws Exception {
       List<org.apache.activemq.artemis.core.server.Queue> durableQueues = ctx.getDurableQueues();
       List<org.apache.activemq.artemis.core.server.Queue> nonDurableQueues = ctx.getNonDurableQueues();
       for (org.apache.activemq.artemis.core.server.Queue q : durableQueues) {
@@ -1413,7 +1436,13 @@ public class PagingStoreImpl implements PagingStore {
    }
 
    @Override
+   public boolean hasPendingIO() {
+      return timedWriter != null && timedWriter.hasPendingIO();
+   }
+
+   @Override
    public void destroy() throws Exception {
+      this.timedWriter.stop();
       // destroy has to be executed in the same executor as the cleanup
       execute(this::internalDestroy);
       OperationContext context = OperationContextImpl.getContext();
@@ -1426,11 +1455,7 @@ public class PagingStoreImpl implements PagingStore {
 
    private void internalDestroy() {
       try (ArtemisCloseable readLock = storageManager.closeableReadLock()) {
-         while (true) {
-            if (lock(100)) {
-               break;
-            }
-         }
+         writeLock();
 
          try {
             SequentialFileFactory factory = fileFactory;
@@ -1442,7 +1467,7 @@ public class PagingStoreImpl implements PagingStore {
                }
             }
          } finally {
-            unlock();
+            writeUnlock();
             try {
                stop();
             } catch (Exception e2) {
@@ -1497,24 +1522,11 @@ public class PagingStoreImpl implements PagingStore {
 
       @Override
       public void beforeCommit(final Transaction tx) throws Exception {
-         if (!tx.isAsync()) {
-            syncStore();
-         }
          storePageTX(tx);
-      }
-
-      /**
-       * @throws Exception
-       */
-      private void syncStore() throws Exception {
-         for (PagingStore store : usedStores) {
-            store.addSyncPoint(storageManager.getContext());
-         }
       }
 
       @Override
       public void beforePrepare(final Transaction tx) throws Exception {
-         syncStore();
          storePageTX(tx);
       }
 
@@ -1543,7 +1555,7 @@ public class PagingStoreImpl implements PagingStore {
    }
 
    private void openNewPage() throws Exception {
-      lock.writeLock().lock();
+      writeLock();
 
       try {
          numberOfPages++;
@@ -1578,7 +1590,7 @@ public class PagingStoreImpl implements PagingStore {
             firstPageId = newPageId;
          }
       } finally {
-         lock.writeLock().unlock();
+         writeUnlock();
       }
    }
 
@@ -1638,7 +1650,7 @@ public class PagingStoreImpl implements PagingStore {
 
    @Override
    public Collection<Integer> getCurrentIds() throws Exception {
-      lock.readLock().lock();
+      readLock();
       try {
          List<Integer> ids = new ArrayList<>();
          SequentialFileFactory factory = fileFactory;
@@ -1649,7 +1661,7 @@ public class PagingStoreImpl implements PagingStore {
          }
          return ids;
       } finally {
-         lock.readLock().unlock();
+         readUnlock();
       }
    }
 

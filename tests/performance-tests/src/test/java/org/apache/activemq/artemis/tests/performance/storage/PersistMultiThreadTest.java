@@ -401,11 +401,6 @@ public class PersistMultiThreadTest extends ActiveMQTestBase {
       }
 
       @Override
-      public void addSyncPoint(OperationContext context) throws Exception {
-
-      }
-
-      @Override
       public Page usePage(long page, boolean create) {
          return null;
       }
@@ -486,7 +481,7 @@ public class PersistMultiThreadTest extends ActiveMQTestBase {
       }
 
       @Override
-      public void forceAnotherPage() throws Exception {
+      public void forceAnotherPage(boolean useExecutor) throws Exception {
 
       }
 
@@ -501,8 +496,8 @@ public class PersistMultiThreadTest extends ActiveMQTestBase {
       }
 
       @Override
-      public void stopPaging() throws Exception {
-
+      public boolean tryStopPaging() throws Exception {
+         return true;
       }
 
       @Override
@@ -525,12 +520,12 @@ public class PersistMultiThreadTest extends ActiveMQTestBase {
       }
 
       @Override
-      public boolean lock(long timeout) {
+      public boolean writeLock(long timeout) {
          return false;
       }
 
       @Override
-      public void unlock() {
+      public void writeUnlock() {
 
       }
 
