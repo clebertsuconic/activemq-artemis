@@ -85,6 +85,10 @@ public interface StorageManager extends MapStorageManager, IDGenerator, ActiveMQ
       return Long.MAX_VALUE;
    }
 
+   default boolean isReplicated() {
+      return false;
+   }
+
    default long getWarningRecordSize() {
       /** Null journal is pretty much memory */
       return Long.MAX_VALUE;
@@ -132,7 +136,7 @@ public interface StorageManager extends MapStorageManager, IDGenerator, ActiveMQ
 
    void pageDeleted(SimpleString address, long pageNumber);
 
-   void pageWrite(SimpleString address, PagedMessage message, long pageNumber);
+   void pageWrite(SimpleString address, PagedMessage message, long pageNumber, boolean storageUp);
 
    void afterCompleteOperations(IOCallback run);
 

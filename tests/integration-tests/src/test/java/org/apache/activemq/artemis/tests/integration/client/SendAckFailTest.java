@@ -381,8 +381,8 @@ public class SendAckFailTest extends SpawnedTestBase {
       }
 
       @Override
-      public void pageWrite(SimpleString address, PagedMessage message, long pageNumber) {
-         manager.pageWrite(address, message, pageNumber);
+      public void pageWrite(SimpleString address, PagedMessage message, long pageNumber, boolean lineup) {
+         manager.pageWrite(address, message, pageNumber, lineup);
       }
 
       @Override
