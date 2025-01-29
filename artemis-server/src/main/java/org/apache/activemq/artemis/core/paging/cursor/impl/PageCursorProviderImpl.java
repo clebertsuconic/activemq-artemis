@@ -280,10 +280,10 @@ public class PageCursorProviderImpl implements PageCursorProvider {
          return;
       }
 
-      if (pagingStore.hasPendingIO()) {
+      /*if (pagingStore.hasPendingIO()) {
          forceScheduleCleanup();
          return;
-      }
+      } */
 
       List<Page> depagedPages = new ArrayList<>();
       LongHashSet depagedPagesSet = new LongHashSet();
@@ -342,7 +342,7 @@ public class PageCursorProviderImpl implements PageCursorProvider {
 
                assert pagingStore.getNumberOfPages() >= 0;
 
-               if (pagingStore.getNumberOfPages() == 0 || pagingStore.getNumberOfPages() == 1 && (pagingStore.getCurrentPage() == null || pagingStore.getCurrentPage().getNumberOfMessages() == 0)) {
+               if (!pagingStore.hasPendingIO() && pagingStore.getNumberOfPages() == 0 || pagingStore.getNumberOfPages() == 1 && (pagingStore.getCurrentPage() == null || pagingStore.getCurrentPage().getNumberOfMessages() == 0)) {
                   logger.trace("StopPaging being called on {}", pagingStore);
                   pagingStore.stopPaging();
                } else {
