@@ -57,9 +57,9 @@ public class PageSyncTimerUnitTest extends ArtemisTestCase {
    ExecutorService executorService;
    OrderedExecutorFactory executorFactory;
    OperationContext context;
-   StorageManager storageManager;
+   StorageManager mockStorageManager;
 
-   PagingStoreImpl mockStore;
+   PagingStoreImpl mockPageStore;
 
    CountDownLatch allowRunning;
 
@@ -76,26 +76,26 @@ public class PageSyncTimerUnitTest extends ArtemisTestCase {
       executorFactory = new OrderedExecutorFactory(executorService);
       context = OperationContextImpl.getContext(executorFactory);
       assertNotNull(context);
-      storageManager = Mockito.mock(StorageManager.class);
+      mockStorageManager = Mockito.mock(StorageManager.class);
 
       Mockito.doAnswer(i -> {
          OperationContextImpl.getContext().executeOnCompletion(i.getArgument(0));
          return null;
-      }).when(storageManager).afterCompleteOperations(Mockito.any(IOCallback.class));
+      }).when(mockStorageManager).afterCompleteOperations(Mockito.any(IOCallback.class));
 
       Mockito.doAnswer(i -> {
          OperationContextImpl.getContext().executeOnCompletion(i.getArgument(0));
          return null;
-      }).when(storageManager).afterCompleteOperations(Mockito.any(IOCallback.class), Mockito.any());
+      }).when(mockStorageManager).afterCompleteOperations(Mockito.any(IOCallback.class), Mockito.any());
 
       AtomicLong nextInt = new AtomicLong(1L);
-      Mockito.when(storageManager.generateID()).then(l -> nextInt.incrementAndGet());
+      Mockito.when(mockStorageManager.generateID()).then(l -> nextInt.incrementAndGet());
 
       allowRunning = new CountDownLatch(1);
 
-      mockStore = Mockito.mock(PagingStoreImpl.class);
+      mockPageStore = Mockito.mock(PagingStoreImpl.class);
 
-      timer = new PageTimedWriter(mockStore, scheduledExecutorService, executorFactory.getExecutor(), 100) {
+      timer = new PageTimedWriter(mockStorageManager, mockPageStore, scheduledExecutorService, executorFactory.getExecutor(), 100) {
          @Override
          public void run() {
             try {
@@ -115,7 +115,7 @@ public class PageSyncTimerUnitTest extends ArtemisTestCase {
    // a test to validate if the Mocks are correctly setup
    @Test
    public void testValidateMocks() throws Exception {
-      TransactionImpl tx = new TransactionImpl(storageManager);
+      TransactionImpl tx = new TransactionImpl(mockStorageManager);
       tx.setContainsPersistent();
       AtomicInteger count = new AtomicInteger(0);
       tx.addOperation(new TransactionOperationAbstract() {
@@ -129,7 +129,7 @@ public class PageSyncTimerUnitTest extends ArtemisTestCase {
       assertEquals(1, count.get(), "tx.commit is not correctly wired on mocking");
 
 
-      storageManager.afterCompleteOperations(new IOCallback() {
+      mockStorageManager.afterCompleteOperations(new IOCallback() {
          @Override
          public void done() {
             count.incrementAndGet();
@@ -141,7 +141,7 @@ public class PageSyncTimerUnitTest extends ArtemisTestCase {
          }
       });
 
-      storageManager.afterCompleteOperations(new IOCallback() {
+      mockStorageManager.afterCompleteOperations(new IOCallback() {
          @Override
          public void done() {
             count.incrementAndGet();
@@ -182,7 +182,6 @@ public class PageSyncTimerUnitTest extends ArtemisTestCase {
 
    @Test
    public void testTXCompletion() throws Exception {
-      PagingStoreImpl mockStore = Mockito.mock(PagingStoreImpl.class);
       ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(10);
       ExecutorService executorService = Executors.newFixedThreadPool(10);
       runAfter(scheduledExecutorService::shutdownNow);
@@ -197,7 +196,7 @@ public class PageSyncTimerUnitTest extends ArtemisTestCase {
 
       CountDownLatch latch = new CountDownLatch(1);
 
-      Transaction tx = new TransactionImpl(storageManager, Integer.MAX_VALUE);
+      Transaction tx = new TransactionImpl(mockStorageManager, Integer.MAX_VALUE);
       tx.setContainsPersistent();
 
       timer.addTask(context, Mockito.mock(PagedMessage.class), tx, Mockito.mock(RouteContextList.class));

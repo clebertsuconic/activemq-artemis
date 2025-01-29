@@ -205,7 +205,7 @@ public class PagingStoreImpl implements PagingStore {
       this.syncNonTransactional = syncNonTransactional;
 
       if (scheduledExecutor != null && syncTimeout > 0) {
-         this.timedWriter = new PageTimedWriter(this, scheduledExecutor, executor, syncTimeout);
+         this.timedWriter = new PageTimedWriter(storageManager, this, scheduledExecutor, executor, syncTimeout);
          this.timedWriter.start();
       } else {
          this.timedWriter = null;
@@ -1265,7 +1265,7 @@ public class PagingStoreImpl implements PagingStore {
          }
 
          if (timedWriter == null) {
-            directWritePage(pagedMessage, tx, listCtx);
+            directWritePage(pagedMessage, tx, listCtx, true);
          } else {
             timedWriter.addTask(storageManager.getContext(), pagedMessage, tx, listCtx);
          }
@@ -1278,7 +1278,7 @@ public class PagingStoreImpl implements PagingStore {
       }
    }
 
-   void directWritePage(PagedMessage pagedMessage, Transaction tx, RouteContextList listCtx) throws Exception {
+   void directWritePage(PagedMessage pagedMessage, Transaction tx, RouteContextList listCtx, boolean lineUp) throws Exception {
       int bytesToWrite = pagedMessage.getEncodeSize() + PageReadWriter.SIZE_RECORD;
 
       currentPageSize += bytesToWrite;
@@ -1293,7 +1293,7 @@ public class PagingStoreImpl implements PagingStore {
       // doing this will give us a possibility of recovering the page counters
       final Page page = currentPage;
 
-      page.write(pagedMessage);
+      page.write(pagedMessage, lineUp);
 
       if (logger.isTraceEnabled()) {
          logger.trace("Paging message {} on pageStore {} pageNr={}", pagedMessage, getStoreName(), page.getPageId());

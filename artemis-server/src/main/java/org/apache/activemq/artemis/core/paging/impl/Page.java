@@ -178,9 +178,9 @@ public final class Page  {
       return buffer.toString();
    }
 
-   public synchronized void write(final PagedMessage message) throws Exception {
+   public synchronized void write(final PagedMessage message, boolean lineUp) throws Exception {
       writeDirect(message);
-      storageManager.pageWrite(storeName, message, pageId);
+      storageManager.pageWrite(storeName, message, pageId, lineUp);
    }
 
    /** This write will not interact back with the storage manager.

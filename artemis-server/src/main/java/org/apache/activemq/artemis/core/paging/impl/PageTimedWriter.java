@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.activemq.artemis.api.core.ActiveMQExceptionType;
 import org.apache.activemq.artemis.core.paging.PagedMessage;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
+import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContextImpl;
 import org.apache.activemq.artemis.core.server.ActiveMQScheduledComponent;
 import org.apache.activemq.artemis.core.server.RouteContextList;
@@ -38,6 +39,8 @@ class PageTimedWriter extends ActiveMQScheduledComponent {
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
    private final PagingStoreImpl store;
+
+   private final StorageManager storageManager;
 
    protected final List<PageEvent> pageEvents = new ArrayList<>();
 
@@ -60,9 +63,10 @@ class PageTimedWriter extends ActiveMQScheduledComponent {
       Transaction tx;
    }
 
-   PageTimedWriter(PagingStoreImpl store, ScheduledExecutorService scheduledExecutor, Executor executor, long timeSync) {
+   PageTimedWriter(StorageManager storageManager, PagingStoreImpl store, ScheduledExecutorService scheduledExecutor, Executor executor, long timeSync) {
       super(scheduledExecutor, executor, timeSync, TimeUnit.NANOSECONDS, true);
       this.store = store;
+      this.storageManager = storageManager;
    }
 
    @Override
@@ -81,6 +85,9 @@ class PageTimedWriter extends ActiveMQScheduledComponent {
       }
       PageEvent event = new PageEvent(context, message, tx, listCtx);
       context.storeLineUp();
+      if (storageManager.isReplicated()) {
+         context.replicationLineUp();
+      }
       this.pageEvents.add(event);
       delay();
    }
@@ -112,7 +119,7 @@ class PageTimedWriter extends ActiveMQScheduledComponent {
       try {
          for (PageEvent event : pendingEvents) {
             OperationContextImpl.setContext(event.context);
-            store.directWritePage(event.message, event.tx, event.listCtx);
+            store.directWritePage(event.message, event.tx, event.listCtx, false);
          }
          store.ioSync();
 
