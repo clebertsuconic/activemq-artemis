@@ -23,6 +23,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -159,7 +160,7 @@ public class PageSyncTimerUnitTest extends ArtemisTestCase {
 
    @Test
    public void testIOCompletion() throws Exception {
-       CountDownLatch latch = new CountDownLatch(1);
+      CountDownLatch latch = new CountDownLatch(1);
 
       timer.addTask(context, Mockito.mock(PagedMessage.class), null, Mockito.mock(RouteContextList.class));
 
@@ -177,6 +178,33 @@ public class PageSyncTimerUnitTest extends ArtemisTestCase {
       assertFalse(latch.await(10, TimeUnit.MILLISECONDS));
       allowRunning.countDown();
       assertTrue(latch.await(1, TimeUnit.MINUTES));
+
+   }
+
+   @Test
+   public void testIOCompletionWhileReplica() throws Exception {
+      CountDownLatch latch = new CountDownLatch(1);
+
+      AtomicBoolean replicated = new AtomicBoolean(true);
+
+      Mockito.when(mockStorageManager.isReplicated()).then(r -> replicated.get());
+
+      timer.addTask(context, Mockito.mock(PagedMessage.class), null, Mockito.mock(RouteContextList.class));
+
+      context.executeOnCompletion(new IOCallback() {
+         @Override
+         public void done() {
+            latch.countDown();
+         }
+
+         @Override
+         public void onError(int errorCode, String errorMessage) {
+         }
+      });
+
+      assertFalse(latch.await(10, TimeUnit.MILLISECONDS));
+      allowRunning.countDown();
+      assertTrue(latch.await(10, TimeUnit.SECONDS));
 
    }
 

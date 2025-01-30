@@ -42,6 +42,7 @@ class PageTimedWriter extends ActiveMQScheduledComponent {
 
    private final StorageManager storageManager;
 
+
    protected final List<PageEvent> pageEvents = new ArrayList<>();
 
    public boolean hasPendingIO() {
@@ -50,17 +51,19 @@ class PageTimedWriter extends ActiveMQScheduledComponent {
 
    public static class PageEvent {
 
-      PageEvent(OperationContext context, PagedMessage message, Transaction tx, RouteContextList listCtx) {
+      PageEvent(OperationContext context, PagedMessage message, Transaction tx, RouteContextList listCtx, boolean replicated) {
          this.context = context;
          this.message = message;
          this.listCtx = listCtx;
+         this.replicated = replicated;
          this.tx = tx;
       }
 
-      PagedMessage message;
-      OperationContext context;
-      RouteContextList listCtx;
-      Transaction tx;
+      final boolean replicated;
+      final PagedMessage message;
+      final OperationContext context;
+      final RouteContextList listCtx;
+      final Transaction tx;
    }
 
    PageTimedWriter(StorageManager storageManager, PagingStoreImpl store, ScheduledExecutorService scheduledExecutor, Executor executor, long timeSync) {
@@ -83,9 +86,10 @@ class PageTimedWriter extends ActiveMQScheduledComponent {
       if (!isStarted()) {
          throw new IllegalStateException("PageWriter Service is stopped");
       }
-      PageEvent event = new PageEvent(context, message, tx, listCtx);
+      final boolean replicated = storageManager.isReplicated();
+      PageEvent event = new PageEvent(context, message, tx, listCtx, replicated);
       context.storeLineUp();
-      if (storageManager.isReplicated()) {
+      if (replicated) {
          context.replicationLineUp();
       }
       this.pageEvents.add(event);
