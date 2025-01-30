@@ -570,6 +570,10 @@ public class JournalStorageManager extends AbstractJournalStorageManager {
       return datafiles;
    }
 
+   void setReplicator(ReplicationManager replicator) {
+      this.replicator = replicator;
+   }
+
    @Override
    public void startReplication(ReplicationManager replicationManager,
                                 PagingManager pagingManager,
