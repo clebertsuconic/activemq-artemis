@@ -88,7 +88,7 @@ public class PageCleanupWhileReplicaCatchupTest extends FailoverTestBase {
    }
 
    @Test
-   @Timeout(160)
+   @Timeout(value = 160, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
    public void testPageCleanup() throws Throwable {
 
       Worker[] workers = new Worker[NUMBER_OF_WORKERS];
@@ -115,6 +115,7 @@ public class PageCleanupWhileReplicaCatchupTest extends FailoverTestBase {
 
       for (Worker worker : workers) {
          if (worker.throwable != null) {
+            worker.throwable.printStackTrace();
             throw new RuntimeException("Worker " + worker.queueName  + " failed", worker.throwable);
          }
       }
