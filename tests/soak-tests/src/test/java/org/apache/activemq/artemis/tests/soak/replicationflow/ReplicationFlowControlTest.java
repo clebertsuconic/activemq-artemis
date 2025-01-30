@@ -107,12 +107,13 @@ public class ReplicationFlowControlTest extends SoakTestBase {
    @Test
    @Timeout(value = 5, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
    public void testPageWhileSynchronizingReplica() throws Exception {
-      assertTimeout(Duration.ofMinutes(2), () -> internalTest(false));
+      internalTest(false);
    }
 
    @Test
+   @Timeout(value = 5, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
    public void testPageWhileSyncFailover() throws Exception {
-      assertTimeout(Duration.ofMinutes(2), () -> internalTest(true));
+      internalTest(true);
    }
 
    private void internalTest(boolean failover) throws Exception {
@@ -123,11 +124,6 @@ public class ReplicationFlowControlTest extends SoakTestBase {
 
       try {
          server0 = startServer(SERVER_NAME_0, 0, 30000);
-         server1 = startServer(SERVER_NAME_1, 0, 30000);
-
-         Thread.sleep(20_000);
-
-         System.out.println("I am here");
 
          ConnectionFactory connectionFactory = new ActiveMQConnectionFactory();
 
@@ -150,9 +146,49 @@ public class ReplicationFlowControlTest extends SoakTestBase {
                session.commit();
             }
 
+            if (i == START_CONSUMERS) {
+               System.out.println("Starting consumers");
+               startConsumers(!failover); // if failover, no AMQP
+            }
+
+            if (KILL_SERVER >= 0 && i == KILL_SERVER) {
+               session.commit();
+               System.out.println("Killing server");
+               ServerUtil.killServer(server0, true);
+               Thread.sleep(2000);
+               connection.close();
+               connection = connectionFactory.createConnection();
+
+               session = connection.createSession(true, Session.SESSION_TRANSACTED);
+
+               queue = session.createQueue("exampleQueue");
+
+               producer = session.createProducer(queue);
+
+            }
+
+            if (i == START_SERVER) {
+               System.out.println("Starting extra server");
+               server1 = startServer(SERVER_NAME_1, 0, 30000);
+            }
+
          }
 
          session.commit();
+
+         System.out.println("Awaiting all consumers to finish");
+         while (!latch.await(10, TimeUnit.SECONDS)) {
+            fail("couldn't receive all messages");
+         }
+
+         running.set(false);
+
+         for (Consumer consumer: consumers) {
+            consumer.join(10000);
+            if (consumer.isAlive()) {
+               consumer.interrupt();
+            }
+         }
 
       } finally {
 
