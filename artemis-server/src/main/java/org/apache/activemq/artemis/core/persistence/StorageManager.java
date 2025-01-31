@@ -136,7 +136,7 @@ public interface StorageManager extends MapStorageManager, IDGenerator, ActiveMQ
 
    void pageDeleted(SimpleString address, long pageNumber);
 
-   void pageWrite(SimpleString address, PagedMessage message, long pageNumber, boolean storageUp);
+   void pageWrite(SimpleString address, PagedMessage message, long pageNumber, boolean storageUp, boolean originallyReplicated);
 
    void afterCompleteOperations(IOCallback run);
 
