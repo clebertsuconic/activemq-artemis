@@ -215,7 +215,7 @@ public class JournalPagingTest extends ActiveMQTestBase {
       page4.delete(null);
       page4.open(true);
       for (int i = 0; i < 9; i++) {
-         page4.write(messagesRead.get(i), true); // this will make message 29 disappear
+         page4.write(messagesRead.get(i), true, false); // this will make message 29 disappear
       }
       page4.close(false);
 
