@@ -27,18 +27,26 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.apache.activemq.artemis.core.config.Configuration;
+import org.apache.activemq.artemis.core.config.impl.ConfigurationImpl;
 import org.apache.activemq.artemis.core.io.IOCallback;
 import org.apache.activemq.artemis.core.io.OperationConsistencyLevel;
+import org.apache.activemq.artemis.core.journal.Journal;
+import org.apache.activemq.artemis.core.journal.impl.JournalImpl;
 import org.apache.activemq.artemis.core.paging.PagedMessage;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
+import org.apache.activemq.artemis.core.persistence.impl.journal.JournalStorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContextImpl;
+import org.apache.activemq.artemis.core.server.JournalType;
 import org.apache.activemq.artemis.core.server.RouteContextList;
 import org.apache.activemq.artemis.core.transaction.Transaction;
 import org.apache.activemq.artemis.core.transaction.TransactionOperationAbstract;
 import org.apache.activemq.artemis.core.transaction.impl.TransactionImpl;
 import org.apache.activemq.artemis.tests.util.ArtemisTestCase;
+import org.apache.activemq.artemis.utils.ExecutorFactory;
 import org.apache.activemq.artemis.utils.actors.OrderedExecutorFactory;
+import org.apache.activemq.artemis.utils.critical.CriticalAnalyzer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -50,7 +58,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class PageSyncTimerUnitTest extends ArtemisTestCase {
+public class PageTimedWriterUnitTest extends ArtemisTestCase {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
@@ -58,7 +66,7 @@ public class PageSyncTimerUnitTest extends ArtemisTestCase {
    ExecutorService executorService;
    OrderedExecutorFactory executorFactory;
    OperationContext context;
-   StorageManager mockStorageManager;
+   JournalStorageManager journalStorageManager;
 
    PagingStoreImpl mockPageStore;
 
@@ -66,9 +74,41 @@ public class PageSyncTimerUnitTest extends ArtemisTestCase {
 
    PageTimedWriter timer;
 
+   Configuration configuration;
+
+   Journal mockBindingsJournal;
+   Journal mockMessageJournal;
+
+
+   class MockableJournalStorageManager extends JournalStorageManager {
+
+      public MockableJournalStorageManager(Configuration config,
+                                           Journal bindingsJournal,
+                                           Journal messagesJournal,
+                                           ExecutorFactory executorFactory,
+                                           ExecutorFactory ioExecutors) {
+         super(config, Mockito.mock(CriticalAnalyzer.class), executorFactory, ioExecutors);
+         this.bindingsJournal = bindingsJournal;
+         this.messageJournal = messagesJournal;
+      }
+
+      @Override
+      public void start() throws Exception {
+         super.start();
+         idGenerator.forceNextID(1);
+      }
+
+      @Override
+      protected void createDirectories() {
+         // not creating any folders
+      }
+   }
+
 
    @BeforeEach
    public void prepareTest() throws Exception {
+      configuration = new ConfigurationImpl();
+      configuration.setJournalType(JournalType.NIO);
       scheduledExecutorService = Executors.newScheduledThreadPool(10);
       executorService = Executors.newFixedThreadPool(10);
       runAfter(scheduledExecutorService::shutdownNow);
@@ -77,26 +117,18 @@ public class PageSyncTimerUnitTest extends ArtemisTestCase {
       executorFactory = new OrderedExecutorFactory(executorService);
       context = OperationContextImpl.getContext(executorFactory);
       assertNotNull(context);
-      mockStorageManager = Mockito.mock(StorageManager.class);
 
-      Mockito.doAnswer(i -> {
-         OperationContextImpl.getContext().executeOnCompletion(i.getArgument(0));
-         return null;
-      }).when(mockStorageManager).afterCompleteOperations(Mockito.any(IOCallback.class));
+      mockBindingsJournal = Mockito.mock(Journal.class);
+      mockMessageJournal = Mockito.mock(Journal.class);
 
-      Mockito.doAnswer(i -> {
-         OperationContextImpl.getContext().executeOnCompletion(i.getArgument(0));
-         return null;
-      }).when(mockStorageManager).afterCompleteOperations(Mockito.any(IOCallback.class), Mockito.any());
-
-      AtomicLong nextInt = new AtomicLong(1L);
-      Mockito.when(mockStorageManager.generateID()).then(l -> nextInt.incrementAndGet());
+      journalStorageManager = new MockableJournalStorageManager(configuration, mockBindingsJournal, mockMessageJournal, executorFactory, executorFactory);
+      journalStorageManager.start();
 
       allowRunning = new CountDownLatch(1);
 
       mockPageStore = Mockito.mock(PagingStoreImpl.class);
 
-      timer = new PageTimedWriter(mockStorageManager, mockPageStore, scheduledExecutorService, executorFactory.getExecutor(), 100) {
+      timer = new PageTimedWriter(journalStorageManager, mockPageStore, scheduledExecutorService, executorFactory.getExecutor(), 100) {
          @Override
          public void run() {
             try {
@@ -116,7 +148,7 @@ public class PageSyncTimerUnitTest extends ArtemisTestCase {
    // a test to validate if the Mocks are correctly setup
    @Test
    public void testValidateMocks() throws Exception {
-      TransactionImpl tx = new TransactionImpl(mockStorageManager);
+      TransactionImpl tx = new TransactionImpl(journalStorageManager);
       tx.setContainsPersistent();
       AtomicInteger count = new AtomicInteger(0);
       tx.addOperation(new TransactionOperationAbstract() {
@@ -130,7 +162,7 @@ public class PageSyncTimerUnitTest extends ArtemisTestCase {
       assertEquals(1, count.get(), "tx.commit is not correctly wired on mocking");
 
 
-      mockStorageManager.afterCompleteOperations(new IOCallback() {
+      journalStorageManager.afterCompleteOperations(new IOCallback() {
          @Override
          public void done() {
             count.incrementAndGet();
@@ -142,7 +174,7 @@ public class PageSyncTimerUnitTest extends ArtemisTestCase {
          }
       });
 
-      mockStorageManager.afterCompleteOperations(new IOCallback() {
+      journalStorageManager.afterCompleteOperations(new IOCallback() {
          @Override
          public void done() {
             count.incrementAndGet();
@@ -155,6 +187,10 @@ public class PageSyncTimerUnitTest extends ArtemisTestCase {
       }, OperationConsistencyLevel.FULL);
 
       assertEquals(3, count.get(), "afterCompletion is not correctly wired on mocking");
+
+      long id = journalStorageManager.generateID();
+      long newID = journalStorageManager.generateID();
+      assertEquals(1L, newID - id);
 
    }
 
@@ -187,7 +223,7 @@ public class PageSyncTimerUnitTest extends ArtemisTestCase {
 
       AtomicBoolean replicated = new AtomicBoolean(true);
 
-      Mockito.when(mockStorageManager.isReplicated()).then(r -> replicated.get());
+      Mockito.when(journalStorageManager.isReplicated()).then(r -> replicated.get());
 
       timer.addTask(context, Mockito.mock(PagedMessage.class), null, Mockito.mock(RouteContextList.class));
 
@@ -224,7 +260,7 @@ public class PageSyncTimerUnitTest extends ArtemisTestCase {
 
       CountDownLatch latch = new CountDownLatch(1);
 
-      Transaction tx = new TransactionImpl(mockStorageManager, Integer.MAX_VALUE);
+      Transaction tx = new TransactionImpl(journalStorageManager, Integer.MAX_VALUE);
       tx.setContainsPersistent();
 
       timer.addTask(context, Mockito.mock(PagedMessage.class), tx, Mockito.mock(RouteContextList.class));
