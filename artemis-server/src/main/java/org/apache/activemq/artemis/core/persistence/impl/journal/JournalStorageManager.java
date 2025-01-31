@@ -418,16 +418,26 @@ public class JournalStorageManager extends AbstractJournalStorageManager {
          }
       }
 
-      try (ArtemisCloseable lock = closeableReadLock()) {
-         if (isReplicated()) {
-            replicator.pageWrite(address, message, pageNumber, storageUp);
-         } else {
-            if (originallyReplicated) {
-               // this is a case where we originally contemplated as replicated, so we have to discount it in case it is not any more
-               OperationContext context = OperationContextImpl.getContext();
-               if (context != null) {
-                  context.replicationDone();
+      if (isReplicated()) {
+         try (ArtemisCloseable lock = closeableReadLock()) {
+            if (isReplicated()) {
+               replicator.pageWrite(address, message, pageNumber, storageUp);
+            } else {
+               if (originallyReplicated) {
+                  // this is a case where we originally contemplated as replicated, so we have to discount it in case it is not any more
+                  OperationContext context = OperationContextImpl.getContext();
+                  if (context != null) {
+                     context.replicationDone();
+                  }
                }
+            }
+         }
+      } else {
+         if (originallyReplicated) {
+            // this is a case where we originally contemplated as replicated, so we have to discount it in case it is not any more
+            OperationContext context = OperationContextImpl.getContext();
+            if (context != null) {
+               context.replicationDone();
             }
          }
       }
