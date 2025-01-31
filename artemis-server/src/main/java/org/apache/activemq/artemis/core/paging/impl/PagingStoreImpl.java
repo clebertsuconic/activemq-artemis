@@ -1265,7 +1265,7 @@ public class PagingStoreImpl implements PagingStore {
          }
 
          if (timedWriter == null) {
-            directWritePage(pagedMessage, tx, listCtx, true);
+            directWritePage(pagedMessage, true);
          } else {
             timedWriter.addTask(storageManager.getContext(), pagedMessage, tx, listCtx);
          }
@@ -1278,7 +1278,7 @@ public class PagingStoreImpl implements PagingStore {
       }
    }
 
-   void directWritePage(PagedMessage pagedMessage, Transaction tx, RouteContextList listCtx, boolean lineUp) throws Exception {
+   void directWritePage(PagedMessage pagedMessage, boolean lineUp) throws Exception {
       int bytesToWrite = pagedMessage.getEncodeSize() + PageReadWriter.SIZE_RECORD;
 
       currentPageSize += bytesToWrite;
@@ -1293,6 +1293,7 @@ public class PagingStoreImpl implements PagingStore {
       // doing this will give us a possibility of recovering the page counters
       final Page page = currentPage;
 
+      logger.info("Calling page.write");
       page.write(pagedMessage, lineUp);
 
       if (logger.isTraceEnabled()) {

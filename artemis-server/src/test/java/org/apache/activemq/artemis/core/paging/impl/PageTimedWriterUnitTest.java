@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.config.Configuration;
 import org.apache.activemq.artemis.core.config.impl.ConfigurationImpl;
 import org.apache.activemq.artemis.core.io.IOCallback;
@@ -37,7 +38,9 @@ import org.apache.activemq.artemis.core.paging.PagedMessage;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.journal.JournalStorageManager;
+import org.apache.activemq.artemis.core.persistence.impl.journal.JournalStorageManagerAccessor;
 import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContextImpl;
+import org.apache.activemq.artemis.core.replication.ReplicationManager;
 import org.apache.activemq.artemis.core.server.JournalType;
 import org.apache.activemq.artemis.core.server.RouteContextList;
 import org.apache.activemq.artemis.core.transaction.Transaction;
@@ -45,10 +48,12 @@ import org.apache.activemq.artemis.core.transaction.TransactionOperationAbstract
 import org.apache.activemq.artemis.core.transaction.impl.TransactionImpl;
 import org.apache.activemq.artemis.tests.util.ArtemisTestCase;
 import org.apache.activemq.artemis.utils.ExecutorFactory;
+import org.apache.activemq.artemis.utils.ReusableLatch;
 import org.apache.activemq.artemis.utils.actors.OrderedExecutorFactory;
 import org.apache.activemq.artemis.utils.critical.CriticalAnalyzer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,11 +71,13 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
    ExecutorService executorService;
    OrderedExecutorFactory executorFactory;
    OperationContext context;
-   JournalStorageManager journalStorageManager;
+
+   // almost real as we use an extension that can allow mocking internal objects such as journals and replicationManager
+   JournalStorageManager realJournalStorageManager;
 
    PagingStoreImpl mockPageStore;
 
-   CountDownLatch allowRunning;
+   ReusableLatch allowRunning;
 
    PageTimedWriter timer;
 
@@ -78,6 +85,10 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
 
    Journal mockBindingsJournal;
    Journal mockMessageJournal;
+
+   AtomicBoolean useReplication = new AtomicBoolean(false);
+   AtomicBoolean returnSynchronizing = new AtomicBoolean(false);
+   ReplicationManager mockReplicationManager;
 
 
    class MockableJournalStorageManager extends JournalStorageManager {
@@ -106,7 +117,7 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
 
 
    @BeforeEach
-   public void prepareTest() throws Exception {
+   public void prepareMocks() throws Exception {
       configuration = new ConfigurationImpl();
       configuration.setJournalType(JournalType.NIO);
       scheduledExecutorService = Executors.newScheduledThreadPool(10);
@@ -121,14 +132,34 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
       mockBindingsJournal = Mockito.mock(Journal.class);
       mockMessageJournal = Mockito.mock(Journal.class);
 
-      journalStorageManager = new MockableJournalStorageManager(configuration, mockBindingsJournal, mockMessageJournal, executorFactory, executorFactory);
-      journalStorageManager.start();
+      mockReplicationManager = Mockito.mock(ReplicationManager.class);
+      Mockito.when(mockReplicationManager.isStarted()).thenAnswer(a -> useReplication.get());
+      Mockito.when(mockReplicationManager.isSynchronizing()).thenAnswer(a -> returnSynchronizing.get());
+      Mockito.doAnswer(a -> {
+         if (useReplication.get()) {
+            OperationContext ctx = OperationContextImpl.getContext();
+            if (ctx != null) {
+               ctx.replicationDone();
+            }
+         }
+         return null;
+      }).when(mockReplicationManager).pageWrite(Mockito.any(SimpleString.class), Mockito.any(PagedMessage.class), Mockito.anyLong(), Mockito.anyBoolean());
 
-      allowRunning = new CountDownLatch(1);
+      realJournalStorageManager = new MockableJournalStorageManager(configuration, mockBindingsJournal, mockMessageJournal, executorFactory, executorFactory);
+      realJournalStorageManager.start();
+
+      JournalStorageManagerAccessor.setReplicationManager(realJournalStorageManager, mockReplicationManager);
+
+      allowRunning = new ReusableLatch(1);
 
       mockPageStore = Mockito.mock(PagingStoreImpl.class);
+      Mockito.doAnswer(a -> {
+         realJournalStorageManager.pageWrite(SimpleString.of("whatever"), a.getArgument(0), 1L, a.getArgument(1));
+         return null;
+      }).when(mockPageStore).directWritePage(Mockito.any(PagedMessage.class), Mockito.anyBoolean());
 
-      timer = new PageTimedWriter(journalStorageManager, mockPageStore, scheduledExecutorService, executorFactory.getExecutor(), 100) {
+
+      timer = new PageTimedWriter(realJournalStorageManager, mockPageStore, scheduledExecutorService, executorFactory.getExecutor(), 100) {
          @Override
          public void run() {
             try {
@@ -148,7 +179,7 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
    // a test to validate if the Mocks are correctly setup
    @Test
    public void testValidateMocks() throws Exception {
-      TransactionImpl tx = new TransactionImpl(journalStorageManager);
+      TransactionImpl tx = new TransactionImpl(realJournalStorageManager);
       tx.setContainsPersistent();
       AtomicInteger count = new AtomicInteger(0);
       tx.addOperation(new TransactionOperationAbstract() {
@@ -162,7 +193,7 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
       assertEquals(1, count.get(), "tx.commit is not correctly wired on mocking");
 
 
-      journalStorageManager.afterCompleteOperations(new IOCallback() {
+      realJournalStorageManager.afterCompleteOperations(new IOCallback() {
          @Override
          public void done() {
             count.incrementAndGet();
@@ -174,7 +205,7 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
          }
       });
 
-      journalStorageManager.afterCompleteOperations(new IOCallback() {
+      realJournalStorageManager.afterCompleteOperations(new IOCallback() {
          @Override
          public void done() {
             count.incrementAndGet();
@@ -188,8 +219,8 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
 
       assertEquals(3, count.get(), "afterCompletion is not correctly wired on mocking");
 
-      long id = journalStorageManager.generateID();
-      long newID = journalStorageManager.generateID();
+      long id = realJournalStorageManager.generateID();
+      long newID = realJournalStorageManager.generateID();
       assertEquals(1L, newID - id);
 
    }
@@ -221,9 +252,7 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
    public void testIOCompletionWhileReplica() throws Exception {
       CountDownLatch latch = new CountDownLatch(1);
 
-      AtomicBoolean replicated = new AtomicBoolean(true);
-
-      Mockito.when(journalStorageManager.isReplicated()).then(r -> replicated.get());
+      useReplication.set(true);
 
       timer.addTask(context, Mockito.mock(PagedMessage.class), null, Mockito.mock(RouteContextList.class));
 
@@ -240,8 +269,37 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
 
       assertFalse(latch.await(10, TimeUnit.MILLISECONDS));
       allowRunning.countDown();
+      assertTrue(latch.await(10, TimeUnit.MINUTES));
+
+      allowRunning.setCount(1);
+   }
+
+   // add a task while replicating, process it when no longer replicating (disconnect a node scenario)
+   @Test
+   public void testDisableReplica() throws Exception {
+      CountDownLatch latch = new CountDownLatch(1);
+
+      useReplication.set(true);
+
+      timer.addTask(context, Mockito.mock(PagedMessage.class), null, Mockito.mock(RouteContextList.class));
+
+      context.executeOnCompletion(new IOCallback() {
+         @Override
+         public void done() {
+            latch.countDown();
+         }
+
+         @Override
+         public void onError(int errorCode, String errorMessage) {
+         }
+      });
+
+      assertFalse(latch.await(10, TimeUnit.MILLISECONDS));
+      useReplication.set(false);
+      allowRunning.countDown();
       assertTrue(latch.await(10, TimeUnit.SECONDS));
 
+      allowRunning.setCount(1);
    }
 
    @Test
@@ -260,7 +318,7 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
 
       CountDownLatch latch = new CountDownLatch(1);
 
-      Transaction tx = new TransactionImpl(journalStorageManager, Integer.MAX_VALUE);
+      Transaction tx = new TransactionImpl(realJournalStorageManager, Integer.MAX_VALUE);
       tx.setContainsPersistent();
 
       timer.addTask(context, Mockito.mock(PagedMessage.class), tx, Mockito.mock(RouteContextList.class));
