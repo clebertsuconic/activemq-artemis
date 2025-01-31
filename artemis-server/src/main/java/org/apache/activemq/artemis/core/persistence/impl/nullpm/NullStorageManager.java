@@ -405,7 +405,7 @@ public class NullStorageManager implements StorageManager {
    }
 
    @Override
-   public void pageWrite(final SimpleString address, final PagedMessage message, final long pageNumber, boolean lineup) {
+   public void pageWrite(final SimpleString address, final PagedMessage message, final long pageNumber, boolean lineup, boolean originallyReplicated) {
    }
 
    @Override

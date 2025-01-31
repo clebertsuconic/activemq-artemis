@@ -1265,7 +1265,7 @@ public class PagingStoreImpl implements PagingStore {
          }
 
          if (timedWriter == null) {
-            directWritePage(pagedMessage, true);
+            directWritePage(pagedMessage, true, false);
          } else {
             timedWriter.addTask(storageManager.getContext(), pagedMessage, tx, listCtx);
          }
@@ -1278,7 +1278,7 @@ public class PagingStoreImpl implements PagingStore {
       }
    }
 
-   void directWritePage(PagedMessage pagedMessage, boolean lineUp) throws Exception {
+   void directWritePage(PagedMessage pagedMessage, boolean lineUp, boolean originalReplicated) throws Exception {
       int bytesToWrite = pagedMessage.getEncodeSize() + PageReadWriter.SIZE_RECORD;
 
       currentPageSize += bytesToWrite;
@@ -1294,7 +1294,7 @@ public class PagingStoreImpl implements PagingStore {
       final Page page = currentPage;
 
       logger.info("Calling page.write");
-      page.write(pagedMessage, lineUp);
+      page.write(pagedMessage, lineUp, originalReplicated);
 
       if (logger.isTraceEnabled()) {
          logger.trace("Paging message {} on pageStore {} pageNr={}", pagedMessage, getStoreName(), page.getPageId());

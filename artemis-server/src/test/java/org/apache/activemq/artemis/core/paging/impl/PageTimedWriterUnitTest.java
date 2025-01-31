@@ -77,7 +77,7 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
 
    PagingStoreImpl mockPageStore;
 
-   ReusableLatch allowRunning;
+   CountDownLatch allowRunning;
 
    PageTimedWriter timer;
 
@@ -117,7 +117,7 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
 
 
    @BeforeEach
-   public void prepareMocks() throws Exception {
+   public void setupMocks() throws Exception {
       configuration = new ConfigurationImpl();
       configuration.setJournalType(JournalType.NIO);
       scheduledExecutorService = Executors.newScheduledThreadPool(10);
@@ -150,13 +150,13 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
 
       JournalStorageManagerAccessor.setReplicationManager(realJournalStorageManager, mockReplicationManager);
 
-      allowRunning = new ReusableLatch(1);
+      allowRunning = new CountDownLatch(1);
 
       mockPageStore = Mockito.mock(PagingStoreImpl.class);
       Mockito.doAnswer(a -> {
-         realJournalStorageManager.pageWrite(SimpleString.of("whatever"), a.getArgument(0), 1L, a.getArgument(1));
+         realJournalStorageManager.pageWrite(SimpleString.of("whatever"), a.getArgument(0), 1L, a.getArgument(1), a.getArgument(2));
          return null;
-      }).when(mockPageStore).directWritePage(Mockito.any(PagedMessage.class), Mockito.anyBoolean());
+      }).when(mockPageStore).directWritePage(Mockito.any(PagedMessage.class), Mockito.anyBoolean(), Mockito.anyBoolean());
 
 
       timer = new PageTimedWriter(realJournalStorageManager, mockPageStore, scheduledExecutorService, executorFactory.getExecutor(), 100) {
@@ -270,8 +270,57 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
       assertFalse(latch.await(10, TimeUnit.MILLISECONDS));
       allowRunning.countDown();
       assertTrue(latch.await(10, TimeUnit.MINUTES));
+   }
 
-      allowRunning.setCount(1);
+   @Test
+   public void testTXCompletionWhileReplica() throws Exception {
+      CountDownLatch latch = new CountDownLatch(1);
+
+      useReplication.set(true);
+
+      TransactionImpl transaction = new TransactionImpl(realJournalStorageManager);
+      transaction.setContainsPersistent();
+      transaction.addOperation(new TransactionOperationAbstract() {
+         @Override
+         public void afterCommit(Transaction tx) {
+            super.afterCommit(tx);
+            latch.countDown();
+         }
+      });
+
+      timer.addTask(context, Mockito.mock(PagedMessage.class), transaction, Mockito.mock(RouteContextList.class));
+
+      transaction.commit();
+
+      assertFalse(latch.await(10, TimeUnit.MILLISECONDS));
+      allowRunning.countDown();
+      assertTrue(latch.await(10, TimeUnit.MINUTES));
+   }
+
+   @Test
+   public void testTXCompletionWhileDisableReplica() throws Exception {
+      CountDownLatch latch = new CountDownLatch(1);
+
+      useReplication.set(true);
+
+      TransactionImpl transaction = new TransactionImpl(realJournalStorageManager);
+      transaction.setContainsPersistent();
+      transaction.addOperation(new TransactionOperationAbstract() {
+         @Override
+         public void afterCommit(Transaction tx) {
+            super.afterCommit(tx);
+            latch.countDown();
+         }
+      });
+
+      timer.addTask(context, Mockito.mock(PagedMessage.class), transaction, Mockito.mock(RouteContextList.class));
+
+      transaction.commit();
+
+      assertFalse(latch.await(10, TimeUnit.MILLISECONDS));
+      useReplication.set(false);
+      allowRunning.countDown();
+      assertTrue(latch.await(10, TimeUnit.MINUTES));
    }
 
    // add a task while replicating, process it when no longer replicating (disconnect a node scenario)
@@ -298,8 +347,33 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
       useReplication.set(false);
       allowRunning.countDown();
       assertTrue(latch.await(10, TimeUnit.SECONDS));
+   }
 
-      allowRunning.setCount(1);
+   // add a task while not replicating, process it when is now replicating (reconnect a node scenario)
+   // this is the oppostie from testDisableReplica
+   @Test
+   public void testEnableReplica() throws Exception {
+      CountDownLatch latch = new CountDownLatch(1);
+
+      useReplication.set(false);
+
+      timer.addTask(context, Mockito.mock(PagedMessage.class), null, Mockito.mock(RouteContextList.class));
+
+      context.executeOnCompletion(new IOCallback() {
+         @Override
+         public void done() {
+            latch.countDown();
+         }
+
+         @Override
+         public void onError(int errorCode, String errorMessage) {
+         }
+      });
+
+      assertFalse(latch.await(10, TimeUnit.MILLISECONDS));
+      useReplication.set(true);
+      allowRunning.countDown();
+      assertTrue(latch.await(10, TimeUnit.SECONDS));
    }
 
    @Test

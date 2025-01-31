@@ -423,7 +423,7 @@ public class TransactionImplTest extends ServerTestBase {
       }
 
       @Override
-      public void pageWrite(SimpleString address, PagedMessage message, long pageNumber, boolean lineup) {
+      public void pageWrite(SimpleString address, PagedMessage message, long pageNumber, boolean lineup, boolean originallyReplicated) {
 
       }
 

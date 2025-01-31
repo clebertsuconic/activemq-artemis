@@ -399,7 +399,7 @@ public class JournalStorageManager extends AbstractJournalStorageManager {
    }
 
    @Override
-   public void pageWrite(final SimpleString address, final PagedMessage message, final long pageNumber, boolean storageUp) {
+   public void pageWrite(final SimpleString address, final PagedMessage message, final long pageNumber, boolean storageUp, boolean originallyReplicated) {
       if (messageJournal.isHistory()) {
          try (ArtemisCloseable lock = closeableReadLock()) {
 
@@ -417,16 +417,18 @@ public class JournalStorageManager extends AbstractJournalStorageManager {
             logger.warn(e.getMessage(), e);
          }
       }
-      if (isReplicated()) {
-         // Note: (https://issues.jboss.org/browse/HORNETQ-1059)
-         // We have to replicate durable and non-durable messages on paging
-         // since acknowledgments are written using the page-position.
-         // Say you are sending durable and non-durable messages to a page
-         // The ACKs would be done to wrong positions, and the backup would be a mess
 
-         try (ArtemisCloseable lock = closeableReadLock()) {
-            if (isReplicated())
-               replicator.pageWrite(address, message, pageNumber, storageUp);
+      try (ArtemisCloseable lock = closeableReadLock()) {
+         if (isReplicated()) {
+            replicator.pageWrite(address, message, pageNumber, storageUp);
+         } else {
+            if (originallyReplicated) {
+               // this is a case where we originally contemplated as replicated, so we have to discount it in case it is not any more
+               OperationContext context = OperationContextImpl.getContext();
+               if (context != null) {
+                  context.replicationDone();
+               }
+            }
          }
       }
    }
