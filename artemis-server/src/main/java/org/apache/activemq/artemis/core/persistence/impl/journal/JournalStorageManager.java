@@ -216,10 +216,14 @@ public class JournalStorageManager extends AbstractJournalStorageManager {
    // Life Cycle Handlers
    @Override
    protected void beforeStart() throws Exception {
+      createDirectories();
+      cleanupIncompleteFiles();
+   }
+
+   protected void createDirectories() {
       checkAndCreateDir(config.getBindingsLocation(), config.isCreateBindingsDir());
       checkAndCreateDir(config.getJournalLocation(), config.isCreateJournalDir());
       checkAndCreateDir(config.getLargeMessagesLocation(), config.isCreateJournalDir());
-      cleanupIncompleteFiles();
    }
 
    @Override
