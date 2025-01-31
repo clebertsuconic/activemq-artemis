@@ -123,7 +123,7 @@ class PageTimedWriter extends ActiveMQScheduledComponent {
       try {
          for (PageEvent event : pendingEvents) {
             OperationContextImpl.setContext(event.context);
-            store.directWritePage(event.message, event.tx, event.listCtx, false);
+            store.directWritePage(event.message, false);
          }
          store.ioSync();
 
