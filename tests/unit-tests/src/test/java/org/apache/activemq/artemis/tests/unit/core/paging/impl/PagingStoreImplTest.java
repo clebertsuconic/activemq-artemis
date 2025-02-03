@@ -1088,7 +1088,7 @@ public class PagingStoreImplTest extends ActiveMQTestBase {
       store.start();
       try (AssertionLoggerHandler loggerHandler = new AssertionLoggerHandler()) {
          store.startPaging();
-         store.stopPaging();
+         store.tryStopPaging();
          assertTrue(loggerHandler.findText("AMQ222038"));
       }
    }
@@ -1108,7 +1108,7 @@ public class PagingStoreImplTest extends ActiveMQTestBase {
       store.start();
       try (AssertionLoggerHandler loggerHandler = new AssertionLoggerHandler()) {
          store.startPaging();
-         store.stopPaging();
+         store.tryStopPaging();
          assertTrue(loggerHandler.findText("AMQ224108"));
       }
    }

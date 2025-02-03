@@ -496,8 +496,8 @@ public class PersistMultiThreadTest extends ActiveMQTestBase {
       }
 
       @Override
-      public void stopPaging() throws Exception {
-
+      public boolean tryStopPaging() throws Exception {
+         return true;
       }
 
       @Override

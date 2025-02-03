@@ -710,12 +710,16 @@ public class PagingStoreImpl implements PagingStore {
    }
 
    @Override
-   public void stopPaging() {
+   public boolean tryStopPaging() {
       logger.debug("stopPaging being called, while isPaging={} on {}", this.paging, this.storeName);
       lock.writeLock().lock();
       try {
          final boolean isPaging = this.paging;
          if (isPaging) {
+            if (timedWriter != null && timedWriter.hasPendingIO()) {
+               logger.trace("There are pending timed writes.. can't clear paging now");
+               return false;
+            }
             paging = false;
             ActiveMQServerLogger.LOGGER.pageStoreStop(storeName, getPageInfo());
             pageLimitReleased();
@@ -724,6 +728,7 @@ public class PagingStoreImpl implements PagingStore {
       } finally {
          lock.writeLock().unlock();
       }
+      return true;
    }
 
    private String getPageInfo() {
@@ -992,8 +997,7 @@ public class PagingStoreImpl implements PagingStore {
                resetCurrentPage(null);
 
                // The current page is empty... which means we reached the end of the pages
-               if (returnPage.getNumberOfMessages() == 0) {
-                  stopPaging();
+               if (returnPage.getNumberOfMessages() == 0 && tryStopPaging()) {
                   returnPage.open(true);
                   returnPage.delete(null);
 
@@ -1293,7 +1297,6 @@ public class PagingStoreImpl implements PagingStore {
       // doing this will give us a possibility of recovering the page counters
       final Page page = currentPage;
 
-      logger.info("Calling page.write");
       page.write(pagedMessage, lineUp, originalReplicated);
 
       if (logger.isTraceEnabled()) {

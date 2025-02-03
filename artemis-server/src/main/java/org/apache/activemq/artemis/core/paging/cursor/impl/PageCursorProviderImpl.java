@@ -342,9 +342,11 @@ public class PageCursorProviderImpl implements PageCursorProvider {
 
                assert pagingStore.getNumberOfPages() >= 0;
 
-               if (!pagingStore.hasPendingIO() && pagingStore.getNumberOfPages() == 0 || pagingStore.getNumberOfPages() == 1 && (pagingStore.getCurrentPage() == null || pagingStore.getCurrentPage().getNumberOfMessages() == 0)) {
-                  logger.trace("StopPaging being called on {}", pagingStore);
-                  pagingStore.stopPaging();
+               if (pagingStore.getNumberOfPages() == 0 || pagingStore.getNumberOfPages() == 1 && (pagingStore.getCurrentPage() == null || pagingStore.getCurrentPage().getNumberOfMessages() == 0)) {
+                  logger.trace("StopPaging being called on {}, pending={}", pagingStore, pagingStore.hasPendingIO());
+                  if (!pagingStore.tryStopPaging()) {
+                     logger.trace("tryStopPaging did not succeed");
+                  }
                } else {
                   if (logger.isTraceEnabled()) {
                      logger.trace("Couldn't cleanup page on address {} as numberOfPages == {}  and currentPage.numberOfMessages = {}",
@@ -476,7 +478,7 @@ public class PageCursorProviderImpl implements PageCursorProvider {
 
       storeBookmark(cursorList, currentPage);
 
-      pagingStore.stopPaging();
+      pagingStore.tryStopPaging();
    }
 
    // Protected as a way to inject testing
