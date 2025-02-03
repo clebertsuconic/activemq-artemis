@@ -45,7 +45,7 @@ class PageTimedWriter extends ActiveMQScheduledComponent {
 
    protected final List<PageEvent> pageEvents = new ArrayList<>();
 
-   public boolean hasPendingIO() {
+   public synchronized boolean hasPendingIO() {
       return !pageEvents.isEmpty();
    }
 
