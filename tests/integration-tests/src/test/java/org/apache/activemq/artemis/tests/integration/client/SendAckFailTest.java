@@ -914,7 +914,7 @@ public class SendAckFailTest extends SpawnedTestBase {
       }
 
       @Override
-      public ArtemisCloseable closeableReadLock() {
+      public ArtemisCloseable closeableReadLock(boolean tryLock) {
          return manager.closeableReadLock();
       }
 
