@@ -1399,15 +1399,7 @@ public class PagingStoreImpl implements PagingStore {
    }
 
    public boolean hasPendingIO() {
-      lock.writeLock().lock();
-      try {
-         if (timedWriter == null) {
-            return false;
-         }
-         return timedWriter.hasPendingIO();
-      } finally {
-         lock.writeLock().unlock();
-      }
+      return timedWriter != null && timedWriter.hasPendingIO();
    }
 
    @Override
