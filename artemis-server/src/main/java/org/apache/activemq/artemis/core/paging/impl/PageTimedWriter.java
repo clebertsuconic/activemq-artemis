@@ -118,8 +118,10 @@ class PageTimedWriter extends ActiveMQScheduledComponent {
    @Override
    public void run() {
       ArtemisCloseable closeable = storageManager.closeableReadLock(true);
-
-      if (closeable != null) {
+      if (closeable == null) {
+         logger.info("Delayed");
+         delay();
+      } else {
          try {
             processMessages();
          } finally {
