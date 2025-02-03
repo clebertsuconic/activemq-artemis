@@ -1407,7 +1407,6 @@ public class PagingStoreImpl implements PagingStore {
 
    @Override
    public void destroy() throws Exception {
-      new Exception("Destroy is being called").printStackTrace();
       this.timedWriter.stop();
       // destroy has to be executed in the same executor as the cleanup
       execute(this::internalDestroy);
