@@ -348,7 +348,7 @@ public class TransactionImplTest extends ServerTestBase {
       }
 
       @Override
-      public ArtemisCloseable closeableReadLock() {
+      public ArtemisCloseable closeableReadLock(boolean tryLock) {
          return () -> { };
       }
 
