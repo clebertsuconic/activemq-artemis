@@ -513,6 +513,10 @@ public interface StorageManager extends MapStorageManager, IDGenerator, ActiveMQ
     */
    void deleteID(long journalD) throws Exception;
 
+   default ArtemisCloseable closeableReadLock() {
+      return closeableReadLock(false);
+   }
+
    /**
     * Read lock the StorageManager. USE WITH CARE!
     * <p>
@@ -522,7 +526,7 @@ public interface StorageManager extends MapStorageManager, IDGenerator, ActiveMQ
     * when starting replication sync.
     *
     */
-   ArtemisCloseable closeableReadLock();
+   ArtemisCloseable closeableReadLock(boolean tryLock);
 
    /**
     * Closes the {@link IDGenerator} persisting the current record ID.

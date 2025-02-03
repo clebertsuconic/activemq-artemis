@@ -95,7 +95,7 @@ public class NullStorageManager implements StorageManager {
    private static final ArtemisCloseable dummy = () -> { };
 
    @Override
-   public ArtemisCloseable closeableReadLock() {
+   public ArtemisCloseable closeableReadLock(boolean tryLock) {
       return dummy;
    }
 
