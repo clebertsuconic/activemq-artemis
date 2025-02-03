@@ -3505,15 +3505,22 @@ public class PagingTest extends ParameterDBTestBase {
 
       ClientConsumer consumer = session.createConsumer(PagingTest.ADDRESS);
 
-      for (int i = 0; i < numberOfMessages; i++) {
-         ClientMessage msg = consumer.receive(5000);
-         assertNotNull(msg);
-         if (i != msg.getIntProperty("count").intValue()) {
-            logger.debug("Received {} with property = {}", i, msg.getIntProperty("count"));
-            logger.debug("###### different");
+
+      try {
+         for (int i = 0; i < numberOfMessages; i++) {
+            ClientMessage msg = consumer.receive(5000);
+            assertNotNull(msg);
+            if (i != msg.getIntProperty("count").intValue()) {
+               logger.debug("Received {} with property = {}", i, msg.getIntProperty("count"));
+               logger.debug("###### different");
+            }
+            // assertEquals(i, msg.getIntProperty("count").intValue());
+            msg.acknowledge();
          }
-         // assertEquals(i, msg.getIntProperty("count").intValue());
-         msg.acknowledge();
+      } catch (Throwable e) {
+         e.printStackTrace();
+         System.out.println("data at " + server.getConfiguration().getPagingDirectory());
+         System.exit(-1);
       }
 
       session.close();

@@ -169,7 +169,7 @@ public interface PagingStore extends ActiveMQComponent, RefCountMessageListener 
     */
    boolean startPaging() throws Exception;
 
-   void stopPaging() throws Exception;
+   boolean tryStopPaging() throws Exception;
 
    /** *
     *

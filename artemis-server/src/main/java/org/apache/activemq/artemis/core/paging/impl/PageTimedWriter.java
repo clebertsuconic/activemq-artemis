@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
 import org.apache.activemq.artemis.api.core.ActiveMQExceptionType;
 import org.apache.activemq.artemis.core.paging.PagedMessage;
@@ -30,6 +31,7 @@ import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContextImpl;
 import org.apache.activemq.artemis.core.server.ActiveMQScheduledComponent;
 import org.apache.activemq.artemis.core.server.RouteContextList;
+import org.apache.activemq.artemis.core.server.impl.QueueImpl;
 import org.apache.activemq.artemis.core.transaction.Transaction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,8 +47,12 @@ class PageTimedWriter extends ActiveMQScheduledComponent {
 
    protected final List<PageEvent> pageEvents = new ArrayList<>();
 
-   public synchronized boolean hasPendingIO() {
-      return !pageEvents.isEmpty();
+   protected volatile int pendingTasks = 0;
+
+   private static final AtomicIntegerFieldUpdater<PageTimedWriter> pendingTasksUpdater = AtomicIntegerFieldUpdater.newUpdater(PageTimedWriter.class, "pendingTasks");
+
+   public boolean hasPendingIO() {
+      return pendingTasksUpdater.get(this) != 0;
    }
 
    public static class PageEvent {
@@ -93,19 +99,19 @@ class PageTimedWriter extends ActiveMQScheduledComponent {
          context.replicationLineUp();
       }
       this.pageEvents.add(event);
+      pendingTasksUpdater.incrementAndGet(this);
       delay();
    }
 
-   private PageEvent[] extractPendingEvents() {
-      synchronized (this) {
-         if (pageEvents.isEmpty()) {
-            return null;
-         }
-         PageEvent[] pendingsWrites = new PageEvent[pageEvents.size()];
-         pendingsWrites = pageEvents.toArray(pendingsWrites);
-         pageEvents.clear();
-         return pendingsWrites;
+   private synchronized  PageEvent[] extractPendingEvents() {
+      if (pageEvents.isEmpty()) {
+         return null;
       }
+      PageEvent[] pendingsWrites = new PageEvent[pageEvents.size()];
+      pendingsWrites = pageEvents.toArray(pendingsWrites);
+      pageEvents.clear();
+
+      return pendingsWrites;
    }
 
    @Override
@@ -124,6 +130,7 @@ class PageTimedWriter extends ActiveMQScheduledComponent {
          for (PageEvent event : pendingEvents) {
             OperationContextImpl.setContext(event.context);
             store.directWritePage(event.message, false, event.replicated);
+            pendingTasksUpdater.decrementAndGet(this);
          }
          store.ioSync();
 

@@ -148,7 +148,7 @@ public class SNFPagedMirrorTest extends ActiveMQTestBase {
 
       Wait.assertEquals(0, snf1::getMessageCount);
 
-      queueServer2.getPagingStore().stopPaging();
+      queueServer2.getPagingStore().tryStopPaging();
 
       int NUMBER_OF_MESSAGES = 5000;
 
