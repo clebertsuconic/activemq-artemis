@@ -50,6 +50,8 @@ class PageTimedWriter extends ActiveMQScheduledComponent {
 
    protected volatile int pendingTasks = 0;
 
+   protected final boolean syncNonTX;
+
    private static final AtomicIntegerFieldUpdater<PageTimedWriter> pendingTasksUpdater = AtomicIntegerFieldUpdater.newUpdater(PageTimedWriter.class, "pendingTasks");
 
    public boolean hasPendingIO() {
@@ -73,10 +75,11 @@ class PageTimedWriter extends ActiveMQScheduledComponent {
       final Transaction tx;
    }
 
-   PageTimedWriter(StorageManager storageManager, PagingStoreImpl store, ScheduledExecutorService scheduledExecutor, Executor executor, long timeSync) {
+   PageTimedWriter(StorageManager storageManager, PagingStoreImpl store, ScheduledExecutorService scheduledExecutor, Executor executor, boolean syncNonTX, long timeSync) {
       super(scheduledExecutor, executor, timeSync, TimeUnit.NANOSECONDS, true);
       this.store = store;
       this.storageManager = storageManager;
+      this.syncNonTX = syncNonTX;
    }
 
    @Override
@@ -138,12 +141,19 @@ class PageTimedWriter extends ActiveMQScheduledComponent {
       OperationContext beforeContext = OperationContextImpl.getContext();
 
       try {
+         boolean requireSync = false;
          for (PageEvent event : pendingEvents) {
             OperationContextImpl.setContext(event.context);
             store.directWritePage(event.message, false, event.replicated);
             pendingTasksUpdater.decrementAndGet(this);
+
+            if (event.tx != null || syncNonTX) {
+               requireSync = true;
+            }
          }
-         store.ioSync();
+         if (requireSync) {
+            store.ioSync();
+         }
 
       } catch (Exception e) {
          for (PageEvent event : pendingEvents) {

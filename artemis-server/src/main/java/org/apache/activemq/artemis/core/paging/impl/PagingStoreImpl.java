@@ -205,7 +205,7 @@ public class PagingStoreImpl implements PagingStore {
       this.syncNonTransactional = syncNonTransactional;
 
       if (scheduledExecutor != null && syncTimeout > 0) {
-         this.timedWriter = new PageTimedWriter(storageManager, this, scheduledExecutor, executor, syncTimeout);
+         this.timedWriter = new PageTimedWriter(storageManager, this, scheduledExecutor, executor, syncNonTransactional, syncTimeout);
          this.timedWriter.start();
       } else {
          this.timedWriter = null;
