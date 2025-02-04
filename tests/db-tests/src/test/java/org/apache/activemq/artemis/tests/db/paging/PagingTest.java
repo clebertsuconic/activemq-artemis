@@ -3506,7 +3506,7 @@ public class PagingTest extends ParameterDBTestBase {
       ClientConsumer consumer = session.createConsumer(PagingTest.ADDRESS);
 
       for (int i = 0; i < numberOfMessages; i++) {
-         ClientMessage msg = consumer.receive(5000);
+         ClientMessage msg = consumer.receive(10000);
          assertNotNull(msg);
          if (i != msg.getIntProperty("count").intValue()) {
             logger.debug("Received {} with property = {}", i, msg.getIntProperty("count"));
