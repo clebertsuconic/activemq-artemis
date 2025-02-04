@@ -159,7 +159,7 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
       }).when(mockPageStore).directWritePage(Mockito.any(PagedMessage.class), Mockito.anyBoolean(), Mockito.anyBoolean());
 
 
-      timer = new PageTimedWriter(realJournalStorageManager, mockPageStore, scheduledExecutorService, executorFactory.getExecutor(), 100) {
+      timer = new PageTimedWriter(realJournalStorageManager, mockPageStore, scheduledExecutorService, executorFactory.getExecutor(), true, 100) {
          @Override
          public void run() {
             try {
