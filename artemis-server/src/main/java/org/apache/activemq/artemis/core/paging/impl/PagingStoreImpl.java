@@ -1286,7 +1286,7 @@ public class PagingStoreImpl implements PagingStore {
                              Transaction tx,
                              RouteContextList listCtx,
                              Function<Message, Message> pageDecorator) throws Exception {
-      readLock();
+      writeLock();
 
       try {
          if (!paging) {
@@ -1318,7 +1318,7 @@ public class PagingStoreImpl implements PagingStore {
 
          return true;
       } finally {
-         readUnlock();
+         writeUnlock();
       }
    }
 
