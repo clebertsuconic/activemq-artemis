@@ -81,11 +81,6 @@ public interface ArtemisExecutor extends Executor {
    }
 
 
-   default boolean inHandler() {
-      return false;
-   }
-
-
 
    default boolean isFair() {
       return false;
