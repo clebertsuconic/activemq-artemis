@@ -202,6 +202,9 @@ public interface PagingStore extends ActiveMQComponent, RefCountMessageListener 
     */
    boolean checkReleasedMemory();
 
+   default void writeLock() {
+      writeLock(-1);
+   }
    /**
     * Write lock the PagingStore.
     *
@@ -209,8 +212,11 @@ public interface PagingStore extends ActiveMQComponent, RefCountMessageListener 
     *                indefinitely.
     * @return {@code true} if the lock was obtained, {@code false} otherwise
     */
-   boolean lock(long timeout);
+   boolean writeLock(long timeout);
 
+   default void readLock() {
+      readLock(-1);
+   }
    default boolean readLock(long timeout) {
       return true;
    }
@@ -219,9 +225,9 @@ public interface PagingStore extends ActiveMQComponent, RefCountMessageListener 
    }
 
    /**
-    * Releases locks acquired with {@link PagingStore#lock(long)}.
+    * Releases locks acquired with {@link PagingStore#writeLock(long)}.
     */
-   void unlock();
+   void writeUnlock();
 
    /**
     * This is used mostly by tests.

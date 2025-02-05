@@ -299,7 +299,7 @@ public class PageCursorProviderImpl implements PageCursorProvider {
       try (ArtemisCloseable readLock = storageManager.closeableReadLock()) {
 
          while (true) {
-            if (pagingStore.lock(100)) {
+            if (pagingStore.writeLock(100)) {
                break;
             }
             if (!pagingStore.isStarted())
@@ -359,7 +359,7 @@ public class PageCursorProviderImpl implements PageCursorProvider {
                return;
             } finally {
                logger.trace("<<<< Cleanup end on {}", pagingStore.getAddress());
-               pagingStore.unlock();
+               pagingStore.writeUnlock();
             }
          }
       }
