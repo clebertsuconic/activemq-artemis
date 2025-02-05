@@ -906,6 +906,7 @@ public class PagingStoreImplTest extends ActiveMQTestBase {
    @Test
    public void testOrderOnPaging() throws Throwable {
       ExecutorService executorService = Executors.newFixedThreadPool(2);
+      runAfter(executorService::shutdownNow);
       try {
          clearDataRecreateServerDirs();
          SequentialFileFactory factory = new FakeSequentialFileFactory();
@@ -919,6 +920,7 @@ public class PagingStoreImplTest extends ActiveMQTestBase {
          final PagingStore store = new PagingStoreImpl(PagingStoreImplTest.destinationTestName, null, 100, createMockManager(), createStorageManagerMock(), factory, storeFactory, SimpleString.of("test"), settings, getExecutorFactory().getExecutor(), false);
 
          store.start();
+         runAfter(store::stop);
 
          assertEquals(0, store.getNumberOfPages());
 

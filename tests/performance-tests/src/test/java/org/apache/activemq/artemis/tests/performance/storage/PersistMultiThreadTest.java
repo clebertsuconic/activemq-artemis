@@ -520,12 +520,12 @@ public class PersistMultiThreadTest extends ActiveMQTestBase {
       }
 
       @Override
-      public boolean lock(long timeout) {
+      public boolean writeLock(long timeout) {
          return false;
       }
 
       @Override
-      public void unlock() {
+      public void writeUnlock() {
 
       }
 

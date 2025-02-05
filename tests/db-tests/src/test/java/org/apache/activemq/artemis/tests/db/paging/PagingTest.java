@@ -3705,7 +3705,7 @@ public class PagingTest extends ParameterDBTestBase {
                super.cleanup();
             } else {
                try {
-                  pagingStore.unlock();
+                  pagingStore.writeUnlock();
                } catch (Throwable ignored) {
                }
             }

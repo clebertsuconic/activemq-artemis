@@ -411,7 +411,7 @@ public class PagingStoreImpl implements PagingStore {
    }
 
    @Override
-   public boolean lock(long timeout) {
+   public boolean writeLock(long timeout) {
       if (timeout == -1) {
          lock.writeLock().lock();
          return true;
@@ -424,7 +424,7 @@ public class PagingStoreImpl implements PagingStore {
    }
 
    @Override
-   public void unlock() {
+   public void writeUnlock() {
       lock.writeLock().unlock();
    }
 
@@ -631,7 +631,7 @@ public class PagingStoreImpl implements PagingStore {
 
    @Override
    public void start() throws Exception {
-      lock.writeLock().lock();
+      writeLock();
 
       try {
 
@@ -688,7 +688,7 @@ public class PagingStoreImpl implements PagingStore {
          }
 
       } finally {
-         lock.writeLock().unlock();
+         writeUnlock();
       }
    }
 
@@ -731,7 +731,7 @@ public class PagingStoreImpl implements PagingStore {
    @Override
    public boolean tryStopPaging() {
       logger.debug("stopPaging being called, while isPaging={} on {}", this.paging, this.storeName);
-      lock.writeLock().lock();
+      writeLock();
       try {
          final boolean isPaging = this.paging;
          if (isPaging) {
@@ -745,7 +745,7 @@ public class PagingStoreImpl implements PagingStore {
          }
          this.cursorProvider.onPageModeCleared();
       } finally {
-         lock.writeLock().unlock();
+         writeUnlock();
       }
       return true;
    }
@@ -760,19 +760,19 @@ public class PagingStoreImpl implements PagingStore {
          return false;
       }
 
-      lock.readLock().lock();
+      readLock();
       try {
          // I'm not calling isPaging() here because i need to be atomic and hold a lock.
          if (paging) {
             return false;
          }
       } finally {
-         lock.readLock().unlock();
+         readUnlock();
       }
 
       // if the first check failed, we do it again under a global currentPageLock
       // (writeLock) this time
-      lock.writeLock().lock();
+      writeLock();
 
       try {
          // Same notes from previous if (paging) on this method will apply here
@@ -800,7 +800,7 @@ public class PagingStoreImpl implements PagingStore {
 
          return true;
       } finally {
-         lock.writeLock().unlock();
+         writeUnlock();
       }
    }
 
@@ -939,7 +939,7 @@ public class PagingStoreImpl implements PagingStore {
    @Override
    public Page removePage(int pageId) {
       try {
-         lock.writeLock().lock(); // Make sure no checks are done on currentPage while we are depaging
+         writeLock();
          try {
             if (!running) {
                return null;
@@ -981,7 +981,7 @@ public class PagingStoreImpl implements PagingStore {
 
             return page;
          } finally {
-            lock.writeLock().unlock();
+            writeUnlock();
          }
       } catch (Throwable e) {
          logger.warn(e.getMessage(), e);
@@ -1008,7 +1008,7 @@ public class PagingStoreImpl implements PagingStore {
     */
    @Override
    public Page depage() throws Exception {
-      lock.writeLock().lock(); // Make sure no checks are done on currentPage while we are depaging
+      writeLock();
       try {
          if (!running) {
             return null;
@@ -1078,7 +1078,7 @@ public class PagingStoreImpl implements PagingStore {
             return returnPage;
          }
       } finally {
-         lock.writeLock().unlock();
+         writeUnlock();
       }
 
    }
@@ -1249,7 +1249,7 @@ public class PagingStoreImpl implements PagingStore {
       }
 
       // We need to ensure a read lock, as depage could change the paging state
-      lock.readLock().lock();
+      readLock();
 
       try {
          // First check done concurrently, to avoid synchronization and increase throughput
@@ -1257,7 +1257,7 @@ public class PagingStoreImpl implements PagingStore {
             return false;
          }
       } finally {
-         lock.readLock().unlock();
+         readUnlock();
       }
 
       if (pageFull) {
@@ -1286,7 +1286,7 @@ public class PagingStoreImpl implements PagingStore {
                              Transaction tx,
                              RouteContextList listCtx,
                              Function<Message, Message> pageDecorator) throws Exception {
-      lock.readLock().lock();
+      readLock();
 
       try {
          if (!paging) {
@@ -1318,7 +1318,7 @@ public class PagingStoreImpl implements PagingStore {
 
          return true;
       } finally {
-         lock.readLock().unlock();
+         readUnlock();
       }
    }
 
@@ -1461,15 +1461,7 @@ public class PagingStoreImpl implements PagingStore {
 
    private void internalDestroy() {
       try (ArtemisCloseable readLock = storageManager.closeableReadLock()) {
-         while (true) {
-            try {
-               if (lock.writeLock().tryLock(100, TimeUnit.MILLISECONDS)) {
-                  break;
-               }
-            } catch (InterruptedException e) {
-               throw new RuntimeException("Cannot lock resource on paging");
-            }
-         }
+         writeLock();
 
          try {
             SequentialFileFactory factory = fileFactory;
@@ -1481,7 +1473,7 @@ public class PagingStoreImpl implements PagingStore {
                }
             }
          } finally {
-            lock.writeLock().unlock();
+            writeUnlock();
             try {
                stop();
             } catch (Exception e2) {
@@ -1569,7 +1561,7 @@ public class PagingStoreImpl implements PagingStore {
    }
 
    private void openNewPage() throws Exception {
-      lock.writeLock().lock();
+      writeLock();
 
       try {
          numberOfPages++;
@@ -1604,7 +1596,7 @@ public class PagingStoreImpl implements PagingStore {
             firstPageId = newPageId;
          }
       } finally {
-         lock.writeLock().unlock();
+         writeUnlock();
       }
    }
 
@@ -1664,7 +1656,7 @@ public class PagingStoreImpl implements PagingStore {
 
    @Override
    public Collection<Integer> getCurrentIds() throws Exception {
-      lock.readLock().lock();
+      readLock();
       try {
          List<Integer> ids = new ArrayList<>();
          SequentialFileFactory factory = fileFactory;
@@ -1675,7 +1667,7 @@ public class PagingStoreImpl implements PagingStore {
          }
          return ids;
       } finally {
-         lock.readLock().unlock();
+         readUnlock();
       }
    }
 
