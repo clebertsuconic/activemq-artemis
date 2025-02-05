@@ -27,7 +27,6 @@ import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.paging.cursor.PageCursorProvider;
 import org.apache.activemq.artemis.core.paging.cursor.PageSubscription;
 import org.apache.activemq.artemis.core.paging.impl.Page;
-import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.replication.ReplicationManager;
 import org.apache.activemq.artemis.core.server.ActiveMQComponent;
@@ -158,6 +157,7 @@ public interface PagingStore extends ActiveMQComponent, RefCountMessageListener 
    Page removePage(int pageId);
 
    void forceAnotherPage() throws Exception;
+   void forceAnotherPage(boolean useExecutor) throws Exception;
 
    Page getCurrentPage();
 
@@ -207,6 +207,13 @@ public interface PagingStore extends ActiveMQComponent, RefCountMessageListener 
     * @return {@code true} if the lock was obtained, {@code false} otherwise
     */
    boolean lock(long timeout);
+
+   default boolean readLock(long timeout) {
+      return true;
+   }
+
+   default void readUnlock() {
+   }
 
    /**
     * Releases locks acquired with {@link PagingStore#lock(long)}.

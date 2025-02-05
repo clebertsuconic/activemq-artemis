@@ -72,7 +72,7 @@ public class MaxMessagesPagingTest extends ActiveMQTestBase {
    protected ActiveMQServer server;
 
    @Test
-   @Timeout(value = 1, unit = TimeUnit.MINUTES,threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+   @Timeout(value = 1, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
    public void testGlobalMaxMessages() throws Exception {
       final SimpleString ADDRESS = SimpleString.of("testGlobalMaxMessages");
       clearDataRecreateServerDirs();
@@ -162,7 +162,7 @@ public class MaxMessagesPagingTest extends ActiveMQTestBase {
    }
 
    @Test
-   @Timeout(value = 1, unit = TimeUnit.MINUTES,threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+   @Timeout(value = 1, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
    public void testGlobalMaxMessagesMultipleQueues() throws Exception {
       final String baseAddress = "testGlobal";
       clearDataRecreateServerDirs();
@@ -226,7 +226,7 @@ public class MaxMessagesPagingTest extends ActiveMQTestBase {
    }
 
    @Test
-   @Timeout(value = 1, unit = TimeUnit.MINUTES,threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+   @Timeout(value = 1, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
    public void testMaxOnAddress() throws Exception {
       final String baseAddress = "testMaxOnAddress";
       clearDataRecreateServerDirs();
@@ -282,7 +282,7 @@ public class MaxMessagesPagingTest extends ActiveMQTestBase {
    }
 
    @Test
-   @Timeout(value = 1, unit = TimeUnit.MINUTES,threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+   @Timeout(value = 1, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
    public void testMaxOnAddressHitGlobal() throws Exception {
       final String baseAddress = "testMaxOnAddress";
       clearDataRecreateServerDirs();
@@ -335,13 +335,13 @@ public class MaxMessagesPagingTest extends ActiveMQTestBase {
    }
 
    @Test
-   @Timeout(value = 1, unit = TimeUnit.MINUTES,threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+   @Timeout(value = 1, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
    public void testFailMaxMessage() throws Exception {
       internalFailMaxMessge(false);
    }
 
    @Test
-   @Timeout(value = 1, unit = TimeUnit.MINUTES,threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+   @Timeout(value = 1, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
    public void testFailMaxMessageGlobal() throws Exception {
       internalFailMaxMessge(true);
    }
@@ -437,13 +437,13 @@ public class MaxMessagesPagingTest extends ActiveMQTestBase {
 
 
    @Test
-   @Timeout(value = 1, unit = TimeUnit.MINUTES,threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+   @Timeout(value = 1, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
    public void testBlockMaxMessage() throws Exception {
       internalBlockMaxMessge(false);
    }
 
    @Test
-   @Timeout(value = 1, unit = TimeUnit.MINUTES,threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+   @Timeout(value = 1, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
    public void testBlockMaxMessageGlobal() throws Exception {
       internalBlockMaxMessge(true);
    }
@@ -547,13 +547,13 @@ public class MaxMessagesPagingTest extends ActiveMQTestBase {
 
 
    @Test
-   @Timeout(value = 1, unit = TimeUnit.MINUTES,threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+   @Timeout(value = 1, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
    public void testDropMaxMessage() throws Exception {
       internalDropMaxMessge(false);
    }
 
    @Test
-   @Timeout(value = 1, unit = TimeUnit.MINUTES,threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+   @Timeout(value = 1, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
    public void testDropMaxMessageGlobal() throws Exception {
       internalDropMaxMessge(true);
    }

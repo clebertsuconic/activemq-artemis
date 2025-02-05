@@ -62,7 +62,6 @@ import org.apache.activemq.artemis.core.paging.impl.PageTransactionInfoImpl;
 import org.apache.activemq.artemis.core.paging.impl.PagingStoreImpl;
 import org.apache.activemq.artemis.core.paging.impl.PagingStoreTestAccessor;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
-import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContextImpl;
 import org.apache.activemq.artemis.core.persistence.impl.nullpm.NullStorageManager;
 import org.apache.activemq.artemis.core.server.files.FileStoreMonitor;
 import org.apache.activemq.artemis.core.server.impl.RoutingContextImpl;
@@ -299,7 +298,7 @@ public class PagingStoreImplTest extends ActiveMQTestBase {
                ctx.addQueue(fakeQueue.getName(), fakeQueue);
                assertTrue(storeImpl.page(msg, ctx.getTransaction(), ctx.getContextListing(storeImpl.getStoreName())));
                if (i > 0 && i % 10 == 0) {
-                  storeImpl.forceAnotherPage();
+                  storeImpl.forceAnotherPage(true);
                   page++;
                   assertEquals(page, storeImpl.getNumberOfPages());
                }
@@ -416,7 +415,7 @@ public class PagingStoreImplTest extends ActiveMQTestBase {
                ctx.addQueue(fakeQueue.getName(), fakeQueue);
                assertTrue(storeImpl.page(msg, ctx.getTransaction(), ctx.getContextListing(storeImpl.getStoreName())));
                if (i > 0 && i % 10 == 0) {
-                  storeImpl.forceAnotherPage();
+                  storeImpl.forceAnotherPage(true);
                   page++;
                }
             }
@@ -449,7 +448,7 @@ public class PagingStoreImplTest extends ActiveMQTestBase {
 
          assertTrue(storeImpl.isPaging());
 
-         storeImpl.forceAnotherPage();
+         storeImpl.forceAnotherPage(true);
 
          assertEquals(11, factory.listFiles("page").size());
 
@@ -559,7 +558,7 @@ public class PagingStoreImplTest extends ActiveMQTestBase {
          buffers.add(buffer);
 
          if (i == 5) {
-            store.forceAnotherPage();
+            store.forceAnotherPage(true);
          }
 
          Message msg = createMessage(i, store, destination, buffer);
@@ -828,7 +827,7 @@ public class PagingStoreImplTest extends ActiveMQTestBase {
       long lastMessageId = messageIdGenerator.incrementAndGet();
       Message lastMsg = createMessage(lastMessageId, storeImpl, destination, createRandomBuffer(lastMessageId, 5));
 
-      storeImpl2.forceAnotherPage();
+      storeImpl2.forceAnotherPage(true);
 
       final RoutingContextImpl ctx = new RoutingContextImpl(null);
       storeImpl2.page(lastMsg, ctx.getTransaction(), ctx.getContextListing(storeImpl2.getStoreName()));

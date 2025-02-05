@@ -62,6 +62,7 @@ import org.apache.activemq.artemis.core.transaction.TransactionOperation;
 import org.apache.activemq.artemis.core.transaction.TransactionPropertyIndexes;
 import org.apache.activemq.artemis.utils.ArtemisCloseable;
 import org.apache.activemq.artemis.utils.FutureLatch;
+import org.apache.activemq.artemis.utils.SimpleFutureImpl;
 import org.apache.activemq.artemis.utils.SizeAwareMetric;
 import org.apache.activemq.artemis.utils.actors.ArtemisExecutor;
 import org.apache.activemq.artemis.utils.runnables.AtomicRunnable;
@@ -389,6 +390,24 @@ public class PagingStoreImpl implements PagingStore {
          ActiveMQServerLogger.LOGGER.pageFree(getAddress());
          this.pageFull = false;
       }
+   }
+
+   @Override
+   public boolean readLock(long timeout) {
+      if (timeout == -1) {
+         lock.readLock().lock();
+         return true;
+      }
+      try {
+         return lock.readLock().tryLock(timeout, TimeUnit.MILLISECONDS);
+      } catch (InterruptedException e) {
+         return false;
+      }
+   }
+
+   @Override
+   public void readUnlock() {
+      lock.readLock().unlock();
    }
 
    @Override
@@ -880,7 +899,28 @@ public class PagingStoreImpl implements PagingStore {
 
    @Override
    public void forceAnotherPage() throws Exception {
-      openNewPage();
+      forceAnotherPage(false);
+   }
+
+   @Override
+   public void forceAnotherPage(boolean useExecutor) throws Exception {
+      // we need to open a new page inside the executor
+      // as the PageTimedWriter will write on the currentPage without holding a writeLock
+      // the current page must be changed within the executor's
+      if (useExecutor) {
+         SimpleFutureImpl future = new SimpleFutureImpl();
+         execute(() -> {
+            try {
+               openNewPage();
+               future.set(true);
+            } catch (Exception e) {
+               future.fail(e);
+            }
+         });
+         future.get();
+      } else {
+         openNewPage();
+      }
    }
 
 
@@ -1246,7 +1286,7 @@ public class PagingStoreImpl implements PagingStore {
                              Transaction tx,
                              RouteContextList listCtx,
                              Function<Message, Message> pageDecorator) throws Exception {
-      lock.writeLock().lock();
+      lock.readLock().lock();
 
       try {
          if (!paging) {
@@ -1278,7 +1318,7 @@ public class PagingStoreImpl implements PagingStore {
 
          return true;
       } finally {
-         lock.writeLock().unlock();
+         lock.readLock().unlock();
       }
    }
 
@@ -1401,6 +1441,7 @@ public class PagingStoreImpl implements PagingStore {
       return;
    }
 
+   @Override
    public boolean hasPendingIO() {
       return timedWriter != null && timedWriter.hasPendingIO();
    }

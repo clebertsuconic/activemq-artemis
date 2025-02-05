@@ -40,7 +40,7 @@ class PageTimedWriter extends ActiveMQScheduledComponent {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
-   private final PagingStoreImpl store;
+   private final PagingStoreImpl pagingStore;
 
    private final StorageManager storageManager;
 
@@ -74,9 +74,9 @@ class PageTimedWriter extends ActiveMQScheduledComponent {
       final Transaction tx;
    }
 
-   PageTimedWriter(StorageManager storageManager, PagingStoreImpl store, ScheduledExecutorService scheduledExecutor, Executor executor, boolean syncNonTX, long timeSync) {
+   PageTimedWriter(StorageManager storageManager, PagingStoreImpl pagingStore, ScheduledExecutorService scheduledExecutor, Executor executor, boolean syncNonTX, long timeSync) {
       super(scheduledExecutor, executor, timeSync, TimeUnit.NANOSECONDS, true);
-      this.store = store;
+      this.pagingStore = pagingStore;
       this.storageManager = storageManager;
       this.syncNonTX = syncNonTX;
    }
@@ -143,7 +143,7 @@ class PageTimedWriter extends ActiveMQScheduledComponent {
          boolean requireSync = false;
          for (PageEvent event : pendingEvents) {
             OperationContextImpl.setContext(event.context);
-            store.directWritePage(event.message, false, event.replicated);
+            pagingStore.directWritePage(event.message, false, event.replicated);
             pendingTasksUpdater.decrementAndGet(this);
 
             if (event.tx != null || syncNonTX) {
@@ -151,12 +151,12 @@ class PageTimedWriter extends ActiveMQScheduledComponent {
             }
          }
          if (requireSync) {
-            store.ioSync();
+            pagingStore.ioSync();
          }
 
       } catch (Exception e) {
          for (PageEvent event : pendingEvents) {
-            event.context.onError(ActiveMQExceptionType.IO_ERROR.getCode(), e.getClass() + " during ioSync for paging on " + store.getStoreName() + ": " + e.getMessage());
+            event.context.onError(ActiveMQExceptionType.IO_ERROR.getCode(), e.getClass() + " during ioSync for paging on " + pagingStore.getStoreName() + ": " + e.getMessage());
          }
       } finally {
          // In case of failure, The context should propagate an exception to the client
