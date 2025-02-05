@@ -105,7 +105,6 @@ import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.journal.AckDescribe;
 import org.apache.activemq.artemis.core.persistence.impl.journal.DescribeJournal;
 import org.apache.activemq.artemis.core.persistence.impl.journal.JournalRecordIds;
-import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContextImpl;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
 import org.apache.activemq.artemis.core.server.Queue;
 import org.apache.activemq.artemis.core.server.impl.ActiveMQServerImpl;
@@ -282,7 +281,7 @@ public class PagingTest extends ParameterDBTestBase {
 
          session.createQueue(QueueConfiguration.of(ADDRESS.concat("-0")).setAddress(ADDRESS));
 
-         server.getPagingManager().getPageStore(ADDRESS).forceAnotherPage();
+         server.getPagingManager().getPageStore(ADDRESS).forceAnotherPage(true);
          server.getPagingManager().getPageStore(ADDRESS).disableCleanup();
          session.start();
 
@@ -616,7 +615,7 @@ public class PagingTest extends ParameterDBTestBase {
             for (int j = 0; j < 10; j++) {
                producer.send(session.createMessage());
             }
-            serverQueue.getPagingStore().forceAnotherPage();
+            serverQueue.getPagingStore().forceAnotherPage(true);
          }
       }
 
@@ -771,7 +770,7 @@ public class PagingTest extends ParameterDBTestBase {
          int page = 1;
          for (int i = 0; i < numberOfMessages; i++) {
             if (i % 10 == 0 && i > 0) {
-               queue.getPagingStore().forceAnotherPage();
+               queue.getPagingStore().forceAnotherPage(true);
                page++;
             }
             message = session.createMessage(true);
@@ -852,7 +851,7 @@ public class PagingTest extends ParameterDBTestBase {
 
       for (int i = 0; i < numberOfMessages; i++) {
          if (i % 10 == 0 && i > 0) {
-            queue.getPagingStore().forceAnotherPage();
+            queue.getPagingStore().forceAnotherPage(true);
             page++;
          }
          message = session.createMessage(true);
@@ -983,7 +982,7 @@ public class PagingTest extends ParameterDBTestBase {
 
          for (int i = 0; i < numberOfMessages; i++) {
             if (i % 10 == 0 && i > 0) {
-               queue.getPagingStore().forceAnotherPage();
+               queue.getPagingStore().forceAnotherPage(true);
                // forceAnotherPage could be called concurrently with cleanup on this case
                // so we have to call startPaging to make sure we are still paging on this test
                queue.getPagingStore().startPaging();
@@ -1226,7 +1225,7 @@ public class PagingTest extends ParameterDBTestBase {
 
          if ((i + 1) % 5 == 0) {
             session.commit();
-            queue.getPageSubscription().getPagingStore().forceAnotherPage();
+            queue.getPageSubscription().getPagingStore().forceAnotherPage(true);
          }
       }
 
@@ -1331,7 +1330,7 @@ public class PagingTest extends ParameterDBTestBase {
 
          if ((i + 1) % 5 == 0) {
             session.commit();
-            queue.getPageSubscription().getPagingStore().forceAnotherPage();
+            queue.getPageSubscription().getPagingStore().forceAnotherPage(true);
          }
       }
 
@@ -1414,7 +1413,7 @@ public class PagingTest extends ParameterDBTestBase {
 
          if ((i + 1) % 5 == 0) {
             session.commit();
-            queue.getPageSubscription().getPagingStore().forceAnotherPage();
+            queue.getPageSubscription().getPagingStore().forceAnotherPage(true);
          }
       }
 
@@ -1508,7 +1507,7 @@ public class PagingTest extends ParameterDBTestBase {
 
             if ((i + 1) % 5 == 0) {
                session.commit();
-               queue.getPageSubscription().getPagingStore().forceAnotherPage();
+               queue.getPageSubscription().getPagingStore().forceAnotherPage(true);
             }
          }
 
@@ -1700,7 +1699,7 @@ public class PagingTest extends ParameterDBTestBase {
    public void testDeleteQueueRestart() throws Exception {
       Configuration config = createDefaultInVMConfig().setJournalDirectory(getJournalDir()).setJournalSyncNonTransactional(false).setJournalCompactMinFiles(0).setPageSyncTimeout(1000); // disable compact
 
-      server = createServer(true, config, PagingTest.PAGE_SIZE, PagingTest.PAGE_MAX);
+      server = createServer(true, config, PagingTest.PAGE_SIZE, PagingTest.PAGE_MAX, -1, -1);
 
       server.start();
 
@@ -1867,7 +1866,7 @@ public class PagingTest extends ParameterDBTestBase {
    }
 
    private void waitBuffer(ClientConsumerInternal clientBuffer, int bufferSize) {
-      Wait.assertTrue(() -> "expected " + bufferSize + " but got " + clientBuffer.getBufferSize(), () -> clientBuffer.getBufferSize() > bufferSize, 5000, 100);
+      Wait.assertTrue(() -> "expected " + bufferSize + " but got " + clientBuffer.getBufferSize(), () -> clientBuffer.getBufferSize() > bufferSize, 15_000, 100);
    }
 
    @TestTemplate
@@ -3639,7 +3638,7 @@ public class PagingTest extends ParameterDBTestBase {
 
          producer.send(message);
          session.commit();
-         queue.getPageSubscription().getPagingStore().forceAnotherPage();
+         queue.getPageSubscription().getPagingStore().forceAnotherPage(true);
 
       }
 
@@ -3763,7 +3762,7 @@ public class PagingTest extends ParameterDBTestBase {
          producer.send(message);
          session.commit();
          if (i < 19) {
-            queue1.getPageSubscription().getPagingStore().forceAnotherPage();
+            queue1.getPageSubscription().getPagingStore().forceAnotherPage(true);
          }
 
       }
@@ -3810,7 +3809,7 @@ public class PagingTest extends ParameterDBTestBase {
          session.commit();
 
          if (i == 5) {
-            queue.getPageSubscription().getPagingStore().forceAnotherPage();
+            queue.getPageSubscription().getPagingStore().forceAnotherPage(true);
          }
       }
 
@@ -5312,7 +5311,7 @@ public class PagingTest extends ParameterDBTestBase {
       msg = cons2.receive(5000);
       assertNotNull(msg);
 
-      queue.getPageSubscription().getPagingStore().forceAnotherPage();
+      queue.getPageSubscription().getPagingStore().forceAnotherPage(true);
 
       msg = session.createMessage(true);
       msg.putIntProperty("dest", 1);
@@ -5394,7 +5393,7 @@ public class PagingTest extends ParameterDBTestBase {
 
          session.commit();
 
-         pageStore.forceAnotherPage();
+         pageStore.forceAnotherPage(true);
 
          for (int i = 0; i < messagesSentAfterBurst; i++) {
             {
@@ -5420,7 +5419,7 @@ public class PagingTest extends ParameterDBTestBase {
             if (i > 0 && i % 10 == 0) {
                session.commit();
                if (i + 10 < messagesSentAfterBurst) {
-                  pageStore.forceAnotherPage();
+                  pageStore.forceAnotherPage(true);
                }
             }
          }
@@ -5528,7 +5527,7 @@ public class PagingTest extends ParameterDBTestBase {
             prod.send(msg);
 
             if (i > 0 && i % 10 == 0) {
-               store.forceAnotherPage();
+               store.forceAnotherPage(true);
             }
          }
 
@@ -5618,7 +5617,7 @@ public class PagingTest extends ParameterDBTestBase {
 
             if (i > 0 && i % 10 == 0) {
                store.startPaging();
-               store.forceAnotherPage();
+               store.forceAnotherPage(true);
             }
          }
 
@@ -5630,7 +5629,7 @@ public class PagingTest extends ParameterDBTestBase {
 
             if (i > 0 && i % 10 == 0) {
                store.startPaging();
-               store.forceAnotherPage();
+               store.forceAnotherPage(true);
             }
          }
 
@@ -5696,7 +5695,7 @@ public class PagingTest extends ParameterDBTestBase {
             prod.send(msg);
             if ((i + 1) % 5 == 0 && i < 50) {
                session.commit();
-               store.forceAnotherPage();
+               store.forceAnotherPage(true);
             }
          }
          session.commit();
@@ -5793,7 +5792,7 @@ public class PagingTest extends ParameterDBTestBase {
          ClientMessage msgReceivedCons2 = cons2.receive(1000);
          assertNotNull(msgReceivedCons2);
 
-         store.forceAnotherPage();
+         store.forceAnotherPage(true);
 
          msg = session.createMessage(true);
 
@@ -5901,7 +5900,7 @@ public class PagingTest extends ParameterDBTestBase {
             prod.send(msg);
             if (i % 10 == 0) {
                session.commit();
-               store.forceAnotherPage();
+               store.forceAnotherPage(true);
             }
          }
          session.commit();
@@ -6208,7 +6207,7 @@ public class PagingTest extends ParameterDBTestBase {
          session.commit();
 
          if (forceAnotherPage) {
-            queue.getPageSubscription().getPagingStore().forceAnotherPage();
+            queue.getPageSubscription().getPagingStore().forceAnotherPage(true);
          }
 
          message = session.createMessage(persistentMessages);

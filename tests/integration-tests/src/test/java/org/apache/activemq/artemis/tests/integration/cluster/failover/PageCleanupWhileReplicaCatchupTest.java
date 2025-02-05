@@ -89,7 +89,7 @@ public class PageCleanupWhileReplicaCatchupTest extends FailoverTestBase {
    }
 
    @Test
-   @Timeout(value = 2, unit = TimeUnit.MINUTES,threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+   @Timeout(value = 2, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
    public void testPageCleanup() throws Throwable {
 
       Worker[] workers = new Worker[NUMBER_OF_WORKERS];

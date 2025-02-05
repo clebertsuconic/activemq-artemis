@@ -25,7 +25,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.config.Configuration;
@@ -33,10 +32,8 @@ import org.apache.activemq.artemis.core.config.impl.ConfigurationImpl;
 import org.apache.activemq.artemis.core.io.IOCallback;
 import org.apache.activemq.artemis.core.io.OperationConsistencyLevel;
 import org.apache.activemq.artemis.core.journal.Journal;
-import org.apache.activemq.artemis.core.journal.impl.JournalImpl;
 import org.apache.activemq.artemis.core.paging.PagedMessage;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
-import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.journal.JournalStorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.journal.JournalStorageManagerAccessor;
 import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContextImpl;
@@ -89,9 +86,9 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
    ReplicationManager mockReplicationManager;
 
 
-   class MockableJournalStorageManager extends JournalStorageManager {
+   private static class MockableJournalStorageManager extends JournalStorageManager {
 
-      public MockableJournalStorageManager(Configuration config,
+      MockableJournalStorageManager(Configuration config,
                                            Journal bindingsJournal,
                                            Journal messagesJournal,
                                            ExecutorFactory executorFactory,

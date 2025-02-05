@@ -248,7 +248,7 @@ public class SharedNothingReplicationFlowControlTest extends ActiveMQTestBase {
 
          if (i % 10 == 0) {
             sess.commit();
-            store.forceAnotherPage();
+            store.forceAnotherPage(true);
          }
       }
 
