@@ -76,6 +76,7 @@ import org.apache.activemq.artemis.tests.unit.core.postoffice.impl.fakes.FakeQue
 import org.apache.activemq.artemis.tests.unit.util.FakePagingManager;
 import org.apache.activemq.artemis.tests.util.ActiveMQTestBase;
 import org.apache.activemq.artemis.utils.ActiveMQThreadFactory;
+import org.apache.activemq.artemis.utils.ArtemisCloseable;
 import org.apache.activemq.artemis.utils.ExecutorFactory;
 import org.apache.activemq.artemis.utils.RandomUtil;
 import org.apache.activemq.artemis.utils.ReusableLatch;
@@ -938,28 +939,21 @@ public class PagingStoreImplTest extends ActiveMQTestBase {
          ReusableLatch done = new ReusableLatch(0);
          done.countUp();
 
-         executorService.execute(() -> {
-            try {
-               for (long i = 0; i < NUMBER_OF_MESSAGES; i++) {
-                  // Each thread will Keep paging until all the messages are depaged.
-                  // This is possible because the depage thread is not actually reading the pages.
-                  // Just using the internal API to remove it from the page file system
-                  Message msg = createMessage(i, store, destination, createRandomBuffer(i, 1024));
-                  msg.putLongProperty("count", i);
+         ((PagingStoreImpl)store).printLocks();
 
-                  final RoutingContextImpl ctx2 = new RoutingContextImpl(null);
-                  store.page(msg, ctx2.getTransaction(), ctx2.getContextListing(store.getStoreName()));
-               }
-            } catch (Throwable e) {
-               e.printStackTrace();
-               errors.add(e);
-            } finally {
-               done.countDown();
-            }
-         });
+         for (long i = 0; i < NUMBER_OF_MESSAGES; i++) {
+            ((PagingStoreImpl)store).clearLocks();
+            logger.info("Writing {}", i);
+            // Each thread will Keep paging until all the messages are depaged.
+            // This is possible because the depage thread is not actually reading the pages.
+            // Just using the internal API to remove it from the page file system
+            Message msg = createMessage(i, store, destination, createRandomBuffer(i, 1024));
+            msg.putLongProperty("count", i);
 
-         assertTrue(done.await(10, TimeUnit.SECONDS));
-         done.countUp();
+            final RoutingContextImpl ctx2 = new RoutingContextImpl(null);
+            store.page(msg, ctx2.getTransaction(), ctx2.getContextListing(store.getStoreName()));
+         }
+
 
          executorService.execute(() -> {
             try {

@@ -65,6 +65,7 @@ import org.apache.activemq.artemis.utils.FutureLatch;
 import org.apache.activemq.artemis.utils.SimpleFutureImpl;
 import org.apache.activemq.artemis.utils.SizeAwareMetric;
 import org.apache.activemq.artemis.utils.actors.ArtemisExecutor;
+import org.apache.activemq.artemis.utils.collections.ConcurrentHashSet;
 import org.apache.activemq.artemis.utils.runnables.AtomicRunnable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -392,14 +393,21 @@ public class PagingStoreImpl implements PagingStore {
       }
    }
 
+
    @Override
    public boolean readLock(long timeout) {
       if (timeout == -1) {
          lock.readLock().lock();
+         readHappened.add(new Exception("hello"));
          return true;
       }
       try {
-         return lock.readLock().tryLock(timeout, TimeUnit.MILLISECONDS);
+         if (lock.readLock().tryLock(timeout, TimeUnit.MILLISECONDS)) {
+            readHappened.add(new Exception("hello"));
+            return true;
+         } else {
+            return false;
+         }
       } catch (InterruptedException e) {
          return false;
       }
@@ -407,24 +415,64 @@ public class PagingStoreImpl implements PagingStore {
 
    @Override
    public void readUnlock() {
+      readHappened.add(new Exception("Unlock"));
       lock.readLock().unlock();
    }
 
    @Override
    public boolean writeLock(long timeout) {
       if (timeout == -1) {
-         lock.writeLock().lock();
+         if (!lock.writeLock().tryLock()) {
+            printLocks();
+            lock.writeLock().lock();
+         }
+         writeHappened = new Exception("happened");
          return true;
       }
       try {
-         return lock.writeLock().tryLock(timeout, TimeUnit.MILLISECONDS);
+         if (lock.writeLock().tryLock(timeout, TimeUnit.MILLISECONDS)) {
+            writeHappened = new Exception("write");
+            return true;
+         } else {
+            return false;
+         }
       } catch (InterruptedException e) {
          return false;
       }
    }
 
+   public void clearLocks() {
+      lock.writeLock().lock();
+      try {
+         readHappened.clear();
+         writeHappened = null;
+      } finally {
+         lock.writeLock().unlock();
+      }
+   }
+
+   public void printLocks() {
+      if (writeHappened == null && readHappened.isEmpty()) {
+         logger.info("nothing in here");
+      }
+      logger.info("********************************************************************************\nLocks:");
+      if (writeHappened != null) {
+         logger.info("writeHappened::", writeHappened);
+      }
+      if (!readHappened.isEmpty()) {
+         readHappened.forEach(f -> {
+            logger.info("readHappened", f);
+         });
+      }
+      logger.info("********************************************************************************");
+   }
+
+   volatile Exception writeHappened;
+   final ConcurrentLinkedQueue<Exception> readHappened = new ConcurrentLinkedQueue<>();
+
    @Override
    public void writeUnlock() {
+      writeHappened = null;
       lock.writeLock().unlock();
    }
 
@@ -1260,6 +1308,8 @@ public class PagingStoreImpl implements PagingStore {
          readUnlock();
       }
 
+      clearLocks();
+
       if (pageFull) {
          if (message.isLargeMessage()) {
             ((LargeServerMessage) message).deleteFile();
@@ -1286,7 +1336,7 @@ public class PagingStoreImpl implements PagingStore {
                              Transaction tx,
                              RouteContextList listCtx,
                              Function<Message, Message> pageDecorator) throws Exception {
-      readLock();
+      writeLock();
 
       try {
          if (!paging) {
@@ -1318,7 +1368,7 @@ public class PagingStoreImpl implements PagingStore {
 
          return true;
       } finally {
-         readUnlock();
+         writeUnlock();
       }
    }
 
