@@ -481,7 +481,7 @@ public class PersistMultiThreadTest extends ActiveMQTestBase {
       }
 
       @Override
-      public void forceAnotherPage() throws Exception {
+      public void forceAnotherPage(boolean useExecutor) throws Exception {
 
       }
 
