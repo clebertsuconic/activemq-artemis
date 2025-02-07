@@ -73,9 +73,9 @@ public class MultipleProducersTest extends SmokeTestBase {
    @Test
    public void testMultipleProducers() throws Exception {
       String protocol = "amqp";
-      int producers = 50;
+      int producers = 100;
       int consumers = 1;
-      int messagesPerProducer = 100;
+      int messagesPerProducer = 1000;
       int totalMessages = producers * messagesPerProducer;
       assertTrue(totalMessages % consumers == 0, "totalMessages % consumers must be 0");
       int messagesPerConsumer = totalMessages / consumers;
@@ -126,24 +126,24 @@ public class MultipleProducersTest extends SmokeTestBase {
       for (int i = 0; i < producers; i++) {
          int producerID = i;
 
-         ConnectionFactory factory = CFUtil.createConnectionFactory(protocol, "tcp://localhost:61616");
-         Connection connection = factory.createConnection();
 
+         ConnectionFactory factory = CFUtil.createConnectionFactory(protocol, "tcp://localhost:61616");
          executor.execute(() -> {
-           try (Session session = connection.createSession(true, Session.SESSION_TRANSACTED)) {
-               Queue queue = session.createQueue(queueName);
-               MessageProducer producer = session.createProducer(queue);
-               for (int produced = 0; produced < messagesPerProducer; produced++) {
-                  producer.send(session.createTextMessage("hello hello"));
-                  session.commit();
-                  messagesSent[producerID].incrementAndGet();
-                  distance.incrementAndGet();
+            try (Connection connection = factory.createConnection()) {
+               try (Session session = connection.createSession(true, Session.SESSION_TRANSACTED)) {
+                  Queue queue = session.createQueue(queueName);
+                  MessageProducer producer = session.createProducer(queue);
+                  for (int produced = 0; produced < messagesPerProducer; produced++) {
+                     producer.send(session.createTextMessage("hello hello"));
+                     session.commit();
+                     messagesSent[producerID].incrementAndGet();
+                     distance.incrementAndGet();
+                  }
+                  done.countDown();
                }
             } catch (Exception e) {
-               errors.incrementAndGet();
                logger.warn(e.getMessage(), e);
-            } finally {
-               done.countDown();
+               errors.incrementAndGet();
             }
          });
       }

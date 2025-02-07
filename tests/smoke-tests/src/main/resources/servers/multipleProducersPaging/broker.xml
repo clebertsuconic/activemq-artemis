@@ -81,7 +81,7 @@ under the License.
       <!-- how often we are looking for how many bytes are being used on the disk in ms -->
       <disk-scan-period>5000</disk-scan-period>
 
-      <page-sync-timeout>10000000</page-sync-timeout>
+      <page-sync-timeout>100</page-sync-timeout>
 
 
       <!-- once the disk hits this limit the system will block, or close the connection in certain protocols
