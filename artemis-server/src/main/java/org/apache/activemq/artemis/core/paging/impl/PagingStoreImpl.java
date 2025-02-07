@@ -214,7 +214,7 @@ public class PagingStoreImpl implements PagingStore {
 
    protected PageTimedWriter createPageTimedWriter(ScheduledExecutorService scheduledExecutor, long syncTimeout) {
       if (scheduledExecutor != null && syncTimeout > 0) {
-         PageTimedWriter localWriter = new PageTimedWriter(storageManager, this, scheduledExecutor, executor, syncNonTransactional, syncTimeout);
+         PageTimedWriter localWriter = new PageTimedWriter(1000, storageManager, this, scheduledExecutor, executor, syncNonTransactional, syncTimeout);
          localWriter.start();
          return localWriter;
       } else {
@@ -1251,18 +1251,6 @@ public class PagingStoreImpl implements PagingStore {
          }
       } else if (addressFullMessagePolicy == AddressFullMessagePolicy.BLOCK) {
          return false;
-      }
-
-      // We need to ensure a read lock, as depage could change the paging state
-      readLock();
-
-      try {
-         // First check done concurrently, to avoid synchronization and increase throughput
-         if (!paging) {
-            return false;
-         }
-      } finally {
-         readUnlock();
       }
 
       if (pageFull) {

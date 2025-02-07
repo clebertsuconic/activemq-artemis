@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
@@ -51,6 +52,8 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
 
    protected final boolean syncNonTX;
 
+   private final Semaphore writeCredits;
+
    private static final AtomicIntegerFieldUpdater<PageTimedWriter> pendingTasksUpdater = AtomicIntegerFieldUpdater.newUpdater(PageTimedWriter.class, "pendingTasks");
 
    public boolean hasPendingIO() {
@@ -74,11 +77,12 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
       final Transaction tx;
    }
 
-   public PageTimedWriter(StorageManager storageManager, PagingStoreImpl pagingStore, ScheduledExecutorService scheduledExecutor, Executor executor, boolean syncNonTX, long timeSync) {
+   public PageTimedWriter(int writeCredits, StorageManager storageManager, PagingStoreImpl pagingStore, ScheduledExecutorService scheduledExecutor, Executor executor, boolean syncNonTX, long timeSync) {
       super(scheduledExecutor, executor, timeSync, TimeUnit.NANOSECONDS, true);
       this.pagingStore = pagingStore;
       this.storageManager = storageManager;
       this.syncNonTX = syncNonTX;
+      this.writeCredits = new Semaphore(writeCredits);
    }
 
    @Override
@@ -87,7 +91,7 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
       processMessages();
    }
 
-   public synchronized void addTask(OperationContext context,
+   public void addTask(OperationContext context,
                                     PagedMessage message,
                                     Transaction tx,
                                     RouteContextList listCtx) {
@@ -95,15 +99,19 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
       if (!isStarted()) {
          throw new IllegalStateException("PageWriter Service is stopped");
       }
-      final boolean replicated = storageManager.isReplicated();
-      PageEvent event = new PageEvent(context, message, tx, listCtx, replicated);
-      context.storeLineUp();
-      if (replicated) {
-         context.replicationLineUp();
+      writeCredits.acquireUninterruptibly();
+      synchronized (this) {
+         final boolean replicated = storageManager.isReplicated();
+         PageEvent event = new PageEvent(context, message, tx, listCtx, replicated);
+         context.storeLineUp();
+         if (replicated) {
+            context.replicationLineUp();
+         }
+         this.pageEvents.add(event);
+         pendingTasksUpdater.incrementAndGet(this);
+         delay();
       }
-      this.pageEvents.add(event);
-      pendingTasksUpdater.incrementAndGet(this);
-      delay();
+
    }
 
    private synchronized  PageEvent[] extractPendingEvents() {
@@ -113,6 +121,9 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
       PageEvent[] pendingsWrites = new PageEvent[pageEvents.size()];
       pendingsWrites = pageEvents.toArray(pendingsWrites);
       pageEvents.clear();
+      if (pendingsWrites != null) {
+         writeCredits.release(pendingsWrites.length);
+      }
 
       return pendingsWrites;
    }

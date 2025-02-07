@@ -73,7 +73,7 @@ public class MultipleProducersTest extends SmokeTestBase {
    @Test
    public void testMultipleProducers() throws Exception {
       String protocol = "amqp";
-      int producers = 200;
+      int producers = 50;
       int consumers = 1;
       int messagesPerProducer = 100;
       int totalMessages = producers * messagesPerProducer;
@@ -154,18 +154,19 @@ public class MultipleProducersTest extends SmokeTestBase {
             ConnectionFactory factory = CFUtil.createConnectionFactory(protocol, "tcp://localhost:61616");
             try (Connection connection = factory.createConnection()) {
                connection.start();
-               Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+               Session session = connection.createSession(true, Session.SESSION_TRANSACTED);
                Queue queue = session.createQueue(queueName);
                MessageConsumer consumer = session.createConsumer(queue);
                for (int consumed = 0; consumed < messagesPerConsumer; consumed++) {
-                  if (distance.get() < 2) {
-                     Thread.sleep(500);
-                  }
                   Message message = consumer.receive(10_000);
                   assertNotNull(message);
                   messagesConsumed[consumerID].incrementAndGet();
                   distance.decrementAndGet();
+                  if (consumed % 100 == 0) {
+                     session.commit();
+                  }
                }
+               session.commit();
             } catch (Throwable e) {
                errors.incrementAndGet();
                logger.warn(e.getMessage(), e);

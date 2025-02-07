@@ -206,7 +206,7 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
          @Override
          protected PageTimedWriter createPageTimedWriter(ScheduledExecutorService scheduledExecutor, long syncTimeout) {
 
-            PageTimedWriter timer = new PageTimedWriter(realJournalStorageManager, this, scheduledExecutorService, executorFactory.getExecutor(), true, 100) {
+            PageTimedWriter timer = new PageTimedWriter(1000, realJournalStorageManager, this, scheduledExecutorService, executorFactory.getExecutor(), true, 100) {
                @Override
                public void run() {
                   try {
