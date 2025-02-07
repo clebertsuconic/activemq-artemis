@@ -36,7 +36,7 @@ import org.apache.activemq.artemis.utils.ArtemisCloseable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-class PageTimedWriter extends ActiveMQScheduledComponent {
+public class PageTimedWriter extends ActiveMQScheduledComponent {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
@@ -74,7 +74,7 @@ class PageTimedWriter extends ActiveMQScheduledComponent {
       final Transaction tx;
    }
 
-   PageTimedWriter(StorageManager storageManager, PagingStoreImpl pagingStore, ScheduledExecutorService scheduledExecutor, Executor executor, boolean syncNonTX, long timeSync) {
+   public PageTimedWriter(StorageManager storageManager, PagingStoreImpl pagingStore, ScheduledExecutorService scheduledExecutor, Executor executor, boolean syncNonTX, long timeSync) {
       super(scheduledExecutor, executor, timeSync, TimeUnit.NANOSECONDS, true);
       this.pagingStore = pagingStore;
       this.storageManager = storageManager;
@@ -151,10 +151,11 @@ class PageTimedWriter extends ActiveMQScheduledComponent {
             }
          }
          if (requireSync) {
-            pagingStore.ioSync();
+            performSync();
          }
 
       } catch (Exception e) {
+         logger.warn(e.getMessage(), e);
          for (PageEvent event : pendingEvents) {
             event.context.onError(ActiveMQExceptionType.IO_ERROR.getCode(), e.getClass() + " during ioSync for paging on " + pagingStore.getStoreName() + ": " + e.getMessage());
          }
@@ -168,5 +169,9 @@ class PageTimedWriter extends ActiveMQScheduledComponent {
 
          OperationContextImpl.setContext(beforeContext);
       }
+   }
+
+   protected void performSync() throws Exception {
+      pagingStore.ioSync();
    }
 }

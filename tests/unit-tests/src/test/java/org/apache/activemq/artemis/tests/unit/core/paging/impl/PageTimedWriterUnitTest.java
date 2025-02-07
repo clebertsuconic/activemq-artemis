@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.activemq.artemis.core.paging.impl;
+package org.apache.activemq.artemis.tests.unit.core.paging.impl;
 
 import java.lang.invoke.MethodHandles;
 import java.util.concurrent.CountDownLatch;
@@ -26,25 +26,39 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.config.Configuration;
 import org.apache.activemq.artemis.core.config.impl.ConfigurationImpl;
 import org.apache.activemq.artemis.core.io.IOCallback;
 import org.apache.activemq.artemis.core.io.OperationConsistencyLevel;
+import org.apache.activemq.artemis.core.io.SequentialFileFactory;
 import org.apache.activemq.artemis.core.journal.Journal;
+import org.apache.activemq.artemis.core.message.impl.CoreMessage;
 import org.apache.activemq.artemis.core.paging.PagedMessage;
+import org.apache.activemq.artemis.core.paging.PagingManager;
+import org.apache.activemq.artemis.core.paging.PagingStoreFactory;
+import org.apache.activemq.artemis.core.paging.impl.PageTimedWriter;
+import org.apache.activemq.artemis.core.paging.impl.PagingStoreImpl;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.impl.journal.JournalStorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.journal.JournalStorageManagerAccessor;
 import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContextImpl;
 import org.apache.activemq.artemis.core.replication.ReplicationManager;
 import org.apache.activemq.artemis.core.server.JournalType;
+import org.apache.activemq.artemis.core.server.Queue;
 import org.apache.activemq.artemis.core.server.RouteContextList;
+import org.apache.activemq.artemis.core.server.impl.RoutingContextImpl;
+import org.apache.activemq.artemis.core.settings.impl.AddressFullMessagePolicy;
+import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
 import org.apache.activemq.artemis.core.transaction.Transaction;
 import org.apache.activemq.artemis.core.transaction.TransactionOperationAbstract;
 import org.apache.activemq.artemis.core.transaction.impl.TransactionImpl;
+import org.apache.activemq.artemis.tests.unit.core.journal.impl.fakes.FakeSequentialFileFactory;
 import org.apache.activemq.artemis.tests.util.ArtemisTestCase;
 import org.apache.activemq.artemis.utils.ExecutorFactory;
+import org.apache.activemq.artemis.utils.RandomUtil;
+import org.apache.activemq.artemis.utils.ReusableLatch;
 import org.apache.activemq.artemis.utils.actors.OrderedExecutorFactory;
 import org.apache.activemq.artemis.utils.critical.CriticalAnalyzer;
 import org.junit.jupiter.api.BeforeEach;
@@ -62,21 +76,33 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
+   private static final SimpleString ADDRESS = SimpleString.of("someAddress");
+
    ScheduledExecutorService scheduledExecutorService;
    ExecutorService executorService;
    OrderedExecutorFactory executorFactory;
    OperationContext context;
 
+   RouteContextList routeContextList;
+
    // almost real as we use an extension that can allow mocking internal objects such as journals and replicationManager
    JournalStorageManager realJournalStorageManager;
 
-   PagingStoreImpl mockPageStore;
+   PagingStoreImpl pageStore;
 
    CountDownLatch allowRunning;
+
+   final ReusableLatch enteredSync = new ReusableLatch(1);
+   final ReusableLatch allowSync = new ReusableLatch(0);
+   final AtomicInteger doneSync = new AtomicInteger(0);
+
+   final AtomicInteger pageWrites = new AtomicInteger(0);
 
    PageTimedWriter timer;
 
    Configuration configuration;
+
+   SequentialFileFactory inMemoryFileFactory;
 
    Journal mockBindingsJournal;
    Journal mockMessageJournal;
@@ -86,7 +112,7 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
    ReplicationManager mockReplicationManager;
 
 
-   private static class MockableJournalStorageManager extends JournalStorageManager {
+   private class MockableJournalStorageManager extends JournalStorageManager {
 
       MockableJournalStorageManager(Configuration config,
                                            Journal bindingsJournal,
@@ -108,8 +134,27 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
       protected void createDirectories() {
          // not creating any folders
       }
+
+      public void pageWrite(final SimpleString address, final PagedMessage message, final long pageNumber, boolean storageUp, boolean originallyReplicated) {
+         super.pageWrite(address, message, pageNumber, storageUp, originallyReplicated);
+         pageWrites.incrementAndGet();
+      }
    }
 
+   private CoreMessage createMessage() {
+      long id = realJournalStorageManager.generateID();
+      ActiveMQBuffer buffer = RandomUtil.randomBuffer(10);
+      CoreMessage msg = new CoreMessage(id, 50 + buffer.capacity());
+
+      msg.setAddress(ADDRESS);
+
+      msg.getBodyBuffer().resetReaderIndex();
+      msg.getBodyBuffer().resetWriterIndex();
+
+      msg.getBodyBuffer().writeBytes(buffer, buffer.capacity());
+
+      return msg;
+   }
 
    @BeforeEach
    public void setupMocks() throws Exception {
@@ -147,28 +192,61 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
 
       allowRunning = new CountDownLatch(1);
 
-      mockPageStore = Mockito.mock(PagingStoreImpl.class);
-      Mockito.doAnswer(a -> {
-         realJournalStorageManager.pageWrite(SimpleString.of("whatever"), a.getArgument(0), 1L, a.getArgument(1), a.getArgument(2));
-         return null;
-      }).when(mockPageStore).directWritePage(Mockito.any(PagedMessage.class), Mockito.anyBoolean(), Mockito.anyBoolean());
+      inMemoryFileFactory = new FakeSequentialFileFactory();
 
+      PagingStoreFactory mockPageStoreFactory = Mockito.mock(PagingStoreFactory.class);
+      PagingManager mockPagingManager = Mockito.mock(PagingManager.class);
 
-      timer = new PageTimedWriter(realJournalStorageManager, mockPageStore, scheduledExecutorService, executorFactory.getExecutor(), true, 100) {
+      final int MAX_SIZE = 1024 * 10;
+
+      AddressSettings settings = new AddressSettings().setPageSizeBytes(MAX_SIZE).setAddressFullMessagePolicy(AddressFullMessagePolicy.PAGE);
+
+      pageStore = new PagingStoreImpl(ADDRESS, scheduledExecutorService, 100, mockPagingManager, realJournalStorageManager, inMemoryFileFactory,
+                                      mockPageStoreFactory, ADDRESS, settings, executorFactory.getExecutor(), false) {
          @Override
-         public void run() {
-            try {
-               allowRunning.await();
-            } catch (InterruptedException e) {
-               logger.warn(e.getMessage(), e);
+         protected PageTimedWriter createPageTimedWriter(ScheduledExecutorService scheduledExecutor, long syncTimeout) {
 
-            }
-            super.run();
+            PageTimedWriter timer = new PageTimedWriter(realJournalStorageManager, this, scheduledExecutorService, executorFactory.getExecutor(), true, 100) {
+               @Override
+               public void run() {
+                  try {
+                     allowRunning.await();
+                  } catch (InterruptedException e) {
+                     logger.warn(e.getMessage(), e);
+                     Thread.currentThread().interrupt();
+
+                  }
+                  super.run();
+               }
+
+               @Override
+               protected void performSync() throws Exception {
+                  enteredSync.countDown();
+                  super.performSync();
+                  try {
+                     allowSync.await();
+                  } catch (InterruptedException e) {
+                     logger.warn(e.getMessage(), e);
+                  }
+                  doneSync.incrementAndGet();
+               }
+            };
+
+            timer.start();
+            return timer;
+
          }
       };
 
-      timer.start();
+      timer = pageStore.getPageTimedWriter();
 
+      pageStore.start();
+      pageStore.startPaging();
+
+      routeContextList = new RoutingContextImpl.ContextListing();
+      Queue mockQueue = Mockito.mock(Queue.class);
+      Mockito.when(mockQueue.getID()).thenReturn(1L);
+      routeContextList.addAckedQueue(mockQueue);
    }
 
    // a test to validate if the Mocks are correctly setup
@@ -290,6 +368,44 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
       assertFalse(latch.await(10, TimeUnit.MILLISECONDS));
       allowRunning.countDown();
       assertTrue(latch.await(10, TimeUnit.MINUTES));
+   }
+
+   @Test
+   public void testAllowWriteWhileSyncPending() throws Exception {
+      int numberOfMessages = 100;
+      CountDownLatch latch = new CountDownLatch(numberOfMessages);
+
+      allowRunning.countDown();
+      useReplication.set(false);
+
+      assertEquals(0, doneSync.get());
+      enteredSync.setCount(1);
+      allowSync.setCount(1);
+
+      for (int i = 0; i < numberOfMessages; i++) {
+         TransactionImpl newTX = new TransactionImpl(realJournalStorageManager);
+         newTX.setContainsPersistent();
+         newTX.addOperation(new TransactionOperationAbstract() {
+            @Override
+            public void afterCommit(Transaction tx) {
+               super.afterCommit(tx);
+               latch.countDown();
+            }
+         });
+         pageStore.page(createMessage(), newTX, routeContextList);
+         newTX.commit();
+
+         if (i == 0) {
+            assertTrue(enteredSync.await(10, TimeUnit.SECONDS));
+            assertEquals(0, doneSync.get()); // it should not complete until allowSync is released
+         }
+      }
+
+      assertFalse(latch.await(10, TimeUnit.MILLISECONDS));
+      allowSync.countDown();
+      assertTrue(latch.await(10, TimeUnit.MINUTES));
+
+      assertEquals(numberOfMessages, pageWrites.get());
    }
 
    @Test

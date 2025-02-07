@@ -205,16 +205,21 @@ public class PagingStoreImpl implements PagingStore {
 
       this.syncNonTransactional = syncNonTransactional;
 
-      if (scheduledExecutor != null && syncTimeout > 0) {
-         this.timedWriter = new PageTimedWriter(storageManager, this, scheduledExecutor, executor, syncNonTransactional, syncTimeout);
-         this.timedWriter.start();
-      } else {
-         this.timedWriter = null;
-      }
+      this.timedWriter = createPageTimedWriter(scheduledExecutor, syncTimeout);
 
       this.cursorProvider = storeFactory.newCursorProvider(this, this.storageManager, addressSettings, executor);
 
       this.usingGlobalMaxSize = pagingManager.isUsingGlobalSize();
+   }
+
+   protected PageTimedWriter createPageTimedWriter(ScheduledExecutorService scheduledExecutor, long syncTimeout) {
+      if (scheduledExecutor != null && syncTimeout > 0) {
+         PageTimedWriter localWriter = new PageTimedWriter(storageManager, this, scheduledExecutor, executor, syncNonTransactional, syncTimeout);
+         localWriter.start();
+         return localWriter;
+      } else {
+         return null;
+      }
    }
 
    private void overSized() {
@@ -1286,7 +1291,15 @@ public class PagingStoreImpl implements PagingStore {
                              Transaction tx,
                              RouteContextList listCtx,
                              Function<Message, Message> pageDecorator) throws Exception {
-      writeLock();
+      if (timedWriter == null) {
+         // in case timedWriter is not being used, we need to guarantee a writeLock.
+         // because there's no way to upgrade from reading to writeLock
+         writeLock();
+      } else {
+         // if we are using a timedWritter, we can just use a readLock to guarantee paging is not changed
+         // this will issue the writer on a different thread, and we can just use a readLock
+         readLock();
+      }
 
       try {
          if (!paging) {
@@ -1318,7 +1331,11 @@ public class PagingStoreImpl implements PagingStore {
 
          return true;
       } finally {
-         writeUnlock();
+         if (timedWriter == null) {
+            writeUnlock();
+         } else {
+            readUnlock();
+         }
       }
    }
 
@@ -1444,6 +1461,10 @@ public class PagingStoreImpl implements PagingStore {
    @Override
    public boolean hasPendingIO() {
       return timedWriter != null && timedWriter.hasPendingIO();
+   }
+
+   public PageTimedWriter getPageTimedWriter() {
+      return timedWriter;
    }
 
    @Override
