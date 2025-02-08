@@ -1570,42 +1570,36 @@ public class PagingStoreImpl implements PagingStore {
    }
 
    private void openNewPage() throws Exception {
-      writeLock();
+      numberOfPages++;
 
-      try {
-         numberOfPages++;
+      checkNumberOfPages();
 
-         checkNumberOfPages();
+      final long newPageId = currentPageId + 1;
 
-         final long newPageId = currentPageId + 1;
+      if (logger.isTraceEnabled()) {
+         logger.trace("destination {} new pageNr={}", storeName, newPageId);
+      }
 
-         if (logger.isTraceEnabled()) {
-            logger.trace("destination {} new pageNr={}", storeName, newPageId);
-         }
+      final Page oldPage = currentPage;
+      if (oldPage != null) {
+         oldPage.close(true);
+         oldPage.usageDown();
+         currentPage = null;
+      }
 
-         final Page oldPage = currentPage;
-         if (oldPage != null) {
-            oldPage.close(true);
-            oldPage.usageDown();
-            currentPage = null;
-         }
+      final Page newPage = newPageObject(newPageId);
 
-         final Page newPage = newPageObject(newPageId);
+      resetCurrentPage(newPage);
 
-         resetCurrentPage(newPage);
+      currentPageSize = 0;
 
-         currentPageSize = 0;
+      newPage.open(true);
 
-         newPage.open(true);
+      currentPageId = newPageId;
 
-         currentPageId = newPageId;
-
-         if (newPageId < firstPageId) {
-            logger.debug("open new page, setting firstPageId = {}, it was {} before", newPageId, firstPageId);
-            firstPageId = newPageId;
-         }
-      } finally {
-         writeUnlock();
+      if (newPageId < firstPageId) {
+         logger.debug("open new page, setting firstPageId = {}, it was {} before", newPageId, firstPageId);
+         firstPageId = newPageId;
       }
    }
 
