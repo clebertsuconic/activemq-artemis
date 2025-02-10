@@ -299,7 +299,7 @@ public class PageCursorProviderImpl implements PageCursorProvider {
       try (ArtemisCloseable readLock = storageManager.closeableReadLock()) {
 
          while (true) {
-            if (pagingStore.writeLock(100)) {
+            if (pagingStore.writeLock(1_000)) {
                break;
             }
             if (!pagingStore.isStarted())

@@ -400,12 +400,29 @@ public class PagingStoreImpl implements PagingStore {
    @Override
    public boolean readLock(long timeout) {
       if (timeout == -1) {
-         lock.readLock().lock();
-         return true;
+         while (true) {
+            try {
+               if (lock.readLock().tryLock(1, TimeUnit.SECONDS)) {
+                  return true;
+               } else {
+                  logger.info("Not able to read lock", new Exception("lock"));
+               }
+            } catch (InterruptedException e) {
+               logger.warn(e.getMessage(), e);
+               Thread.currentThread().interrupt();
+               return false;
+            }
+         }
       }
       try {
-         return lock.readLock().tryLock(timeout, TimeUnit.MILLISECONDS);
+         if (lock.readLock().tryLock(timeout, TimeUnit.MILLISECONDS)) {
+            return true;
+         } else {
+            logger.info("Not able to read lock", new Exception("lock"));
+            return false;
+         }
       } catch (InterruptedException e) {
+         Thread.currentThread().interrupt();
          return false;
       }
    }
@@ -418,11 +435,27 @@ public class PagingStoreImpl implements PagingStore {
    @Override
    public boolean writeLock(long timeout) {
       if (timeout == -1) {
-         lock.writeLock().lock();
-         return true;
+         while (true) {
+            try {
+               if (lock.writeLock().tryLock(1, TimeUnit.SECONDS)) {
+                  return  true;
+               } else {
+                  logger.info("not able to get writeLock", new Exception("trace"));
+               }
+            } catch (InterruptedException e) {
+               logger.warn(e.getMessage(), e);
+               Thread.currentThread().interrupt();
+               return false;
+            }
+         }
       }
       try {
-         return lock.writeLock().tryLock(timeout, TimeUnit.MILLISECONDS);
+         if (lock.writeLock().tryLock(timeout, TimeUnit.MILLISECONDS)) {
+            return true;
+         } else {
+            logger.info("Not able to Write lock", new Exception("trace"));
+            return false;
+         }
       } catch (InterruptedException e) {
          return false;
       }
@@ -1288,7 +1321,7 @@ public class PagingStoreImpl implements PagingStore {
          // this will issue the writer on a different thread, and we can just use a readLock
          readLock();
       }
-
+      PagedMessage pagedMessage;
       try {
          if (!paging) {
             return false;
@@ -1302,7 +1335,7 @@ public class PagingStoreImpl implements PagingStore {
 
          message.setPaged();
 
-         PagedMessage pagedMessage = new PagedMessageImpl(message, routeQueues(tx, listCtx), transactionID);
+         pagedMessage = new PagedMessageImpl(message, routeQueues(tx, listCtx), transactionID);
          long persistentSize = pagedMessage.getPersistentSize() > 0 ? pagedMessage.getPersistentSize() : 0;
 
          if (tx != null && tx.isAllowPageTransaction()) {
@@ -1312,12 +1345,11 @@ public class PagingStoreImpl implements PagingStore {
          if (timedWriter == null) {
             directWritePage(pagedMessage, true, false);
          } else {
-            timedWriter.addTask(storageManager.getContext(), pagedMessage, tx, listCtx);
+            timedWriter.incrementTask();
          }
 
          applyPageCounters(tx, listCtx, persistentSize);
 
-         return true;
       } finally {
          if (timedWriter == null) {
             writeUnlock();
@@ -1325,6 +1357,16 @@ public class PagingStoreImpl implements PagingStore {
             readUnlock();
          }
       }
+
+      if (timedWriter != null) {
+         // this has to be done away from locks
+         // to avoid deadLocks.
+         // timedWriter.addTask will use flow control, and that wait has to be done away from the readLock
+         // so we allocate a task before and we submit it away from the locks
+         timedWriter.addTask(storageManager.getContext(), pagedMessage, tx, listCtx);
+      }
+
+      return true;
    }
 
    void directWritePage(PagedMessage pagedMessage, boolean lineUp, boolean originalReplicated) throws Exception {

@@ -57,7 +57,7 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
    private static final AtomicIntegerFieldUpdater<PageTimedWriter> pendingTasksUpdater = AtomicIntegerFieldUpdater.newUpdater(PageTimedWriter.class, "pendingTasks");
 
    public boolean hasPendingIO() {
-      return pendingTasksUpdater.get(this) != 0;
+      return pendingTasksUpdater.get(this) > 0;
    }
 
    public static class PageEvent {
@@ -91,6 +91,14 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
       processMessages();
    }
 
+   /** We increment task while holding the readLock.
+    * This is because we verify if the system is paging, and we get out of paging when no pending tasks and no pending messages.
+    * We allocate a task while holding the read Lock.
+    * We cannot call addTask within the lock as if the semaphore gets out of credits we would deadlock in certain cases. */
+   public void incrementTask() {
+      pendingTasksUpdater.incrementAndGet(this);
+   }
+
    public void addTask(OperationContext context,
                                     PagedMessage message,
                                     Transaction tx,
@@ -108,7 +116,6 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
             context.replicationLineUp();
          }
          this.pageEvents.add(event);
-         pendingTasksUpdater.incrementAndGet(this);
          delay();
       }
 
@@ -121,10 +128,6 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
       PageEvent[] pendingsWrites = new PageEvent[pageEvents.size()];
       pendingsWrites = pageEvents.toArray(pendingsWrites);
       pageEvents.clear();
-      if (pendingsWrites != null) {
-         writeCredits.release(pendingsWrites.length);
-      }
-
       return pendingsWrites;
    }
 
@@ -155,7 +158,6 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
          for (PageEvent event : pendingEvents) {
             OperationContextImpl.setContext(event.context);
             pagingStore.directWritePage(event.message, false, event.replicated);
-            pendingTasksUpdater.decrementAndGet(this);
 
             if (event.tx != null || syncNonTX) {
                requireSync = true;
@@ -176,8 +178,9 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
          // to avoid possible locks and the client not getting the exception back
          for (PageEvent event : pendingEvents) {
             event.context.done();
+            pendingTasksUpdater.decrementAndGet(this);
+            writeCredits.release();
          }
-
          OperationContextImpl.setContext(beforeContext);
       }
    }
