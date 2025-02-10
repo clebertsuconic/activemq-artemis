@@ -54,6 +54,8 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
 
    private final Semaphore writeCredits;
 
+   private final int maxCredits;
+
    private static final AtomicIntegerFieldUpdater<PageTimedWriter> pendingTasksUpdater = AtomicIntegerFieldUpdater.newUpdater(PageTimedWriter.class, "pendingTasks");
 
    public boolean hasPendingIO() {
@@ -62,11 +64,12 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
 
    public static class PageEvent {
 
-      PageEvent(OperationContext context, PagedMessage message, Transaction tx, RouteContextList listCtx, boolean replicated) {
+      PageEvent(OperationContext context, PagedMessage message, Transaction tx, RouteContextList listCtx, int credits, boolean replicated) {
          this.context = context;
          this.message = message;
          this.listCtx = listCtx;
          this.replicated = replicated;
+         this.credits = credits;
          this.tx = tx;
       }
 
@@ -75,6 +78,7 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
       final OperationContext context;
       final RouteContextList listCtx;
       final Transaction tx;
+      final int credits;
    }
 
    public PageTimedWriter(int writeCredits, StorageManager storageManager, PagingStoreImpl pagingStore, ScheduledExecutorService scheduledExecutor, Executor executor, boolean syncNonTX, long timeSync) {
@@ -83,6 +87,11 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
       this.storageManager = storageManager;
       this.syncNonTX = syncNonTX;
       this.writeCredits = new Semaphore(writeCredits);
+      this.maxCredits = writeCredits;
+   }
+
+   public int getMaxCredits() {
+      return maxCredits;
    }
 
    @Override
@@ -107,10 +116,11 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
       if (!isStarted()) {
          throw new IllegalStateException("PageWriter Service is stopped");
       }
-      writeCredits.acquireUninterruptibly();
+      int credits = Math.min(message.getEncodeSize() + PageReadWriter.SIZE_RECORD, maxCredits);
+      writeCredits.acquireUninterruptibly(credits);
       synchronized (this) {
          final boolean replicated = storageManager.isReplicated();
-         PageEvent event = new PageEvent(context, message, tx, listCtx, replicated);
+         PageEvent event = new PageEvent(context, message, tx, listCtx, credits, replicated);
          context.storeLineUp();
          if (replicated) {
             context.replicationLineUp();
@@ -179,7 +189,7 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
          for (PageEvent event : pendingEvents) {
             event.context.done();
             pendingTasksUpdater.decrementAndGet(this);
-            writeCredits.release();
+            writeCredits.release(event.credits);
          }
          OperationContextImpl.setContext(beforeContext);
       }

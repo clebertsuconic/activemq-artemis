@@ -39,6 +39,7 @@ import org.apache.activemq.artemis.core.paging.PagedMessage;
 import org.apache.activemq.artemis.core.paging.PagingManager;
 import org.apache.activemq.artemis.core.paging.PagingStoreFactory;
 import org.apache.activemq.artemis.core.paging.impl.PageTimedWriter;
+import org.apache.activemq.artemis.core.paging.impl.PagedMessageImpl;
 import org.apache.activemq.artemis.core.paging.impl.PagingStoreImpl;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.impl.journal.JournalStorageManager;
@@ -206,7 +207,7 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
          @Override
          protected PageTimedWriter createPageTimedWriter(ScheduledExecutorService scheduledExecutor, long syncTimeout) {
 
-            PageTimedWriter timer = new PageTimedWriter(1000, realJournalStorageManager, this, scheduledExecutorService, executorFactory.getExecutor(), true, 100) {
+            PageTimedWriter timer = new PageTimedWriter(100_000, realJournalStorageManager, this, scheduledExecutorService, executorFactory.getExecutor(), true, 100) {
                @Override
                public void run() {
                   try {
@@ -298,11 +299,15 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
 
    }
 
+   PagedMessage createPagedMessage() {
+      return new PagedMessageImpl(createMessage(), new long[] {1}, -1);
+   }
+
    @Test
    public void testIOCompletion() throws Exception {
       CountDownLatch latch = new CountDownLatch(1);
 
-      timer.addTask(context, Mockito.mock(PagedMessage.class), null, Mockito.mock(RouteContextList.class));
+      timer.addTask(context, createPagedMessage(), null, Mockito.mock(RouteContextList.class));
 
       context.executeOnCompletion(new IOCallback() {
          @Override
@@ -327,7 +332,7 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
 
       useReplication.set(true);
 
-      timer.addTask(context, Mockito.mock(PagedMessage.class), null, Mockito.mock(RouteContextList.class));
+      timer.addTask(context, createPagedMessage(), null, Mockito.mock(RouteContextList.class));
 
       context.executeOnCompletion(new IOCallback() {
          @Override
@@ -361,7 +366,7 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
          }
       });
 
-      timer.addTask(context, Mockito.mock(PagedMessage.class), transaction, Mockito.mock(RouteContextList.class));
+      timer.addTask(context, createPagedMessage(), transaction, Mockito.mock(RouteContextList.class));
 
       transaction.commit();
 
@@ -424,7 +429,7 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
          }
       });
 
-      timer.addTask(context, Mockito.mock(PagedMessage.class), transaction, Mockito.mock(RouteContextList.class));
+      timer.addTask(context, createPagedMessage(), transaction, Mockito.mock(RouteContextList.class));
 
       transaction.commit();
 
@@ -441,7 +446,7 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
 
       useReplication.set(true);
 
-      timer.addTask(context, Mockito.mock(PagedMessage.class), null, Mockito.mock(RouteContextList.class));
+      timer.addTask(context, createPagedMessage(), null, Mockito.mock(RouteContextList.class));
 
       context.executeOnCompletion(new IOCallback() {
          @Override
@@ -468,7 +473,7 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
 
       useReplication.set(false);
 
-      timer.addTask(context, Mockito.mock(PagedMessage.class), null, Mockito.mock(RouteContextList.class));
+      timer.addTask(context, createPagedMessage(), null, Mockito.mock(RouteContextList.class));
 
       context.executeOnCompletion(new IOCallback() {
          @Override
@@ -506,7 +511,7 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
       Transaction tx = new TransactionImpl(realJournalStorageManager, Integer.MAX_VALUE);
       tx.setContainsPersistent();
 
-      timer.addTask(context, Mockito.mock(PagedMessage.class), tx, Mockito.mock(RouteContextList.class));
+      timer.addTask(context, createPagedMessage(), tx, Mockito.mock(RouteContextList.class));
       tx.addOperation(new TransactionOperationAbstract() {
          @Override
          public void afterCommit(Transaction tx) {
