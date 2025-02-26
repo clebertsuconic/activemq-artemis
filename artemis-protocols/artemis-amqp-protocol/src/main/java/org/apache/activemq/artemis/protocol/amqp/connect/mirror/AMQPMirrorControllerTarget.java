@@ -100,6 +100,17 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
       return CONTROLLER_THREAD_LOCAL.get();
    }
 
+
+   @Override
+   public boolean isBusy() {
+      return ackManager.size() < 100;
+   }
+
+   public void verifyCredits() {
+      connection.runNow(creditTopUpRunner);
+   }
+
+
    /**
     * Objects of this class can be used by either transaction or by OperationContext. It is important that when you're
     * using the transactions you clear any references to the operation context. Don't use transaction and
