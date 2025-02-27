@@ -233,10 +233,12 @@ public final class ChannelImpl implements Channel {
 
    @Override
    public void returnBlocking(Throwable cause) {
+      String id = "ChannelImpl:" + System.identityHashCode(this);
+      logger.info("returnBlocking from ChannelImpl {}", id, new Exception("trace"));
       lock.lock();
 
       try {
-         ActiveMQException activeMQException = ActiveMQClientMessageBundle.BUNDLE.unblockingACall(cause);
+         ActiveMQException activeMQException = ActiveMQClientMessageBundle.BUNDLE.unblockingACall(id, cause);
          if (responseAsyncCache != null) {
             responseAsyncCache.errorAll(activeMQException);
          }
@@ -559,7 +561,7 @@ public final class ChannelImpl implements Channel {
 
             if (closed && toWait > 0 && response == null) {
                Throwable cause = ActiveMQClientMessageBundle.BUNDLE.connectionDestroyed();
-               throw ActiveMQClientMessageBundle.BUNDLE.unblockingACall(cause);
+               throw ActiveMQClientMessageBundle.BUNDLE.unblockingACall("uniquePlace at ChannelImpl:" + System.identityHashCode(this), cause);
             }
 
             if (!failOnTimeout && response == null) {

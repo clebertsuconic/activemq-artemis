@@ -90,7 +90,14 @@ public abstract class AbstractRemotingConnection implements RemotingConnection {
       return transportConnection.isWritable(callback);
    }
 
+   protected volatile boolean previouslyFail = false;
+
    protected void callFailureListeners(final ActiveMQException me, String scaleDownTargetNodeID) {
+      if (previouslyFail) {
+         new Exception("Previously failed").printStackTrace(System.out);
+         return;
+      }
+      previouslyFail = true;
       final List<FailureListener> listenersClone = new ArrayList<>(failureListeners);
 
       for (final FailureListener listener : listenersClone) {
