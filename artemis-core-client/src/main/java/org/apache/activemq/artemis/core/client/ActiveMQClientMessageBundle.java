@@ -88,8 +88,8 @@ public interface ActiveMQClientMessageBundle {
    @Message(id = 219015, value = "The connection was disconnected because of server shutdown")
    ActiveMQDisconnectedException disconnected();
 
-   @Message(id = 219016, value = "Connection failure detected. Unblocking a blocking call that will never get a response from {}")
-   ActiveMQUnBlockedException unblockingACall(Object identity, Throwable t);
+   @Message(id = 219016, value = "Connection failure detected. Unblocking a blocking call that will never get a response")
+   ActiveMQUnBlockedException unblockingACall(Throwable t);
 
    @Message(id = 219017, value = "Consumer is closed")
    ActiveMQObjectClosedException consumerClosed();
