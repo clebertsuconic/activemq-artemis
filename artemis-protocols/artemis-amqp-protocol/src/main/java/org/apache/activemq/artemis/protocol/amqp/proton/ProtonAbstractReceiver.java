@@ -290,6 +290,8 @@ public abstract class ProtonAbstractReceiver extends ProtonInitializable impleme
                      connection.instantFlush();
                   }
                }
+            } else {
+               logger.info("Busy context!!!!");
             }
          } else {
             // This must run on the connection thread as it interacts with proton

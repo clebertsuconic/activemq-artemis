@@ -103,7 +103,7 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
 
    @Override
    public boolean isBusy() {
-      return ackManager.size() < 100;
+      return ackManager != null && ackManager.size() > 100;
    }
 
    public void verifyCredits() {
