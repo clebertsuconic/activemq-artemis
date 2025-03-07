@@ -58,7 +58,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.lang.invoke.MethodHandles;
 
-import static org.apache.activemq.artemis.protocol.amqp.connect.mirror.AMQPMirrorControllerTarget.getControllerInUse;
+import static  org.apache.activemq.artemis.core.server.mirror.MirrorRegistry.getController;
 
 public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> implements MirrorController, ActiveMQComponent {
 
@@ -206,7 +206,7 @@ public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> im
    public void addAddress(AddressInfo addressInfo) throws Exception {
       logger.trace("{} addAddress {}", server, addressInfo);
 
-      if (getControllerInUse() != null && !addressInfo.isInternal()) {
+      if (getController() != null && !addressInfo.isInternal()) {
          return;
       }
 
@@ -232,7 +232,7 @@ public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> im
    public void deleteAddress(AddressInfo addressInfo) throws Exception {
       logger.trace("{} deleteAddress {}", server, addressInfo);
 
-      if (invalidTarget(getControllerInUse()) || addressInfo.isInternal()) {
+      if (invalidTarget(getController()) || addressInfo.isInternal()) {
          return;
       }
       if (ignoreAddress(addressInfo.getName())) {
@@ -248,9 +248,9 @@ public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> im
    public void createQueue(QueueConfiguration queueConfiguration) throws Exception {
       logger.trace("{} createQueue {}", server, queueConfiguration);
 
-      if (invalidTarget(getControllerInUse()) || queueConfiguration.isInternal()) {
+      if (invalidTarget(getController()) || queueConfiguration.isInternal()) {
          if (logger.isTraceEnabled()) {
-            logger.trace("Rejecting ping pong on create {} as isInternal={} and mirror target = {}", queueConfiguration, queueConfiguration.isInternal(), getControllerInUse());
+            logger.trace("Rejecting ping pong on create {} as isInternal={} and mirror target = {}", queueConfiguration, queueConfiguration.isInternal(), getController());
          }
 
          return;
@@ -278,7 +278,7 @@ public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> im
          logger.trace("{} deleteQueue {}/{}", server, address, queue);
       }
 
-      if (invalidTarget(getControllerInUse())) {
+      if (invalidTarget(getController())) {
          return;
       }
 
@@ -363,9 +363,9 @@ public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> im
          String remoteID = getRemoteMirrorId();
 
          if (remoteID == null) {
-            if (AMQPMirrorControllerTarget.getControllerInUse() != null) {
+            if (getController() != null) {
                // In case source has not yet connected, we need to take the ID from the Target in use to avoid infinite reflections
-               remoteID = AMQPMirrorControllerTarget.getControllerInUse().getRemoteMirrorId();
+               remoteID = getController().getRemoteMirrorId();
             }
          }
 
@@ -547,7 +547,7 @@ public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> im
          logger.trace("preAcknowledge::tx={}, ref={}, reason={}", tx, ref, reason);
       }
 
-      MirrorController controllerInUse = getControllerInUse();
+      MirrorController controllerInUse = getController();
 
       // Retried ACKs are not forwarded.
       // This is because they were already confirmed and stored for later ACK which would be happening now

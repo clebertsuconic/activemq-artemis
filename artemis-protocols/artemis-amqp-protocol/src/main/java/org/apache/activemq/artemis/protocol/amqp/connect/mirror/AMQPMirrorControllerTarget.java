@@ -85,21 +85,11 @@ import static org.apache.activemq.artemis.protocol.amqp.connect.mirror.AMQPMirro
 import static org.apache.activemq.artemis.protocol.amqp.connect.mirror.AMQPMirrorControllerSource.TARGET_QUEUES;
 import static org.apache.activemq.artemis.protocol.amqp.proton.AMQPTunneledMessageConstants.AMQP_TUNNELED_CORE_LARGE_MESSAGE_FORMAT;
 import static org.apache.activemq.artemis.protocol.amqp.proton.AMQPTunneledMessageConstants.AMQP_TUNNELED_CORE_MESSAGE_FORMAT;
+import static org.apache.activemq.artemis.core.server.mirror.MirrorRegistry.setController;
 
 public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implements MirrorController {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-
-   private static final ThreadLocal<MirrorController> CONTROLLER_THREAD_LOCAL = new ThreadLocal<>();
-
-   public static void setControllerInUse(MirrorController controller) {
-      CONTROLLER_THREAD_LOCAL.set(controller);
-   }
-
-   public static MirrorController getControllerInUse() {
-      return CONTROLLER_THREAD_LOCAL.get();
-   }
-
 
    @Override
    public boolean isBusy() {
@@ -288,7 +278,7 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
       incrementSettle();
 
       logger.trace("{}::actualDelivery call for {}", server, message);
-      setControllerInUse(this);
+      setController(this);
 
       delivery.setContext(message);
 
@@ -359,7 +349,7 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
       } catch (Throwable e) {
          logger.warn(e.getMessage(), e);
       } finally {
-         setControllerInUse(null);
+         setController(null);
          if (messageAckOperation != null) {
             server.getStorageManager().afterCompleteOperations(messageAckOperation, OperationConsistencyLevel.FULL);
          }

@@ -27,6 +27,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.lang.invoke.MethodHandles;
 
+import static org.apache.activemq.artemis.core.server.mirror.MirrorRegistry.getController;
+import static org.apache.activemq.artemis.core.server.mirror.MirrorRegistry.setController;
+
 /**
  * MirrorTransaction disable some syncs in storage, and plays with OperationConsistencyLevel to relax some of the syncs
  * required for Mirroring.
@@ -41,18 +44,18 @@ public class MirrorTransaction extends TransactionImpl {
 
    public MirrorTransaction(StorageManager storageManager) {
       super(storageManager);
-      this.controlInUse = AMQPMirrorControllerTarget.getControllerInUse();
+      this.controlInUse = getController();
       logger.debug("controlTarget = {} transactionID = {}", controlInUse, getID());
    }
 
    @Override
    protected synchronized void afterCommit(List<TransactionOperation> operationsToComplete) {
-      MirrorController beforeController = AMQPMirrorControllerTarget.getControllerInUse();
-      AMQPMirrorControllerTarget.setControllerInUse(controlInUse);
+      MirrorController beforeController = getController();
+      setController(controlInUse);
       try {
          super.afterCommit(operationsToComplete);
       } finally {
-         AMQPMirrorControllerTarget.setControllerInUse(beforeController);
+         setController(beforeController);
       }
    }
 
