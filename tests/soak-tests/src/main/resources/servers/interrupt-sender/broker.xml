@@ -22,6 +22,8 @@ under the License.
 
    <core xmlns="urn:activemq:core">
 
+      <persistence-enabled>true</persistence-enabled>
+
       <bindings-directory>./data/bindings</bindings-directory>
 
       <journal-directory>./data/journal</journal-directory>
@@ -34,38 +36,17 @@ under the License.
 
       <cluster-password>secret</cluster-password>
 
-      <journal-retention-directory storage-limit="20M">./data/retention</journal-retention-directory>
+      <page-sync-timeout>5000000</page-sync-timeout>
 
-      <ha-policy>
-         <replication>
-            <backup>
-               <allow-failback>true</allow-failback>
-               <!-- not needed but tells the backup not to restart after failback as there will be > 0 backups saved -->
-               <max-saved-replicated-journals-size>0</max-saved-replicated-journals-size>
-            </backup>
-         </replication>
-      </ha-policy>
 
-      <!-- Connectors -->
       <connectors>
-         <connector name="netty-live-connector">tcp://localhost:61616</connector>
-         <connector name="netty-connector">tcp://localhost:61617</connector>
+         <connector name="netty-connector">tcp://localhost:61616</connector>
       </connectors>
 
       <!-- Acceptors -->
       <acceptors>
-         <acceptor name="netty-acceptor">tcp://localhost:61617</acceptor>
+         <acceptor name="netty-acceptor">tcp://localhost:61616</acceptor>
       </acceptors>
-
-      <cluster-connections>
-         <cluster-connection name="my-cluster">
-            <connector-ref>netty-connector</connector-ref>
-            <static-connectors>
-               <connector-ref>netty-live-connector</connector-ref>
-            </static-connectors>
-         </cluster-connection>
-      </cluster-connections>
-      <!-- Other config -->
 
       <security-settings>
          <!--security for example queue-->
@@ -102,6 +83,7 @@ under the License.
             <expiry-address>ExpiryQueue</expiry-address>
             <redelivery-delay>0</redelivery-delay>
             <!-- with -1 only the global-max-size is in use for limiting -->
+            <max-size-messages>1</max-size-messages>
             <max-size-bytes>10MB</max-size-bytes>
             <page-size-bytes>1MB</page-size-bytes>
 
@@ -117,10 +99,6 @@ under the License.
       </address-settings>
 
       <addresses>
-         <address name="exampleTopic">
-            <multicast>
-            </multicast>
-         </address>
          <address name="DLQ">
             <anycast>
                <queue name="DLQ"/>

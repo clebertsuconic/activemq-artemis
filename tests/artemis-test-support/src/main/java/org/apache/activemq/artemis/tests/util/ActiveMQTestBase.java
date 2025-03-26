@@ -241,7 +241,11 @@ public abstract class ActiveMQTestBase extends ArtemisTestCase {
    }
 
    protected static String randomProtocol(String...protocols) {
-      String protocol = protocols[RandomUtil.randomPositiveInt() % protocols.length];
+      return selectProtocol(RandomUtil.randomPositiveInt() % protocols.length);
+   }
+
+   protected static String selectProtocol(int selectNumber, String... protocols) {
+      String protocol = protocols[selectNumber];
       logger.info("Selecting {} protocol", protocol);
       return protocol;
    }

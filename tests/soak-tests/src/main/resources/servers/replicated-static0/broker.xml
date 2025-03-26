@@ -78,7 +78,7 @@ under the License.
             <permission type="browse" roles="amq, guest"/>
             <permission type="send" roles="amq, guest"/>
             <!-- we need this otherwise ./artemis data imp wouldn't work -->
-            <permission type="manage" roles="amq"/>
+            <permission type="manage" roles="amq, guest"/>
          </security-setting>
       </security-settings>
       <address-settings>
