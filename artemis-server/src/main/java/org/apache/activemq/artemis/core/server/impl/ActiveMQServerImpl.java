@@ -680,6 +680,9 @@ public class ActiveMQServerImpl implements ActiveMQServer {
          return;
       }
 
+
+      logger.info("********************************************************************************\nHacked Server Starting\n********************************************************************************");
+
       configuration.parseProperties(propertiesFileUrl);
       updateStatus(ServerStatus.CONFIGURATION_COMPONENT, configuration.getStatus());
 

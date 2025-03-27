@@ -659,7 +659,7 @@ public final class PagingManagerImpl implements PagingManager {
 
       transactionSet.forEach((a, b) -> {
          if (b.isOrphaned()) {
-            b.onUpdate(b.getNumberOfMessages(), server.getStorageManager(), this);
+            // b.onUpdate(b.getNumberOfMessages(), server.getStorageManager(), this);
             txRemoved.incrementAndGet();
 
             // I'm pringing up to 1000 records, id by ID..
@@ -678,6 +678,7 @@ public final class PagingManagerImpl implements PagingManager {
       if (txRemoved.get() > 0) {
          ActiveMQServerLogger.LOGGER.completeOrphanedTXCleanup(txRemoved.get());
       } else {
+         logger.info("Finished cleanup of page transactions");
          logger.debug("Complete cleanupPageTransactions with no orphaned records found");
       }
    }
