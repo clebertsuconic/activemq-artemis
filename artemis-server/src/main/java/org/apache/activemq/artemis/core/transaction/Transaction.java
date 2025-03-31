@@ -115,4 +115,14 @@ public interface Transaction {
    default boolean isAllowPageTransaction() {
       return true;
    }
-}
+
+   /**
+    * To be called when a portion of the data has been delayed.
+    */
+   void delayed();
+
+   /**
+    * To be called when the delayed portion of the data has ben persisted to the disk.
+    */
+   void delayDone();
+ }

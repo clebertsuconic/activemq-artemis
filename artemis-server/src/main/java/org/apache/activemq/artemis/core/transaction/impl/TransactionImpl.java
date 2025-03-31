@@ -29,6 +29,7 @@ import org.apache.activemq.artemis.api.core.ActiveMQIllegalStateException;
 import org.apache.activemq.artemis.api.core.ActiveMQTransactionTimeoutException;
 import org.apache.activemq.artemis.core.io.IOCallback;
 import org.apache.activemq.artemis.core.io.OperationConsistencyLevel;
+import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.server.ActiveMQServerLogger;
 import org.apache.activemq.artemis.core.server.Queue;
@@ -40,6 +41,7 @@ import org.apache.activemq.artemis.utils.ArtemisCloseable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.lang.invoke.MethodHandles;
+import java.util.concurrent.Executor;
 
 public class TransactionImpl implements Transaction {
 
@@ -74,6 +76,12 @@ public class TransactionImpl implements Transaction {
    private boolean async;
 
    private Runnable afterWired;
+
+   private int delayed;
+
+   private Runnable delayedRunnable;
+
+   private Executor executor;
 
    @Override
    public boolean isAsync() {
@@ -125,8 +133,14 @@ public class TransactionImpl implements Transaction {
       this.timeoutSeconds = timeoutSeconds;
    }
 
-   // Transaction implementation
-   // -----------------------------------------------------------
+   public Executor getExecutor() {
+      return executor;
+   }
+
+   public TransactionImpl setExecutor(Executor executor) {
+      this.executor = executor;
+      return this;
+   }
 
    @Override
    public boolean isEffective() {
@@ -217,7 +231,11 @@ public class TransactionImpl implements Transaction {
 
             beforePrepare();
 
-            storageManager.prepare(id, xid);
+            if (delayed > 0) {
+               delayedRunnable = new DelayedPrepare(id, xid);
+            } else {
+               storageManager.prepare(id, xid);
+            }
 
             state = State.PREPARED;
             // We use the Callback even for non persistence
@@ -340,14 +358,99 @@ public class TransactionImpl implements Transaction {
       }
    }
 
-   protected void doCommit() throws Exception {
-      if (containsPersistent || xid != null && state == State.PREPARED) {
-         // ^^ These are the scenarios where we require a storage.commit
-         // for anything else we won't use the journal
+
+   // This runnable will call the parentContext
+   abstract class DelayedRunnable implements Runnable {
+
+      OperationContext parentContext;
+      OperationContext delayedContext;
+      long id;
+
+      DelayedRunnable(long id) {
+         parentContext = storageManager.getContext();
+         parentContext.storeLineUp();
+         delayedContext = storageManager.newContext(executor);
+         this.id = id;
+      }
+
+      protected abstract void actualRun() throws Exception;
+
+
+      @Override
+      public void run() {
+         OperationContext oldContext = storageManager.getContext();
+         try {
+            storageManager.setContext(delayedContext);
+            actualRun();
+            delayedContext.executeOnCompletion(new IOCallback() {
+               @Override
+               public void done() {
+                  parentContext.done();
+               }
+
+               @Override
+               public void onError(int errorCode, String errorMessage) {
+                  parentContext.onError(errorCode, errorMessage);
+               }
+            });
+         } catch (Exception e) {
+            logger.warn(e.getMessage(), e);
+         } finally {
+            storageManager.setContext(oldContext);
+         }
+
+      }
+   }
+
+   class DelayedCommit extends DelayedRunnable {
+      long id;
+      DelayedCommit(long id) {
+         super(id);
+      }
+
+      protected void actualRun() throws Exception {
          if (async) {
             storageManager.asyncCommit(id);
          } else {
             storageManager.commit(id);
+         }
+      }
+   }
+
+
+   class DelayedPrepare extends DelayedRunnable {
+      long id;
+      Xid xid;
+
+      DelayedPrepare(long id, Xid xid) {
+         super(id);
+         this.xid = xid;
+      }
+
+      protected void actualRun() throws Exception {
+         storageManager.prepare(id, xid);
+      }
+   }
+
+
+
+   /**
+    * @throws Exception
+    */
+   protected void doCommit() throws Exception {
+      if (containsPersistent || xid != null && state == State.PREPARED) {
+         // notice that the caller of this method is holding a lock on timeoutLock
+         // which will be used to control the delayed attribute
+         if (delayed > 0) {
+            delayedRunnable = new DelayedCommit(id);
+         } else {
+            // ^^ These are the scenarios where we require a storage.commit
+            // for anything else we won't use the journal
+            if (async) {
+               storageManager.asyncCommit(id);
+            } else {
+               storageManager.commit(id);
+            }
          }
       }
 
@@ -510,6 +613,33 @@ public class TransactionImpl implements Transaction {
          this.exception = exception;
       }
    }
+
+   @Override
+   public void delayed() {
+      synchronized (timeoutLock) {
+         delayed++;
+      }
+   }
+
+   @Override
+   public void delayDone() {
+      synchronized (timeoutLock) {
+         if (--delayed <= 0) {
+            if (delayedRunnable != null) {
+               try {
+                  if (executor != null) {
+                     executor.execute(delayedRunnable);
+                  } else {
+                     delayedRunnable.run();
+                  }
+               } finally {
+                  delayedRunnable = null;
+               }
+            }
+         }
+      }
+   }
+
 
    @Override
    public synchronized void addOperation(final TransactionOperation operation) {

@@ -1376,7 +1376,7 @@ public class ServerSessionImpl implements ServerSession, FailureListener {
 
    @Override
    public Transaction newTransaction() {
-      return new TransactionImpl(null, storageManager, timeoutSeconds);
+      return new TransactionImpl(null, storageManager, timeoutSeconds).setExecutor(sessionExecutor);
    }
 
    private Transaction newTransaction(final Xid xid) {
