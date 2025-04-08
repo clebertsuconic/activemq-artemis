@@ -1398,6 +1398,10 @@ public class PagingStoreImpl implements PagingStore {
       // doing this will give us a possibility of recovering the page counters
       final Page page = currentPage;
 
+      if (!page.isOpen()) {
+         page.open(false);
+      }
+
       page.write(pagedMessage, lineUp, originalReplicated);
 
       if (logger.isTraceEnabled()) {
