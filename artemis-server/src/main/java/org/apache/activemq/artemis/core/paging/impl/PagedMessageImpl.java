@@ -280,7 +280,7 @@ public class PagedMessageImpl implements PagedMessage {
       return "PagedMessageImpl [queueIDs=" + Arrays.toString(queueIDs) +
          ", transactionID=" +
          transactionID +
-         ", page=" + pageNumber + ", message=" +
+         ", page=" + pageNumber + ", pagePosition=" + messageNumber + ", message=" +
          message +
          "]";
    }
