@@ -682,7 +682,7 @@ public class ActiveMQServerImpl implements ActiveMQServer {
 
       logger.info("\n" +
          "*******************************************************************************************************************************\n" +
-         " This is a hacked branch from Clebert, version for Thursday, to test and validate an issue with Emmanuel Hugonet\n" +
+         " This is a hacked branch from Clebert, version for Friday, to test and validate an issue with Emmanuel Hugonet\n" +
          "*******************************************************************************************************************************");
 
       configuration.parseProperties(propertiesFileUrl);
