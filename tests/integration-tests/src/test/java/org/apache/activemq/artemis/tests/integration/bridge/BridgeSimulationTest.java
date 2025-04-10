@@ -80,8 +80,7 @@ public class BridgeSimulationTest extends ActiveMQTestBase {
 
       locator.setConfirmationWindowSize(100 * 1024);
 
-      try (ClientSessionFactory csf = createSessionFactory(locator);
-           ClientSession session = csf.createSession(null, null, false, true, true, false, 1);) {
+      try (ClientSessionFactory csf = createSessionFactory(locator); ClientSession session = csf.createSession(null, null, false, true, true, false, 1)) {
 
          Queue queue = server.createQueue(QueueConfiguration.of(queueName).setAddress(address).setRoutingType(RoutingType.ANYCAST).setDurable(true));
 
@@ -175,15 +174,13 @@ public class BridgeSimulationTest extends ActiveMQTestBase {
 
    }
 
-
    @Test
    public void testSendAcknowledgementsServerStop() throws Exception {
       ServerLocator locator = createInVMNonHALocator();
 
       locator.setConfirmationWindowSize(100 * 1024);
 
-      try (ClientSessionFactory csf = createSessionFactory(locator);
-           ClientSession session = csf.createSession(null, null, false, true, true, false, 1);) {
+      try (ClientSessionFactory csf = createSessionFactory(locator); ClientSession session = csf.createSession(null, null, false, true, true, false, 1)) {
 
          Queue queue = server.createQueue(QueueConfiguration.of(queueName).setAddress(address).setRoutingType(RoutingType.ANYCAST).setDurable(true));
 
@@ -292,10 +289,8 @@ public class BridgeSimulationTest extends ActiveMQTestBase {
 
    }
 
-
    private void verifyReceive(ServerLocator locator, boolean receive) throws Exception {
-      try (ClientSessionFactory factory = locator.createSessionFactory();
-           ClientSession session = factory.createSession(false, true)) {
+      try (ClientSessionFactory factory = locator.createSessionFactory(); ClientSession session = factory.createSession(false, true)) {
          ClientConsumer consumer = session.createConsumer(queueName);
          session.start();
          if (receive) {
