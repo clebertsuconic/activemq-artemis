@@ -97,7 +97,7 @@ public class PagingStoreImpl implements PagingStore {
    private final PagingStoreFactory storeFactory;
 
    // this is used to batch and sync into paging asynchronously
-   private final PageTimedWriter timedWriter;
+   private PageTimedWriter timedWriter;
 
    private long maxSize;
 
@@ -230,6 +230,11 @@ public class PagingStoreImpl implements PagingStore {
       PageTimedWriter localWriter = new PageTimedWriter(pageSize, storageManager, this, scheduledExecutor, executor, syncNonTransactional, syncTimeout);
       localWriter.start();
       return localWriter;
+   }
+
+   // for tests, used through an accessor
+   protected void replacePagedTimedWriter(PageTimedWriter writer) {
+      this.timedWriter = writer;
    }
 
    private void overSized() {
