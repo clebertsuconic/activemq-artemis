@@ -1346,20 +1346,6 @@ public class ActiveMQServerImpl implements ActiveMQServer {
          }
       }
 
-      if (!criticalIOError && pagingManager != null) {
-         pagingManager.counterSnapshot();
-      }
-
-      stopComponent(pagingManager);
-
-      if (storageManager != null)
-         try {
-            storageManager.stop(criticalIOError, failoverOnServerShutdown);
-         } catch (Throwable t) {
-            ActiveMQServerLogger.LOGGER.errorStoppingComponent(storageManager.getClass().getName(), t);
-         }
-
-      // We stop remotingService before otherwise we may lock the system in case of a critical IO
       // error shutdown
       final RemotingService remotingService = this.remotingService;
       if (remotingService != null)
@@ -1380,7 +1366,22 @@ public class ActiveMQServerImpl implements ActiveMQServer {
 
       stopComponent(managementService);
       stopComponent(resourceManager);
+      stopComponent(pagingManager);
       stopComponent(postOffice);
+
+      if (!criticalIOError && pagingManager != null) {
+         pagingManager.counterSnapshot();
+      }
+
+      if (storageManager != null) {
+         try {
+            storageManager.stop(criticalIOError, failoverOnServerShutdown);
+         } catch (Throwable t) {
+            ActiveMQServerLogger.LOGGER.errorStoppingComponent(storageManager.getClass().getName(), t);
+         }
+      }
+
+      // We stop remotingService before otherwise we may lock the system in case of a critical IO
 
       if (scheduledPool != null && !scheduledPoolSupplied) {
          // we just interrupt all running tasks, these are supposed to be pings and the like.

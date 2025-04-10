@@ -25,7 +25,9 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
+import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.ActiveMQExceptionType;
+import org.apache.activemq.artemis.api.core.ActiveMQIllegalStateException;
 import org.apache.activemq.artemis.core.paging.PagedMessage;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
@@ -34,6 +36,7 @@ import org.apache.activemq.artemis.core.server.ActiveMQScheduledComponent;
 import org.apache.activemq.artemis.core.server.RouteContextList;
 import org.apache.activemq.artemis.core.transaction.Transaction;
 import org.apache.activemq.artemis.utils.ArtemisCloseable;
+import org.apache.activemq.artemis.utils.ReusableLatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,6 +53,8 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
    protected volatile int pendingTasks = 0;
 
    protected final boolean syncNonTX;
+
+   protected final ReusableLatch running = new ReusableLatch(0);
 
    private final Semaphore writeCredits;
 
@@ -94,9 +99,10 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
    }
 
    @Override
-   public synchronized void stop() {
-      super.stop();
-      processMessages();
+   public void stop() {
+      synchronized (this) {
+         super.stop();
+      }
    }
 
    /**
@@ -113,19 +119,20 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
                                     Transaction tx,
                                     RouteContextList listCtx) {
 
-      if (!isStarted()) {
-         throw new IllegalStateException("PageWriter Service is stopped");
-      }
-
       logger.trace("Adding paged message {} to paged writer", message);
 
       int credits = Math.min(message.getEncodeSize() + PageReadWriter.SIZE_RECORD, maxCredits);
       writeCredits.acquireUninterruptibly(credits);
-      if (tx != null) {
-         // this will delay the commit record until the portion of this task has been completed
-         tx.delay();
-      }
       synchronized (this) {
+         if (!isStarted()) {
+            throw new IllegalStateException("PageWriter Service is stopped");
+         }
+
+         if (tx != null) {
+            // this will delay the commit record until the portion of this task has been completed
+            tx.delay();
+         }
+
          final boolean replicated = storageManager.isReplicated();
          PageEvent event = new PageEvent(context, message, tx, listCtx, credits, replicated);
          context.storeLineUp();
@@ -150,16 +157,25 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
 
    @Override
    public void run() {
-      ArtemisCloseable closeable = storageManager.closeableReadLock(true);
-      if (closeable == null) {
-         logger.trace("Delaying PagedTimedWriter as it's currently locked");
-         delay();
-      } else {
-         try {
-            processMessages();
-         } finally {
-            closeable.close();
+      if (!isStarted()) {
+         return;
+      }
+
+      running.countUp();
+      try {
+         ArtemisCloseable closeable = storageManager.closeableReadLock(true);
+         if (closeable == null) {
+            logger.trace("Delaying PagedTimedWriter as it's currently locked");
+            delay();
+         } else {
+            try {
+               processMessages();
+            } finally {
+               closeable.close();
+            }
          }
+      } finally {
+         running.countDown();
       }
    }
 
@@ -194,8 +210,17 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
          for (PageEvent event : pendingEvents) {
             event.context.done();
          }
-      } catch (Exception e) {
-         logger.warn(e.getMessage(), e);
+      } catch (Throwable e) {
+         logger.warn("Captured Exception {}", e.getMessage(), e);
+         ActiveMQException amqException = new ActiveMQIllegalStateException(e.getMessage());
+         amqException.initCause(e);
+
+         for (PageEvent event : pendingEvents) {
+            if (event.tx != null) {
+               event.tx.markAsRollbackOnly(amqException);
+            }
+         }
+
          // In case of failure, The context should propagate an exception to the client
          // We send an exception to the client even on the case of a failure
          // to avoid possible locks and the client not getting the exception back
