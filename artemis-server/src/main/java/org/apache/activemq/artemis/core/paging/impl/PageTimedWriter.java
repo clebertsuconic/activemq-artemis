@@ -116,6 +116,9 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
       if (!isStarted()) {
          throw new IllegalStateException("PageWriter Service is stopped");
       }
+
+      logger.trace("Adding paged message {} to paged writer", message);
+
       int credits = Math.min(message.getEncodeSize() + PageReadWriter.SIZE_RECORD, maxCredits);
       writeCredits.acquireUninterruptibly(credits);
       if (tx != null) {
@@ -171,6 +174,7 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
          boolean requireSync = false;
          for (PageEvent event : pendingEvents) {
             OperationContextImpl.setContext(event.context);
+            logger.trace("writing message {}", event.message);
             pagingStore.directWritePage(event.message, false, event.replicated);
 
             if (event.tx != null || syncNonTX) {
@@ -178,6 +182,7 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
             }
          }
          if (requireSync) {
+            logger.trace("performing sync");
             performSync();
          }
          for (PageEvent event : pendingEvents) {
@@ -185,13 +190,17 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
                event.tx.delayDone();
             }
          }
-
+         logger.trace("Completing events");
+         for (PageEvent event : pendingEvents) {
+            event.context.done();
+         }
       } catch (Exception e) {
          logger.warn(e.getMessage(), e);
          // In case of failure, The context should propagate an exception to the client
          // We send an exception to the client even on the case of a failure
          // to avoid possible locks and the client not getting the exception back
          executor.execute(() -> {
+            logger.trace("onError processing for callback", e);
             // The onError has to be called from a separate executor
             // because this PagedWriter will be holding the lock on the storage manager
             // and this might lead to a deadlock
@@ -201,7 +210,6 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
          });
       } finally {
          for (PageEvent event : pendingEvents) {
-            event.context.done();
             pendingTasksUpdater.decrementAndGet(this);
             writeCredits.release(event.credits);
          }
