@@ -478,6 +478,7 @@ public class TransactionImpl implements Transaction {
       logger.trace("TransactionImpl::rollback::{}", this);
 
       synchronized (timeoutLock) {
+         delayedRunnable = null;
          if (state == State.ROLLEDBACK) {
             // I don't think this could happen, but just in case
             logger.debug("TransactionImpl::rollback::{} is being ignored", this);
@@ -499,6 +500,8 @@ public class TransactionImpl implements Transaction {
 
    private void internalRollback() throws Exception {
       logger.trace("TransactionImpl::internalRollback {}", this);
+
+      delayedRunnable = null;
 
       beforeRollback();
 
@@ -590,6 +593,8 @@ public class TransactionImpl implements Transaction {
          if (logger.isTraceEnabled()) {
             logger.trace("TransactionImpl::{} marking rollbackOnly for {}, msg={}", this, exception.toString(), exception.getMessage());
          }
+
+         delayedRunnable = null;
 
          if (isEffective()) {
             if (logger.isDebugEnabled()) {
