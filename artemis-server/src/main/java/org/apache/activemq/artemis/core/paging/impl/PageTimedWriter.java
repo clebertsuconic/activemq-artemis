@@ -216,7 +216,13 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
          amqException.initCause(e);
 
          for (PageEvent event : pendingEvents) {
+            if (logger.isTraceEnabled()) {
+               logger.trace("Error processing Message {}, tx={} ", event.message, event.tx);
+            }
             if (event.tx != null) {
+               if (logger.isTraceEnabled()) {
+                  logger.trace("tx.markRollbackOnly on TX {}", event.tx.getID());
+               }
                event.tx.markAsRollbackOnly(amqException);
             }
          }
@@ -230,6 +236,9 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
             // because this PagedWriter will be holding the lock on the storage manager
             // and this might lead to a deadlock
             for (PageEvent event : pendingEvents) {
+               if (logger.isTraceEnabled()) {
+                  logger.trace("onError {}, error={}", event.message, e.getMessage());
+               }
                event.context.onError(ActiveMQExceptionType.IO_ERROR.getCode(), e.getClass() + " during ioSync for paging on " + pagingStore.getStoreName() + ": " + e.getMessage());
             }
          });
