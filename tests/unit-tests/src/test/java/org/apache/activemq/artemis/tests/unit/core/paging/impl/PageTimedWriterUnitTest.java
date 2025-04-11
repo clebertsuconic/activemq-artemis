@@ -19,6 +19,7 @@ package org.apache.activemq.artemis.tests.unit.core.paging.impl;
 
 import javax.transaction.xa.Xid;
 import java.lang.invoke.MethodHandles;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -28,6 +29,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
+import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.config.Configuration;
 import org.apache.activemq.artemis.core.config.impl.ConfigurationImpl;
@@ -49,14 +51,17 @@ import org.apache.activemq.artemis.core.persistence.impl.journal.JournalStorageM
 import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContextImpl;
 import org.apache.activemq.artemis.core.replication.ReplicationManager;
 import org.apache.activemq.artemis.core.server.JournalType;
+import org.apache.activemq.artemis.core.server.MessageReference;
 import org.apache.activemq.artemis.core.server.Queue;
 import org.apache.activemq.artemis.core.server.RouteContextList;
 import org.apache.activemq.artemis.core.server.impl.RoutingContextImpl;
 import org.apache.activemq.artemis.core.settings.impl.AddressFullMessagePolicy;
 import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
 import org.apache.activemq.artemis.core.transaction.Transaction;
+import org.apache.activemq.artemis.core.transaction.TransactionOperation;
 import org.apache.activemq.artemis.core.transaction.TransactionOperationAbstract;
 import org.apache.activemq.artemis.core.transaction.impl.TransactionImpl;
+import org.apache.activemq.artemis.core.transaction.impl.TransactionImplAccessor;
 import org.apache.activemq.artemis.tests.unit.core.journal.impl.fakes.FakeSequentialFileFactory;
 import org.apache.activemq.artemis.tests.util.ArtemisTestCase;
 import org.apache.activemq.artemis.utils.ExecutorFactory;
@@ -273,6 +278,9 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
       Queue mockQueue = Mockito.mock(Queue.class);
       Mockito.when(mockQueue.getID()).thenReturn(1L);
       routeContextList.addAckedQueue(mockQueue);
+
+      OperationContextImpl.clearContext();
+      runAfter(OperationContextImpl::clearContext);
    }
 
    // a test to validate if the Mocks are correctly setup
@@ -439,39 +447,6 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
    }
 
    @Test
-   public void testVerifyWritesAfterStop() throws Exception {
-      int numberOfMessages = 100;
-      CountDownLatch latch = new CountDownLatch(numberOfMessages);
-
-      allowRunning.countDown();
-      useReplication.set(false);
-      allowSync.setCount(1);
-
-      for (int i = 0; i < numberOfMessages; i++) {
-         TransactionImpl newTX = new TransactionImpl(realJournalStorageManager);
-         newTX.setContainsPersistent();
-         newTX.addOperation(new TransactionOperationAbstract() {
-            @Override
-            public void afterCommit(Transaction tx) {
-               super.afterCommit(tx);
-               latch.countDown();
-            }
-         });
-         pageStore.page(createMessage(), newTX, routeContextList);
-         newTX.commit();
-      }
-
-      assertFalse(latch.await(10, TimeUnit.MILLISECONDS));
-      allowSync.countDown();
-      // issuing a stop should finish whatever was pending before
-      // instead of sending it to the limbo
-      pageStore.stop();
-      assertTrue(latch.await(10, TimeUnit.SECONDS));
-
-      assertEquals(numberOfMessages, pageWrites.get());
-   }
-
-   @Test
    public void testVerifyTimedWriterIsStopped() throws Exception {
       allowRunning.countDown();
       useReplication.set(false);
@@ -594,14 +569,6 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
 
    @Test
    public void testTXCompletion() throws Exception {
-      ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(10);
-      ExecutorService executorService = Executors.newFixedThreadPool(10);
-      runAfter(scheduledExecutorService::shutdownNow);
-      runAfter(executorService::shutdownNow);
-      runAfter(() -> OperationContextImpl.clearContext());
-
-      OrderedExecutorFactory executorFactory = new OrderedExecutorFactory(executorService);
-
       OperationContextImpl.clearContext();
 
       OperationContext context = OperationContextImpl.getContext(executorFactory);
@@ -627,5 +594,151 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
       assertTrue(latch.await(10, TimeUnit.SECONDS));
 
    }
+
+   @Test
+   public void testDelayNonPersistent() throws Exception {
+      internalDelay(false);
+   }
+
+   @Test
+   public void testDelayPersistent() throws Exception {
+      internalDelay(true);
+   }
+
+   private void internalDelay(boolean persistent) throws Exception {
+      TransactionImpl tx = new TransactionImpl(realJournalStorageManager);
+
+      final AtomicInteger afterRollback = new AtomicInteger(0);
+      final AtomicInteger afterCommit = new AtomicInteger(0);
+
+      tx.addOperation(new TransactionOperation() {
+         @Override
+         public void beforePrepare(Transaction tx) throws Exception {
+
+         }
+
+         @Override
+         public void afterPrepare(Transaction tx) {
+
+         }
+
+         @Override
+         public void beforeCommit(Transaction tx) throws Exception {
+
+         }
+
+         @Override
+         public void afterCommit(Transaction tx) {
+            afterCommit.incrementAndGet();
+         }
+
+         @Override
+         public void beforeRollback(Transaction tx) throws Exception {
+
+         }
+
+         @Override
+         public void afterRollback(Transaction tx) {
+            afterRollback.incrementAndGet();
+         }
+
+         @Override
+         public List<MessageReference> getRelatedMessageReferences() {
+            return null;
+         }
+
+         @Override
+         public List<MessageReference> getListOnConsumer(long consumerID) {
+            return null;
+         }
+      });
+      TransactionImplAccessor.setContainsPersistent(tx, persistent);
+      tx.delay();
+      tx.commit();
+      assertEquals(0, afterCommit.get());
+      assertEquals(0, afterRollback.get());
+      tx.delayDone();
+      Wait.assertEquals(1, afterCommit::get, 5000, 100);
+   }
+
+   @Test
+   public void testRollbackCancelDelay() throws Exception {
+      testRollback(true);
+   }
+
+   @Test
+   public void testMarkRollbackCancelDelay() throws Exception {
+      testRollback(true);
+   }
+
+   private void testRollback(boolean rollback) throws Exception {
+      TransactionImpl tx = new TransactionImpl(realJournalStorageManager);
+
+      final AtomicInteger afterRollback = new AtomicInteger(0);
+      final AtomicInteger afterCommit = new AtomicInteger(0);
+
+      tx.addOperation(new TransactionOperation() {
+         @Override
+         public void beforePrepare(Transaction tx) throws Exception {
+
+         }
+
+         @Override
+         public void afterPrepare(Transaction tx) {
+
+         }
+
+         @Override
+         public void beforeCommit(Transaction tx) throws Exception {
+
+         }
+
+         @Override
+         public void afterCommit(Transaction tx) {
+            afterCommit.incrementAndGet();
+         }
+
+         @Override
+         public void beforeRollback(Transaction tx) throws Exception {
+
+         }
+
+         @Override
+         public void afterRollback(Transaction tx) {
+            afterRollback.incrementAndGet();
+         }
+
+         @Override
+         public List<MessageReference> getRelatedMessageReferences() {
+            return null;
+         }
+
+         @Override
+         public List<MessageReference> getListOnConsumer(long consumerID) {
+            return null;
+         }
+      });
+      TransactionImplAccessor.setContainsPersistent(tx, true);
+      tx.delay();
+      tx.commit();
+      assertEquals(0, afterCommit.get());
+      assertEquals(0, afterRollback.get());
+      if (rollback) {
+         tx.markAsRollbackOnly(new ActiveMQException("duh!"));
+      } else {
+         tx.rollback();
+      }
+      tx.delayDone();
+      Wait.assertEquals(0, afterCommit::get, 5000, 100);
+
+      if (!rollback) {
+         tx.rollback();
+      }
+
+      Wait.assertEquals(0, afterCommit::get, 5000, 100);
+      Wait.assertEquals(0, afterRollback::get, 5000, 100);
+   }
+
+
 
 }

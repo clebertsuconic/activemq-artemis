@@ -25,7 +25,9 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
+import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.ActiveMQExceptionType;
+import org.apache.activemq.artemis.api.core.ActiveMQIllegalStateException;
 import org.apache.activemq.artemis.core.paging.PagedMessage;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
@@ -34,6 +36,7 @@ import org.apache.activemq.artemis.core.server.ActiveMQScheduledComponent;
 import org.apache.activemq.artemis.core.server.RouteContextList;
 import org.apache.activemq.artemis.core.transaction.Transaction;
 import org.apache.activemq.artemis.utils.ArtemisCloseable;
+import org.apache.activemq.artemis.utils.ReusableLatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -63,7 +66,12 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
 
    public static class PageEvent {
 
-      PageEvent(OperationContext context, PagedMessage message, Transaction tx, RouteContextList listCtx, int credits, boolean replicated) {
+      PageEvent(OperationContext context,
+                PagedMessage message,
+                Transaction tx,
+                RouteContextList listCtx,
+                int credits,
+                boolean replicated) {
          this.context = context;
          this.message = message;
          this.listCtx = listCtx;
@@ -80,7 +88,13 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
       final int credits;
    }
 
-   public PageTimedWriter(int writeCredits, StorageManager storageManager, PagingStoreImpl pagingStore, ScheduledExecutorService scheduledExecutor, Executor executor, boolean syncNonTX, long timeSync) {
+   public PageTimedWriter(int writeCredits,
+                          StorageManager storageManager,
+                          PagingStoreImpl pagingStore,
+                          ScheduledExecutorService scheduledExecutor,
+                          Executor executor,
+                          boolean syncNonTX,
+                          long timeSync) {
       super(scheduledExecutor, executor, timeSync, TimeUnit.NANOSECONDS, true);
       this.pagingStore = pagingStore;
       this.storageManager = storageManager;
@@ -94,9 +108,10 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
    }
 
    @Override
-   public synchronized void stop() {
-      super.stop();
-      processMessages();
+   public void stop() {
+      synchronized (this) {
+         super.stop();
+      }
    }
 
    /**
@@ -108,21 +123,22 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
       pendingTasksUpdater.incrementAndGet(this);
    }
 
-   public void addTask(OperationContext context,
-                                    PagedMessage message,
-                                    Transaction tx,
-                                    RouteContextList listCtx) {
+   public void addTask(OperationContext context, PagedMessage message, Transaction tx, RouteContextList listCtx) {
 
-      if (!isStarted()) {
-         throw new IllegalStateException("PageWriter Service is stopped");
-      }
+      logger.trace("Adding paged message {} to paged writer", message);
+
       int credits = Math.min(message.getEncodeSize() + PageReadWriter.SIZE_RECORD, maxCredits);
       writeCredits.acquireUninterruptibly(credits);
-      if (tx != null) {
-         // this will delay the commit record until the portion of this task has been completed
-         tx.delay();
-      }
       synchronized (this) {
+         if (!isStarted()) {
+            throw new IllegalStateException("PageWriter Service is stopped");
+         }
+
+         if (tx != null) {
+            // this will delay the commit record until the portion of this task has been completed
+            tx.delay();
+         }
+
          final boolean replicated = storageManager.isReplicated();
          PageEvent event = new PageEvent(context, message, tx, listCtx, credits, replicated);
          context.storeLineUp();
@@ -135,7 +151,7 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
 
    }
 
-   private synchronized  PageEvent[] extractPendingEvents() {
+   private synchronized PageEvent[] extractPendingEvents() {
       if (pageEvents.isEmpty()) {
          return null;
       }
@@ -147,6 +163,10 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
 
    @Override
    public void run() {
+      if (!isStarted()) {
+         return;
+      }
+
       ArtemisCloseable closeable = storageManager.closeableReadLock(true);
       if (closeable == null) {
          logger.trace("Delaying PagedTimedWriter as it's currently locked");
@@ -171,6 +191,7 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
          boolean requireSync = false;
          for (PageEvent event : pendingEvents) {
             OperationContextImpl.setContext(event.context);
+            logger.trace("writing message {}", event.message);
             pagingStore.directWritePage(event.message, false, event.replicated);
 
             if (event.tx != null || syncNonTX) {
@@ -178,6 +199,7 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
             }
          }
          if (requireSync) {
+            logger.trace("performing sync");
             performSync();
          }
          for (PageEvent event : pendingEvents) {
@@ -185,23 +207,44 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
                event.tx.delayDone();
             }
          }
+         logger.trace("Completing events");
+         for (PageEvent event : pendingEvents) {
+            event.context.done();
+         }
+      } catch (Throwable e) {
+         logger.warn("Captured Exception {}", e.getMessage(), e);
+         ActiveMQException amqException = new ActiveMQIllegalStateException(e.getMessage());
+         amqException.initCause(e);
 
-      } catch (Exception e) {
-         logger.warn(e.getMessage(), e);
+         for (PageEvent event : pendingEvents) {
+            if (logger.isTraceEnabled()) {
+               logger.trace("Error processing Message {}, tx={} ", event.message, event.tx);
+            }
+            if (event.tx != null) {
+               if (logger.isTraceEnabled()) {
+                  logger.trace("tx.markRollbackOnly on TX {}", event.tx.getID());
+               }
+               event.tx.markAsRollbackOnly(amqException);
+            }
+         }
+
          // In case of failure, The context should propagate an exception to the client
          // We send an exception to the client even on the case of a failure
          // to avoid possible locks and the client not getting the exception back
          executor.execute(() -> {
+            logger.trace("onError processing for callback", e);
             // The onError has to be called from a separate executor
             // because this PagedWriter will be holding the lock on the storage manager
             // and this might lead to a deadlock
             for (PageEvent event : pendingEvents) {
+               if (logger.isTraceEnabled()) {
+                  logger.trace("onError {}, error={}", event.message, e.getMessage());
+               }
                event.context.onError(ActiveMQExceptionType.IO_ERROR.getCode(), e.getClass() + " during ioSync for paging on " + pagingStore.getStoreName() + ": " + e.getMessage());
             }
          });
       } finally {
          for (PageEvent event : pendingEvents) {
-            event.context.done();
             pendingTasksUpdater.decrementAndGet(this);
             writeCredits.release(event.credits);
          }

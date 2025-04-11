@@ -273,7 +273,7 @@ public class JournalStorageManager extends AbstractJournalStorageManager {
          performCachedLargeMessageDeletes();
          // Must call close to make sure last id is persisted
          if (journalLoaded && idGenerator != null)
-            idGenerator.persistCurrentID();
+            idGenerator.shutdownGenerator();
       }
 
       final CountDownLatch latch = new CountDownLatch(1);
