@@ -789,6 +789,16 @@ public class NettyAcceptor extends AbstractAcceptor {
 
       connections.clear();
 
+      paused = false;
+
+      // Shutdown the EventLoopGroup if no new task was added for 100ms or if
+      // 3000ms elapsed.
+      eventLoopGroup.shutdownGracefully(quietPeriod, shutdownTimeout, TimeUnit.MILLISECONDS).addListener(f -> callback.run());
+      eventLoopGroup = null;
+   }
+
+   @Override
+   public void notifyStop() {
       if (notificationService != null) {
          TypedProperties props = new TypedProperties();
          props.putSimpleStringProperty(SimpleString.of("factory"), SimpleString.of(NettyAcceptorFactory.class.getName()));
@@ -801,13 +811,6 @@ public class NettyAcceptor extends AbstractAcceptor {
             ActiveMQServerLogger.LOGGER.failedToSendNotification(e);
          }
       }
-
-      paused = false;
-
-      // Shutdown the EventLoopGroup if no new task was added for 100ms or if
-      // 3000ms elapsed.
-      eventLoopGroup.shutdownGracefully(quietPeriod, shutdownTimeout, TimeUnit.MILLISECONDS).addListener(f -> callback.run());
-      eventLoopGroup = null;
    }
 
    @Override

@@ -1341,28 +1341,24 @@ public class ActiveMQServerImpl implements ActiveMQServer {
          }
       }
 
-      // error shutdown
       final RemotingService remotingService = this.remotingService;
-      if (remotingService != null)
-         try {
-            remotingService.stop(criticalIOError);
-         } catch (Throwable t) {
-            ActiveMQServerLogger.LOGGER.errorStoppingComponent(remotingService.getClass().getName(), t);
-         }
 
-      // Stop the management service after the remoting service to ensure all acceptors are deregistered with JMX
-      final ManagementService managementService = this.managementService;
-      if (managementService != null)
-         try {
-            managementService.unregisterServer();
-         } catch (Throwable t) {
-            ActiveMQServerLogger.LOGGER.errorStoppingComponent(managementService.getClass().getName(), t);
-         }
+      if (remotingService != null) {
+         // The notification must be sent with the StorageManager still up
+         // this is because NotificationService will use storageManager.generateID
+         remotingService.notifyStop();
+      }
 
-      stopComponent(managementService);
-      stopComponent(resourceManager);
+      try {
+         if (remotingService != null) {
+            // it will close all connections except to the one used by replication
+            remotingService.prepareStop(criticalIOError,  storageManager != null ? storageManager.getUsedConnections() : Collections.emptySet());
+         }
+      } catch (Throwable t) {
+         ActiveMQServerLogger.LOGGER.errorStoppingComponent(remotingService.getClass().getName(), t);
+      }
+
       stopComponent(pagingManager);
-      stopComponent(postOffice);
 
       if (!criticalIOError && pagingManager != null) {
          pagingManager.counterSnapshot();
@@ -1377,6 +1373,28 @@ public class ActiveMQServerImpl implements ActiveMQServer {
       }
 
       // We stop remotingService before otherwise we may lock the system in case of a critical IO
+      // error shutdown
+      if (remotingService != null) {
+         try {
+            remotingService.stop(criticalIOError);
+         } catch (Throwable t) {
+            ActiveMQServerLogger.LOGGER.errorStoppingComponent(remotingService.getClass().getName(), t);
+         }
+      }
+
+      // Stop the management service after the remoting service to ensure all acceptors are deregistered with JMX
+      final ManagementService managementService = this.managementService;
+      if (managementService != null) {
+         try {
+            managementService.unregisterServer();
+         } catch (Throwable t) {
+            ActiveMQServerLogger.LOGGER.errorStoppingComponent(managementService.getClass().getName(), t);
+         }
+      }
+
+      stopComponent(managementService);
+      stopComponent(resourceManager);
+      stopComponent(postOffice);
 
       if (scheduledPool != null && !scheduledPoolSupplied) {
          // we just interrupt all running tasks, these are supposed to be pings and the like.

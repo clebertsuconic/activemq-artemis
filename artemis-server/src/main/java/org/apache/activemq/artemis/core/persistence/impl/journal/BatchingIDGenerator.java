@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
 import org.apache.activemq.artemis.core.journal.EncodingSupport;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
+import org.apache.activemq.artemis.core.server.ActiveMQMessageBundle;
 import org.apache.activemq.artemis.core.server.ActiveMQServerLogger;
 import org.apache.activemq.artemis.utils.DataConstants;
 import org.apache.activemq.artemis.utils.IDGenerator;
@@ -68,11 +69,11 @@ public final class BatchingIDGenerator implements IDGenerator {
       this.storageManager = storageManager;
    }
 
-   public void shutdownGenerator() {
+   public void stop() {
       lock.writeLock().lock();
       try {
          if (logger.isTraceEnabled()) {
-            logger.trace("ShuttingDown generator", new Exception("Trace"));
+            logger.trace("Stopping generator", new Exception("Trace"));
          }
          persistCurrentID();
          started = false;
@@ -137,8 +138,10 @@ public final class BatchingIDGenerator implements IDGenerator {
       lock.readLock().lock();
       try {
          if (!started) {
-            logger.warn("BatchIDGenerator is not supposed to be used", new Exception("trace"));
-            throw new IllegalStateException("IDBatchGenerator is stopped");
+            if (logger.isDebugEnabled()) {
+               logger.debug("BatchIDGenerator is not supposed to be used", new Exception("trace"));
+            }
+            throw ActiveMQMessageBundle.BUNDLE.idGeneratorStopped();
          }
          long id = counter.getAndIncrement();
 

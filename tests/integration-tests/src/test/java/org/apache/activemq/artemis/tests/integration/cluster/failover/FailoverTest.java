@@ -179,7 +179,7 @@ public class FailoverTest extends FailoverTestBase {
       session2.commit();
    }
 
-   private void simpleFailover(boolean isReplicated, boolean doFailBack) throws Exception {
+   protected void simpleFailover(boolean isReplicated, boolean doFailBack) throws Exception {
       createSessionFactory();
       ClientSession session = createSessionAndQueue();
 

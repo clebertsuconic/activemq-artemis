@@ -18,6 +18,7 @@ package org.apache.activemq.artemis.core.persistence;
 
 import javax.transaction.xa.Xid;
 import java.nio.ByteBuffer;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -65,6 +66,7 @@ import org.apache.activemq.artemis.core.server.impl.AddressInfo;
 import org.apache.activemq.artemis.core.server.impl.JournalLoader;
 import org.apache.activemq.artemis.core.transaction.ResourceManager;
 import org.apache.activemq.artemis.core.transaction.Transaction;
+import org.apache.activemq.artemis.spi.core.protocol.RemotingConnection;
 import org.apache.activemq.artemis.utils.ArtemisCloseable;
 import org.apache.activemq.artemis.utils.IDGenerator;
 
@@ -128,6 +130,10 @@ public interface StorageManager extends MapStorageManager, IDGenerator, ActiveMQ
     * @param sendFailover    this is to send the replication stopping in case of replication.
     */
    void stop(boolean ioCriticalError, boolean sendFailover) throws Exception;
+
+   default Set<RemotingConnection> getUsedConnections() {
+      return Collections.emptySet();
+   }
 
    // Message related operations
 
