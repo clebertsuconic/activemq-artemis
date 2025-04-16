@@ -150,6 +150,9 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
    }
 
    private synchronized PageEvent[] extractPendingEvents() {
+      if (!isStarted()) {
+         return null;
+      }
       if (pageEvents.isEmpty()) {
          return null;
       }
@@ -181,26 +184,21 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
 
    protected void processMessages() {
       PageEvent[] pendingEvents;
-      boolean localStarted;
+      boolean wasStarted;
       synchronized (this) {
          pendingEvents = extractPendingEvents();
          if (pendingEvents == null) {
             return;
-         } else {
-            localStarted = isStarted();
          }
-
+         wasStarted = isStarted();
       }
 
       OperationContext beforeContext = OperationContextImpl.getContext();
 
       try {
-         if (localStarted) {
+         if (wasStarted) {
             boolean requireSync = false;
             for (PageEvent event : pendingEvents) {
-               if (!isStarted()) {
-                  break;
-               }
                OperationContextImpl.setContext(event.context);
                logger.trace("writing message {}", event.message);
                pagingStore.directWritePage(event.message, false, event.replicated);

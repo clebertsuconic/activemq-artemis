@@ -654,6 +654,10 @@ public class TransactionImpl implements Transaction {
       }
    }
 
+   public int getPendingDelay() {
+      return delayed;
+   }
+
 
    @Override
    public synchronized void addOperation(final TransactionOperation operation) {
