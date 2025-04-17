@@ -680,6 +680,10 @@ public class ActiveMQServerImpl implements ActiveMQServer {
          return;
       }
 
+      logger.info("\n*******************************************************************************************************************************\n" +
+                   "Clebert's branding on April 17\n" +
+                   "*******************************************************************************************************************************");
+
       configuration.parseProperties(propertiesFileUrl);
       updateStatus(ServerStatus.CONFIGURATION_COMPONENT, configuration.getStatus());
 
