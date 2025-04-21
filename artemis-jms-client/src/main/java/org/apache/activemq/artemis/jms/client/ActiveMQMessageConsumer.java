@@ -265,4 +265,8 @@ public final class ActiveMQMessageConsumer implements QueueReceiver, TopicSubscr
       }
    }
 
+   public ClientConsumer getCoreConsumer() {
+      return consumer;
+   }
+
 }
