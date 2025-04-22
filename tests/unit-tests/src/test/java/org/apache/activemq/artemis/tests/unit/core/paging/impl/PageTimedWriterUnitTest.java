@@ -45,6 +45,7 @@ import org.apache.activemq.artemis.core.message.impl.CoreMessage;
 import org.apache.activemq.artemis.core.paging.PagedMessage;
 import org.apache.activemq.artemis.core.paging.PagingManager;
 import org.apache.activemq.artemis.core.paging.PagingStoreFactory;
+import org.apache.activemq.artemis.core.paging.cursor.impl.PageSubscriptionCounterImpl;
 import org.apache.activemq.artemis.core.paging.impl.PageTimedWriter;
 import org.apache.activemq.artemis.core.paging.impl.PagedMessageImpl;
 import org.apache.activemq.artemis.core.paging.impl.PagingStoreImpl;
@@ -67,6 +68,7 @@ import org.apache.activemq.artemis.core.transaction.impl.TransactionImpl;
 import org.apache.activemq.artemis.core.transaction.impl.TransactionImplAccessor;
 import org.apache.activemq.artemis.tests.unit.core.journal.impl.fakes.FakeSequentialFileFactory;
 import org.apache.activemq.artemis.tests.util.ArtemisTestCase;
+import org.apache.activemq.artemis.utils.ArtemisCloseable;
 import org.apache.activemq.artemis.utils.ExecutorFactory;
 import org.apache.activemq.artemis.utils.RandomUtil;
 import org.apache.activemq.artemis.utils.ReusableLatch;
@@ -367,7 +369,7 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
    public void testIOCompletion() throws Exception {
       CountDownLatch latch = new CountDownLatch(1);
 
-      timer.addTask(context, createPagedMessage(), null, Mockito.mock(RouteContextList.class));
+      timer.addTask(context, createPagedMessage(), null, Mockito.mock(RouteContextList.class), false);
 
       context.executeOnCompletion(new IOCallback() {
          @Override
@@ -392,7 +394,7 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
 
       useReplication.set(true);
 
-      timer.addTask(context, createPagedMessage(), null, Mockito.mock(RouteContextList.class));
+      timer.addTask(context, createPagedMessage(), null, Mockito.mock(RouteContextList.class), false);
 
       context.executeOnCompletion(new IOCallback() {
          @Override
@@ -426,7 +428,7 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
          }
       });
 
-      timer.addTask(context, createPagedMessage(), transaction, Mockito.mock(RouteContextList.class));
+      timer.addTask(context, createPagedMessage(), transaction, Mockito.mock(RouteContextList.class), false);
 
       transaction.commit();
 
@@ -497,7 +499,7 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
          }
       });
 
-      timer.addTask(context, createPagedMessage(), transaction, Mockito.mock(RouteContextList.class));
+      timer.addTask(context, createPagedMessage(), transaction, Mockito.mock(RouteContextList.class), false);
 
       numberOfCommitsMessageJournal.set(0); // it should been 0 before anyway but since I have no real reason to require it to be zero before, I'm doing this just in case it ever changes
       transaction.commit();
@@ -525,7 +527,7 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
          }
       });
 
-      timer.addTask(context, createPagedMessage(), transaction, Mockito.mock(RouteContextList.class));
+      timer.addTask(context, createPagedMessage(), transaction, Mockito.mock(RouteContextList.class), false);
 
       numberOfCommitsMessageJournal.set(0); // it should been 0 before anyway but since I have no real reason to require it to be zero before, I'm doing this just in case it ever changes
       numberOfPreparesMessageJournal.set(0);
@@ -546,7 +548,7 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
 
       useReplication.set(true);
 
-      timer.addTask(context, createPagedMessage(), null, Mockito.mock(RouteContextList.class));
+      timer.addTask(context, createPagedMessage(), null, Mockito.mock(RouteContextList.class), false);
 
       context.executeOnCompletion(new IOCallback() {
          @Override
@@ -573,7 +575,7 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
 
       useReplication.set(false);
 
-      timer.addTask(context, createPagedMessage(), null, Mockito.mock(RouteContextList.class));
+      timer.addTask(context, createPagedMessage(), null, Mockito.mock(RouteContextList.class), false);
 
       context.executeOnCompletion(new IOCallback() {
          @Override
@@ -603,7 +605,7 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
       Transaction tx = new TransactionImpl(realJournalStorageManager, Integer.MAX_VALUE);
       tx.setContainsPersistent();
 
-      timer.addTask(context, createPagedMessage(), tx, Mockito.mock(RouteContextList.class));
+      timer.addTask(context, createPagedMessage(), tx, Mockito.mock(RouteContextList.class), false);
       tx.addOperation(new TransactionOperationAbstract() {
          @Override
          public void afterCommit(Transaction tx) {
@@ -693,7 +695,7 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
 
    @Test
    public void testMarkRollbackCancelDelay() throws Exception {
-      testRollback(true);
+      testRollback(false);
    }
 
    private void testRollback(boolean rollback) throws Exception {
@@ -771,7 +773,7 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
       AtomicInteger errors = new AtomicInteger(0);
 
       int sleepTime = 1;
-      int totalTime = 500;
+      int totalTime = 5_000;
       AtomicBoolean pageStoreThrowsExceptions = new AtomicBoolean(false);
 
       LinkedHashSet<String> interceptedWrite = new LinkedHashSet<>();
@@ -800,14 +802,18 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
 
       allowRunning.countDown();
       // I don't want to mess with the Executor simulating to be on the
-      ExecutorService testExecutor = Executors.newFixedThreadPool(1);
+      ExecutorService testExecutor = Executors.newFixedThreadPool(2);
 
       AtomicBoolean running = new AtomicBoolean(true);
       runAfter(() -> running.set(false));
       runAfter(testExecutor::shutdownNow);
 
-      CountDownLatch runLatch = new CountDownLatch(1);
-      CyclicBarrier flagStart = new CyclicBarrier(2);
+      CountDownLatch runLatch = new CountDownLatch(2);
+      CyclicBarrier flagStart = new CyclicBarrier(3);
+
+      PageSubscriptionCounterImpl subscriptionCounter = new PageSubscriptionCounterImpl(realJournalStorageManager, realJournalStorageManager.generateID());
+      subscriptionCounter.markRebuilding();
+      subscriptionCounter.finishRebuild();
 
       // stop.. start.. stop ... start..
       testExecutor.execute(() -> {
@@ -846,6 +852,23 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
          }
       });
 
+
+      // stop.. start.. stop ... start..
+      testExecutor.execute(() -> {
+         try {
+            flagStart.await(10, TimeUnit.SECONDS);
+            while (running.get()) {
+               Thread.sleep(sleepTime);
+               subscriptionCounter.snapshot();
+            }
+         } catch (Throwable e) {
+            logger.warn(e.getMessage(), e);
+            errors.incrementAndGet();
+         } finally {
+            runLatch.countDown();
+         }
+      });
+
       flagStart.await(10, TimeUnit.SECONDS);
 
       long timeout = System.currentTimeMillis() + totalTime;
@@ -868,7 +891,11 @@ public class PageTimedWriterUnitTest extends ArtemisTestCase {
          try {
             PagedMessage message = createPagedMessage();
             message.getMessage().putStringProperty("testId", String.valueOf(sentNumber));
-            timer.addTask(context, message, tx, routeContextListMocked);
+            int credits;
+            try (ArtemisCloseable closeable = realJournalStorageManager.closeableReadLock()) {
+               credits = timer.addTask(context, message, tx, routeContextListMocked, true);
+            }
+            timer.flowControl(credits);
             sentWrite.add(String.valueOf(sentNumber));
             sentNumber++;
             if (sentNumber % 1000 == 0) {
