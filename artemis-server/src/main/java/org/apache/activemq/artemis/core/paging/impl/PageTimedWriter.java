@@ -270,4 +270,9 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
    protected void performSync() throws Exception {
       pagingStore.ioSync();
    }
+
+   public int getAvailablePermits() {
+      System.err.println("Returning " + writeCredits.availablePermits());
+      return writeCredits.availablePermits();
+   }
 }
