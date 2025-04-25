@@ -747,13 +747,10 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
          }
       }
       if (pagingStore != null) {
-         if (owner != null && pagingStore != owner) {
-            // If an AMQP message parses its properties, its size might be updated and the address will receive more bytes.
-            // However, in this case, we should always use the original estimate.
-            // Otherwise, we might get incorrect sizes after the update.
+         if (isMirrorQueue() && owner != null && pagingStore != owner) {
+            // When adding a reference to the Mirror, we must ack like as if we were copying the message
             pagingStore.addSize(messageReference.getMessage().getOriginalEstimate(), false, false);
          }
-
          pagingStore.refUp(messageReference.getMessage(), count);
       }
    }
@@ -766,13 +763,20 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
          owner.addSize(-messageReference.getMessageMemoryEstimate(), false);
       }
       if (pagingStore != null) {
-         if (owner != null && pagingStore != owner) {
-            // If an AMQP message parses its properties, its size might be updated and the address will receive more bytes.
-            // However, in this case, we should always use the original estimate.
-            // Otherwise, we might get incorrect sizes after the update.
+         if (isMirrorQueue() && owner != null && pagingStore != owner) {
+            // When adding a reference to the Mirror, we must ack like as if we were copying the message
             pagingStore.addSize(-messageReference.getMessage().getOriginalEstimate(), false, false);
          }
          pagingStore.refDown(messageReference.getMessage(), count);
+      }
+   }
+
+   protected boolean isMirrorQueue() {
+      try {
+         return isInternalQueue() && getName().toString().startsWith(MIRROR_ADDRESS);
+      } catch (Throwable e) {
+         logger.warn(e.getMessage(), e);
+         return false;
       }
    }
 
