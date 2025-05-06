@@ -1440,11 +1440,17 @@ public class AMQPReplicaTest extends AmqpClientTestSupport {
       Queue snfreplica = server_2.locateQueue(replica.getMirrorSNF());
       assertNotNull(snfreplica);
 
-      logger.info("Size on queueOnServer2:: {}", queueOnServer2.getPagingStore().getAddressSize());
-      logger.info("Size on SNF:: {}", snfreplica.getPagingStore().getAddressSize());
+      try {
+         logger.info("Size on queueOnServer2:: {}", queueOnServer2.getPagingStore().getAddressSize());
+         logger.info("Size on SNF:: {}", snfreplica.getPagingStore().getAddressSize());
 
-      Wait.assertTrue(() -> queueOnServer2.getPagingStore().getAddressSize() == snfreplica.getPagingStore().getAddressSize(), 5000);
-      Wait.assertTrue(() -> queueOnServer2.getPagingStore().getAddressElements() == snfreplica.getPagingStore().getAddressElements(), 5000);
+         Wait.assertTrue(() -> queueOnServer2.getPagingStore().getAddressSize() == snfreplica.getPagingStore().getAddressSize(), 5000);
+         Wait.assertTrue(() -> queueOnServer2.getPagingStore().getAddressElements() == snfreplica.getPagingStore().getAddressElements(), 5000);
+      } catch (Throwable e) {
+         logger.info("Size on queueOnServer2:: {}", queueOnServer2.getPagingStore().getAddressSize());
+         logger.info("Size on SNF:: {}", snfreplica.getPagingStore().getAddressSize());
+         System.exit(-1);
+      }
 
       logger.info("Size on queueOnServer2:: {}, elements={}", queueOnServer2.getPagingStore().getAddressSize(), queueOnServer2.getPagingStore().getAddressElements());
       logger.info("Size on SNF:: {}, elements={}", snfreplica.getPagingStore().getAddressSize(), snfreplica.getPagingStore().getAddressElements());

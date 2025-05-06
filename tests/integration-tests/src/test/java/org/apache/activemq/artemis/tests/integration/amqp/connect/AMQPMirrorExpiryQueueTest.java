@@ -93,7 +93,7 @@ public class AMQPMirrorExpiryQueueTest extends ActiveMQTestBase {
 
       serverA.createQueue(QueueConfiguration.of(queueName).setName(queueName).setRoutingType(RoutingType.ANYCAST));
       Queue expiryA = serverA.createQueue(QueueConfiguration.of(EXPIRY_QUEUE).setName(EXPIRY_QUEUE).setRoutingType(RoutingType.ANYCAST));
-      Queue snfQueue = serverA.locateQueue(QueueImpl.MIRROR_ADDRESS + "_" + getTestMethodName() + "_willNeverConnect");
+      Queue snfQueue = serverA.locateQueue(QueueConfiguration.MIRROR_ADDRESS + "_" + getTestMethodName() + "_willNeverConnect");
       assertNotNull(snfQueue);
       assertNotNull(expiryA);
 

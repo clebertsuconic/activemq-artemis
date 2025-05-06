@@ -507,7 +507,7 @@ public class AckManagerTest extends ActiveMQTestBase {
 
       // this is simulating a mirror connection...
       // we play with a direct sender here to make sure flow control is working as expected when the records are beyond capacity.
-      AmqpSender sender = session.createSender(QueueImpl.MIRROR_ADDRESS, true, new Symbol[]{Symbol.getSymbol("amq.mirror")}, new Symbol[]{Symbol.getSymbol("amq.mirror")}, properties);
+      AmqpSender sender = session.createSender(QueueConfiguration.MIRROR_ADDRESS, true, new Symbol[]{Symbol.getSymbol("amq.mirror")}, new Symbol[]{Symbol.getSymbol("amq.mirror")}, properties);
 
       AMQPMirrorControllerTarget mirrorControllerTarget = Wait.assertNotNull(() -> locateMirrorTarget(server1), 5000, 100);
       assertEquals(100, mirrorControllerTarget.getConnection().getProtocolManager().getMirrorMaxPendingAcks());

@@ -26,6 +26,7 @@ import java.util.concurrent.Executor;
 import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
 import org.apache.activemq.artemis.api.core.BaseInterceptor;
 import org.apache.activemq.artemis.api.core.Message;
+import org.apache.activemq.artemis.api.core.QueueConfiguration;
 import org.apache.activemq.artemis.api.core.RoutingType;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.api.core.client.ActiveMQClient;
@@ -65,7 +66,7 @@ public class ProtonProtocolManager extends AbstractProtocolManager<AMQPMessage, 
 
    private static final List<String> websocketRegistryNames = Arrays.asList("amqp");
 
-   public static final String MIRROR_ADDRESS = QueueImpl.MIRROR_ADDRESS;
+   public static final String MIRROR_ADDRESS = QueueConfiguration.MIRROR_ADDRESS;
 
    private final List<AmqpInterceptor> incomingInterceptors = new ArrayList<>();
    private final List<AmqpInterceptor> outgoingInterceptors = new ArrayList<>();

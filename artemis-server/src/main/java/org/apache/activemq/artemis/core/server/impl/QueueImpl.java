@@ -141,9 +141,6 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
    protected static final int CRITICAL_CONSUMER = 3;
    protected static final int CRITICAL_CHECK_DEPAGE = 4;
 
-   // The prefix for Mirror SNF Queues
-   public static final String MIRROR_ADDRESS = "$ACTIVEMQ_ARTEMIS_MIRROR";
-
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
    private static final AtomicIntegerFieldUpdater<QueueImpl> dispatchingUpdater = AtomicIntegerFieldUpdater.newUpdater(QueueImpl.class, "dispatching");
    private static final AtomicLongFieldUpdater<QueueImpl> dispatchStartTimeUpdater = AtomicLongFieldUpdater.newUpdater(QueueImpl.class, "dispatchStartTime");
@@ -389,6 +386,9 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
       this.createdTimestamp = System.currentTimeMillis();
 
       this.queueConfiguration = QueueConfiguration.of(queueConfiguration);
+
+      this.mirrorController = queueConfiguration.isMirrorQueue();
+
       QueueConfigurationUtils.applyStaticDefaults(this.queueConfiguration);
 
       this.refCountForConsumers = this.queueConfiguration.isTransient() ? new TransientQueueManagerImpl(server, this.queueConfiguration.getName()) : new QueueManagerImpl(server, this.queueConfiguration.getName());
@@ -739,21 +739,23 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
 
    @Override
    public void refUp(MessageReference messageReference) {
-      int count = messageReference.getMessage().refUp();
       PagingStore owner = (PagingStore) messageReference.getMessage().getOwner();
+      int count = messageReference.getMessage().refUp();
       if (count == 1) {
          if (owner != null) {
             owner.addSize(messageReference.getMessageMemoryEstimate(), false);
          }
       }
-      if (pagingStore != null) {
-         if (isMirrorQueue() && owner != null && pagingStore != owner) {
-            // When adding a reference to the Mirror, we must ack like as if we were copying the message
+      if (pagingStore != null && isMirrorController()) {
+         // When using mirror in this situation, it means the address belong to another queue
+         // it's acting as if the message is being copied
+         if (owner != null && pagingStore != owner) {
             pagingStore.addSize(messageReference.getMessage().getOriginalEstimate(), false, false);
          }
          pagingStore.refUp(messageReference.getMessage(), count);
       }
    }
+
 
    @Override
    public void refDown(MessageReference messageReference) {
@@ -762,21 +764,13 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
       if (count == 0 && owner != null) {
          owner.addSize(-messageReference.getMessageMemoryEstimate(), false);
       }
-      if (pagingStore != null) {
-         if (isMirrorQueue() && owner != null && pagingStore != owner) {
-            // When adding a reference to the Mirror, we must ack like as if we were copying the message
+      if (pagingStore != null && isMirrorController()) {
+         // When using mirror in this situation, it means the address belong to another queue
+         // it's acting as if the message is being copied
+         if (owner != null && pagingStore != owner) {
             pagingStore.addSize(-messageReference.getMessage().getOriginalEstimate(), false, false);
          }
          pagingStore.refDown(messageReference.getMessage(), count);
-      }
-   }
-
-   protected boolean isMirrorQueue() {
-      try {
-         return isInternalQueue() && getName().toString().startsWith(MIRROR_ADDRESS);
-      } catch (Throwable e) {
-         logger.warn(e.getMessage(), e);
-         return false;
       }
    }
 
@@ -2295,7 +2289,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
          return true;
       }
 
-      if (isInternalQueue() && queueConfiguration.getName().toString().startsWith(MIRROR_ADDRESS)) {
+      if (isMirrorController()) {
          logger.trace("Mirror SNF queues are not supposed to expire messages. Address={}, Queue={}", queueConfiguration.getAddress(), queueConfiguration.getName());
          return true;
       }
