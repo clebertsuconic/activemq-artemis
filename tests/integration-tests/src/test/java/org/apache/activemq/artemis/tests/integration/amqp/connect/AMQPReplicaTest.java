@@ -58,6 +58,7 @@ import org.apache.activemq.artemis.core.server.Queue;
 import org.apache.activemq.artemis.core.server.impl.AckReason;
 import org.apache.activemq.artemis.core.server.impl.AddressInfo;
 import org.apache.activemq.artemis.logs.AssertionLoggerHandler;
+import org.apache.activemq.artemis.protocol.amqp.connect.mirror.MirrorSourceCompactor;
 import org.apache.activemq.artemis.protocol.amqp.connect.mirror.AMQPMirrorControllerSource;
 import org.apache.activemq.artemis.protocol.amqp.connect.mirror.AMQPMirrorMessageFactory;
 import org.apache.activemq.artemis.tests.integration.amqp.AmqpClientTestSupport;
@@ -976,6 +977,112 @@ public class AMQPReplicaTest extends AmqpClientTestSupport {
       validateNoFilesOnLargeDir(server_2.getConfiguration().getLargeMessagesDirectory(), 0);
 
    }
+
+
+   @Test
+   public void testCompactMirrorRegularAMQP() throws Exception{
+      testCompactMirror("AMQP", false, false);
+   }
+
+   @Test
+   public void testCompactMirrorRegularPagedAMQP() throws Exception{
+      testCompactMirror("AMQP", false, true);
+   }
+
+   @Test
+   public void testCompactMirrorRegularCORE() throws Exception{
+      testCompactMirror("CORE", false, false);
+   }
+
+   @Test
+   public void testCompactMirrorRegularPagedCORE() throws Exception{
+      testCompactMirror("CORE", false, true);
+   }
+
+   public void testCompactMirror(String protocol, boolean largeMessage,
+                            boolean pagingSource) throws Exception {
+
+      try (AssertionLoggerHandler logHandler = new AssertionLoggerHandler()) {
+
+         String brokerConnectionName = "brokerConnectionName:" + UUIDGenerator.getInstance().generateStringUUID();
+         server.setIdentity("targetServer");
+         //server.start(); -- not starting it on purpose
+
+         server_2 = createServer(AMQP_PORT_2, false);
+         server_2.setIdentity("server_2");
+         server_2.getConfiguration().setName("thisOne");
+
+
+         AMQPBrokerConnectConfiguration amqpConnection = new AMQPBrokerConnectConfiguration(brokerConnectionName, "tcp://localhost:" + AMQP_PORT).setReconnectAttempts(0).setRetryInterval(100);
+         AMQPMirrorBrokerConnectionElement replica = new AMQPMirrorBrokerConnectionElement().setMessageAcknowledgements(true);
+         amqpConnection.addElement(replica);
+
+         server_2.getConfiguration().addAMQPConnection(amqpConnection);
+
+         int NUMBER_OF_MESSAGES = 200;
+
+         server_2.start();
+         Wait.assertTrue(server_2::isStarted);
+
+         // We create the address to avoid auto delete on the queue
+         server_2.addAddressInfo(new AddressInfo(getQueueName()).addRoutingType(RoutingType.ANYCAST).setAutoCreated(false));
+         server_2.createQueue(QueueConfiguration.of(getQueueName()).setRoutingType(RoutingType.ANYCAST).setAddress(getQueueName()).setAutoCreated(false));
+
+         ConnectionFactory factory = CFUtil.createConnectionFactory(protocol, "tcp://localhost:" + AMQP_PORT_2);
+         Connection connection = factory.createConnection();
+         Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+         MessageProducer producer = session.createProducer(session.createQueue(getQueueName()));
+         MessageProducer topicProducer = session.createProducer(session.createTopic(getTopicName()));
+         producer.setDeliveryMode(DeliveryMode.PERSISTENT);
+
+         MessageConsumer consumerA = session.createSharedDurableConsumer(session.createTopic(getTopicName()), "subs-A");
+         MessageConsumer consumerB = session.createSharedDurableConsumer(session.createTopic(getTopicName()), "subs-B");
+         consumerA.close();
+         consumerB.close();
+
+         if (pagingSource) {
+            Queue queueOnServer2 = server_2.locateQueue(getQueueName());
+            queueOnServer2.getPagingStore().startPaging();
+
+            server_2.getPagingManager().getPageStore(SimpleString.of(getTopicName())).startPaging();
+         }
+
+         assertFalse(logHandler.findText("AMQ222214"));
+
+         for (int i = 0; i < NUMBER_OF_MESSAGES; i++) {
+            Message message = session.createTextMessage(getText(largeMessage, i));
+            message.setIntProperty("i", i);
+            producer.send(message);
+            topicProducer.send(message);
+         }
+
+         connection.start();
+         MessageConsumer consumer = session.createConsumer(session.createQueue(getQueueName()));
+         consumerA = session.createSharedDurableConsumer(session.createTopic(getTopicName()), "subs-A");
+         consumerB = session.createSharedDurableConsumer(session.createTopic(getTopicName()), "subs-B");
+
+         for (int i = 0; i < NUMBER_OF_MESSAGES / 2; i++) {
+            Message message = consumer.receive(5000);
+            assertNotNull(message);
+            assertNotNull(consumerA.receive(5000));
+            assertNotNull(consumerB.receive(5000));
+         }
+
+         assertFalse(logHandler.findText("AMQ222214"));
+
+         Queue queueOnServer1;
+
+         Queue snfreplica = server_2.locateQueue(replica.getMirrorSNF());
+
+         MirrorSourceCompactor compactor = new MirrorSourceCompactor(server_2.getStorageManager(), snfreplica);
+         compactor.compact();
+
+         assertNotNull(snfreplica);
+      }
+
+   }
+
+
 
    @Test
    public void testWithTXLargeMessage() throws Exception {
