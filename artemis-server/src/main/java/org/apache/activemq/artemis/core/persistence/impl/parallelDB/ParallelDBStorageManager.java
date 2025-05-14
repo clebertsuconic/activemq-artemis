@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.activemq.artemis.core.persistence.impl.database;
+package org.apache.activemq.artemis.core.persistence.impl.parallelDB;
 
 import javax.transaction.xa.Xid;
 import java.nio.ByteBuffer;
+import java.sql.Connection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -30,6 +31,7 @@ import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.api.core.Pair;
 import org.apache.activemq.artemis.api.core.SimpleString;
+import org.apache.activemq.artemis.core.config.storage.DatabaseStorageConfiguration;
 import org.apache.activemq.artemis.core.io.SequentialFile;
 import org.apache.activemq.artemis.core.journal.IOCompletion;
 import org.apache.activemq.artemis.core.journal.Journal;
@@ -68,18 +70,34 @@ import org.apache.activemq.artemis.core.server.impl.AddressInfo;
 import org.apache.activemq.artemis.core.server.impl.JournalLoader;
 import org.apache.activemq.artemis.core.transaction.ResourceManager;
 import org.apache.activemq.artemis.core.transaction.Transaction;
+import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
+import org.apache.activemq.artemis.jdbc.store.sql.PropertySQLProvider;
 import org.apache.activemq.artemis.utils.ArtemisCloseable;
 import org.apache.activemq.artemis.utils.ExecutorFactory;
 import org.apache.activemq.artemis.utils.critical.CriticalAnalyzer;
 
-public class DatabaseStorageManager extends AbstractStorageManager {
+public class ParallelDBStorageManager extends AbstractStorageManager {
 
-   public DatabaseStorageManager(CriticalAnalyzer analyzer,
-                                 int numberOfPaths,
-                                 ExecutorFactory executorFactory,
-                                 ScheduledExecutorService scheduledExecutorService,
-                                 ExecutorFactory ioExecutorFactory) {
+   JDBCConnectionProvider connectionProvider;
+   public ParallelDBStorageManager(CriticalAnalyzer analyzer,
+                                   int numberOfPaths,
+                                   ExecutorFactory executorFactory,
+                                   ScheduledExecutorService scheduledExecutorService,
+                                   ExecutorFactory ioExecutorFactory) {
       super(analyzer, numberOfPaths, executorFactory, scheduledExecutorService, ioExecutorFactory);
+   }
+
+
+   public void init(DatabaseStorageConfiguration databaseConfiguration) throws Exception {
+      this.connectionProvider = databaseConfiguration.getConnectionProvider();
+      initSchema(connectionProvider);
+   }
+
+   private void initSchema(JDBCConnectionProvider connectionProvider) throws Exception {
+
+      PropertySQLProvider.Factory sqlProviderFactory = new PropertySQLProvider.Factory(connectionProvider);
+      try (Connection connection = connectionProvider.getConnection()) {
+      }
    }
 
    @Override

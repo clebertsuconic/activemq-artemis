@@ -15,8 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.activemq.artemis.jdbc.parallelStore;
+package org.apache.activemq.artemis.core.persistence.impl.parallelDB;
 
-public class Foo {
+import java.sql.Connection;
+
+public class DBManager {
+
+   Connection connection;
+
 
 }
