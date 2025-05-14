@@ -98,6 +98,12 @@ public class PropertySQLProvider implements SQLProvider {
       };
    }
 
+   public String[] getCreateParallelDBMessages() {
+      return new String[] {
+         format(sql("create-parallelDB-messages"), tableName)
+      };
+   }
+
    @Override
    public String getInsertJournalRecordsSQL() {
       return format(sql("insert-journal-record"), tableName);
@@ -436,9 +442,9 @@ public class PropertySQLProvider implements SQLProvider {
       }
 
       @Override
-      public SQLProvider create(String tableName, DatabaseStoreType dbStoreType) {
+      public SQLProvider create(String tableName) {
          if (dialect == SQLDialect.ORACLE) {
-            return new Oracle12CSQLProvider(tableName, sql, dbStoreType);
+            return new Oracle12CSQLProvider(tableName, sql);
          } else {
             return new PropertySQLProvider(dialect, tableName, sql);
          }

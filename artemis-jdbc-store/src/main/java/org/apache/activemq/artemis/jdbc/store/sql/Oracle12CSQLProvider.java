@@ -22,10 +22,10 @@ import static org.apache.activemq.artemis.jdbc.store.sql.PropertySQLProvider.Fac
 
 class Oracle12CSQLProvider extends PropertySQLProvider {
 
-   Oracle12CSQLProvider(String tableName, Properties sqlProperties, DatabaseStoreType storeType) {
+   Oracle12CSQLProvider(String tableName, Properties sqlProperties) {
       super(ORACLE, tableName, sqlProperties);
       if (getTableName().length() > 30) {
-         throw new RuntimeException("The maximum name size for the " + storeType.name().toLowerCase() + " store table, when using Oracle12C is 30 characters.");
+         throw new RuntimeException("Oracle only supports table names up to 30 characters");
       }
    }
 }

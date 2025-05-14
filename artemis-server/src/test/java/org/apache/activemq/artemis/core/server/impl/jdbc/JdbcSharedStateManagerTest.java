@@ -36,8 +36,7 @@ public class JdbcSharedStateManagerTest extends ServerTestBase {
       dbConf = createDefaultDatabaseStorageConfiguration();
       sqlProvider = JDBCUtils.getSQLProvider(
          dbConf.getJdbcDriverClassName(),
-         dbConf.getNodeManagerStoreTableName(),
-         SQLProvider.DatabaseStoreType.NODE_MANAGER);
+         dbConf.getNodeManagerStoreTableName());
    }
 
    private TestJDBCTableBase createFakeDriver(boolean initializeTable) {

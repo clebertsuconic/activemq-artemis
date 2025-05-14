@@ -109,8 +109,7 @@ public class JDBCJournalTest extends ActiveMQTestBase {
       }
       sqlProvider = JDBCUtils.getSQLProvider(
          dbConf.getJdbcDriverClassName(),
-         dbConf.getMessageTableName(),
-         SQLProvider.DatabaseStoreType.MESSAGE_JOURNAL);
+         dbConf.getMessageTableName());
       scheduledExecutorService = new ScheduledThreadPoolExecutor(5);
       executorService = Executors.newSingleThreadExecutor();
       journal = new JDBCJournalImpl(dbConf.getConnectionProvider(), sqlProvider, scheduledExecutorService, executorService, (code, message, file) -> {

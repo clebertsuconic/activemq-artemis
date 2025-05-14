@@ -18,13 +18,11 @@ package org.apache.activemq.artemis.jdbc.store.sql;
 
 public interface SQLProvider {
 
-   enum DatabaseStoreType {
-      PAGE, MESSAGE_JOURNAL, BINDINGS_JOURNAL, LARGE_MESSAGE, NODE_MANAGER
-   }
-
    long getMaxBlobSize();
 
    String[] getCreateJournalTableSQL();
+
+   String[] getCreateParallelDBMessages();
 
    String getInsertJournalRecordsSQL();
 
@@ -106,6 +104,6 @@ public interface SQLProvider {
 
    interface Factory {
 
-      SQLProvider create(String tableName, DatabaseStoreType dbStoreType);
+      SQLProvider create(String tableName);
    }
 }
