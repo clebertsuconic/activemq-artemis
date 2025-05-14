@@ -382,14 +382,6 @@ public class PropertySQLProvider implements SQLProvider {
          }
       }
 
-      public Factory(DataSource dataSource) {
-         this(new JDBCConnectionProvider(dataSource));
-      }
-
-      public Factory(Map<String, Object> dataSourceProperties) {
-         this(investigateDialect(dataSourceProperties));
-      }
-
       public Factory(JDBCConnectionProvider connectionProvider) {
          this(investigateDialect(connectionProvider));
       }
