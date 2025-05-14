@@ -50,6 +50,16 @@ public class BasicParallelTest extends ParameterDBTestBase {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
+   DatabaseStorageConfiguration storageConfiguration;
+
+   ExecutorService executorService;
+
+   ScheduledExecutorService scheduledExecutorService;
+
+   ExecutorFactory executorFactory;
+
+   CriticalAnalyzer criticalAnalyzer;
+
    @Parameters(name = "db={0}")
    public static Collection<Object[]> parameters() {
       List<Database> dbList = Database.selectedList();
@@ -76,23 +86,29 @@ public class BasicParallelTest extends ParameterDBTestBase {
       return database.getDriverClass();
    }
 
-   @TestTemplate
-   public void testInit() throws Exception {
-      DatabaseStorageConfiguration storageConfiguration = createDefaultDatabaseStorageConfiguration();
+   @BeforeEach
+   public void setupTest() {
+      storageConfiguration = createDefaultDatabaseStorageConfiguration();
 
-      ExecutorService executorService = Executors.newFixedThreadPool(5);
+      executorService = Executors.newFixedThreadPool(5);
       runAfter(executorService::shutdownNow);
 
-      ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(5);
+      scheduledExecutorService = Executors.newScheduledThreadPool(5);
       runAfter(scheduledExecutorService::shutdownNow);
 
-      ExecutorFactory executorFactory = new OrderedExecutorFactory(executorService);
+      executorFactory = new OrderedExecutorFactory(executorService);
+      criticalAnalyzer = Mockito.mock(CriticalAnalyzer.class);
+   }
 
-      CriticalAnalyzer criticalAnalyzer = Mockito.mock(CriticalAnalyzer.class);
+   @TestTemplate
+   public void testInit() throws Exception {
       ParallelDBStorageManager parallelDBStorageManager = new ParallelDBStorageManager(criticalAnalyzer, 1, executorFactory, scheduledExecutorService, executorFactory);
       parallelDBStorageManager.init(storageConfiguration);
+   }
 
-      System.out.println("done....");
-      Thread.sleep(5000);
+   @TestTemplate
+   public void testStoreMessage() throws Exception {
+      ParallelDBStorageManager parallelDBStorageManager = new ParallelDBStorageManager(criticalAnalyzer, 1, executorFactory, scheduledExecutorService, executorFactory);
+      parallelDBStorageManager.init(storageConfiguration);
    }
 }
