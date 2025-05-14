@@ -35,18 +35,18 @@ public class JDBCUtils {
       return new PropertySQLProvider.Factory(dialect);
    }
 
-   public static SQLProvider getSQLProvider(String driverClass, String tableName, SQLProvider.DatabaseStoreType storeType) {
+   public static SQLProvider getSQLProvider(String driverClass, String tableName) {
       PropertySQLProvider.Factory.SQLDialect dialect = PropertySQLProvider.Factory.identifyDialect(driverClass);
       logger.trace("getSQLProvider Returning SQL provider for dialect {} for driver::{}, tableName::{}", dialect, driverClass, tableName);
       PropertySQLProvider.Factory factory = new PropertySQLProvider.Factory(dialect);
-      return factory.create(tableName, storeType);
+      return factory.create(tableName);
    }
 
-   public static SQLProvider getSQLProvider(Map<String, Object> dataSourceProperties, String tableName, SQLProvider.DatabaseStoreType storeType) {
+   public static SQLProvider getSQLProvider(Map<String, Object> dataSourceProperties, String tableName) {
       PropertySQLProvider.Factory.SQLDialect dialect = PropertySQLProvider.Factory.investigateDialect(dataSourceProperties);
       logger.trace("getSQLProvider Returning SQL provider for dialect {}, tableName::{}", dialect, tableName);
       PropertySQLProvider.Factory factory = new PropertySQLProvider.Factory(dialect);
-      return factory.create(tableName, storeType);
+      return factory.create(tableName);
    }
 
    /**
