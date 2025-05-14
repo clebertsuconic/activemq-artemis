@@ -16,6 +16,7 @@
  */
 package org.apache.activemq.artemis.jdbc.store.drivers;
 
+import org.apache.activemq.artemis.api.config.ActiveMQDefaultConfiguration;
 import org.apache.activemq.artemis.journal.ActiveMQJournalLogger;
 import org.apache.activemq.artemis.utils.ClassloadingUtil;
 import org.apache.commons.beanutils.BeanUtilsBean;
@@ -26,7 +27,42 @@ import java.util.stream.Collectors;
 
 public class JDBCDataSourceUtils {
 
+   private static final String DEFAULT_DATASOURCE = "org.apache.commons.dbcp2.BasicDataSource";
    public static DataSource getDataSource(String dataSourceClassName, Map<String, Object> dataSourceProperties) {
+      return getDataSource(null, null, null, null, null, dataSourceClassName, dataSourceProperties);
+   }
+
+   public static DataSource getDataSource(String jdbcDriverClassName, String jdbcConnectionUrl, String jdbcUser, String jdbcPassword, String maxTotal, String dataSourceClassName, Map<String, Object> dataSourceProperties) {
+
+      // the next settings are going to be applied only if the datasource is the default one
+      if (ActiveMQDefaultConfiguration.getDefaultDataSourceClassName().equals(dataSourceClassName)) {
+         // these default settings will be applied only if a custom configuration won't override them
+         if (jdbcDriverClassName != null && !dataSourceProperties.containsKey("driverClassName")) {
+            addDataSourceProperty(dataSourceProperties, "driverClassName", jdbcDriverClassName);
+         }
+         if (jdbcConnectionUrl != null && !dataSourceProperties.containsKey("url")) {
+            addDataSourceProperty(dataSourceProperties, "url", jdbcConnectionUrl);
+         }
+         if (jdbcUser != null && !dataSourceProperties.containsKey("username")) {
+            if (jdbcUser != null) {
+               addDataSourceProperty(dataSourceProperties, "username", jdbcUser);
+            }
+         }
+         if (jdbcPassword != null && !dataSourceProperties.containsKey("password")) {
+            if (jdbcPassword != null) {
+               addDataSourceProperty(dataSourceProperties, "password", jdbcPassword);
+            }
+         }
+         if (maxTotal != null && !dataSourceProperties.containsKey("maxTotal")) {
+            // Let the pool to have unbounded number of connections by default to prevent connection starvation
+            addDataSourceProperty(dataSourceProperties, "maxTotal", maxTotal);
+         }
+         if (!dataSourceProperties.containsKey("poolPreparedStatements")) {
+            // Let the pool to have unbounded number of cached prepared statements to save the initialization cost
+            addDataSourceProperty(dataSourceProperties, "poolPreparedStatements", "true");
+         }
+      }
+
       ActiveMQJournalLogger.LOGGER.initializingJdbcDataSource(dataSourceClassName, dataSourceProperties
          .keySet()
          .stream()
@@ -44,5 +80,19 @@ public class JDBCDataSourceUtils {
          throw new RuntimeException("Unable to instantiate DataSource", e);
       }
    }
+
+   public static void addDataSourceProperty(Map<String, Object> dataSourceProperties, String key, String value) {
+      if (value.toLowerCase().equals("true") || value.toLowerCase().equals("false")) {
+         dataSourceProperties.put(key, Boolean.parseBoolean(value.toLowerCase()));
+      } else {
+         try {
+            int i = Integer.parseInt(value);
+            dataSourceProperties.put(key, i);
+         } catch (NumberFormatException nfe) {
+            dataSourceProperties.put(key, value);
+         }
+      }
+   }
+
 
 }
