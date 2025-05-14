@@ -74,7 +74,7 @@ public final class JdbcNodeManager extends NodeManager {
                              configuration.getJdbcLockAcquisitionTimeoutMillis(),
                              configuration.getJdbcAllowedTimeDiff(),
                              configuration.getConnectionProvider(),
-                             sqlProviderFactory.create(configuration.getNodeManagerStoreTableName(), SQLProvider.DatabaseStoreType.NODE_MANAGER),
+                             sqlProviderFactory.create(configuration.getNodeManagerStoreTableName()),
                              scheduledExecutorService,
                              executorFactory);
    }

@@ -72,11 +72,14 @@ import org.apache.activemq.artemis.core.transaction.ResourceManager;
 import org.apache.activemq.artemis.core.transaction.Transaction;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 import org.apache.activemq.artemis.jdbc.store.sql.PropertySQLProvider;
+import org.apache.activemq.artemis.jdbc.store.sql.SQLProvider;
 import org.apache.activemq.artemis.utils.ArtemisCloseable;
 import org.apache.activemq.artemis.utils.ExecutorFactory;
 import org.apache.activemq.artemis.utils.critical.CriticalAnalyzer;
 
 public class ParallelDBStorageManager extends AbstractStorageManager {
+
+   DatabaseStorageConfiguration databaseConfiguration;
 
    JDBCConnectionProvider connectionProvider;
    public ParallelDBStorageManager(CriticalAnalyzer analyzer,
@@ -90,12 +93,14 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
 
    public void init(DatabaseStorageConfiguration databaseConfiguration) throws Exception {
       this.connectionProvider = databaseConfiguration.getConnectionProvider();
+      this.databaseConfiguration = databaseConfiguration;
       initSchema(connectionProvider);
    }
 
    private void initSchema(JDBCConnectionProvider connectionProvider) throws Exception {
 
       PropertySQLProvider.Factory sqlProviderFactory = new PropertySQLProvider.Factory(connectionProvider);
+      SQLProvider pdbMessagesSqlProvider = sqlProviderFactory.create(databaseConfiguration.getParallelDBMessages());
       try (Connection connection = connectionProvider.getConnection()) {
       }
    }
