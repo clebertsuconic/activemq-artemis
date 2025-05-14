@@ -90,10 +90,6 @@ public abstract class ParameterDBTestBase extends DBTestBase {
       return parameters;
    }
 
-   protected ClassLoader getDBClassLoader() throws Exception {
-      return database.getDBClassLoader();
-   }
-
    public Connection getConnection() throws Exception {
       return database.getConnection();
    }
