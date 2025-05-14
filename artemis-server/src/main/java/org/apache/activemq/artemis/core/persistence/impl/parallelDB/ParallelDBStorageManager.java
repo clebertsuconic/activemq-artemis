@@ -71,6 +71,7 @@ import org.apache.activemq.artemis.core.server.impl.JournalLoader;
 import org.apache.activemq.artemis.core.transaction.ResourceManager;
 import org.apache.activemq.artemis.core.transaction.Transaction;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
+import org.apache.activemq.artemis.jdbc.store.drivers.JDBCUtils;
 import org.apache.activemq.artemis.jdbc.store.sql.PropertySQLProvider;
 import org.apache.activemq.artemis.jdbc.store.sql.SQLProvider;
 import org.apache.activemq.artemis.utils.ArtemisCloseable;
@@ -98,9 +99,9 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
    }
 
    private void initSchema(JDBCConnectionProvider connectionProvider) throws Exception {
-
       PropertySQLProvider.Factory sqlProviderFactory = new PropertySQLProvider.Factory(connectionProvider);
       SQLProvider pdbMessagesSqlProvider = sqlProviderFactory.create(databaseConfiguration.getParallelDBMessages());
+      JDBCUtils.createTableIfNotExists(connectionProvider, pdbMessagesSqlProvider, databaseConfiguration.getParallelDBMessages(), pdbMessagesSqlProvider.getCreateParallelDBMessages());
       try (Connection connection = connectionProvider.getConnection()) {
       }
    }
