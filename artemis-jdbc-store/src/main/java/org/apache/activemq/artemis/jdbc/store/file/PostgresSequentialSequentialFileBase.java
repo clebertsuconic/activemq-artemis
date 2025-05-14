@@ -27,16 +27,16 @@ import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 import org.apache.activemq.artemis.jdbc.store.sql.SQLProvider;
 
 @SuppressWarnings("SynchronizeOnNonFinalField")
-public final class PostgresSequentialSequentialFileDriver extends JDBCSequentialFileFactoryDriver {
+public final class PostgresSequentialSequentialFileBase extends JDBCSequentialFileFactoryBase {
 
    private static final String POSTGRES_OID_KEY = "POSTGRES_OID_KEY";
    private PostgresLargeObjectManager largeObjectManager;
 
-   public PostgresSequentialSequentialFileDriver() throws SQLException {
+   public PostgresSequentialSequentialFileBase() throws SQLException {
       super();
    }
 
-   public PostgresSequentialSequentialFileDriver(JDBCConnectionProvider connectionProvider, SQLProvider provider) {
+   public PostgresSequentialSequentialFileBase(JDBCConnectionProvider connectionProvider, SQLProvider provider) {
       super();
       this.setJdbcConnectionProvider(connectionProvider);
       this.setSqlProvider(provider);
