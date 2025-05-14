@@ -106,7 +106,7 @@ public abstract class ParameterDBTestBase extends DBTestBase {
             }
             yield 1;
          }
-         default -> dropTables("MESSAGE", "LARGE_MESSAGE", "PAGE_STORE", "NODE_MANAGER", "BINDING");
+         default -> dropTables("MESSAGE", "LARGE_MESSAGE", "PAGE_STORE", "NODE_MANAGER", "BINDING", "ART_MESSAGES");
       };
    }
 
