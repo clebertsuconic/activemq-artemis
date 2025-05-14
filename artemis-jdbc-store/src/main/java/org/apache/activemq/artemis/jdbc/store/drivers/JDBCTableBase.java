@@ -33,7 +33,7 @@ import java.lang.invoke.MethodHandles;
  * Class to hold common database functionality such as drivers and connections
  */
 @SuppressWarnings("SynchronizeOnNonFinalField")
-public abstract class AbstractJDBCDriver {
+public abstract class JDBCTableBase {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
@@ -41,10 +41,10 @@ public abstract class AbstractJDBCDriver {
 
    protected JDBCConnectionProvider connectionProvider;
 
-   public AbstractJDBCDriver() {
+   public JDBCTableBase() {
    }
 
-   public AbstractJDBCDriver(JDBCConnectionProvider connectionProvider, SQLProvider provider) {
+   public JDBCTableBase(JDBCConnectionProvider connectionProvider, SQLProvider provider) {
       this.connectionProvider = connectionProvider;
       this.sqlProvider = provider;
    }
