@@ -22,7 +22,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.function.Supplier;
 
-import org.apache.activemq.artemis.jdbc.store.drivers.AbstractJDBCDriver;
+import org.apache.activemq.artemis.jdbc.store.drivers.JDBCTableBase;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 import org.apache.activemq.artemis.jdbc.store.sql.SQLProvider;
 import org.apache.activemq.artemis.utils.UUID;
@@ -34,7 +34,7 @@ import java.lang.invoke.MethodHandles;
  * JDBC implementation of a {@link SharedStateManager}.
  */
 @SuppressWarnings("SynchronizeOnNonFinalField")
-final class JdbcSharedStateManager extends AbstractJDBCDriver implements SharedStateManager {
+final class JdbcSharedStateManager extends JDBCTableBase implements SharedStateManager {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
    private static final int MAX_SETUP_ATTEMPTS = 20;
