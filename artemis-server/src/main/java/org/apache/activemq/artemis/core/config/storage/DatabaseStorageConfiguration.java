@@ -71,6 +71,11 @@ public class DatabaseStorageConfiguration implements StoreConfiguration {
 
    private int maxPageSizeBytes = ActiveMQDefaultConfiguration.getDefaultJdbcMaxPageSizeBytes();
 
+   // TODO: configure this on XML and properties
+   public String getParallelDBMessages() {
+      return "ART_MESSAGES";
+   }
+
    @Override
    public StoreType getStoreType() {
       return StoreType.DATABASE;
