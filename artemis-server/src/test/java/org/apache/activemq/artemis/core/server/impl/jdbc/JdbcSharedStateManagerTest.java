@@ -40,8 +40,8 @@ public class JdbcSharedStateManagerTest extends ServerTestBase {
          SQLProvider.DatabaseStoreType.NODE_MANAGER);
    }
 
-   private TestJDBCDriver createFakeDriver(boolean initializeTable) {
-      return TestJDBCDriver.usingDbConf(
+   private TestJDBCTableBase createFakeDriver(boolean initializeTable) {
+      return TestJDBCTableBase.usingDbConf(
          dbConf,
          sqlProvider,
          initializeTable);
@@ -70,7 +70,7 @@ public class JdbcSharedStateManagerTest extends ServerTestBase {
    @Test
    @Timeout(10)
    public void shouldStartIfTableExistEmpty() throws Exception {
-      final TestJDBCDriver fakeDriver = createFakeDriver(false);
+      final TestJDBCTableBase fakeDriver = createFakeDriver(false);
       fakeDriver.start();
       final JdbcSharedStateManager sharedStateManager = createSharedStateManager();
       sharedStateManager.stop();
@@ -84,7 +84,7 @@ public class JdbcSharedStateManagerTest extends ServerTestBase {
    @Test
    @Timeout(10)
    public void shouldStartIfTableExistInitialized() throws Exception {
-      final TestJDBCDriver fakeDriver = createFakeDriver(true);
+      final TestJDBCTableBase fakeDriver = createFakeDriver(true);
       fakeDriver.start();
       final JdbcSharedStateManager sharedStateManager = createSharedStateManager();
       sharedStateManager.stop();
