@@ -26,7 +26,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.activemq.artemis.jdbc.store.drivers.AbstractJDBCDriver;
+import org.apache.activemq.artemis.jdbc.store.drivers.JDBCTableBase;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 import org.apache.activemq.artemis.jdbc.store.sql.SQLProvider;
 import org.slf4j.Logger;
@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
 import java.lang.invoke.MethodHandles;
 
 @SuppressWarnings("SynchronizeOnNonFinalField")
-public class JDBCSequentialFileFactoryDriver extends AbstractJDBCDriver {
+public class JDBCSequentialFileFactoryBase extends JDBCTableBase {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
@@ -51,11 +51,11 @@ public class JDBCSequentialFileFactoryDriver extends AbstractJDBCDriver {
    protected Integer appendToLargeObjectResultSetConcurrency;
    protected String selectFileNamesByExtension;
 
-   JDBCSequentialFileFactoryDriver() {
+   JDBCSequentialFileFactoryBase() {
       super();
    }
 
-   JDBCSequentialFileFactoryDriver(JDBCConnectionProvider connectionProvider, SQLProvider provider) {
+   JDBCSequentialFileFactoryBase(JDBCConnectionProvider connectionProvider, SQLProvider provider) {
       super(connectionProvider, provider);
    }
 

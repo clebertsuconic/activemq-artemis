@@ -43,7 +43,7 @@ public class JDBCSequentialFileFactory implements SequentialFileFactory, ActiveM
 
    private final Executor executor;
 
-   private JDBCSequentialFileFactoryDriver dbDriver;
+   private JDBCSequentialFileFactoryBase dbDriver;
 
    private volatile int countOpen = 0;
 
@@ -85,7 +85,7 @@ public class JDBCSequentialFileFactory implements SequentialFileFactory, ActiveM
       return true;
    }
 
-   public JDBCSequentialFileFactoryDriver getDbDriver() {
+   public JDBCSequentialFileFactoryBase getDbDriver() {
       return dbDriver;
    }
 

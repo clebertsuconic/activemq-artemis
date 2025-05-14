@@ -30,7 +30,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -68,7 +67,6 @@ import org.apache.activemq.artemis.core.persistence.GroupingInfo;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.Persister;
 import org.apache.activemq.artemis.core.persistence.QueueBindingInfo;
-import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.persistence.config.AbstractPersistedAddressSetting;
 import org.apache.activemq.artemis.core.persistence.config.PersistedAddressSetting;
 import org.apache.activemq.artemis.core.persistence.config.PersistedAddressSettingJSON;
@@ -79,6 +77,7 @@ import org.apache.activemq.artemis.core.persistence.config.PersistedKeyValuePair
 import org.apache.activemq.artemis.core.persistence.config.PersistedRole;
 import org.apache.activemq.artemis.core.persistence.config.PersistedSecuritySetting;
 import org.apache.activemq.artemis.core.persistence.config.PersistedUser;
+import org.apache.activemq.artemis.core.persistence.impl.AbstractStorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.PageCountPending;
 import org.apache.activemq.artemis.core.persistence.impl.journal.codec.AddressStatusEncoding;
 import org.apache.activemq.artemis.core.persistence.impl.journal.codec.CursorAckRecordEncoding;
@@ -123,7 +122,6 @@ import org.apache.activemq.artemis.utils.collections.ConcurrentLongHashMap;
 import org.apache.activemq.artemis.utils.collections.SparseArrayLinkedList;
 import org.apache.activemq.artemis.utils.critical.CriticalAnalyzer;
 import org.apache.activemq.artemis.utils.critical.CriticalCloseable;
-import org.apache.activemq.artemis.utils.critical.CriticalComponentImpl;
 import org.apache.activemq.artemis.utils.critical.CriticalMeasure;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -143,7 +141,7 @@ import static org.apache.activemq.artemis.core.persistence.impl.journal.JournalR
  * <p>
  * Using this class also ensures that locks are acquired in the right order, avoiding dead-locks.
  */
-public abstract class AbstractJournalStorageManager extends CriticalComponentImpl implements StorageManager {
+public abstract class AbstractJournalStorageManager extends AbstractStorageManager {
 
    protected static final int CRITICAL_PATHS = 3;
    protected static final int CRITICAL_STORE = 0;
@@ -175,10 +173,6 @@ public abstract class AbstractJournalStorageManager extends CriticalComponentImp
 
    protected BatchingIDGenerator idGenerator;
 
-   protected final ExecutorFactory ioExecutorFactory;
-
-   protected final ScheduledExecutorService scheduledExecutorService;
-
    protected final ReentrantReadWriteLock storageManagerLock = new ReentrantReadWriteLock(false);
 
    // I would rather cache the Closeable instance here..
@@ -199,15 +193,6 @@ public abstract class AbstractJournalStorageManager extends CriticalComponentImp
    protected Journal bindingsJournal;
 
    protected volatile boolean started;
-
-   /**
-    * Used to create Operation Contexts
-    */
-   protected final ExecutorFactory executorFactory;
-
-   final Executor executor;
-
-   Executor singleThreadExecutor;
 
    private final boolean syncTransactional;
 
@@ -242,33 +227,17 @@ public abstract class AbstractJournalStorageManager extends CriticalComponentImp
 
    protected final ConcurrentLongHashMap<LargeServerMessage> largeMessagesToDelete = new ConcurrentLongHashMap<>();
 
-   public AbstractJournalStorageManager(final Configuration config,
-                                        final CriticalAnalyzer analyzer,
-                                        final ExecutorFactory executorFactory,
-                                        final ScheduledExecutorService scheduledExecutorService,
-                                        final ExecutorFactory ioExecutorFactory) {
-      this(config, analyzer, executorFactory, scheduledExecutorService, ioExecutorFactory, null);
-   }
-
    public AbstractJournalStorageManager(Configuration config,
                                         CriticalAnalyzer analyzer,
                                         ExecutorFactory executorFactory,
                                         ScheduledExecutorService scheduledExecutorService,
                                         ExecutorFactory ioExecutorFactory,
                                         IOCriticalErrorListener criticalErrorListener) {
-      super(analyzer, CRITICAL_PATHS);
-
-      this.executorFactory = executorFactory;
+      super(analyzer, CRITICAL_PATHS, executorFactory, scheduledExecutorService, ioExecutorFactory);
 
       this.ioCriticalErrorListener = criticalErrorListener;
 
-      this.ioExecutorFactory = ioExecutorFactory;
-
-      this.scheduledExecutorService = scheduledExecutorService;
-
       this.config = config;
-
-      executor = executorFactory.getExecutor();
 
       syncNonTransactional = config.isJournalSyncNonTransactional();
       syncTransactional = config.isJournalSyncTransactional();
@@ -299,11 +268,6 @@ public abstract class AbstractJournalStorageManager extends CriticalComponentImp
       ioCriticalErrorListener.onIOException(error, error.getMessage(), null);
    }
 
-   @Override
-   public void clearContext() {
-      OperationContextImpl.clearContext();
-   }
-
    public IDGenerator getIDGenerator() {
       return idGenerator;
    }
@@ -327,41 +291,6 @@ public abstract class AbstractJournalStorageManager extends CriticalComponentImp
    }
 
    @Override
-   public OperationContext getContext() {
-      return OperationContextImpl.getContext(executorFactory);
-   }
-
-   @Override
-   public void setContext(final OperationContext context) {
-      OperationContextImpl.setContext(context);
-   }
-
-   @Override
-   public OperationContext newSingleThreadContext() {
-      return newContext(singleThreadExecutor);
-   }
-
-   @Override
-   public OperationContext newContext(final Executor executor1) {
-      return new OperationContextImpl(executor1);
-   }
-
-   @Override
-   public void afterCompleteOperations(final IOCallback run) {
-      getContext().executeOnCompletion(run);
-   }
-
-   @Override
-   public void afterCompleteOperations(final IOCallback run, OperationConsistencyLevel consistencyLevel) {
-      getContext().executeOnCompletion(run, consistencyLevel);
-   }
-
-   @Override
-   public void afterStoreOperations(IOCallback run) {
-      getContext().executeOnCompletion(run, OperationConsistencyLevel.STORAGE);
-   }
-
-   @Override
    public long generateID() {
       return idGenerator.generateID();
    }
@@ -370,8 +299,6 @@ public abstract class AbstractJournalStorageManager extends CriticalComponentImp
    public long getCurrentID() {
       return idGenerator.getCurrentID();
    }
-
-   // Non transactional operations
 
    @Override
    public void deletePendingLargeMessage(long recordID) throws Exception {
@@ -1782,8 +1709,6 @@ public abstract class AbstractJournalStorageManager extends CriticalComponentImp
       }
 
       beforeStart();
-
-      singleThreadExecutor = ioExecutorFactory.getExecutor();
 
       bindingsJournal.start();
 

@@ -115,7 +115,7 @@ public class JdbcLeaseLockTest extends ServerTestBase {
          SQLProvider.DatabaseStoreType.NODE_MANAGER);
 
       if (withExistingTable) {
-         TestJDBCDriver testDriver = TestJDBCDriver
+         TestJDBCTableBase testDriver = TestJDBCTableBase
             .usingDbConf(
                dbConf,
                sqlProvider);

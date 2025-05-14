@@ -22,21 +22,21 @@ import java.sql.Connection;
 import java.sql.SQLException;
 
 import org.apache.activemq.artemis.core.config.storage.DatabaseStorageConfiguration;
-import org.apache.activemq.artemis.jdbc.store.drivers.AbstractJDBCDriver;
+import org.apache.activemq.artemis.jdbc.store.drivers.JDBCTableBase;
 import org.apache.activemq.artemis.jdbc.store.sql.SQLProvider;
 
-public class TestJDBCDriver extends AbstractJDBCDriver {
+public class TestJDBCTableBase extends JDBCTableBase {
 
-   public static TestJDBCDriver usingDbConf(DatabaseStorageConfiguration dbConf,
-                                            SQLProvider provider) {
+   public static TestJDBCTableBase usingDbConf(DatabaseStorageConfiguration dbConf,
+                                               SQLProvider provider) {
       return usingDbConf(dbConf, provider, false);
    }
 
-   public static TestJDBCDriver usingDbConf(DatabaseStorageConfiguration dbConf,
-                                            SQLProvider provider,
-                                            boolean initialize) {
+   public static TestJDBCTableBase usingDbConf(DatabaseStorageConfiguration dbConf,
+                                               SQLProvider provider,
+                                               boolean initialize) {
 
-      TestJDBCDriver driver = new TestJDBCDriver(initialize);
+      TestJDBCTableBase driver = new TestJDBCTableBase(initialize);
       driver.setSqlProvider(provider);
       driver.setJdbcConnectionProvider(dbConf.getConnectionProvider());
       return driver;
@@ -44,7 +44,7 @@ public class TestJDBCDriver extends AbstractJDBCDriver {
 
    private boolean initialize;
 
-   private TestJDBCDriver(boolean initialize) {
+   private TestJDBCTableBase(boolean initialize) {
       this.initialize = initialize;
    }
 

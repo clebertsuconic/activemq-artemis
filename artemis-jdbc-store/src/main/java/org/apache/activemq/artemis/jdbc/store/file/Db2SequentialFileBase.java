@@ -24,15 +24,15 @@ import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 import org.apache.activemq.artemis.jdbc.store.sql.SQLProvider;
 
 @SuppressWarnings("SynchronizeOnNonFinalField")
-public final class Db2SequentialFileDriver extends JDBCSequentialFileFactoryDriver {
+public final class Db2SequentialFileBase extends JDBCSequentialFileFactoryBase {
 
    private String replaceLargeObject;
 
-   public Db2SequentialFileDriver() {
+   public Db2SequentialFileBase() {
       super();
    }
 
-   public Db2SequentialFileDriver(JDBCConnectionProvider connectionProvider, SQLProvider provider) {
+   public Db2SequentialFileBase(JDBCConnectionProvider connectionProvider, SQLProvider provider) {
       super(connectionProvider, provider);
    }
 

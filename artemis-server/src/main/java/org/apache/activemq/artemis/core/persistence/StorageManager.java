@@ -106,10 +106,6 @@ public interface StorageManager extends MapStorageManager, IDGenerator, ActiveMQ
 
    }
 
-   default SequentialFileFactory getJournalSequentialFileFactory() {
-      return null;
-   }
-
    void criticalError(Throwable error);
 
    /**
