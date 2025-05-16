@@ -73,15 +73,18 @@ public class PropertySQLProvider implements SQLProvider {
    private static final int BACKUP_LOCK_ROW_ID = 2;
    private static final int NODE_ID_ROW_ID = 3;
 
-   private final String tableName;
    private final Factory.SQLDialect dialect;
-   private volatile Properties sql;
+   private volatile Properties sqlProperties;
 
-   protected PropertySQLProvider(Factory.SQLDialect dialect, String tableName, Properties sqlProperties) {
+   protected PropertySQLProvider(Factory.SQLDialect dialect, Properties sqlProperties) {
       this.dialect = dialect;
-      this.sql = sqlProperties;
+      this.sqlProperties = sqlProperties;
+   }
+
+   @Override
+   public String applyCase(String tableName) {
       final LetterCase tableNamesCase = LetterCase.parse(sql("table-names-case", dialect, sqlProperties, true));
-      this.tableName = tableNamesCase.apply(tableName);
+      return tableNamesCase.apply(tableName);
    }
 
    @Override
@@ -90,7 +93,8 @@ public class PropertySQLProvider implements SQLProvider {
    }
 
    @Override
-   public String[] getCreateJournalTableSQL() {
+   public String[] getCreateJournalTableSQL(String tableName) {
+      tableName = applyCase(tableName);
       return new String[] {
               format(sql("create-journal-table"), tableName),
               format(sql("create-journal-index"), tableName),
@@ -98,39 +102,34 @@ public class PropertySQLProvider implements SQLProvider {
       };
    }
 
-   public String[] getCreateParallelDBMessages() {
+   public String[] getCreateParallelDBMessages(String tableName) {
       return new String[] {
          format(sql("create-parallelDB-messages"), tableName)
       };
    }
 
    @Override
-   public String getInsertJournalRecordsSQL() {
+   public String getInsertJournalRecordsSQL(String tableName) {
       return format(sql("insert-journal-record"), tableName);
    }
 
    @Override
-   public String getSelectJournalRecordsSQL() {
+   public String getSelectJournalRecordsSQL(String tableName) {
       return format(sql("select-journal-record"), tableName);
    }
 
    @Override
-   public String getDeleteJournalRecordsSQL() {
+   public String getDeleteJournalRecordsSQL(String tableName) {
       return format(sql("delete-journal-record"), tableName);
    }
 
    @Override
-   public String getDeleteJournalTxRecordsSQL() {
+   public String getDeleteJournalTxRecordsSQL(String tableName) {
       return format(sql("delete-journal-tx-record"), tableName);
    }
 
    @Override
-   public String getTableName() {
-      return tableName;
-   }
-
-   @Override
-   public String[] getCreateFileTableSQL() {
+   public String[] getCreateFileTableSQL(String tableName) {
       return new String[] {
               format(sql("create-file-table"), tableName),
               format(sql("create-file-index"), tableName)
@@ -138,137 +137,137 @@ public class PropertySQLProvider implements SQLProvider {
    }
 
    @Override
-   public String getInsertFileSQL() {
+   public String getInsertFileSQL(String tableName) {
       return format(sql("insert-file"), tableName);
    }
 
    @Override
-   public String getSelectFileNamesByExtensionSQL() {
+   public String getSelectFileNamesByExtensionSQL(String tableName) {
       return format(sql("select-filenames-by-extension"), tableName);
    }
 
    @Override
-   public String getSelectFileByFileName() {
+   public String getSelectFileByFileName(String tableName) {
       return format(sql("select-file-by-filename"), tableName);
    }
 
    @Override
-   public String getReplaceLargeObjectSQL() {
+   public String getReplaceLargeObjectSQL(String tableName) {
       return format(sql("replace-file"), tableName);
    }
 
    @Override
-   public String getAppendToLargeObjectSQL() {
+   public String getAppendToLargeObjectSQL(String tableName) {
       return format(sql("append-to-file"), tableName);
    }
 
    @Override
-   public String getReadLargeObjectSQL() {
+   public String getReadLargeObjectSQL(String tableName) {
       return format(sql("read-large-object"), tableName);
    }
 
    @Override
-   public String getDeleteFileSQL() {
+   public String getDeleteFileSQL(String tableName) {
       return format(sql("delete-file"), tableName);
    }
 
    @Override
-   public String getUpdateFileNameByIdSQL() {
+   public String getUpdateFileNameByIdSQL(String tableName) {
       return format(sql("update-filename-by-id"), tableName);
    }
 
    @Override
-   public String getCopyFileRecordByIdSQL() {
+   public String getCopyFileRecordByIdSQL(String tableName) {
       return format(sql("copy-file-record-by-id"), tableName);
    }
 
    @Override
-   public String getDropFileTableSQL() {
+   public String getDropFileTableSQL(String tableName) {
       return format(sql("drop-table"), tableName);
    }
 
    @Override
-   public String getCloneFileRecordByIdSQL() {
+   public String getCloneFileRecordByIdSQL(String tableName) {
       return format(sql("clone-file-record"), tableName);
    }
 
    @Override
-   public String getCountJournalRecordsSQL() {
+   public String getCountJournalRecordsSQL(String tableName) {
       return format(sql("count-journal-record"), tableName);
    }
 
    @Override
-   public boolean closeConnectionOnShutdown() {
+   public boolean closeConnectionOnShutdown(String tableName) {
       return Boolean.valueOf(sql("close-connection-on-shutdown"));
    }
 
    @Override
-   public String createNodeManagerStoreTableSQL() {
+   public String createNodeManagerStoreTableSQL(String tableName) {
       return format(sql("create-node-manager-store-table"), tableName);
    }
 
    @Override
-   public String createStateSQL() {
+   public String createStateSQL(String tableName) {
       return format(sql("create-state"), tableName, STATE_ROW_ID);
    }
 
    @Override
-   public String createNodeIdSQL() {
+   public String createNodeIdSQL(String tableName) {
       return format(sql("create-state"), tableName, NODE_ID_ROW_ID);
    }
 
    @Override
-   public String createPrimaryLockSQL() {
+   public String createPrimaryLockSQL(String tableName) {
       return format(sql("create-state"), tableName, PRIMARY_LOCK_ROW_ID);
    }
 
    @Override
-   public String createBackupLockSQL() {
+   public String createBackupLockSQL(String tableName) {
       return format(sql("create-state"), tableName, BACKUP_LOCK_ROW_ID);
    }
 
    @Override
-   public String tryAcquirePrimaryLockSQL() {
+   public String tryAcquirePrimaryLockSQL(String tableName) {
       return format(sql("try-acquire-lock"), tableName, PRIMARY_LOCK_ROW_ID);
    }
 
    @Override
-   public String tryAcquireBackupLockSQL() {
+   public String tryAcquireBackupLockSQL(String tableName) {
       return format(sql("try-acquire-lock"), tableName, BACKUP_LOCK_ROW_ID);
    }
 
    @Override
-   public String tryReleasePrimaryLockSQL() {
+   public String tryReleasePrimaryLockSQL(String tableName) {
       return format(sql("try-release-lock"), tableName, PRIMARY_LOCK_ROW_ID);
    }
 
    @Override
-   public String tryReleaseBackupLockSQL() {
+   public String tryReleaseBackupLockSQL(String tableName) {
       return format(sql("try-release-lock"), tableName, BACKUP_LOCK_ROW_ID);
    }
 
    @Override
-   public String isPrimaryLockedSQL() {
+   public String isPrimaryLockedSQL(String tableName) {
       return format(sql("is-locked"), tableName, PRIMARY_LOCK_ROW_ID);
    }
 
    @Override
-   public String isBackupLockedSQL() {
+   public String isBackupLockedSQL(String tableName) {
       return format(sql("is-locked"), tableName, BACKUP_LOCK_ROW_ID);
    }
 
    @Override
-   public String renewPrimaryLockSQL() {
+   public String renewPrimaryLockSQL(String tableName) {
       return format(sql("renew-lock"), tableName, PRIMARY_LOCK_ROW_ID);
    }
 
    @Override
-   public String renewBackupLockSQL() {
+   public String renewBackupLockSQL(String tableName) {
       return format(sql("renew-lock"), tableName, BACKUP_LOCK_ROW_ID);
    }
 
    @Override
-   public String currentTimestampSQL() {
+   public String currentTimestampSQL(String tableName) {
       return format(sql("current-timestamp"), tableName);
    }
 
@@ -278,27 +277,27 @@ public class PropertySQLProvider implements SQLProvider {
    }
 
    @Override
-   public String writeStateSQL() {
+   public String writeStateSQL(String tableName) {
       return format(sql("write-state"), tableName, STATE_ROW_ID);
    }
 
    @Override
-   public String readStateSQL() {
+   public String readStateSQL(String tableName) {
       return format(sql("read-state"), tableName, STATE_ROW_ID);
    }
 
    @Override
-   public String writeNodeIdSQL() {
+   public String writeNodeIdSQL(String tableName) {
       return format(sql("write-nodeId"), tableName, NODE_ID_ROW_ID);
    }
 
    @Override
-   public String readNodeIdSQL() {
+   public String readNodeIdSQL(String tableName) {
       return format(sql("read-nodeId"), tableName, NODE_ID_ROW_ID);
    }
 
    @Override
-   public String initializeNodeIdSQL() {
+   public String initializeNodeIdSQL(String tableName) {
       return format(sql("initialize-nodeId"), tableName, NODE_ID_ROW_ID);
    }
 
@@ -307,7 +306,7 @@ public class PropertySQLProvider implements SQLProvider {
    }
 
    protected String sql(final String key, final boolean checkNull) {
-      return sql(key, dialect, sql, checkNull);
+      return sql(key, dialect, sqlProperties, checkNull);
    }
 
    private static String sql(final String key, final Factory.SQLDialect dialect, final Properties sql, final boolean checkNull) {
@@ -442,11 +441,11 @@ public class PropertySQLProvider implements SQLProvider {
       }
 
       @Override
-      public SQLProvider create(String tableName) {
+      public SQLProvider create() {
          if (dialect == SQLDialect.ORACLE) {
-            return new Oracle12CSQLProvider(tableName, sql);
+            return new Oracle12CSQLProvider(sql);
          } else {
-            return new PropertySQLProvider(dialect, tableName, sql);
+            return new PropertySQLProvider(dialect, sql);
          }
       }
    }

@@ -38,15 +38,17 @@ public abstract class JDBCTableBase {
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
    protected SQLProvider sqlProvider;
+   protected String tableName;
 
    protected JDBCConnectionProvider connectionProvider;
 
    public JDBCTableBase() {
    }
 
-   public JDBCTableBase(JDBCConnectionProvider connectionProvider, SQLProvider provider) {
+   public JDBCTableBase(JDBCConnectionProvider connectionProvider, SQLProvider provider, String tableName) {
       this.connectionProvider = connectionProvider;
       this.sqlProvider = provider;
+      this.tableName = tableName;
    }
 
    public void start() throws SQLException {
@@ -63,14 +65,14 @@ public abstract class JDBCTableBase {
    protected abstract void createSchema() throws SQLException;
 
    protected final void createTable(String... schemaSqls) throws SQLException {
-      createTableIfNotExists(sqlProvider.getTableName(), schemaSqls);
+      createTableIfNotExists(tableName, schemaSqls);
    }
 
    public void destroy() throws Exception {
       if (logger.isTraceEnabled()) {
-         logger.trace("dropping {}", sqlProvider.getTableName(), new Exception("trace"));
+         logger.trace("dropping {}", tableName, new Exception("trace"));
       }
-      final String dropTableSql = "DROP TABLE " + sqlProvider.getTableName();
+      final String dropTableSql = "DROP TABLE " + tableName;
       try (Connection connection = connectionProvider.getConnection()) {
          try {
             connection.setAutoCommit(false);
@@ -99,8 +101,9 @@ public abstract class JDBCTableBase {
       return sqlProvider;
    }
 
-   public void setSqlProvider(SQLProvider sqlProvider) {
+   public void setSqlProvider(SQLProvider sqlProvider, String tableName) {
       this.sqlProvider = sqlProvider;
+      this.tableName = tableName;
    }
 
    public void setJdbcConnectionProvider(JDBCConnectionProvider connectionProvider) {
