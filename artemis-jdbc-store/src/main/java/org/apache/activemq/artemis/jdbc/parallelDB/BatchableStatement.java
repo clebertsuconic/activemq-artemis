@@ -23,21 +23,35 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
+import org.apache.activemq.artemis.api.core.ActiveMQBuffers;
 import org.apache.activemq.artemis.core.io.IOCallback;
+import org.apache.activemq.artemis.core.persistence.Persister;
+import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
+import org.apache.activemq.artemis.utils.ActiveMQBufferInputStream;
 
 public abstract class BatchableStatement<E> {
 
-   Connection connection;
+   final JDBCConnectionProvider connectionProvider;
+   final Connection connection;
+   final String statement;
    protected PreparedStatement preparedStatement;
 
    List<E> pendingList;
    List<IOCallback> callbacks;
 
-   public BatchableStatement(Connection connection, String statement, int expectedSize) throws Exception {
+   public BatchableStatement(JDBCConnectionProvider connectionProvider, Connection connection, String statement, int expectedSize) throws Exception {
+      this.connectionProvider = connectionProvider;
       this.connection = connection;
       this.connection.prepareStatement(statement);
       this.pendingList = new ArrayList<>(expectedSize);
       this.callbacks = new ArrayList<>(expectedSize);
+      this.statement = statement;
+      init();
+   }
+
+   protected void init() throws Exception {
+      this.preparedStatement = connection.prepareStatement(statement);
    }
 
    public void addData(E element, IOCallback callback) {
@@ -47,17 +61,51 @@ public abstract class BatchableStatement<E> {
 
    public void flushPending() throws Exception {
       pendingList.forEach(this::flushOne);
+      try {
+         preparedStatement.executeBatch();
+      } catch (SQLException e) {
+         callbacks.forEach(c -> c.onError(-1, e.getMessage()));
+         connection.rollback();
+         pendingList.clear();
+         callbacks.clear();
+         throw e;
+      }
+      connection.commit();
+      callbacks.forEach(this::okCallback);
+
+      pendingList.clear();
+      callbacks.clear();
    }
+
+   private void okCallback(IOCallback callback) {
+      callback.done();
+   }
+
+   private void errorCallback(IOCallback callback, int errorCode, String message) {
+      callback.onError(errorCode, message);
+   }
+
 
    protected void flushOne(E element) {
       try {
          doOne(element);
          preparedStatement.addBatch();
-      } catch (SQLException e) {
+      } catch (Exception e) {
          throw new RuntimeException(e.getMessage(), e);
       }
    }
 
-   protected abstract void doOne(E element);
+   public ActiveMQBuffer getPersistedBuffer(Persister persister, Object record) {
+      int size = persister.getEncodeSize(record);
+      ActiveMQBuffer encodedBuffer = ActiveMQBuffers.fixedBuffer(size);
+      persister.encode(encodedBuffer, record);
+      return encodedBuffer;
+   }
+
+   protected static ActiveMQBufferInputStream blobInputStream(ActiveMQBuffer buffer) {
+      return new ActiveMQBufferInputStream(buffer);
+   }
+
+   protected abstract void doOne(E element) throws Exception;
 
 }

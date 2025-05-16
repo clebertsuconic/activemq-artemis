@@ -102,10 +102,16 @@ public class PropertySQLProvider implements SQLProvider {
       };
    }
 
+   @Override
    public String[] getCreateParallelDBMessages(String tableName) {
       return new String[] {
          format(sql("create-parallelDB-messages"), tableName)
       };
+   }
+
+   @Override
+   public String getInsertPDBMessages(String tableName) {
+      return format(sql("insert-parallelDB-messages"), tableName);
    }
 
    @Override
