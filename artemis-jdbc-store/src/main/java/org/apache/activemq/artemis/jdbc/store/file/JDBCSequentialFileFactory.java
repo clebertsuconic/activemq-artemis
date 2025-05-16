@@ -45,6 +45,8 @@ public class JDBCSequentialFileFactory implements SequentialFileFactory, ActiveM
 
    private JDBCSequentialFileFactoryBase dbDriver;
 
+   private final String tableName;
+
    private volatile int countOpen = 0;
 
    private static final AtomicIntegerFieldUpdater<JDBCSequentialFileFactory> countOpenUpdater = AtomicIntegerFieldUpdater.newUpdater(JDBCSequentialFileFactory.class, "countOpen");
@@ -58,6 +60,7 @@ public class JDBCSequentialFileFactory implements SequentialFileFactory, ActiveM
 
    public JDBCSequentialFileFactory(final JDBCConnectionProvider connectionProvider,
                                     final SQLProvider sqlProvider,
+                                    final String tableName,
                                     Executor executor,
                                     ScheduledExecutorService scheduledExecutorService,
                                     long syncDelay,
@@ -67,9 +70,10 @@ public class JDBCSequentialFileFactory implements SequentialFileFactory, ActiveM
       this.criticalErrorListener = criticalErrorListener;
       this.scheduledExecutorService = scheduledExecutorService;
       this.syncDelay = syncDelay;
+      this.tableName = tableName;
 
       try {
-         this.dbDriver = JDBCFileUtils.getDBFileDriver(connectionProvider, sqlProvider);
+         this.dbDriver = JDBCFileUtils.getDBFileDriver(connectionProvider, sqlProvider, tableName);
       } catch (SQLException e) {
          logger.warn(e.getMessage(), e);
          if (criticalErrorListener != null) {
@@ -242,7 +246,7 @@ public class JDBCSequentialFileFactory implements SequentialFileFactory, ActiveM
 
    @Override
    public String getDirectoryName() {
-      return dbDriver.getSqlProvider().getTableName();
+      return tableName;
    }
 
 

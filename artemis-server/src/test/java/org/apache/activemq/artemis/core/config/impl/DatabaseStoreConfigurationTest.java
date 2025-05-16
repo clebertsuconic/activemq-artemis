@@ -57,7 +57,7 @@ public class DatabaseStoreConfigurationTest extends ServerTestBase {
    public void testOracle12TableSize() {
          Throwable rte = null;
          try {
-            new PropertySQLProvider.Factory(ORACLE).create("_A_TABLE_NAME_THAT_IS_TOO_LONG_");
+            new PropertySQLProvider.Factory(ORACLE).create().applyCase("_A_TABLE_NAME_THAT_IS_TOO_LONG_");
          } catch (RuntimeException t) {
             rte = t;
          }
