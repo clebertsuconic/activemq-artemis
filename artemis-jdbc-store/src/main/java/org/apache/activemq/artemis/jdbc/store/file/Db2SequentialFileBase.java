@@ -32,8 +32,8 @@ public final class Db2SequentialFileBase extends JDBCSequentialFileFactoryBase {
       super();
    }
 
-   public Db2SequentialFileBase(JDBCConnectionProvider connectionProvider, SQLProvider provider, String tableName) {
-      super(connectionProvider, provider, tableName);
+   public Db2SequentialFileBase(JDBCConnectionProvider connectionProvider, String tableName) {
+      super(connectionProvider, tableName);
    }
 
    @Override

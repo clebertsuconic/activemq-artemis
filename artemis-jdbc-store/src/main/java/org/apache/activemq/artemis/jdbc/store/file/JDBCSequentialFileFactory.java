@@ -59,7 +59,6 @@ public class JDBCSequentialFileFactory implements SequentialFileFactory, ActiveM
 
 
    public JDBCSequentialFileFactory(final JDBCConnectionProvider connectionProvider,
-                                    final SQLProvider sqlProvider,
                                     final String tableName,
                                     Executor executor,
                                     ScheduledExecutorService scheduledExecutorService,
@@ -73,7 +72,7 @@ public class JDBCSequentialFileFactory implements SequentialFileFactory, ActiveM
       this.tableName = tableName;
 
       try {
-         this.dbDriver = JDBCFileUtils.getDBFileDriver(connectionProvider, sqlProvider, tableName);
+         this.dbDriver = JDBCFileUtils.getDBFileDriver(connectionProvider, tableName);
       } catch (SQLException e) {
          logger.warn(e.getMessage(), e);
          if (criticalErrorListener != null) {
