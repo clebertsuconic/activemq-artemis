@@ -17,9 +17,33 @@
 
 package org.apache.activemq.artemis.core.persistence.impl.parallelDB;
 
+import java.sql.Connection;
+import java.sql.SQLException;
+
+import org.apache.activemq.artemis.core.config.storage.DatabaseStorageConfiguration;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.MessageStatement;
 import org.apache.activemq.artemis.jdbc.parallelDB.BatchableStatement;
+import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
+import org.apache.activemq.artemis.jdbc.store.sql.SQLProvider;
 
 public class SingleThreadDBManager {
 
-   BatchableStatement 
+   DatabaseStorageConfiguration databaseConfiguration;
+   JDBCConnectionProvider connectionProvider;
+
+   Connection connection;
+
+   public SingleThreadDBManager(DatabaseStorageConfiguration databaseConfiguration, JDBCConnectionProvider connectionProvider) throws SQLException {
+      this.databaseConfiguration = databaseConfiguration;
+      this.connectionProvider = connectionProvider;
+      init();
+   }
+
+   public void init() throws SQLException {
+      connection = connectionProvider.getConnection();
+      //SQLProvider sqlProvider = n
+      //messageStatement = new MessageStatement(connection, )
+   }
+
+   MessageStatement messageStatement;
 }
