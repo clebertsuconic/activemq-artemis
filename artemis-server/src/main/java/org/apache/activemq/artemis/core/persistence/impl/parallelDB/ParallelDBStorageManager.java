@@ -20,6 +20,7 @@ package org.apache.activemq.artemis.core.persistence.impl.parallelDB;
 import javax.transaction.xa.Xid;
 import java.nio.ByteBuffer;
 import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -84,6 +85,9 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
    DatabaseStorageConfiguration databaseConfiguration;
    JDBCConnectionProvider connectionProvider;
 
+   // the plan is to have many of these in a pool, for now while I bootstrap things I'm just having one
+   SingleThreadDBManager threadDBManager;
+
    public ParallelDBStorageManager(CriticalAnalyzer analyzer,
                                    int numberOfPaths,
                                    ExecutorFactory executorFactory,
@@ -100,11 +104,9 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
    }
 
    private void initSchema(JDBCConnectionProvider connectionProvider) throws Exception {
-      PropertySQLProvider.Factory sqlProviderFactory = new PropertySQLProvider.Factory(connectionProvider);
       String messagesTableName = databaseConfiguration.getParallelDBMessages();
-      this.sqlProvider = sqlProviderFactory.create();
-      SQLProvider pdbMessagesSqlProvider = sqlProviderFactory.create();
-      JDBCUtils.createTableIfNotExists(connectionProvider, databaseConfiguration.getParallelDBMessages(), pdbMessagesSqlProvider.getCreateParallelDBMessages(messagesTableName));
+      JDBCUtils.createTable(connectionProvider, databaseConfiguration.getParallelDBMessages(), connectionProvider.getSQLProvider().getCreateParallelDBMessages(messagesTableName));
+      threadDBManager = new SingleThreadDBManager(databaseConfiguration, connectionProvider);
       try (Connection connection = connectionProvider.getConnection()) {
       }
    }
