@@ -57,8 +57,6 @@ public class JDBCJournalTest extends ActiveMQTestBase {
 
    private ExecutorService executorService;
 
-   private SQLProvider sqlProvider;
-
    private String tableName;
 
    private DatabaseStorageConfiguration dbConf;
@@ -109,12 +107,10 @@ public class JDBCJournalTest extends ActiveMQTestBase {
          dbConf.setJdbcUser(getJDBCUser());
          dbConf.setJdbcPassword(getJDBCPassword());
       }
-      sqlProvider = JDBCUtils.getSQLProvider(
-         dbConf.getJdbcDriverClassName());
       this.tableName = dbConf.getMessageTableName();
       scheduledExecutorService = new ScheduledThreadPoolExecutor(5);
       executorService = Executors.newSingleThreadExecutor();
-      journal = new JDBCJournalImpl(dbConf.getConnectionProvider(), sqlProvider, tableName, scheduledExecutorService, executorService, (code, message, file) -> {
+      journal = new JDBCJournalImpl(dbConf.getConnectionProvider(), tableName, scheduledExecutorService, executorService, (code, message, file) -> {
 
       }, 5);
       journal.start();
@@ -134,7 +130,7 @@ public class JDBCJournalTest extends ActiveMQTestBase {
       assertTrue(journal.isStarted());
       assertEquals(0, journal.getNumberOfRecords());
       final JDBCJournalImpl secondJournal = new JDBCJournalImpl(dbConf.getConnectionProvider(),
-                                                                          sqlProvider, tableName, scheduledExecutorService,
+                                                                          tableName, scheduledExecutorService,
                                                                           executorService, (code, message, file) -> {
          fail(message);
       }, 5);

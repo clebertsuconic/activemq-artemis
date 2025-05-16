@@ -17,12 +17,8 @@
 package org.apache.activemq.artemis.jdbc.store.drivers;
 
 import java.sql.Connection;
-import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.SQLWarning;
 import java.sql.Statement;
-import java.util.Arrays;
-import java.util.stream.Stream;
 
 import org.apache.activemq.artemis.jdbc.store.sql.SQLProvider;
 import org.slf4j.Logger;
@@ -45,9 +41,9 @@ public abstract class JDBCTableBase {
    public JDBCTableBase() {
    }
 
-   public JDBCTableBase(JDBCConnectionProvider connectionProvider, SQLProvider provider, String tableName) {
+   public JDBCTableBase(JDBCConnectionProvider connectionProvider, String tableName) {
       this.connectionProvider = connectionProvider;
-      this.sqlProvider = provider;
+      this.sqlProvider = connectionProvider.getSQLProvider();
       this.tableName = tableName;
    }
 
@@ -94,15 +90,10 @@ public abstract class JDBCTableBase {
    }
 
    private void createTableIfNotExists(String tableName, String... sqls) throws SQLException {
-      JDBCUtils.createTableIfNotExists(connectionProvider, sqlProvider, tableName, sqls);
+      JDBCUtils.createTableIfNotExists(connectionProvider, tableName, sqls);
    }
 
-   public SQLProvider getSqlProvider() {
-      return sqlProvider;
-   }
-
-   public void setSqlProvider(SQLProvider sqlProvider, String tableName) {
-      this.sqlProvider = sqlProvider;
+   public void setTableName(String tableName) {
       this.tableName = tableName;
    }
 
