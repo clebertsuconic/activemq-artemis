@@ -81,7 +81,6 @@ import org.apache.activemq.artemis.utils.critical.CriticalAnalyzer;
 public class ParallelDBStorageManager extends AbstractStorageManager {
 
    DatabaseStorageConfiguration databaseConfiguration;
-
    JDBCConnectionProvider connectionProvider;
    public ParallelDBStorageManager(CriticalAnalyzer analyzer,
                                    int numberOfPaths,
