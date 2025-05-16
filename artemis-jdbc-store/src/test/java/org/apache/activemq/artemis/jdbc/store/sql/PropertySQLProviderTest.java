@@ -26,13 +26,13 @@ public class PropertySQLProviderTest extends ArtemisTestCase {
 
    @Test
    public void testGetProperty() {
-      PropertySQLProvider factory = (PropertySQLProvider) new PropertySQLProvider.Factory((PropertySQLProvider.Factory.SQLDialect) null).create("who-cares");
+      PropertySQLProvider factory = (PropertySQLProvider) new PropertySQLProvider.Factory((PropertySQLProvider.Factory.SQLDialect) null).create();
       factory.sql("create-file-table");
    }
 
    @Test
    public void testGetMissingProperty() {
-      PropertySQLProvider factory = (PropertySQLProvider) new PropertySQLProvider.Factory((PropertySQLProvider.Factory.SQLDialect) null).create("who-cares");
+      PropertySQLProvider factory = (PropertySQLProvider) new PropertySQLProvider.Factory((PropertySQLProvider.Factory.SQLDialect) null).create();
       try {
          factory.sql("missing-property");
          fail();
@@ -43,7 +43,7 @@ public class PropertySQLProviderTest extends ArtemisTestCase {
 
    @Test
    public void testGetMissingPropertyNoCheck() {
-      PropertySQLProvider factory = (PropertySQLProvider) new PropertySQLProvider.Factory((PropertySQLProvider.Factory.SQLDialect) null).create("who-cares");
+      PropertySQLProvider factory = (PropertySQLProvider) new PropertySQLProvider.Factory((PropertySQLProvider.Factory.SQLDialect) null).create();
       assertNull(factory.sql("missing-property", false));
    }
 }

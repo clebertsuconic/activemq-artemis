@@ -30,19 +30,21 @@ public class JdbcSharedStateManagerTest extends ServerTestBase {
 
    private DatabaseStorageConfiguration dbConf;
    private SQLProvider sqlProvider;
+   private String tableName;
 
    @BeforeEach
    public void configure() {
       dbConf = createDefaultDatabaseStorageConfiguration();
+      tableName = dbConf.getNodeManagerStoreTableName();
       sqlProvider = JDBCUtils.getSQLProvider(
-         dbConf.getJdbcDriverClassName(),
-         dbConf.getNodeManagerStoreTableName());
+         dbConf.getJdbcDriverClassName());
    }
 
    private TestJDBCTableBase createFakeDriver(boolean initializeTable) {
       return TestJDBCTableBase.usingDbConf(
          dbConf,
          sqlProvider,
+         tableName,
          initializeTable);
    }
 
@@ -52,7 +54,8 @@ public class JdbcSharedStateManagerTest extends ServerTestBase {
          dbConf.getJdbcLockExpirationMillis(),
          dbConf.getJdbcAllowedTimeDiff(),
          dbConf.getConnectionProvider(),
-         sqlProvider);
+         sqlProvider,
+         tableName);
    }
 
    @Test
