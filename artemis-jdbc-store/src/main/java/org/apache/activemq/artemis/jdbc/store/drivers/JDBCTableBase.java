@@ -44,7 +44,7 @@ public abstract class JDBCTableBase {
    public JDBCTableBase(JDBCConnectionProvider connectionProvider, String tableName) {
       this.connectionProvider = connectionProvider;
       this.sqlProvider = connectionProvider.getSQLProvider();
-      this.tableName = tableName;
+      this.tableName = sqlProvider.applyCase(tableName);
    }
 
    public void start() throws SQLException {
@@ -59,10 +59,6 @@ public abstract class JDBCTableBase {
    protected abstract void prepareStatements();
 
    protected abstract void createSchema() throws SQLException;
-
-   protected final void createTable(String... schemaSqls) throws SQLException {
-      createTableIfNotExists(tableName, schemaSqls);
-   }
 
    public void destroy() throws Exception {
       if (logger.isTraceEnabled()) {
@@ -89,12 +85,12 @@ public abstract class JDBCTableBase {
       }
    }
 
-   private void createTableIfNotExists(String tableName, String... sqls) throws SQLException {
-      JDBCUtils.createTableIfNotExists(connectionProvider, tableName, sqls);
+   protected void createTable(String... sqls) throws SQLException {
+      JDBCUtils.createTable(connectionProvider, tableName, sqls);
    }
 
    public void setTableName(String tableName) {
-      this.tableName = tableName;
+      this.tableName = sqlProvider.applyCase(tableName);
    }
 
    public void setJdbcConnectionProvider(JDBCConnectionProvider connectionProvider) {
