@@ -98,7 +98,7 @@ public class JDBCSequentialFileFactoryTest extends ArtemisTestCase {
       dataSourceProperties.put("driverClassName", className);
       String tableName = "FILES";
       String jdbcDatasourceClass = ActiveMQDefaultConfiguration.getDefaultDataSourceClassName();
-      factory = new JDBCSequentialFileFactory(new JDBCConnectionProvider(JDBCDataSourceUtils.getDataSource(jdbcDatasourceClass, dataSourceProperties)), JDBCUtils.getSQLProvider(dataSourceProperties, tableName), executor, scheduledExecutorService, 100, (code, message, file) -> {
+      factory = new JDBCSequentialFileFactory(new JDBCConnectionProvider(JDBCDataSourceUtils.getDataSource(jdbcDatasourceClass, dataSourceProperties)), JDBCUtils.getSQLProvider(dataSourceProperties), tableName, executor, scheduledExecutorService, 100, (code, message, file) -> {
       });
       factory.start();
    }

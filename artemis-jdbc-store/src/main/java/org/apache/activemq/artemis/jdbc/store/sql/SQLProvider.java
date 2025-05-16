@@ -20,90 +20,89 @@ public interface SQLProvider {
 
    long getMaxBlobSize();
 
-   String[] getCreateJournalTableSQL();
+   String[] getCreateJournalTableSQL(String tableName);
 
-   String[] getCreateParallelDBMessages();
+   String[] getCreateParallelDBMessages(String tableName);
 
-   String getInsertJournalRecordsSQL();
+   String getInsertJournalRecordsSQL(String tableName);
 
-   String getSelectJournalRecordsSQL();
+   String getSelectJournalRecordsSQL(String tableName);
 
-   String getDeleteJournalRecordsSQL();
+   String getDeleteJournalRecordsSQL(String tableName);
 
-   String getDeleteJournalTxRecordsSQL();
+   String getDeleteJournalTxRecordsSQL(String tableName);
 
-   String getTableName();
+   String[] getCreateFileTableSQL(String tableName);
 
-   String[] getCreateFileTableSQL();
+   String getInsertFileSQL(String tableName);
 
-   String getInsertFileSQL();
+   String getSelectFileNamesByExtensionSQL(String tableName);
 
-   String getSelectFileNamesByExtensionSQL();
+   String getSelectFileByFileName(String tableName);
 
-   String getSelectFileByFileName();
+   String getReplaceLargeObjectSQL(String tableName);
 
-   String getReplaceLargeObjectSQL();
+   String getAppendToLargeObjectSQL(String tableName);
 
-   String getAppendToLargeObjectSQL();
+   String getReadLargeObjectSQL(String tableName);
 
-   String getReadLargeObjectSQL();
+   String getDeleteFileSQL(String tableName);
 
-   String getDeleteFileSQL();
+   String getUpdateFileNameByIdSQL(String tableName);
 
-   String getUpdateFileNameByIdSQL();
+   String getCopyFileRecordByIdSQL(String tableName);
 
-   String getCopyFileRecordByIdSQL();
+   String getDropFileTableSQL(String tableName);
 
-   String getDropFileTableSQL();
+   String getCloneFileRecordByIdSQL(String tableName);
 
-   String getCloneFileRecordByIdSQL();
+   String getCountJournalRecordsSQL(String tableName);
 
-   String getCountJournalRecordsSQL();
+   boolean closeConnectionOnShutdown(String tableName);
 
-   boolean closeConnectionOnShutdown();
+   String createNodeManagerStoreTableSQL(String tableName);
 
-   String createNodeManagerStoreTableSQL();
+   String createStateSQL(String tableName);
 
-   String createStateSQL();
+   String createNodeIdSQL(String tableName);
 
-   String createNodeIdSQL();
+   String createPrimaryLockSQL(String tableName);
 
-   String createPrimaryLockSQL();
+   String createBackupLockSQL(String tableName);
 
-   String createBackupLockSQL();
+   String tryAcquirePrimaryLockSQL(String tableName);
 
-   String tryAcquirePrimaryLockSQL();
+   String tryAcquireBackupLockSQL(String tableName);
 
-   String tryAcquireBackupLockSQL();
+   String tryReleasePrimaryLockSQL(String tableName);
 
-   String tryReleasePrimaryLockSQL();
+   String tryReleaseBackupLockSQL(String tableName);
 
-   String tryReleaseBackupLockSQL();
+   String isPrimaryLockedSQL(String tableName);
 
-   String isPrimaryLockedSQL();
+   String isBackupLockedSQL(String tableName);
 
-   String isBackupLockedSQL();
+   String renewPrimaryLockSQL(String tableName);
 
-   String renewPrimaryLockSQL();
+   String renewBackupLockSQL(String tableName);
 
-   String renewBackupLockSQL();
-
-   String currentTimestampSQL();
+   String currentTimestampSQL(String tableName);
 
    String currentTimestampTimeZoneId();
 
-   String writeStateSQL();
+   String writeStateSQL(String tableName);
 
-   String readStateSQL();
+   String readStateSQL(String tableName);
 
-   String writeNodeIdSQL();
+   String writeNodeIdSQL(String tableName);
 
-   String initializeNodeIdSQL();
+   String initializeNodeIdSQL(String tableName);
 
-   String readNodeIdSQL();
+   String readNodeIdSQL(String tableName);
+
+   String applyCase(String tableName);
 
    interface Factory {
-
-      SQLProvider create(String tableName);
+      SQLProvider create();
    }
 }

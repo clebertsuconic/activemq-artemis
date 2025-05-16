@@ -60,6 +60,7 @@ public class JdbcLeaseLockTest extends ServerTestBase {
    private JdbcSharedStateManager jdbcSharedStateManager;
    private DatabaseStorageConfiguration dbConf;
    private SQLProvider sqlProvider;
+   private String tableName;
 
    @Parameters(name = "create_tables_prior_test={0}")
    public static List<Object[]> data() {
@@ -84,6 +85,7 @@ public class JdbcLeaseLockTest extends ServerTestBase {
                UUID.randomUUID().toString(),
                jdbcSharedStateManager.getJdbcConnectionProvider(),
                sqlProvider,
+               tableName,
                acquireMillis,
                dbConf.getJdbcAllowedTimeDiff());
       } catch (Exception e) {
@@ -98,6 +100,7 @@ public class JdbcLeaseLockTest extends ServerTestBase {
                UUID.randomUUID().toString(),
                jdbcSharedStateManager.getJdbcConnectionProvider(),
                sqlProvider,
+               tableName,
                acquireMillis,
                queryTimeoutMillis,
                dbConf.getJdbcAllowedTimeDiff());
@@ -110,14 +113,16 @@ public class JdbcLeaseLockTest extends ServerTestBase {
    public void createLockTable() throws Exception {
       dbConf = createDefaultDatabaseStorageConfiguration();
       sqlProvider = JDBCUtils.getSQLProvider(
-         dbConf.getJdbcDriverClassName(),
-         dbConf.getNodeManagerStoreTableName());
+         dbConf.getJdbcDriverClassName());
+
+      this.tableName = dbConf.getMessageTableName();
 
       if (withExistingTable) {
          TestJDBCTableBase testDriver = TestJDBCTableBase
             .usingDbConf(
                dbConf,
-               sqlProvider);
+               sqlProvider,
+               tableName);
          testDriver.start();
          testDriver.stop();
       }
@@ -128,7 +133,8 @@ public class JdbcLeaseLockTest extends ServerTestBase {
             dbConf.getJdbcLockExpirationMillis(),
             dbConf.getJdbcAllowedTimeDiff(),
             dbConf.getConnectionProvider(),
-            sqlProvider);
+            sqlProvider,
+            tableName);
    }
 
    @AfterEach
@@ -411,9 +417,9 @@ public class JdbcLeaseLockTest extends ServerTestBase {
 
       AtomicInteger diff = new AtomicInteger(0);
 
-      JdbcLeaseLock hackLock = new JdbcLeaseLock("SomeID", jdbcSharedStateManager.getJdbcConnectionProvider(), sqlProvider.tryAcquirePrimaryLockSQL(),
-                                                 sqlProvider.tryReleasePrimaryLockSQL(), sqlProvider.renewPrimaryLockSQL(),
-                                                 sqlProvider.isPrimaryLockedSQL(), sqlProvider.currentTimestampSQL(),
+      JdbcLeaseLock hackLock = new JdbcLeaseLock("SomeID", jdbcSharedStateManager.getJdbcConnectionProvider(), sqlProvider.tryAcquirePrimaryLockSQL(tableName),
+                                                 sqlProvider.tryReleasePrimaryLockSQL(tableName), sqlProvider.renewPrimaryLockSQL(tableName),
+                                                 sqlProvider.isPrimaryLockedSQL(tableName), sqlProvider.currentTimestampSQL(tableName),
                                                  sqlProvider.currentTimestampTimeZoneId(), -1, 1000,
                                                  "PRIMARY", 1000) {
          @Override

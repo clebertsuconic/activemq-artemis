@@ -14,25 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.activemq.artemis.jdbc.store.sql;
 
-import java.util.Properties;
+package org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements;
 
-import static org.apache.activemq.artemis.jdbc.store.sql.PropertySQLProvider.Factory.SQLDialect.ORACLE;
+import java.sql.Connection;
 
-class Oracle12CSQLProvider extends PropertySQLProvider {
+import org.apache.activemq.artemis.jdbc.parallelDB.BatchableStatement;
 
-   Oracle12CSQLProvider(Properties sqlProperties) {
-      super(ORACLE, sqlProperties);
+public class MessageStatement extends BatchableStatement {
+
+   public MessageStatement(Connection connection, String statement, int expectedSize) throws Exception {
+      super(connection, statement, expectedSize);
    }
-
 
    @Override
-   public String applyCase(String tableName) {
-      if (tableName.length() > 30) {
-         throw new RuntimeException("Oracle only supports table names up to 30 characters");
-      }
-      return super.applyCase(tableName);
-   }
+   protected void doOne(Object element) {
 
+   }
 }

@@ -74,7 +74,8 @@ public final class JdbcNodeManager extends NodeManager {
                              configuration.getJdbcLockAcquisitionTimeoutMillis(),
                              configuration.getJdbcAllowedTimeDiff(),
                              configuration.getConnectionProvider(),
-                             sqlProviderFactory.create(configuration.getNodeManagerStoreTableName()),
+                             sqlProviderFactory.create(),
+                             configuration.getNodeManagerStoreTableName(),
                              scheduledExecutorService,
                              executorFactory);
    }
@@ -86,13 +87,14 @@ public final class JdbcNodeManager extends NodeManager {
                                                   long allowedTimeDiff,
                                                   JDBCConnectionProvider connectionProvider,
                                                   SQLProvider provider,
+                                                  String tableName,
                                                   ScheduledExecutorService scheduledExecutorService,
                                                   ExecutorFactory executorFactory) {
       return new JdbcNodeManager(() -> JdbcSharedStateManager.usingConnectionProvider(brokerId, lockExpirationMillis,
                                                                                       lockRenewPeriodMillis,
                                                                                       allowedTimeDiff,
                                                                                       connectionProvider,
-                                                                                      provider),
+                                                                                      provider, tableName),
          lockExpirationMillis,
          lockRenewPeriodMillis,
          lockAcquisitionTimeoutMillis,

@@ -33,7 +33,7 @@ public abstract class BatchableStatement<E> {
    List<E> pendingList;
    List<IOCallback> callbacks;
 
-   public void BatchableStatement(Connection connection, String statement, int expectedSize) throws Exception {
+   public BatchableStatement(Connection connection, String statement, int expectedSize) throws Exception {
       this.connection = connection;
       this.connection.prepareStatement(statement);
       this.pendingList = new ArrayList<>(expectedSize);

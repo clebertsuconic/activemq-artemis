@@ -41,18 +41,18 @@ public class JDBCUtils {
       return new PropertySQLProvider.Factory(dialect);
    }
 
-   public static SQLProvider getSQLProvider(String driverClass, String tableName) {
+   public static SQLProvider getSQLProvider(String driverClass) {
       PropertySQLProvider.Factory.SQLDialect dialect = PropertySQLProvider.Factory.identifyDialect(driverClass);
-      logger.trace("getSQLProvider Returning SQL provider for dialect {} for driver::{}, tableName::{}", dialect, driverClass, tableName);
+      logger.trace("getSQLProvider Returning SQL provider for dialect {} for driver::{}", dialect, driverClass);
       PropertySQLProvider.Factory factory = new PropertySQLProvider.Factory(dialect);
-      return factory.create(tableName);
+      return factory.create();
    }
 
-   public static SQLProvider getSQLProvider(Map<String, Object> dataSourceProperties, String tableName) {
+   public static SQLProvider getSQLProvider(Map<String, Object> dataSourceProperties) {
       PropertySQLProvider.Factory.SQLDialect dialect = PropertySQLProvider.Factory.investigateDialect(dataSourceProperties);
-      logger.trace("getSQLProvider Returning SQL provider for dialect {}, tableName::{}", dialect, tableName);
+      logger.trace("getSQLProvider Returning SQL provider for dialect {}", dialect);
       PropertySQLProvider.Factory factory = new PropertySQLProvider.Factory(dialect);
-      return factory.create(tableName);
+      return factory.create();
    }
 
    /**
@@ -139,7 +139,7 @@ public class JDBCUtils {
             if (tableExists) {
                logger.trace("Validating if the existing table {} is initialized or not", tableName);
                try (Statement statement = connection.createStatement();
-                    ResultSet cntRs = statement.executeQuery(sqlProvider.getCountJournalRecordsSQL())) {
+                    ResultSet cntRs = statement.executeQuery(sqlProvider.getCountJournalRecordsSQL(tableName))) {
                   logger.trace("Validation of the existing table {} initialization is started", tableName);
                   int rows;
                   if (cntRs.next() && (rows = cntRs.getInt(1)) > 0) {
@@ -169,7 +169,7 @@ public class JDBCUtils {
                   //some DBMS just return stale information about table existence
                   //and can fail on later attempts to access them
                   if (logger.isTraceEnabled()) {
-                     logger.trace(JDBCUtils.appendSQLExceptionDetails(new StringBuilder("Can't verify the initialization of table ").append(tableName).append(" due to:"), e, sqlProvider.getCountJournalRecordsSQL()).toString());
+                     logger.trace(JDBCUtils.appendSQLExceptionDetails(new StringBuilder("Can't verify the initialization of table ").append(tableName).append(" due to:"), e, sqlProvider.getCountJournalRecordsSQL(tableName)).toString());
                   }
                   try {
                      connection.rollback();

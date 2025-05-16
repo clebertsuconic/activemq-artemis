@@ -28,16 +28,17 @@ import org.apache.activemq.artemis.jdbc.store.sql.SQLProvider;
 public class TestJDBCTableBase extends JDBCTableBase {
 
    public static TestJDBCTableBase usingDbConf(DatabaseStorageConfiguration dbConf,
-                                               SQLProvider provider) {
-      return usingDbConf(dbConf, provider, false);
+                                               SQLProvider sqlProvider, String tableName) {
+      return usingDbConf(dbConf, sqlProvider, tableName, false);
    }
 
    public static TestJDBCTableBase usingDbConf(DatabaseStorageConfiguration dbConf,
                                                SQLProvider provider,
+                                               String tableName,
                                                boolean initialize) {
 
       TestJDBCTableBase driver = new TestJDBCTableBase(initialize);
-      driver.setSqlProvider(provider);
+      driver.setSqlProvider(provider, tableName);
       driver.setJdbcConnectionProvider(dbConf.getConnectionProvider());
       return driver;
    }
@@ -55,12 +56,12 @@ public class TestJDBCTableBase extends JDBCTableBase {
    @Override
    protected void createSchema() {
       try (Connection connection = getJdbcConnectionProvider().getConnection()) {
-         connection.createStatement().execute(sqlProvider.createNodeManagerStoreTableSQL());
+         connection.createStatement().execute(sqlProvider.createNodeManagerStoreTableSQL(tableName));
          if (initialize) {
-            connection.createStatement().execute(sqlProvider.createNodeIdSQL());
-            connection.createStatement().execute(sqlProvider.createStateSQL());
-            connection.createStatement().execute(sqlProvider.createPrimaryLockSQL());
-            connection.createStatement().execute(sqlProvider.createBackupLockSQL());
+            connection.createStatement().execute(sqlProvider.createNodeIdSQL(tableName));
+            connection.createStatement().execute(sqlProvider.createStateSQL(tableName));
+            connection.createStatement().execute(sqlProvider.createPrimaryLockSQL(tableName));
+            connection.createStatement().execute(sqlProvider.createBackupLockSQL(tableName));
          }
       } catch (SQLException e) {
          fail(e.getMessage());

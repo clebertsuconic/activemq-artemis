@@ -82,6 +82,7 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
 
    DatabaseStorageConfiguration databaseConfiguration;
    JDBCConnectionProvider connectionProvider;
+
    public ParallelDBStorageManager(CriticalAnalyzer analyzer,
                                    int numberOfPaths,
                                    ExecutorFactory executorFactory,
@@ -99,8 +100,9 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
 
    private void initSchema(JDBCConnectionProvider connectionProvider) throws Exception {
       PropertySQLProvider.Factory sqlProviderFactory = new PropertySQLProvider.Factory(connectionProvider);
-      SQLProvider pdbMessagesSqlProvider = sqlProviderFactory.create(databaseConfiguration.getParallelDBMessages());
-      JDBCUtils.createTableIfNotExists(connectionProvider, pdbMessagesSqlProvider, databaseConfiguration.getParallelDBMessages(), pdbMessagesSqlProvider.getCreateParallelDBMessages());
+      String messagesTableName = databaseConfiguration.getParallelDBMessages();
+      SQLProvider pdbMessagesSqlProvider = sqlProviderFactory.create();
+      JDBCUtils.createTableIfNotExists(connectionProvider, pdbMessagesSqlProvider, databaseConfiguration.getParallelDBMessages(), pdbMessagesSqlProvider.getCreateParallelDBMessages(messagesTableName));
       try (Connection connection = connectionProvider.getConnection()) {
       }
    }

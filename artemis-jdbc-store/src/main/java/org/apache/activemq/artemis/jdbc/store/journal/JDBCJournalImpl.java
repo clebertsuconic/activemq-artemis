@@ -111,11 +111,12 @@ public class JDBCJournalImpl extends JDBCTableBase implements Journal {
 
    public JDBCJournalImpl(JDBCConnectionProvider connectionProvider,
                           SQLProvider provider,
+                          String tableName,
                           ScheduledExecutorService scheduledExecutorService,
                           Executor completeExecutor,
                           IOCriticalErrorListener criticalIOErrorListener,
                           long syncDelay) {
-      super(connectionProvider, provider);
+      super(connectionProvider, provider, tableName);
       records = new ArrayList<>();
       this.scheduledExecutorService = scheduledExecutorService;
       this.completeExecutor = completeExecutor;
@@ -159,17 +160,17 @@ public class JDBCJournalImpl extends JDBCTableBase implements Journal {
 
    @Override
    protected void createSchema() throws SQLException {
-      createTable(sqlProvider.getCreateJournalTableSQL());
+      createTable(sqlProvider.getCreateJournalTableSQL(tableName));
    }
 
    @Override
    protected void prepareStatements() {
       logger.trace("preparing statements");
-      insertJournalRecords = sqlProvider.getInsertJournalRecordsSQL();
-      selectJournalRecords = sqlProvider.getSelectJournalRecordsSQL();
-      countJournalRecords = sqlProvider.getCountJournalRecordsSQL();
-      deleteJournalRecords = sqlProvider.getDeleteJournalRecordsSQL();
-      deleteJournalTxRecords = sqlProvider.getDeleteJournalTxRecordsSQL();
+      insertJournalRecords = sqlProvider.getInsertJournalRecordsSQL(tableName);
+      selectJournalRecords = sqlProvider.getSelectJournalRecordsSQL(tableName);
+      countJournalRecords = sqlProvider.getCountJournalRecordsSQL(tableName);
+      deleteJournalRecords = sqlProvider.getDeleteJournalRecordsSQL(tableName);
+      deleteJournalTxRecords = sqlProvider.getDeleteJournalTxRecordsSQL(tableName);
    }
 
    @Override
