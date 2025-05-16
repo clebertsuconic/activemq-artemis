@@ -19,16 +19,25 @@ package org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements;
 
 import java.sql.Connection;
 
+import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
+import org.apache.activemq.artemis.api.core.ActiveMQBuffers;
+import org.apache.activemq.artemis.api.core.Message;
+import org.apache.activemq.artemis.core.persistence.Persister;
 import org.apache.activemq.artemis.jdbc.parallelDB.BatchableStatement;
+import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
+import org.apache.activemq.artemis.utils.ActiveMQBufferInputStream;
 
-public class MessageStatement extends BatchableStatement {
+public class MessageStatement extends BatchableStatement<Message> {
 
-   public MessageStatement(Connection connection, String statement, int expectedSize) throws Exception {
-      super(connection, statement, expectedSize);
+   public MessageStatement(Connection connection, JDBCConnectionProvider connectionProvider, String tableName, int expectedSize) throws Exception {
+      super(connectionProvider, connection, connectionProvider.getSQLProvider().getInsertPDBMessages(tableName), expectedSize);
    }
 
    @Override
-   protected void doOne(Object element) {
-
+   protected void doOne(Message message) throws Exception {
+      ActiveMQBuffer buffer = getPersistedBuffer(message.getPersister(), message);
+      preparedStatement.setLong(1, message.getMessageID());
+      preparedStatement.setBlob(2, blobInputStream(buffer));
    }
+
 }
