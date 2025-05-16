@@ -102,6 +102,8 @@ public interface SQLProvider {
 
    String applyCase(String tableName);
 
+   String getInsertPDBMessages(String tableName);
+
    interface Factory {
       SQLProvider create();
    }

@@ -113,8 +113,8 @@ public class JDBCUtils {
    }
 
 
-
-   public static void createTableIfNotExists(JDBCConnectionProvider connectionProvider, String tableName, String... sqls) throws SQLException {
+   /** It will create a table accordingly to the SQLProvider on the connectionProvider, after verifying if it exists. */
+   public static void createTable(JDBCConnectionProvider connectionProvider, String tableName, String... sqls) throws SQLException {
       logger.trace("Validating if table {} didn't exist before creating", tableName);
       try (Connection connection = connectionProvider.getConnection()) {
          try {
