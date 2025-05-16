@@ -110,13 +110,12 @@ public class JDBCJournalImpl extends JDBCTableBase implements Journal {
    private final IOCriticalErrorListener criticalIOErrorListener;
 
    public JDBCJournalImpl(JDBCConnectionProvider connectionProvider,
-                          SQLProvider provider,
                           String tableName,
                           ScheduledExecutorService scheduledExecutorService,
                           Executor completeExecutor,
                           IOCriticalErrorListener criticalIOErrorListener,
                           long syncDelay) {
-      super(connectionProvider, provider, tableName);
+      super(connectionProvider, tableName);
       records = new ArrayList<>();
       this.scheduledExecutorService = scheduledExecutorService;
       this.completeExecutor = completeExecutor;

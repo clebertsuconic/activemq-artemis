@@ -114,7 +114,7 @@ public class JDBCUtils {
 
 
 
-   public static void createTableIfNotExists(JDBCConnectionProvider connectionProvider, SQLProvider sqlProvider, String tableName, String... sqls) throws SQLException {
+   public static void createTableIfNotExists(JDBCConnectionProvider connectionProvider, String tableName, String... sqls) throws SQLException {
       logger.trace("Validating if table {} didn't exist before creating", tableName);
       try (Connection connection = connectionProvider.getConnection()) {
          try {
@@ -139,7 +139,7 @@ public class JDBCUtils {
             if (tableExists) {
                logger.trace("Validating if the existing table {} is initialized or not", tableName);
                try (Statement statement = connection.createStatement();
-                    ResultSet cntRs = statement.executeQuery(sqlProvider.getCountJournalRecordsSQL(tableName))) {
+                    ResultSet cntRs = statement.executeQuery(connectionProvider.getSQLProvider().getCountJournalRecordsSQL(tableName))) {
                   logger.trace("Validation of the existing table {} initialization is started", tableName);
                   int rows;
                   if (cntRs.next() && (rows = cntRs.getInt(1)) > 0) {
@@ -169,7 +169,7 @@ public class JDBCUtils {
                   //some DBMS just return stale information about table existence
                   //and can fail on later attempts to access them
                   if (logger.isTraceEnabled()) {
-                     logger.trace(JDBCUtils.appendSQLExceptionDetails(new StringBuilder("Can't verify the initialization of table ").append(tableName).append(" due to:"), e, sqlProvider.getCountJournalRecordsSQL(tableName)).toString());
+                     logger.trace(JDBCUtils.appendSQLExceptionDetails(new StringBuilder("Can't verify the initialization of table ").append(tableName).append(" due to:"), e, connectionProvider.getSQLProvider().getCountJournalRecordsSQL(tableName)).toString());
                   }
                   try {
                      connection.rollback();
