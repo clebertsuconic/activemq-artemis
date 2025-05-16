@@ -38,7 +38,7 @@ public class TestJDBCTableBase extends JDBCTableBase {
                                                boolean initialize) {
 
       TestJDBCTableBase driver = new TestJDBCTableBase(initialize);
-      driver.setSqlProvider(provider, tableName);
+      driver.setTableName(tableName);
       driver.setJdbcConnectionProvider(dbConf.getConnectionProvider());
       return driver;
    }
