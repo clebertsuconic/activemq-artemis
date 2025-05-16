@@ -55,8 +55,8 @@ public class JDBCSequentialFileFactoryBase extends JDBCTableBase {
       super();
    }
 
-   JDBCSequentialFileFactoryBase(JDBCConnectionProvider connectionProvider, SQLProvider provider, String tableName) {
-      super(connectionProvider, provider, tableName);
+   JDBCSequentialFileFactoryBase(JDBCConnectionProvider connectionProvider, String tableName) {
+      super(connectionProvider, tableName);
    }
 
    @Override

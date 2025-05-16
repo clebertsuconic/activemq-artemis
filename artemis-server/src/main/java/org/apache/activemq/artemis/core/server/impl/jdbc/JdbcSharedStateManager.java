@@ -69,7 +69,7 @@ final class JdbcSharedStateManager extends JDBCTableBase implements SharedStateM
       final JdbcSharedStateManager sharedStateManager = new JdbcSharedStateManager(holderId, locksExpirationMillis,
                                                                                    queryTimeoutMillis, allowedTimeDiff);
       sharedStateManager.setJdbcConnectionProvider(connectionProvider);
-      sharedStateManager.setSqlProvider(provider, tableName);
+      sharedStateManager.setTableName(tableName);
       try {
          sharedStateManager.start();
          return sharedStateManager;

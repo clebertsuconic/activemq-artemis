@@ -80,6 +80,7 @@ import org.apache.activemq.artemis.utils.critical.CriticalAnalyzer;
 
 public class ParallelDBStorageManager extends AbstractStorageManager {
 
+   SQLProvider sqlProvider;
    DatabaseStorageConfiguration databaseConfiguration;
    JDBCConnectionProvider connectionProvider;
 
@@ -101,8 +102,9 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
    private void initSchema(JDBCConnectionProvider connectionProvider) throws Exception {
       PropertySQLProvider.Factory sqlProviderFactory = new PropertySQLProvider.Factory(connectionProvider);
       String messagesTableName = databaseConfiguration.getParallelDBMessages();
+      this.sqlProvider = sqlProviderFactory.create();
       SQLProvider pdbMessagesSqlProvider = sqlProviderFactory.create();
-      JDBCUtils.createTableIfNotExists(connectionProvider, pdbMessagesSqlProvider, databaseConfiguration.getParallelDBMessages(), pdbMessagesSqlProvider.getCreateParallelDBMessages(messagesTableName));
+      JDBCUtils.createTableIfNotExists(connectionProvider, databaseConfiguration.getParallelDBMessages(), pdbMessagesSqlProvider.getCreateParallelDBMessages(messagesTableName));
       try (Connection connection = connectionProvider.getConnection()) {
       }
    }

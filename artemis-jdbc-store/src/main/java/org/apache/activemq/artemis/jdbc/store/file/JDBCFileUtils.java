@@ -28,18 +28,18 @@ import static org.apache.activemq.artemis.jdbc.store.sql.PropertySQLProvider.Fac
 
 class JDBCFileUtils {
 
-   static JDBCSequentialFileFactoryBase getDBFileDriver(JDBCConnectionProvider connectionProvider, SQLProvider provider, String tableName) throws SQLException {
+   static JDBCSequentialFileFactoryBase getDBFileDriver(JDBCConnectionProvider connectionProvider, String tableName) throws SQLException {
       final JDBCSequentialFileFactoryBase dbDriver;
       final PropertySQLProvider.Factory.SQLDialect sqlDialect;
       try (Connection connection = connectionProvider.getConnection()) {
          sqlDialect = PropertySQLProvider.Factory.investigateDialect(connection);
       }
       if (POSTGRESQL.equals(sqlDialect)) {
-         dbDriver = new PostgresSequentialSequentialFileBase(connectionProvider, provider, tableName);
+         dbDriver = new PostgresSequentialSequentialFileBase(connectionProvider, tableName);
       } else if (DB2.equals(sqlDialect)) {
-         dbDriver = new Db2SequentialFileBase(connectionProvider, provider, tableName);
+         dbDriver = new Db2SequentialFileBase(connectionProvider, tableName);
       } else {
-         dbDriver = new JDBCSequentialFileFactoryBase(connectionProvider, provider, tableName);
+         dbDriver = new JDBCSequentialFileFactoryBase(connectionProvider, tableName);
       }
       return dbDriver;
    }

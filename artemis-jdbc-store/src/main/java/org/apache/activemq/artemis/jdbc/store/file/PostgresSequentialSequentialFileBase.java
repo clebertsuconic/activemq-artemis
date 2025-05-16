@@ -36,8 +36,8 @@ public final class PostgresSequentialSequentialFileBase extends JDBCSequentialFi
       super();
    }
 
-   public PostgresSequentialSequentialFileBase(JDBCConnectionProvider connectionProvider, SQLProvider sqlProvider, String tableName) {
-      super(connectionProvider, sqlProvider, tableName);
+   public PostgresSequentialSequentialFileBase(JDBCConnectionProvider connectionProvider, String tableName) {
+      super(connectionProvider, tableName);
    }
 
    @Override
