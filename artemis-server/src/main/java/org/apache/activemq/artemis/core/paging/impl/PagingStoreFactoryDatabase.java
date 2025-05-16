@@ -120,7 +120,7 @@ public class PagingStoreFactoryDatabase implements PagingStoreFactory {
          if (sqlProviderFactory == null) {
             sqlProviderFactory = new PropertySQLProvider.Factory(dbConf.getConnectionProvider());
          }
-         pagingFactoryFileFactory = new JDBCSequentialFileFactory(dbConf.getConnectionProvider(), sqlProviderFactory.create(), pageStoreTableNamePrefix, executorFactory.getExecutor(), scheduledExecutor, dbConf.getJdbcJournalSyncPeriodMillis(), criticalErrorListener);
+         pagingFactoryFileFactory = new JDBCSequentialFileFactory(dbConf.getConnectionProvider(), pageStoreTableNamePrefix, executorFactory.getExecutor(), scheduledExecutor, dbConf.getJdbcJournalSyncPeriodMillis(), criticalErrorListener);
          pagingFactoryFileFactory.start();
          started = true;
       }
@@ -254,7 +254,7 @@ public class PagingStoreFactoryDatabase implements PagingStoreFactory {
          sqlProviderFactory = new PropertySQLProvider.Factory(dbConf.getConnectionProvider());
       }
       sqlProvider = sqlProviderFactory.create();
-      final JDBCSequentialFileFactory fileFactory = new JDBCSequentialFileFactory(dbConf.getConnectionProvider(), sqlProvider, getTableNameForGUID(directoryName), executorFactory.getExecutor(), scheduledExecutor, dbConf.getJdbcJournalSyncPeriodMillis(), criticalErrorListener);
+      final JDBCSequentialFileFactory fileFactory = new JDBCSequentialFileFactory(dbConf.getConnectionProvider(), getTableNameForGUID(directoryName), executorFactory.getExecutor(), scheduledExecutor, dbConf.getJdbcJournalSyncPeriodMillis(), criticalErrorListener);
       factoryToTableName.put(fileFactory, directoryName);
       return fileFactory;
    }
