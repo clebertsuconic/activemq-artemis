@@ -40,7 +40,7 @@ public abstract class BatchableStatement<E> {
    List<E> pendingList;
    List<IOCallback> callbacks;
 
-   public BatchableStatement(JDBCConnectionProvider connectionProvider, Connection connection, String statement, int expectedSize) throws Exception {
+   public BatchableStatement(JDBCConnectionProvider connectionProvider, Connection connection, String statement, int expectedSize) throws SQLException {
       this.connectionProvider = connectionProvider;
       this.connection = connection;
       this.connection.prepareStatement(statement);
@@ -50,7 +50,7 @@ public abstract class BatchableStatement<E> {
       init();
    }
 
-   protected void init() throws Exception {
+   protected void init() throws SQLException {
       this.preparedStatement = connection.prepareStatement(statement);
    }
 
@@ -59,18 +59,25 @@ public abstract class BatchableStatement<E> {
       callbacks.add(callback);
    }
 
-   public void flushPending() throws Exception {
+   public void flushPending(boolean commit) throws SQLException {
       pendingList.forEach(this::flushOne);
       try {
          preparedStatement.executeBatch();
       } catch (SQLException e) {
          callbacks.forEach(c -> c.onError(-1, e.getMessage()));
-         connection.rollback();
+         if (commit) {
+            try {
+               connection.rollback();
+            } catch (Throwable ignored) {
+            }
+         }
          pendingList.clear();
          callbacks.clear();
          throw e;
       }
-      connection.commit();
+      if (commit) {
+         connection.commit();
+      }
       callbacks.forEach(this::okCallback);
 
       pendingList.clear();
