@@ -76,6 +76,11 @@ public class DatabaseStorageConfiguration implements StoreConfiguration {
       return "ART_MESSAGES";
    }
 
+   // TODO: Provide configuration
+   public String getParallelDBReferences() {
+      return "ART_REFERENCES";
+   }
+
    @Override
    public StoreType getStoreType() {
       return StoreType.DATABASE;

@@ -60,6 +60,7 @@ public abstract class BatchableStatement<E> {
    }
 
    public void flushPending(boolean commit) throws SQLException {
+      if (pendingList.isEmpty()) return;
       pendingList.forEach(this::flushOne);
       try {
          preparedStatement.executeBatch();

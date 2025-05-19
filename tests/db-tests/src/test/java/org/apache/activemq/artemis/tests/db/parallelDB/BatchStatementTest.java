@@ -38,7 +38,10 @@ import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContextImpl;
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.ParallelDBStorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.MessageStatement;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.ReferencesStatement;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.ReferencesTXStatement;
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.StatementsManager;
+import org.apache.activemq.artemis.core.server.MessageReference;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 import org.apache.activemq.artemis.tests.db.common.Database;
 import org.apache.activemq.artemis.tests.db.common.ParameterDBTestBase;
@@ -47,7 +50,6 @@ import org.apache.activemq.artemis.tests.extensions.parameterized.Parameters;
 import org.apache.activemq.artemis.utils.ExecutorFactory;
 import org.apache.activemq.artemis.utils.actors.OrderedExecutorFactory;
 import org.apache.activemq.artemis.utils.critical.CriticalAnalyzer;
-import org.apache.qpid.proton.reactor.impl.IO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestTemplate;
 import org.junit.jupiter.api.condition.DisabledIf;
@@ -120,8 +122,103 @@ public class BatchStatementTest extends ParameterDBTestBase {
       criticalAnalyzer = Mockito.mock(CriticalAnalyzer.class);
    }
 
+
    @TestTemplate
-   public void testStoreMessageOnBatchableStatement() throws Exception {
+   public void testReferencesDirectly() throws Exception {
+      ParallelDBStorageManager parallelDBStorageManager = new ParallelDBStorageManager(configuration,
+                                                                                       criticalAnalyzer,
+                                                                                       executorFactory,
+                                                                                       executorFactory,
+                                                                                       scheduledExecutorService);
+      parallelDBStorageManager.start();
+
+      JDBCConnectionProvider connectionProvider = storageConfiguration.getConnectionProvider();
+
+      int nrecords = 100;
+
+      CountDownLatch latch = new CountDownLatch(nrecords);
+
+      IOCallback ioCallback = new IOCallback() {
+         @Override
+         public void done() {
+            latch.countDown();
+         }
+
+         @Override
+         public void onError(int errorCode, String errorMessage) {
+
+         }
+      };
+
+      try (Connection connection = connectionProvider.getConnection()) {
+         connection.setAutoCommit(false);
+         ReferencesStatement referencesStatement = new ReferencesStatement(connection, connectionProvider, storageConfiguration.getParallelDBReferences(), 100);
+         for (int i = 1; i <= nrecords; i++) {
+            long messageID = i;
+            MessageReference reference = mockReference(messageID);
+            referencesStatement.addData(reference, ioCallback);
+         }
+         referencesStatement.flushPending(true);
+
+         assertEquals(nrecords, selectCount(connection, "ART_REFERENCES"));
+      }
+
+      assertTrue(latch.await(10, TimeUnit.SECONDS));
+   }
+
+
+   @TestTemplate
+   public void testReferencesDirectlyTX() throws Exception {
+      ParallelDBStorageManager parallelDBStorageManager = new ParallelDBStorageManager(configuration,
+                                                                                       criticalAnalyzer,
+                                                                                       executorFactory,
+                                                                                       executorFactory,
+                                                                                       scheduledExecutorService);
+      parallelDBStorageManager.start();
+
+      JDBCConnectionProvider connectionProvider = storageConfiguration.getConnectionProvider();
+
+      int nrecords = 100;
+
+      CountDownLatch latch = new CountDownLatch(nrecords);
+
+      IOCallback ioCallback = new IOCallback() {
+         @Override
+         public void done() {
+            latch.countDown();
+         }
+
+         @Override
+         public void onError(int errorCode, String errorMessage) {
+
+         }
+      };
+
+      try (Connection connection = connectionProvider.getConnection()) {
+         connection.setAutoCommit(false);
+         ReferencesTXStatement referencesStatement = new ReferencesTXStatement(connection, connectionProvider, storageConfiguration.getParallelDBReferences(), 100);
+         for (int i = 1; i <= nrecords; i++) {
+            long messageID = i;
+            MessageReference reference = mockReference(messageID);
+            referencesStatement.addData(reference, 33, ioCallback);
+         }
+         referencesStatement.flushPending(true);
+
+         assertEquals(nrecords, selectCount(connection, "ART_REFERENCES"));
+      }
+
+      assertTrue(latch.await(10, TimeUnit.SECONDS));
+   }
+
+   private static MessageReference mockReference(long messageID) {
+      MessageReference reference = Mockito.mock(MessageReference.class);
+      Mockito.doAnswer((a) -> messageID).when(reference).getMessageID();
+      Mockito.doAnswer(a -> 1L).when(reference).getQueueID();
+      return reference;
+   }
+
+   @TestTemplate
+   public void testMessagesDirectly() throws Exception {
       ParallelDBStorageManager parallelDBStorageManager = new ParallelDBStorageManager(configuration,
                                                                                        criticalAnalyzer,
                                                                                        executorFactory,
@@ -165,7 +262,7 @@ public class BatchStatementTest extends ParameterDBTestBase {
    }
 
    @TestTemplate
-   public void testStatementManager() throws Exception {
+   public void testMessagesStorageManager() throws Exception {
       ParallelDBStorageManager parallelDBStorageManager = new ParallelDBStorageManager(configuration,
                                                                                        criticalAnalyzer,
                                                                                        executorFactory,
@@ -214,6 +311,62 @@ public class BatchStatementTest extends ParameterDBTestBase {
 
       assertEquals(nrecords, selectCount(connection, storageConfiguration.getParallelDBMessages()));
    }
+
+
+   @TestTemplate
+   public void testMessagesReferencesStorageManager() throws Exception {
+      ParallelDBStorageManager parallelDBStorageManager = new ParallelDBStorageManager(configuration,
+                                                                                       criticalAnalyzer,
+                                                                                       executorFactory,
+                                                                                       executorFactory,
+                                                                                       scheduledExecutorService);
+      parallelDBStorageManager.start();
+
+      JDBCConnectionProvider connectionProvider = storageConfiguration.getConnectionProvider();
+
+      Connection connection = connectionProvider.getConnection();
+      runAfter(connection::close);
+
+      int nrecords = 100;
+
+      CountDownLatch latchDone = new CountDownLatch(1);
+
+      StatementsManager statementsManager = new StatementsManager(storageConfiguration, connectionProvider, 100);
+
+      OperationContext context = parallelDBStorageManager.getContext();
+      runAfter(OperationContextImpl::clearContext);
+
+      for (int i = 1; i <= nrecords; i++) {
+         MessageReference reference = mockReference(i);
+         if (i % 2 == 0) {
+            statementsManager.storeReference(reference, OperationContextImpl.getContext());
+         } else {
+            statementsManager.storeReferenceTX(reference, i, OperationContextImpl.getContext());
+         }
+      }
+
+      context.executeOnCompletion(new IOCallback() {
+         @Override
+         public void done() {
+            latchDone.countDown();
+         }
+
+         @Override
+         public void onError(int errorCode, String errorMessage) {
+
+         }
+      });
+
+      assertEquals(1, latchDone.getCount());
+
+      statementsManager.flush();
+
+      assertTrue(latchDone.await(10, TimeUnit.SECONDS));
+
+      assertEquals(nrecords, selectCount(connection, storageConfiguration.getParallelDBReferences()));
+   }
+
+
 
    @TestTemplate
    public void testTreatExceptionOnError() throws Exception {
