@@ -18,6 +18,7 @@
 package org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements;
 
 import java.sql.Connection;
+import java.sql.SQLException;
 
 import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
 import org.apache.activemq.artemis.api.core.ActiveMQBuffers;
@@ -29,7 +30,7 @@ import org.apache.activemq.artemis.utils.ActiveMQBufferInputStream;
 
 public class MessageStatement extends BatchableStatement<Message> {
 
-   public MessageStatement(Connection connection, JDBCConnectionProvider connectionProvider, String tableName, int expectedSize) throws Exception {
+   public MessageStatement(Connection connection, JDBCConnectionProvider connectionProvider, String tableName, int expectedSize) throws SQLException {
       super(connectionProvider, connection, connectionProvider.getSQLProvider().getInsertPDBMessages(tableName), expectedSize);
    }
 

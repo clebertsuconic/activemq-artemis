@@ -20,7 +20,6 @@ package org.apache.activemq.artemis.core.persistence.impl.parallelDB;
 import javax.transaction.xa.Xid;
 import java.nio.ByteBuffer;
 import java.sql.Connection;
-import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -59,6 +58,7 @@ import org.apache.activemq.artemis.core.persistence.config.PersistedSecuritySett
 import org.apache.activemq.artemis.core.persistence.config.PersistedUser;
 import org.apache.activemq.artemis.core.persistence.impl.AbstractStorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.PageCountPending;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.StatementsManager;
 import org.apache.activemq.artemis.core.postoffice.Binding;
 import org.apache.activemq.artemis.core.postoffice.PostOffice;
 import org.apache.activemq.artemis.core.replication.ReplicationManager;
@@ -73,7 +73,6 @@ import org.apache.activemq.artemis.core.transaction.ResourceManager;
 import org.apache.activemq.artemis.core.transaction.Transaction;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCUtils;
-import org.apache.activemq.artemis.jdbc.store.sql.PropertySQLProvider;
 import org.apache.activemq.artemis.jdbc.store.sql.SQLProvider;
 import org.apache.activemq.artemis.utils.ArtemisCloseable;
 import org.apache.activemq.artemis.utils.ExecutorFactory;
@@ -81,12 +80,15 @@ import org.apache.activemq.artemis.utils.critical.CriticalAnalyzer;
 
 public class ParallelDBStorageManager extends AbstractStorageManager {
 
+   // TODO: provide configuration for this
+   final int batchSize = 1000;
+
    SQLProvider sqlProvider;
    DatabaseStorageConfiguration databaseConfiguration;
    JDBCConnectionProvider connectionProvider;
 
    // the plan is to have many of these in a pool, for now while I bootstrap things I'm just having one
-   SingleThreadDBManager threadDBManager;
+   StatementsManager statementsManager;
 
    public ParallelDBStorageManager(CriticalAnalyzer analyzer,
                                    int numberOfPaths,
@@ -105,8 +107,8 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
 
    private void initSchema(JDBCConnectionProvider connectionProvider) throws Exception {
       String messagesTableName = databaseConfiguration.getParallelDBMessages();
-      JDBCUtils.createTable(connectionProvider, databaseConfiguration.getParallelDBMessages(), connectionProvider.getSQLProvider().getCreateParallelDBMessages(messagesTableName));
-      threadDBManager = new SingleThreadDBManager(databaseConfiguration, connectionProvider);
+      JDBCUtils.createTable(connectionProvider, messagesTableName, connectionProvider.getSQLProvider().getCreateParallelDBMessages(messagesTableName));
+      statementsManager = new StatementsManager(databaseConfiguration, connectionProvider, batchSize);
       try (Connection connection = connectionProvider.getConnection()) {
       }
    }
@@ -177,7 +179,7 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
 
    @Override
    public void storeMessage(Message message) throws Exception {
-
+      statementsManager.storeMessage(message, getContext());
    }
 
    @Override

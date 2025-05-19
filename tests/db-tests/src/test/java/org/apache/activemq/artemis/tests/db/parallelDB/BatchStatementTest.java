@@ -33,8 +33,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.activemq.artemis.core.config.storage.DatabaseStorageConfiguration;
 import org.apache.activemq.artemis.core.io.IOCallback;
 import org.apache.activemq.artemis.core.message.impl.CoreMessage;
+import org.apache.activemq.artemis.core.persistence.OperationContext;
+import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContextImpl;
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.ParallelDBStorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.MessageStatement;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.StatementsManager;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 import org.apache.activemq.artemis.tests.db.common.Database;
 import org.apache.activemq.artemis.tests.db.common.ParameterDBTestBase;
@@ -43,6 +46,7 @@ import org.apache.activemq.artemis.tests.extensions.parameterized.Parameters;
 import org.apache.activemq.artemis.utils.ExecutorFactory;
 import org.apache.activemq.artemis.utils.actors.OrderedExecutorFactory;
 import org.apache.activemq.artemis.utils.critical.CriticalAnalyzer;
+import org.apache.qpid.proton.reactor.impl.IO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestTemplate;
 import org.junit.jupiter.api.condition.DisabledIf;
@@ -144,20 +148,66 @@ public class BatchStatementTest extends ParameterDBTestBase {
       try (Connection connection = connectionProvider.getConnection()) {
          connection.setAutoCommit(false);
          MessageStatement messageStatement = new MessageStatement(connection, connectionProvider, storageConfiguration.getParallelDBMessages(), 100);
-         for (int i = 1; i <= 100; i++) {
+         for (int i = 1; i <= nrecords; i++) {
             CoreMessage message = new CoreMessage().initBuffer(1 * 1024).setDurable(true);
             message.setMessageID(i);
             message.getBodyBuffer().writeByte((byte) 'Z');
             messageStatement.addData(message, ioCallback);
          }
-         messageStatement.flushPending();
+         messageStatement.flushPending(true);
 
-         assertEquals(100, selectCount(connection, "ART_MESSAGES"));
+         assertEquals(nrecords, selectCount(connection, "ART_MESSAGES"));
       }
 
       assertTrue(latch.await(10, TimeUnit.SECONDS));
    }
 
+   @TestTemplate
+   public void testStatementManager() throws Exception {
+      ParallelDBStorageManager parallelDBStorageManager = new ParallelDBStorageManager(criticalAnalyzer, 1, executorFactory, scheduledExecutorService, executorFactory);
+      parallelDBStorageManager.init(storageConfiguration);
+
+      JDBCConnectionProvider connectionProvider = storageConfiguration.getConnectionProvider();
+
+      Connection connection = connectionProvider.getConnection();
+      runAfter(connection::close);
+
+      int nrecords = 100;
+
+      CountDownLatch latchDone = new CountDownLatch(1);
+
+      StatementsManager statementsManager = new StatementsManager(storageConfiguration, connectionProvider, 100);
+
+      OperationContext context = parallelDBStorageManager.getContext();
+      runAfter(OperationContextImpl::clearContext);
+
+      for (int i = 1; i <= nrecords; i++) {
+         CoreMessage message = new CoreMessage().initBuffer(1 * 1024).setDurable(true);
+         message.setMessageID(i);
+         message.getBodyBuffer().writeByte((byte) 'Z');
+         statementsManager.storeMessage(message, OperationContextImpl.getContext());
+      }
+
+      context.executeOnCompletion(new IOCallback() {
+         @Override
+         public void done() {
+            latchDone.countDown();
+         }
+
+         @Override
+         public void onError(int errorCode, String errorMessage) {
+
+         }
+      });
+
+      assertEquals(1, latchDone.getCount());
+
+      statementsManager.flush();
+
+      assertTrue(latchDone.await(10, TimeUnit.SECONDS));
+
+      assertEquals(nrecords, selectCount(connection, storageConfiguration.getParallelDBMessages()));
+   }
 
    @TestTemplate
    public void testTreatExceptionOnError() throws Exception {
@@ -184,13 +234,13 @@ public class BatchStatementTest extends ParameterDBTestBase {
       try (Connection connection = connectionProvider.getConnection()) {
          connection.setAutoCommit(false);
          MessageStatement messageStatement = new MessageStatement(connection, connectionProvider, storageConfiguration.getParallelDBMessages(), 100);
-         for (int i = 1; i <= 100; i++) {
+         for (int i = 1; i <= nrecords; i++) {
             CoreMessage message = new CoreMessage().initBuffer(1 * 1024).setDurable(true);
             message.setMessageID(1); // everything should fail with a DuplicateException
             message.getBodyBuffer().writeByte((byte) 'Z');
             messageStatement.addData(message, ioCallback);
          }
-         assertThrows(SQLException.class, () -> messageStatement.flushPending());
+         assertThrows(SQLException.class, () -> messageStatement.flushPending(true));
 
          // forcing a commit, even though it failed... it should not commit any success
          connection.commit();
@@ -201,8 +251,6 @@ public class BatchStatementTest extends ParameterDBTestBase {
       assertEquals(nrecords, errors.get());
 
    }
-
-
 
    private static int selectCount(Connection connection, String tableName) throws SQLException {
       try (Statement queryStatement = connection.createStatement()) {
