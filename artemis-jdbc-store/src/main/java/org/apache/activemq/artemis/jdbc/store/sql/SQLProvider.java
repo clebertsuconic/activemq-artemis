@@ -24,6 +24,8 @@ public interface SQLProvider {
 
    String[] getCreateParallelDBMessages(String tableName);
 
+   String[] getCreateParallelDBReferences(String tableName);
+
    String getInsertJournalRecordsSQL(String tableName);
 
    String getSelectJournalRecordsSQL(String tableName);
@@ -103,6 +105,10 @@ public interface SQLProvider {
    String applyCase(String tableName);
 
    String getInsertPDBMessages(String tableName);
+
+   String getInsertPDBReferences(String tableName);
+
+   String getInsertPDBReferencesTX(String tableName);
 
    interface Factory {
       SQLProvider create();
