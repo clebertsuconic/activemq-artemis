@@ -78,6 +78,7 @@ import org.apache.activemq.artemis.jdbc.store.drivers.JDBCUtils;
 import org.apache.activemq.artemis.jdbc.store.sql.SQLProvider;
 import org.apache.activemq.artemis.utils.ArtemisCloseable;
 import org.apache.activemq.artemis.utils.ExecutorFactory;
+import org.apache.activemq.artemis.utils.IDGenerator;
 import org.apache.activemq.artemis.utils.critical.CriticalAnalyzer;
 
 public class ParallelDBStorageManager extends AbstractStorageManager {
@@ -92,8 +93,22 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
    // the plan is to have many of these in a pool, for now while I bootstrap things I'm just having one
    StatementsManager statementsManager;
 
+   public Configuration getConfig() {
+      return journalDelegate.getConfig();
+   }
+
+   @Override
+   public long getMaxRecordSize() {
+      return journalDelegate.getMaxRecordSize();
+   }
+
+   @Override
+   public long getWarningRecordSize() {
+      return journalDelegate.getWarningRecordSize();
+   }
+
    // we are (at the moment) still using the legacy journal for some tasks
-   final JDBCJournalStorageManager jdbcJournalDelegate;
+   final JDBCJournalStorageManager journalDelegate;
 
 
    public ParallelDBStorageManager(Configuration configuration,
@@ -103,15 +118,44 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
                                     ScheduledExecutorService scheduledExecutorService) {
       super(analyzer, 1, executorFactory, scheduledExecutorService, ioExecutorFactory);
       this.configuration = configuration;
-      this.jdbcJournalDelegate = new JDBCJournalStorageManager(configuration, analyzer, executorFactory, ioExecutorFactory, scheduledExecutorService);
+      this.journalDelegate = new JDBCJournalStorageManager(configuration, analyzer, executorFactory, ioExecutorFactory, scheduledExecutorService);
    }
 
    @Override
    public void start() throws Exception {
       this.databaseConfiguration = (DatabaseStorageConfiguration)configuration.getStoreConfiguration();
       this.connectionProvider = databaseConfiguration.getConnectionProvider();
-      jdbcJournalDelegate.start();
+      journalDelegate.start();
       initSchema(connectionProvider);
+   }
+
+   @Override
+   public void persistIdGenerator() {
+      journalDelegate.persistIdGenerator();
+   }
+
+   @Override
+   public boolean isStarted() {
+      return journalDelegate.isStarted();
+   }
+
+   public JournalLoadInformation[] loadInternalOnly() throws Exception {
+      return journalDelegate.loadInternalOnly();
+   }
+
+   @Override
+   public Journal getMessageJournal() {
+      return journalDelegate.getMessageJournal();
+   }
+
+   @Override
+   public Journal getBindingsJournal() {
+      return journalDelegate.getBindingsJournal();
+   }
+
+   @Override
+   public boolean addToPage(PagingStore store, Message msg, Transaction tx, RouteContextList listCtx) throws Exception {
+      return journalDelegate.addToPage(store, msg, tx, listCtx);
    }
 
    private void initSchema(JDBCConnectionProvider connectionProvider) throws Exception {
@@ -124,17 +168,502 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
 
    @Override
    public void criticalError(Throwable error) {
+      journalDelegate.criticalError(error);
+   }
 
+   public IDGenerator getIDGenerator() {
+      return journalDelegate.getIDGenerator();
+   }
+
+   @Override
+   public long generateID() {
+      return journalDelegate.generateID();
+   }
+
+   @Override
+   public long getCurrentID() {
+      return journalDelegate.getCurrentID();
+   }
+
+   @Override
+   public void confirmPendingLargeMessageTX(Transaction tx, long messageID, long recordID) throws Exception {
+      journalDelegate.confirmPendingLargeMessageTX(tx, messageID, recordID);
+   }
+
+   @Override
+   public void confirmPendingLargeMessage(long recordID) throws Exception {
+      journalDelegate.confirmPendingLargeMessage(recordID);
+   }
+
+   @Override
+   public void storeMapRecord(long id,
+                              byte recordType,
+                              Persister persister,
+                              Object record,
+                              boolean sync,
+                              IOCompletion completionCallback) throws Exception {
+      journalDelegate.storeMapRecord(id, recordType, persister, record, sync, completionCallback);
+   }
+
+   @Override
+   public void storeMapRecord(long id,
+                              byte recordType,
+                              Persister persister,
+                              Object record,
+                              boolean sync) throws Exception {
+      journalDelegate.storeMapRecord(id, recordType, persister, record, sync);
+   }
+
+   @Override
+   public void deleteMapRecord(long id, boolean sync) throws Exception {
+      journalDelegate.deleteMapRecord(id, sync);
+   }
+
+   @Override
+   public void deleteMapRecordTx(long txid, long id) throws Exception {
+      journalDelegate.deleteMapRecordTx(txid, id);
    }
 
    @Override
    public void lineUpContext() {
-
+      journalDelegate.lineUpContext();
    }
 
    @Override
    public void stop(boolean ioCriticalError, boolean sendFailover) throws Exception {
+   }
 
+   @Override
+   public void storeMessage(Message message) throws Exception {
+      statementsManager.storeMessage(message, getContext());
+   }
+
+   @Override
+   public void storeReference(long queueID, long messageID, boolean last) throws Exception {
+
+   }
+
+   @Override
+   public void writeLock() {
+      journalDelegate.writeLock();
+   }
+
+   @Override
+   public void writeUnlock() {
+      journalDelegate.writeUnlock();
+   }
+
+   @Override
+   public ArtemisCloseable closeableReadLock(boolean tryLock) {
+      return journalDelegate.closeableReadLock(tryLock);
+   }
+
+   @Override
+   public void deleteMessage(long messageID) throws Exception {
+
+   }
+
+   @Override
+   public void updateScheduledDeliveryTime(MessageReference ref) throws Exception {
+   }
+
+   @Override
+   public void storeDuplicateID(SimpleString address, byte[] duplID, long recordID) throws Exception {
+      journalDelegate.storeDuplicateID(address, duplID, recordID);
+   }
+
+   @Override
+   public void deleteDuplicateID(long recordID) throws Exception {
+      journalDelegate.deleteDuplicateID(recordID);
+   }
+
+   @Override
+   public void storeAcknowledge(long queueID, long messageID) throws Exception {
+
+   }
+
+   @Override
+   public void storeCursorAcknowledge(long queueID, PagePosition position) throws Exception {
+      journalDelegate.storeCursorAcknowledge(queueID, position);
+   }
+
+   @Override
+   public void storeMessageTransactional(long txID, Message message) throws Exception {
+   }
+
+   @Override
+   public void storePageTransaction(long txID, PageTransactionInfo pageTransaction) throws Exception {
+      journalDelegate.storePageTransaction(txID, pageTransaction);
+   }
+
+   @Override
+   public void updatePageTransaction(long txID, PageTransactionInfo pageTransaction, int depages) throws Exception {
+      journalDelegate.updatePageTransaction(txID, pageTransaction, depages);
+   }
+
+   @Override
+   public void storeReferenceTransactional(long txID, long queueID, long messageID) throws Exception {
+   }
+
+   @Override
+   public void storeAcknowledgeTransactional(long txID, long queueID, long messageID) throws Exception {
+   }
+
+   @Override
+   public void storeCursorAcknowledgeTransactional(long txID, long queueID, PagePosition position) throws Exception {
+      journalDelegate.storeCursorAcknowledgeTransactional(txID, queueID, position);
+   }
+
+   @Override
+   public void storePageCompleteTransactional(long txID, long queueID, PagePosition position) throws Exception {
+      journalDelegate.storePageCompleteTransactional(txID, queueID, position);
+   }
+
+   @Override
+   public void deletePageComplete(long ackID) throws Exception {
+      journalDelegate.deletePageComplete(ackID);
+   }
+
+   @Override
+   public void deleteCursorAcknowledgeTransactional(long txID, long ackID) throws Exception {
+      journalDelegate.deleteCursorAcknowledgeTransactional(txID, ackID);
+   }
+
+   @Override
+   public void deleteCursorAcknowledge(long ackID) throws Exception {
+      journalDelegate.deleteCursorAcknowledge(ackID);
+   }
+
+   @Override
+   public long storeHeuristicCompletion(Xid xid, boolean isCommit) throws Exception {
+      return journalDelegate.storeHeuristicCompletion(xid, isCommit);
+   }
+
+   @Override
+   public void deleteHeuristicCompletion(long id) throws Exception {
+      journalDelegate.deleteHeuristicCompletion(id);
+   }
+
+   @Override
+   public void deletePageTransactional(long recordID) throws Exception {
+      journalDelegate.deletePageTransactional(recordID);
+   }
+
+   @Override
+   public void updateScheduledDeliveryTimeTransactional(long txID, MessageReference ref) throws Exception {
+      journalDelegate.updateScheduledDeliveryTimeTransactional(txID, ref);
+   }
+
+   @Override
+   public void prepare(long txID, Xid xid) throws Exception {
+      journalDelegate.prepare(txID, xid);
+   }
+
+   @Override
+   public void commit(long txID) throws Exception {
+      journalDelegate.commit(txID);
+   }
+
+   @Override
+   public void commitBindings(long txID) throws Exception {
+      journalDelegate.commitBindings(txID);
+   }
+
+   @Override
+   public void rollbackBindings(long txID) throws Exception {
+      journalDelegate.rollbackBindings(txID);
+   }
+
+   @Override
+   public void commit(long txID, boolean lineUpContext) throws Exception {
+      journalDelegate.commit(txID, lineUpContext);
+   }
+
+   @Override
+   public void asyncCommit(long txID) throws Exception {
+      journalDelegate.asyncCommit(txID);
+   }
+
+   @Override
+   public void rollback(long txID) throws Exception {
+      journalDelegate.rollback(txID);
+   }
+
+   @Override
+   public void storeDuplicateIDTransactional(long txID,
+                                             SimpleString address,
+                                             byte[] duplID,
+                                             long recordID) throws Exception {
+      journalDelegate.storeDuplicateIDTransactional(txID, address, duplID, recordID);
+   }
+
+   @Override
+   public void updateDuplicateIDTransactional(long txID,
+                                              SimpleString address,
+                                              byte[] duplID,
+                                              long recordID) throws Exception {
+      journalDelegate.updateDuplicateIDTransactional(txID, address, duplID, recordID);
+   }
+
+   @Override
+   public void deleteDuplicateIDTransactional(long txID, long recordID) throws Exception {
+      journalDelegate.deleteDuplicateIDTransactional(txID, recordID);
+   }
+
+   @Override
+   public void updateDeliveryCount(MessageReference ref) throws Exception {
+      journalDelegate.updateDeliveryCount(ref);
+   }
+
+   @Override
+   public void storeAddressSetting(PersistedAddressSettingJSON addressSetting) throws Exception {
+      journalDelegate.storeAddressSetting(addressSetting);
+   }
+
+   @Override
+   public List<AbstractPersistedAddressSetting> recoverAddressSettings() throws Exception {
+      return journalDelegate.recoverAddressSettings();
+   }
+
+   @Override
+   public AbstractPersistedAddressSetting recoverAddressSettings(SimpleString address) {
+      return journalDelegate.recoverAddressSettings(address);
+   }
+
+   @Override
+   public List<PersistedSecuritySetting> recoverSecuritySettings() throws Exception {
+      return journalDelegate.recoverSecuritySettings();
+   }
+
+   @Override
+   public void storeSecuritySetting(PersistedSecuritySetting persistedRoles) throws Exception {
+      journalDelegate.storeSecuritySetting(persistedRoles);
+   }
+
+   @Override
+   public void storeDivertConfiguration(PersistedDivertConfiguration persistedDivertConfiguration) throws Exception {
+      journalDelegate.storeDivertConfiguration(persistedDivertConfiguration);
+   }
+
+   @Override
+   public void deleteDivertConfiguration(String divertName) throws Exception {
+      journalDelegate.deleteDivertConfiguration(divertName);
+   }
+
+   @Override
+   public List<PersistedDivertConfiguration> recoverDivertConfigurations() {
+      return journalDelegate.recoverDivertConfigurations();
+   }
+
+   @Override
+   public void storeBridgeConfiguration(PersistedBridgeConfiguration persistedBridgeConfiguration) throws Exception {
+      journalDelegate.storeBridgeConfiguration(persistedBridgeConfiguration);
+   }
+
+   @Override
+   public void deleteBridgeConfiguration(String bridgeName) throws Exception {
+      journalDelegate.deleteBridgeConfiguration(bridgeName);
+   }
+
+   @Override
+   public List<PersistedBridgeConfiguration> recoverBridgeConfigurations() {
+      return journalDelegate.recoverBridgeConfigurations();
+   }
+
+   @Override
+   public void storeConnector(PersistedConnector persistedConnector) throws Exception {
+      journalDelegate.storeConnector(persistedConnector);
+   }
+
+   @Override
+   public void deleteConnector(String connectorName) throws Exception {
+      journalDelegate.deleteConnector(connectorName);
+   }
+
+   @Override
+   public List<PersistedConnector> recoverConnectors() {
+      return journalDelegate.recoverConnectors();
+   }
+
+   @Override
+   public void storeUser(PersistedUser persistedUser) throws Exception {
+      journalDelegate.storeUser(persistedUser);
+   }
+
+   @Override
+   public void deleteUser(String username) throws Exception {
+      journalDelegate.deleteUser(username);
+   }
+
+   @Override
+   public Map<String, PersistedUser> getPersistedUsers() {
+      return journalDelegate.getPersistedUsers();
+   }
+
+   @Override
+   public void storeRole(PersistedRole persistedRole) throws Exception {
+      journalDelegate.storeRole(persistedRole);
+   }
+
+   @Override
+   public void deleteRole(String username) throws Exception {
+      journalDelegate.deleteRole(username);
+   }
+
+   @Override
+   public Map<String, PersistedRole> getPersistedRoles() {
+      return journalDelegate.getPersistedRoles();
+   }
+
+   @Override
+   public void storeKeyValuePair(PersistedKeyValuePair persistedKeyValuePair) throws Exception {
+      journalDelegate.storeKeyValuePair(persistedKeyValuePair);
+   }
+
+   @Override
+   public void deleteKeyValuePair(String mapId, String key) throws Exception {
+      journalDelegate.deleteKeyValuePair(mapId, key);
+   }
+
+   @Override
+   public Map<String, PersistedKeyValuePair> getPersistedKeyValuePairs(String mapId) {
+      return journalDelegate.getPersistedKeyValuePairs(mapId);
+   }
+
+   @Override
+   public void storeID(long journalID, long id) throws Exception {
+      journalDelegate.storeID(journalID, id);
+   }
+
+   @Override
+   public void deleteID(long journalD) throws Exception {
+      journalDelegate.deleteID(journalD);
+   }
+
+   @Override
+   public void deleteAddressSetting(SimpleString addressMatch) throws Exception {
+      journalDelegate.deleteAddressSetting(addressMatch);
+   }
+
+   @Override
+   public void deleteSecuritySetting(SimpleString addressMatch) throws Exception {
+      journalDelegate.deleteSecuritySetting(addressMatch);
+   }
+
+   @Override
+   public JournalLoadInformation loadMessageJournal(PostOffice postOffice,
+                                                    PagingManager pagingManager,
+                                                    ResourceManager resourceManager,
+                                                    Map<Long, QueueBindingInfo> queueInfos,
+                                                    Map<SimpleString, List<Pair<byte[], Long>>> duplicateIDMap,
+                                                    Set<Pair<Long, Long>> pendingLargeMessages,
+                                                    Set<Long> storedLargeMessages,
+                                                    List<PageCountPending> pendingNonTXPageCounter,
+                                                    JournalLoader journalLoader,
+                                                    List<Consumer<RecordInfo>> journalRecordsListener) throws Exception {
+      return journalDelegate.loadMessageJournal(postOffice, pagingManager, resourceManager, queueInfos, duplicateIDMap, pendingLargeMessages, storedLargeMessages, pendingNonTXPageCounter, journalLoader, journalRecordsListener);
+   }
+
+   public void checkInvalidPageTransactions(PagingManager pagingManager,
+                                            Set<PageTransactionInfo> invalidPageTransactions) {
+      journalDelegate.checkInvalidPageTransactions(pagingManager, invalidPageTransactions);
+   }
+
+   @Override
+   public void addGrouping(GroupBinding groupBinding) throws Exception {
+      journalDelegate.addGrouping(groupBinding);
+   }
+
+   @Override
+   public void deleteGrouping(long tx, GroupBinding groupBinding) throws Exception {
+      journalDelegate.deleteGrouping(tx, groupBinding);
+   }
+
+   @Override
+   public void updateQueueBinding(long tx, Binding binding) throws Exception {
+      journalDelegate.updateQueueBinding(tx, binding);
+   }
+
+   @Override
+   public void addQueueBinding(long tx, Binding binding) throws Exception {
+      journalDelegate.addQueueBinding(tx, binding);
+   }
+
+   @Override
+   public void deleteQueueBinding(long tx, long queueBindingID) throws Exception {
+      journalDelegate.deleteQueueBinding(tx, queueBindingID);
+   }
+
+   @Override
+   public long storeQueueStatus(long queueID, AddressQueueStatus status) throws Exception {
+      return journalDelegate.storeQueueStatus(queueID, status);
+   }
+
+   @Override
+   public void deleteQueueStatus(long recordID) throws Exception {
+      journalDelegate.deleteQueueStatus(recordID);
+   }
+
+   @Override
+   public long storeAddressStatus(long addressID, AddressQueueStatus status) throws Exception {
+      return journalDelegate.storeAddressStatus(addressID, status);
+   }
+
+   @Override
+   public void deleteAddressStatus(long recordID) throws Exception {
+      journalDelegate.deleteAddressStatus(recordID);
+   }
+
+   @Override
+   public void addAddressBinding(long tx, AddressInfo addressInfo) throws Exception {
+      journalDelegate.addAddressBinding(tx, addressInfo);
+   }
+
+   @Override
+   public void deleteAddressBinding(long tx, long addressBindingID) throws Exception {
+      journalDelegate.deleteAddressBinding(tx, addressBindingID);
+   }
+
+   @Override
+   public long storePageCounterInc(long txID, long queueID, int value, long persistentSize) throws Exception {
+      return journalDelegate.storePageCounterInc(txID, queueID, value, persistentSize);
+   }
+
+   @Override
+   public long storePageCounterInc(long queueID, int value, long persistentSize) throws Exception {
+      return journalDelegate.storePageCounterInc(queueID, value, persistentSize);
+   }
+
+   @Override
+   public long storePageCounter(long txID, long queueID, long value, long persistentSize) throws Exception {
+      return journalDelegate.storePageCounter(txID, queueID, value, persistentSize);
+   }
+
+   @Override
+   public long storePendingCounter(long queueID, long pageID) throws Exception {
+      return journalDelegate.storePendingCounter(queueID, pageID);
+   }
+
+   @Override
+   public void deleteIncrementRecord(long txID, long recordID) throws Exception {
+      journalDelegate.deleteIncrementRecord(txID, recordID);
+   }
+
+   @Override
+   public void deletePageCounter(long txID, long recordID) throws Exception {
+      journalDelegate.deletePageCounter(txID, recordID);
+   }
+
+   @Override
+   public void deletePendingPageCounter(long txID, long recordID) throws Exception {
+      journalDelegate.deletePendingPageCounter(txID, recordID);
+   }
+
+   @Override
+   public JournalLoadInformation loadBindingJournal(List<QueueBindingInfo> queueBindingInfos,
+                                                    List<GroupingInfo> groupingInfos,
+                                                    List<AddressBindingInfo> addressBindingInfos) throws Exception {
+      return journalDelegate.loadBindingJournal(queueBindingInfos, groupingInfos, addressBindingInfos);
    }
 
    @Override
@@ -177,127 +706,6 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
    }
 
    @Override
-   public void confirmPendingLargeMessageTX(Transaction transaction, long messageID, long recordID) throws Exception {
-
-   }
-
-   @Override
-   public void confirmPendingLargeMessage(long recordID) throws Exception {
-
-   }
-
-   @Override
-   public void storeMessage(Message message) throws Exception {
-      statementsManager.storeMessage(message, getContext());
-   }
-
-   @Override
-   public void storeReference(long queueID, long messageID, boolean last) throws Exception {
-
-   }
-
-   @Override
-   public void deleteMessage(long messageID) throws Exception {
-
-   }
-
-   @Override
-   public void storeAcknowledge(long queueID, long messageID) throws Exception {
-
-   }
-
-   @Override
-   public void storeCursorAcknowledge(long queueID, PagePosition position) throws Exception {
-
-   }
-
-   @Override
-   public void updateDeliveryCount(MessageReference ref) throws Exception {
-
-   }
-
-   @Override
-   public void updateScheduledDeliveryTime(MessageReference ref) throws Exception {
-
-   }
-
-   @Override
-   public void storeDuplicateID(SimpleString address, byte[] duplID, long recordID) throws Exception {
-
-   }
-
-   @Override
-   public void deleteDuplicateID(long recordID) throws Exception {
-
-   }
-
-   @Override
-   public void storeMessageTransactional(long txID, Message message) throws Exception {
-
-   }
-
-   @Override
-   public void storeReferenceTransactional(long txID, long queueID, long messageID) throws Exception {
-
-   }
-
-   @Override
-   public void storeAcknowledgeTransactional(long txID, long queueID, long messageID) throws Exception {
-
-   }
-
-   @Override
-   public void storeCursorAcknowledgeTransactional(long txID, long queueID, PagePosition position) throws Exception {
-
-   }
-
-   @Override
-   public void deleteCursorAcknowledgeTransactional(long txID, long ackID) throws Exception {
-
-   }
-
-   @Override
-   public void deleteCursorAcknowledge(long ackID) throws Exception {
-
-   }
-
-   @Override
-   public void storePageCompleteTransactional(long txID, long queueID, PagePosition position) throws Exception {
-
-   }
-
-   @Override
-   public void deletePageComplete(long ackID) throws Exception {
-
-   }
-
-   @Override
-   public void updateScheduledDeliveryTimeTransactional(long txID, MessageReference ref) throws Exception {
-
-   }
-
-   @Override
-   public void storeDuplicateIDTransactional(long txID,
-                                             SimpleString address,
-                                             byte[] duplID,
-                                             long recordID) throws Exception {
-
-   }
-
-   @Override
-   public void updateDuplicateIDTransactional(long txID,
-                                              SimpleString address,
-                                              byte[] duplID,
-                                              long recordID) throws Exception {
-
-   }
-
-   @Override
-   public void deleteDuplicateIDTransactional(long txID, long recordID) throws Exception {
-
-   }
-
-   @Override
    public LargeServerMessage createCoreLargeMessage() {
       return null;
    }
@@ -328,323 +736,12 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
    }
 
    @Override
-   public void prepare(long txID, Xid xid) throws Exception {
-
-   }
-
-   @Override
-   public void commit(long txID) throws Exception {
-
-   }
-
-   @Override
-   public void commit(long txID, boolean lineUpContext) throws Exception {
-
-   }
-
-   @Override
-   public void asyncCommit(long txID) throws Exception {
-
-   }
-
-   @Override
-   public void rollback(long txID) throws Exception {
-
-   }
-
-   @Override
-   public void rollbackBindings(long txID) throws Exception {
-
-   }
-
-   @Override
-   public void commitBindings(long txID) throws Exception {
-
-   }
-
-   @Override
-   public void storePageTransaction(long txID, PageTransactionInfo pageTransaction) throws Exception {
-
-   }
-
-   @Override
-   public void updatePageTransaction(long txID, PageTransactionInfo pageTransaction, int depage) throws Exception {
-
-   }
-
-   @Override
-   public void deletePageTransactional(long recordID) throws Exception {
-
-   }
-
-   @Override
-   public JournalLoadInformation loadMessageJournal(PostOffice postOffice,
-                                                    PagingManager pagingManager,
-                                                    ResourceManager resourceManager,
-                                                    Map<Long, QueueBindingInfo> queueInfos,
-                                                    Map<SimpleString, List<Pair<byte[], Long>>> duplicateIDMap,
-                                                    Set<Pair<Long, Long>> pendingLargeMessages,
-                                                    Set<Long> largeMessagesInFolder,
-                                                    List<PageCountPending> pendingNonTXPageCounter,
-                                                    JournalLoader journalLoader,
-                                                    List<Consumer<RecordInfo>> extraRecordsLoader) throws Exception {
-      return null;
-   }
-
-   @Override
-   public long storeHeuristicCompletion(Xid xid, boolean isCommit) throws Exception {
-      return 0;
-   }
-
-   @Override
-   public void deleteHeuristicCompletion(long id) throws Exception {
-
-   }
-
-   @Override
-   public void addQueueBinding(long tx, Binding binding) throws Exception {
-
-   }
-
-   @Override
-   public void updateQueueBinding(long tx, Binding binding) throws Exception {
-
-   }
-
-   @Override
-   public void deleteQueueBinding(long tx, long queueBindingID) throws Exception {
-
-   }
-
-   @Override
-   public long storeQueueStatus(long queueID, AddressQueueStatus status) throws Exception {
-      return 0;
-   }
-
-   @Override
-   public void deleteQueueStatus(long recordID) throws Exception {
-
-   }
-
-   @Override
-   public long storeAddressStatus(long addressID, AddressQueueStatus status) throws Exception {
-      return 0;
-   }
-
-   @Override
-   public void deleteAddressStatus(long recordID) throws Exception {
-
-   }
-
-   @Override
-   public void addAddressBinding(long tx, AddressInfo addressInfo) throws Exception {
-
-   }
-
-   @Override
-   public void deleteAddressBinding(long tx, long addressBindingID) throws Exception {
-
-   }
-
-   @Override
-   public JournalLoadInformation loadBindingJournal(List<QueueBindingInfo> queueBindingInfos,
-                                                    List<GroupingInfo> groupingInfos,
-                                                    List<AddressBindingInfo> addressBindingInfos) throws Exception {
-      return null;
-   }
-
-   @Override
-   public void addGrouping(GroupBinding groupBinding) throws Exception {
-
-   }
-
-   @Override
-   public void deleteGrouping(long tx, GroupBinding groupBinding) throws Exception {
-
-   }
-
-   @Override
-   public void storeAddressSetting(PersistedAddressSettingJSON addressSetting) throws Exception {
-
-   }
-
-   @Override
-   public void deleteAddressSetting(SimpleString addressMatch) throws Exception {
-
-   }
-
-   @Override
-   public List<AbstractPersistedAddressSetting> recoverAddressSettings() throws Exception {
-      return List.of();
-   }
-
-   @Override
-   public AbstractPersistedAddressSetting recoverAddressSettings(SimpleString address) {
-      return null;
-   }
-
-   @Override
-   public void storeSecuritySetting(PersistedSecuritySetting persistedRoles) throws Exception {
-
-   }
-
-   @Override
-   public void deleteSecuritySetting(SimpleString addressMatch) throws Exception {
-
-   }
-
-   @Override
-   public List<PersistedSecuritySetting> recoverSecuritySettings() throws Exception {
-      return List.of();
-   }
-
-   @Override
-   public void storeDivertConfiguration(PersistedDivertConfiguration persistedDivertConfiguration) throws Exception {
-
-   }
-
-   @Override
-   public void deleteDivertConfiguration(String divertName) throws Exception {
-
-   }
-
-   @Override
-   public List<PersistedDivertConfiguration> recoverDivertConfigurations() {
-      return List.of();
-   }
-
-   @Override
-   public void storeBridgeConfiguration(PersistedBridgeConfiguration persistedBridgeConfiguration) throws Exception {
-
-   }
-
-   @Override
-   public void deleteBridgeConfiguration(String bridgeName) throws Exception {
-
-   }
-
-   @Override
-   public List<PersistedBridgeConfiguration> recoverBridgeConfigurations() {
-      return List.of();
-   }
-
-   @Override
-   public void storeConnector(PersistedConnector persistedConnector) throws Exception {
-
-   }
-
-   @Override
-   public void deleteConnector(String connectorName) throws Exception {
-
-   }
-
-   @Override
-   public List<PersistedConnector> recoverConnectors() {
-      return List.of();
-   }
-
-   @Override
-   public void storeUser(PersistedUser persistedUser) throws Exception {
-
-   }
-
-   @Override
-   public void deleteUser(String username) throws Exception {
-
-   }
-
-   @Override
-   public Map<String, PersistedUser> getPersistedUsers() {
-      return Map.of();
-   }
-
-   @Override
-   public void storeRole(PersistedRole persistedRole) throws Exception {
-
-   }
-
-   @Override
-   public void deleteRole(String role) throws Exception {
-
-   }
-
-   @Override
-   public Map<String, PersistedRole> getPersistedRoles() {
-      return Map.of();
-   }
-
-   @Override
-   public void storeKeyValuePair(PersistedKeyValuePair persistedKeyValuePair) throws Exception {
-
-   }
-
-   @Override
-   public void deleteKeyValuePair(String mapId, String key) throws Exception {
-
-   }
-
-   @Override
-   public Map<String, PersistedKeyValuePair> getPersistedKeyValuePairs(String mapId) {
-      return Map.of();
-   }
-
-   @Override
-   public long storePageCounter(long txID, long queueID, long value, long persistentSize) throws Exception {
-      return 0;
-   }
-
-   @Override
-   public long storePendingCounter(long queueID, long pageID) throws Exception {
-      return 0;
-   }
-
-   @Override
-   public void deleteIncrementRecord(long txID, long recordID) throws Exception {
-
-   }
-
-   @Override
-   public void deletePageCounter(long txID, long recordID) throws Exception {
-
-   }
-
-   @Override
-   public void deletePendingPageCounter(long txID, long recordID) throws Exception {
-
-   }
-
-   @Override
-   public long storePageCounterInc(long txID, long queueID, int add, long persistentSize) throws Exception {
-      return 0;
-   }
-
-   @Override
-   public long storePageCounterInc(long queueID, int add, long size) throws Exception {
-      return 0;
-   }
-
-   @Override
-   public Journal getBindingsJournal() {
-      return null;
-   }
-
-   @Override
-   public Journal getMessageJournal() {
-      return null;
-   }
-
-   @Override
    public void startReplication(ReplicationManager replicationManager,
                                 PagingManager pagingManager,
                                 String nodeID,
                                 boolean autoFailBack,
                                 long initialReplicationSyncTimeout) throws Exception {
 
-   }
-
-   @Override
-   public boolean addToPage(PagingStore store, Message msg, Transaction tx, RouteContextList listCtx) throws Exception {
-      return false;
    }
 
    @Override
@@ -663,76 +760,12 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
    }
 
    @Override
-   public void storeID(long journalID, long id) throws Exception {
-
-   }
-
-   @Override
-   public void deleteID(long journalD) throws Exception {
-
-   }
-
-   @Override
-   public ArtemisCloseable closeableReadLock(boolean tryLock) {
-      return null;
-   }
-
-   @Override
-   public void persistIdGenerator() {
-
-   }
-
-   @Override
    public void injectMonitor(FileStoreMonitor monitor) throws Exception {
-
-   }
-
-   @Override
-   public void storeMapRecord(long id,
-                              byte recordType,
-                              Persister persister,
-                              Object record,
-                              boolean sync,
-                              IOCompletion completionCallback) throws Exception {
-
-   }
-
-   @Override
-   public void storeMapRecord(long id,
-                              byte recordType,
-                              Persister persister,
-                              Object record,
-                              boolean sync) throws Exception {
-
-   }
-
-   @Override
-   public void deleteMapRecord(long id, boolean sync) throws Exception {
-
-   }
-
-   @Override
-   public void deleteMapRecordTx(long txid, long id) throws Exception {
 
    }
 
    @Override
    public void stop() throws Exception {
 
-   }
-
-   @Override
-   public boolean isStarted() {
-      return false;
-   }
-
-   @Override
-   public long generateID() {
-      return 0;
-   }
-
-   @Override
-   public long getCurrentID() {
-      return 0;
    }
 }
