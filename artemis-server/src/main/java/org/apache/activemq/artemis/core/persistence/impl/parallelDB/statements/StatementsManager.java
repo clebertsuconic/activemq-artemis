@@ -26,6 +26,7 @@ import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.core.config.storage.DatabaseStorageConfiguration;
 import org.apache.activemq.artemis.core.io.IOCallback;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
+import org.apache.activemq.artemis.core.server.ActiveMQScheduledComponent;
 import org.apache.activemq.artemis.core.server.MessageReference;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 
@@ -102,8 +103,6 @@ public class StatementsManager {
       }
    }
 
-
-
    public StatementsManager(DatabaseStorageConfiguration databaseConfiguration, JDBCConnectionProvider connectionProvider, int batchSize) throws SQLException {
       this.databaseConfiguration = databaseConfiguration;
       this.connectionProvider = connectionProvider;
@@ -125,23 +124,24 @@ public class StatementsManager {
 
    public void storeMessage(Message message, OperationContext callback) {
       callback.storeLineUp();
-      synchronized (this) {
-         pendingTasks.add(new MessageTask(message, callback));
-      }
+      getTLTaskList().add(new MessageTask(message, callback));
    }
 
    public void storeReference(MessageReference reference, OperationContext callback) {
       callback.storeLineUp();
-      synchronized (this) {
-         pendingTasks.add(new MessageReferenceTask(reference, callback));
-      }
+      getTLTaskList().add(new MessageReferenceTask(reference, callback));
    }
 
    public void storeReferenceTX(MessageReference reference, long txID, OperationContext callback) {
       callback.storeLineUp();
+      getTLTaskList().add(new MessageReferenceTXTask(reference, txID, callback));
+   }
+
+   public void flushTL() {
       synchronized (this) {
-         pendingTasks.add(new MessageReferenceTXTask(reference, txID, callback));
+         pendingTasks.addAll(getTLTaskList());
       }
+      getTLTaskList().clear();
    }
 
    private List<Task> extractTaskList() {
