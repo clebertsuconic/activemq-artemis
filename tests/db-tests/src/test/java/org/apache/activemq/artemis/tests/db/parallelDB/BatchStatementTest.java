@@ -289,6 +289,7 @@ public class BatchStatementTest extends ParameterDBTestBase {
          message.setMessageID(i);
          message.getBodyBuffer().writeByte((byte) 'Z');
          statementsManager.storeMessage(message, OperationContextImpl.getContext());
+         statementsManager.flushTL();
       }
 
       context.executeOnCompletion(new IOCallback() {
@@ -343,6 +344,7 @@ public class BatchStatementTest extends ParameterDBTestBase {
          } else {
             statementsManager.storeReferenceTX(reference, i, OperationContextImpl.getContext());
          }
+         statementsManager.flushTL();
       }
 
       context.executeOnCompletion(new IOCallback() {
