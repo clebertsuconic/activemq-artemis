@@ -26,6 +26,7 @@ import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.core.config.storage.DatabaseStorageConfiguration;
 import org.apache.activemq.artemis.core.io.IOCallback;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
+import org.apache.activemq.artemis.core.server.MessageReference;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 
 public class StatementsManager {
@@ -36,6 +37,24 @@ public class StatementsManager {
 
    Connection connection;
    MessageStatement messageStatement;
+   ReferencesTXStatement referencesTXStatement;
+   ReferencesStatement referencesStatement;
+
+   // We store messages and references on a ThreadLocal buffer until the last attribute is sent,
+   // at that time we flush everything.
+   // this is to make sure that we store everything as part of the same DB operation
+   private static final ThreadLocal<List<Task>> bufferMessagesList = new ThreadLocal<>();
+
+   private List<Task> getTLTaskList() {
+      List<Task> tlTaskList = bufferMessagesList.get();
+
+      if (tlTaskList == null) {
+         tlTaskList = new ArrayList<>();
+         bufferMessagesList.set(tlTaskList);
+      }
+
+      return tlTaskList;
+   }
 
    ArrayList<Task> pendingTasks = new ArrayList<>();
 
@@ -59,6 +78,32 @@ public class StatementsManager {
       }
    }
 
+   class MessageReferenceTask extends Task {
+      public MessageReferenceTask(MessageReference reference, OperationContext context) {
+         super(context);
+         this.reference = reference;
+      }
+
+      final MessageReference reference;
+      public void store() {
+         referencesStatement.addData(reference, context);
+      }
+   }
+
+   class MessageReferenceTXTask extends Task {
+      public MessageReferenceTXTask(MessageReference reference, long txID, OperationContext context) {
+         super(context);
+         this.reference = ReferencesTXStatement.withTX(reference, txID);
+      }
+
+      final ReferencesTXStatement.ReferenceWithTX reference;
+      public void store() {
+         referencesTXStatement.addData(reference, context);
+      }
+   }
+
+
+
    public StatementsManager(DatabaseStorageConfiguration databaseConfiguration, JDBCConnectionProvider connectionProvider, int batchSize) throws SQLException {
       this.databaseConfiguration = databaseConfiguration;
       this.connectionProvider = connectionProvider;
@@ -70,6 +115,8 @@ public class StatementsManager {
       connection = connectionProvider.getConnection();
       connection.setAutoCommit(false);
       messageStatement = new MessageStatement(connection, connectionProvider, databaseConfiguration.getParallelDBMessages(), batchSize);
+      referencesStatement = new ReferencesStatement(connection, connectionProvider, databaseConfiguration.getParallelDBReferences(), batchSize);
+      referencesTXStatement = new ReferencesTXStatement(connection, connectionProvider, databaseConfiguration.getParallelDBReferences(), batchSize);
    }
 
    public void close() throws SQLException {
@@ -80,6 +127,20 @@ public class StatementsManager {
       callback.storeLineUp();
       synchronized (this) {
          pendingTasks.add(new MessageTask(message, callback));
+      }
+   }
+
+   public void storeReference(MessageReference reference, OperationContext callback) {
+      callback.storeLineUp();
+      synchronized (this) {
+         pendingTasks.add(new MessageReferenceTask(reference, callback));
+      }
+   }
+
+   public void storeReferenceTX(MessageReference reference, long txID, OperationContext callback) {
+      callback.storeLineUp();
+      synchronized (this) {
+         pendingTasks.add(new MessageReferenceTXTask(reference, txID, callback));
       }
    }
 
@@ -97,6 +158,8 @@ public class StatementsManager {
       taskList.forEach(this::doTask);
       try {
          messageStatement.flushPending(false);
+         referencesTXStatement.flushPending(false);
+         referencesStatement.flushPending(false);
       } catch (SQLException e) {
          try {
             connection.rollback();

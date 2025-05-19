@@ -160,7 +160,9 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
 
    private void initSchema(JDBCConnectionProvider connectionProvider) throws Exception {
       String messagesTableName = databaseConfiguration.getParallelDBMessages();
+      String referencesTableName = databaseConfiguration.getParallelDBReferences();
       JDBCUtils.createTable(connectionProvider, messagesTableName, connectionProvider.getSQLProvider().getCreateParallelDBMessages(messagesTableName));
+      JDBCUtils.createTable(connectionProvider, referencesTableName, connectionProvider.getSQLProvider().getCreateParallelDBReferences(referencesTableName));
       statementsManager = new StatementsManager(databaseConfiguration, connectionProvider, batchSize);
       try (Connection connection = connectionProvider.getConnection()) {
       }
