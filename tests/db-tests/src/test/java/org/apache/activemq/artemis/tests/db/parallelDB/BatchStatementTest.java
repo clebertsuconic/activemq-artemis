@@ -30,6 +30,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.activemq.artemis.core.config.Configuration;
 import org.apache.activemq.artemis.core.config.storage.DatabaseStorageConfiguration;
 import org.apache.activemq.artemis.core.io.IOCallback;
 import org.apache.activemq.artemis.core.message.impl.CoreMessage;
@@ -67,6 +68,7 @@ public class BatchStatementTest extends ParameterDBTestBase {
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
    DatabaseStorageConfiguration storageConfiguration;
+   Configuration configuration;
 
    ExecutorService executorService;
 
@@ -103,8 +105,10 @@ public class BatchStatementTest extends ParameterDBTestBase {
    }
 
    @BeforeEach
-   public void setupTest() {
+   public void setupTest() throws Exception {
       storageConfiguration = createDefaultDatabaseStorageConfiguration();
+      this.configuration = createDefaultNettyConfig();
+      this.configuration.setStoreConfiguration(storageConfiguration);
 
       executorService = Executors.newFixedThreadPool(5);
       runAfter(executorService::shutdownNow);
@@ -117,15 +121,13 @@ public class BatchStatementTest extends ParameterDBTestBase {
    }
 
    @TestTemplate
-   public void testInit() throws Exception {
-      ParallelDBStorageManager parallelDBStorageManager = new ParallelDBStorageManager(criticalAnalyzer, 1, executorFactory, scheduledExecutorService, executorFactory);
-      parallelDBStorageManager.init(storageConfiguration);
-   }
-
-   @TestTemplate
    public void testStoreMessageOnBatchableStatement() throws Exception {
-      ParallelDBStorageManager parallelDBStorageManager = new ParallelDBStorageManager(criticalAnalyzer, 1, executorFactory, scheduledExecutorService, executorFactory);
-      parallelDBStorageManager.init(storageConfiguration);
+      ParallelDBStorageManager parallelDBStorageManager = new ParallelDBStorageManager(configuration,
+                                                                                       criticalAnalyzer,
+                                                                                       executorFactory,
+                                                                                       executorFactory,
+                                                                                       scheduledExecutorService);
+      parallelDBStorageManager.start();
 
       JDBCConnectionProvider connectionProvider = storageConfiguration.getConnectionProvider();
 
@@ -164,8 +166,12 @@ public class BatchStatementTest extends ParameterDBTestBase {
 
    @TestTemplate
    public void testStatementManager() throws Exception {
-      ParallelDBStorageManager parallelDBStorageManager = new ParallelDBStorageManager(criticalAnalyzer, 1, executorFactory, scheduledExecutorService, executorFactory);
-      parallelDBStorageManager.init(storageConfiguration);
+      ParallelDBStorageManager parallelDBStorageManager = new ParallelDBStorageManager(configuration,
+                                                                                       criticalAnalyzer,
+                                                                                       executorFactory,
+                                                                                       executorFactory,
+                                                                                       scheduledExecutorService);
+      parallelDBStorageManager.start();
 
       JDBCConnectionProvider connectionProvider = storageConfiguration.getConnectionProvider();
 
@@ -211,8 +217,13 @@ public class BatchStatementTest extends ParameterDBTestBase {
 
    @TestTemplate
    public void testTreatExceptionOnError() throws Exception {
-      ParallelDBStorageManager parallelDBStorageManager = new ParallelDBStorageManager(criticalAnalyzer, 1, executorFactory, scheduledExecutorService, executorFactory);
-      parallelDBStorageManager.init(storageConfiguration);
+      ParallelDBStorageManager parallelDBStorageManager = new ParallelDBStorageManager(configuration,
+                                                                                       criticalAnalyzer,
+                                                                                       executorFactory,
+                                                                                       executorFactory,
+                                                                                       scheduledExecutorService);
+      parallelDBStorageManager.start();
+
 
       JDBCConnectionProvider connectionProvider = storageConfiguration.getConnectionProvider();
 

@@ -31,6 +31,7 @@ import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.api.core.Pair;
 import org.apache.activemq.artemis.api.core.SimpleString;
+import org.apache.activemq.artemis.core.config.Configuration;
 import org.apache.activemq.artemis.core.config.storage.DatabaseStorageConfiguration;
 import org.apache.activemq.artemis.core.io.SequentialFile;
 import org.apache.activemq.artemis.core.journal.IOCompletion;
@@ -58,6 +59,7 @@ import org.apache.activemq.artemis.core.persistence.config.PersistedSecuritySett
 import org.apache.activemq.artemis.core.persistence.config.PersistedUser;
 import org.apache.activemq.artemis.core.persistence.impl.AbstractStorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.PageCountPending;
+import org.apache.activemq.artemis.core.persistence.impl.journal.JDBCJournalStorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.StatementsManager;
 import org.apache.activemq.artemis.core.postoffice.Binding;
 import org.apache.activemq.artemis.core.postoffice.PostOffice;
@@ -83,25 +85,32 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
    // TODO: provide configuration for this
    final int batchSize = 1000;
 
-   SQLProvider sqlProvider;
-   DatabaseStorageConfiguration databaseConfiguration;
+   final Configuration configuration;
    JDBCConnectionProvider connectionProvider;
+   DatabaseStorageConfiguration databaseConfiguration;
 
    // the plan is to have many of these in a pool, for now while I bootstrap things I'm just having one
    StatementsManager statementsManager;
 
-   public ParallelDBStorageManager(CriticalAnalyzer analyzer,
-                                   int numberOfPaths,
-                                   ExecutorFactory executorFactory,
-                                   ScheduledExecutorService scheduledExecutorService,
-                                   ExecutorFactory ioExecutorFactory) {
-      super(analyzer, numberOfPaths, executorFactory, scheduledExecutorService, ioExecutorFactory);
+   // we are (at the moment) still using the legacy journal for some tasks
+   final JDBCJournalStorageManager jdbcJournalDelegate;
+
+
+   public ParallelDBStorageManager(Configuration configuration,
+                                    CriticalAnalyzer analyzer,
+                                    ExecutorFactory executorFactory,
+                                    ExecutorFactory ioExecutorFactory,
+                                    ScheduledExecutorService scheduledExecutorService) {
+      super(analyzer, 1, executorFactory, scheduledExecutorService, ioExecutorFactory);
+      this.configuration = configuration;
+      this.jdbcJournalDelegate = new JDBCJournalStorageManager(configuration, analyzer, executorFactory, ioExecutorFactory, scheduledExecutorService);
    }
 
-
-   public void init(DatabaseStorageConfiguration databaseConfiguration) throws Exception {
+   @Override
+   public void start() throws Exception {
+      this.databaseConfiguration = (DatabaseStorageConfiguration)configuration.getStoreConfiguration();
       this.connectionProvider = databaseConfiguration.getConnectionProvider();
-      this.databaseConfiguration = databaseConfiguration;
+      jdbcJournalDelegate.start();
       initSchema(connectionProvider);
    }
 
@@ -704,11 +713,6 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
 
    @Override
    public void deleteMapRecordTx(long txid, long id) throws Exception {
-
-   }
-
-   @Override
-   public void start() throws Exception {
 
    }
 
