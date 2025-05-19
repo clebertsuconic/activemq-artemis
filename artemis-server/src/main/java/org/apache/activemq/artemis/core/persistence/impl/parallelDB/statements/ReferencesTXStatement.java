@@ -25,34 +25,28 @@ import org.apache.activemq.artemis.core.server.MessageReference;
 import org.apache.activemq.artemis.jdbc.parallelDB.BatchableStatement;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 
-public class ReferencesTXStatement extends BatchableStatement<ReferencesTXStatement.ReferenceWithTX> {
+public class ReferencesTXStatement extends BatchableStatement<ReferencesTXStatement.Data> {
 
    public ReferencesTXStatement(Connection connection, JDBCConnectionProvider connectionProvider, String tableName, int expectedSize) throws SQLException {
       super(connectionProvider, connection, connectionProvider.getSQLProvider().getInsertPDBReferencesTX(tableName), expectedSize);
    }
 
-   public static ReferenceWithTX withTX(MessageReference reference, long tx) {
-      return new ReferenceWithTX(reference, tx);
-   }
-
-   public static class ReferenceWithTX {
-      MessageReference reference;
+   public static class Data {
+      long messageID;
+      long queueID;
       long tx;
 
-      public ReferenceWithTX(MessageReference reference, long tx) {
-         this.reference = reference;
+      public Data(long messageID, long queueID, long tx) {
+         this.messageID = messageID;
+         this.queueID = queueID;
          this.tx = tx;
       }
    }
 
-   public void addData(MessageReference reference, long txID, IOCallback callback) {
-      addData(withTX(reference, txID), callback);
-   }
-
    @Override
-   protected void doOne(ReferenceWithTX reference) throws Exception {
-      preparedStatement.setLong(1, reference.reference.getMessageID());
-      preparedStatement.setLong(2, reference.reference.getQueueID());
+   protected void doOne(Data reference) throws Exception {
+      preparedStatement.setLong(1, reference.messageID);
+      preparedStatement.setLong(2, reference.queueID);
       preparedStatement.setLong(3, reference.tx);
    }
 

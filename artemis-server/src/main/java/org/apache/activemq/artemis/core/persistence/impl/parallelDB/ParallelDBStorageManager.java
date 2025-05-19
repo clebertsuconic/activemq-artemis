@@ -242,7 +242,10 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
 
    @Override
    public void storeReference(long queueID, long messageID, boolean last) throws Exception {
-
+      statementsManager.storeReference(messageID, queueID, getContext());
+      if (last) {
+         statementsManager.flushTL();
+      }
    }
 
    @Override
