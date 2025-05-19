@@ -161,7 +161,7 @@ public class BasicParallelTest extends ParameterDBTestBase {
             message.getBodyBuffer().writeByte((byte) 'Z');
             messageStatement.addData(message, ioCallback);
          }
-         messageStatement.flushPending();
+         messageStatement.flushPending(true);
       }
 
       assertTrue(latch.await(10, TimeUnit.SECONDS));
