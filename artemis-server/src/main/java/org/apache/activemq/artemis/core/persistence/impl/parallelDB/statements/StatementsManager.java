@@ -80,26 +80,26 @@ public class StatementsManager {
    }
 
    class MessageReferenceTask extends Task {
-      public MessageReferenceTask(MessageReference reference, OperationContext context) {
+      public MessageReferenceTask(long messageID, long queueID, OperationContext context) {
          super(context);
-         this.reference = reference;
+         this.data = new ReferencesStatement.Data(messageID, queueID);
       }
 
-      final MessageReference reference;
+      final ReferencesStatement.Data data;
       public void store() {
-         referencesStatement.addData(reference, context);
+         referencesStatement.addData(data, context);
       }
    }
 
    class MessageReferenceTXTask extends Task {
-      public MessageReferenceTXTask(MessageReference reference, long txID, OperationContext context) {
+      public MessageReferenceTXTask(long messageID, long queueID, long txID, OperationContext context) {
          super(context);
-         this.reference = ReferencesTXStatement.withTX(reference, txID);
+         this.data = new ReferencesTXStatement.Data(messageID, queueID, txID);
       }
 
-      final ReferencesTXStatement.ReferenceWithTX reference;
+      final ReferencesTXStatement.Data data;
       public void store() {
-         referencesTXStatement.addData(reference, context);
+         referencesTXStatement.addData(data, context);
       }
    }
 
@@ -127,14 +127,14 @@ public class StatementsManager {
       getTLTaskList().add(new MessageTask(message, callback));
    }
 
-   public void storeReference(MessageReference reference, OperationContext callback) {
+   public void storeReference(long messageID, long queueID, OperationContext callback) {
       callback.storeLineUp();
-      getTLTaskList().add(new MessageReferenceTask(reference, callback));
+      getTLTaskList().add(new MessageReferenceTask(messageID, queueID, callback));
    }
 
-   public void storeReferenceTX(MessageReference reference, long txID, OperationContext callback) {
+   public void storeReferenceTX(long messageID, long queueID, long txID, OperationContext callback) {
       callback.storeLineUp();
-      getTLTaskList().add(new MessageReferenceTXTask(reference, txID, callback));
+      getTLTaskList().add(new MessageReferenceTXTask(messageID, queueID, txID, callback));
    }
 
    public void flushTL() {

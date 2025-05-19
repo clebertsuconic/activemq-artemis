@@ -26,16 +26,27 @@ import org.apache.activemq.artemis.core.server.MessageReference;
 import org.apache.activemq.artemis.jdbc.parallelDB.BatchableStatement;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 
-public class ReferencesStatement extends BatchableStatement<MessageReference> {
+public class ReferencesStatement extends BatchableStatement<ReferencesStatement.Data> {
 
    public ReferencesStatement(Connection connection, JDBCConnectionProvider connectionProvider, String tableName, int expectedSize) throws SQLException {
       super(connectionProvider, connection, connectionProvider.getSQLProvider().getInsertPDBReferences(tableName), expectedSize);
    }
 
+   public static class Data {
+
+      public Data(long messageID, long queueID) {
+         this.messageID = messageID;
+         this.queueID = queueID;
+      }
+
+      long messageID;
+      long queueID;
+   }
+
    @Override
-   protected void doOne(MessageReference reference) throws Exception {
-      preparedStatement.setLong(1, reference.getMessageID());
-      preparedStatement.setLong(2, reference.getQueueID());
+   protected void doOne(Data reference) throws Exception {
+      preparedStatement.setLong(1, reference.messageID);
+      preparedStatement.setLong(2, reference.queueID);
    }
 
 }
