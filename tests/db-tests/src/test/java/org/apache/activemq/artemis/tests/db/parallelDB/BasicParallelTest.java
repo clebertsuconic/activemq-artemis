@@ -26,6 +26,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.activemq.artemis.core.config.Configuration;
 import org.apache.activemq.artemis.core.config.storage.DatabaseStorageConfiguration;
 import org.apache.activemq.artemis.core.io.IOCallback;
 import org.apache.activemq.artemis.core.message.impl.CoreMessage;
@@ -49,9 +50,7 @@ import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 @DisabledIf("isNoDatabaseSelected")
@@ -60,6 +59,7 @@ public class BasicParallelTest extends ParameterDBTestBase {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
+   Configuration configuration;
    DatabaseStorageConfiguration storageConfiguration;
 
    ExecutorService executorService;
@@ -97,8 +97,10 @@ public class BasicParallelTest extends ParameterDBTestBase {
    }
 
    @BeforeEach
-   public void setupTest() {
+   public void setupTest() throws Exception {
       storageConfiguration = createDefaultDatabaseStorageConfiguration();
+      this.configuration = createDefaultNettyConfig();
+      configuration.setStoreConfiguration(storageConfiguration);
 
       executorService = Executors.newFixedThreadPool(5);
       runAfter(executorService::shutdownNow);
@@ -111,15 +113,13 @@ public class BasicParallelTest extends ParameterDBTestBase {
    }
 
    @TestTemplate
-   public void testInit() throws Exception {
-      ParallelDBStorageManager parallelDBStorageManager = new ParallelDBStorageManager(criticalAnalyzer, 1, executorFactory, scheduledExecutorService, executorFactory);
-      parallelDBStorageManager.init(storageConfiguration);
-   }
-
-   @TestTemplate
    public void testStoreMessage() throws Exception {
-      ParallelDBStorageManager parallelDBStorageManager = new ParallelDBStorageManager(criticalAnalyzer, 1, executorFactory, scheduledExecutorService, executorFactory);
-      parallelDBStorageManager.init(storageConfiguration);
+      ParallelDBStorageManager parallelDBStorageManager = new ParallelDBStorageManager(configuration,
+                                   criticalAnalyzer,
+                                   executorFactory,
+                                   executorFactory,
+                                   scheduledExecutorService);
+      parallelDBStorageManager.start();
 
       CoreMessage message = new CoreMessage().initBuffer(10 * 1024).setDurable(true);
 
@@ -131,8 +131,12 @@ public class BasicParallelTest extends ParameterDBTestBase {
 
    @TestTemplate
    public void testStoreMessageOnBatchableStatement() throws Exception {
-      ParallelDBStorageManager parallelDBStorageManager = new ParallelDBStorageManager(criticalAnalyzer, 1, executorFactory, scheduledExecutorService, executorFactory);
-      parallelDBStorageManager.init(storageConfiguration);
+      ParallelDBStorageManager parallelDBStorageManager = new ParallelDBStorageManager(configuration,
+                                                                                       criticalAnalyzer,
+                                                                                       executorFactory,
+                                                                                       executorFactory,
+                                                                                       scheduledExecutorService);
+      parallelDBStorageManager.start();
 
       JDBCConnectionProvider connectionProvider = storageConfiguration.getConnectionProvider();
 
@@ -157,7 +161,7 @@ public class BasicParallelTest extends ParameterDBTestBase {
          MessageStatement messageStatement = new MessageStatement(connection, connectionProvider, storageConfiguration.getParallelDBMessages(), 100);
          for (int i = 1; i <= 100; i++) {
             CoreMessage message = new CoreMessage().initBuffer(1 * 1024).setDurable(true);
-            message.setMessageID(1);
+            message.setMessageID(i);
             message.getBodyBuffer().writeByte((byte) 'Z');
             messageStatement.addData(message, ioCallback);
          }
