@@ -97,6 +97,10 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
       return journalDelegate.getConfig();
    }
 
+   public StatementsManager getStatementsManager() {
+      return statementsManager;
+   }
+
    @Override
    public long getMaxRecordSize() {
       return journalDelegate.getMaxRecordSize();
@@ -242,7 +246,7 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
 
    @Override
    public void storeReference(long queueID, long messageID, boolean last) throws Exception {
-      statementsManager.storeReference(messageID, queueID, getContext());
+      statementsManager.storeReference(messageID, queueID, null, getContext());
       if (last) {
          statementsManager.flushTL();
       }
@@ -308,6 +312,8 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
 
    @Override
    public void storeReferenceTransactional(long txID, long queueID, long messageID) throws Exception {
+      statementsManager.storeReference(messageID, queueID, txID, getContext());
+      statementsManager.flushTL();
    }
 
    @Override
