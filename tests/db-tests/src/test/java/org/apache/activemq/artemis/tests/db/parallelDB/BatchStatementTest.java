@@ -39,7 +39,6 @@ import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContex
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.ParallelDBStorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.MessageStatement;
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.ReferencesStatement;
-import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.ReferencesTXStatement;
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.StatementsManager;
 import org.apache.activemq.artemis.core.server.MessageReference;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
@@ -154,53 +153,7 @@ public class BatchStatementTest extends ParameterDBTestBase {
          connection.setAutoCommit(false);
          ReferencesStatement referencesStatement = new ReferencesStatement(connection, connectionProvider, storageConfiguration.getParallelDBReferences(), 100);
          for (int i = 1; i <= nrecords; i++) {
-            long messageID = i;
-            MessageReference reference = mockReference(messageID);
-            referencesStatement.addData(reference, ioCallback);
-         }
-         referencesStatement.flushPending(true);
-
-         assertEquals(nrecords, selectCount(connection, "ART_REFERENCES"));
-      }
-
-      assertTrue(latch.await(10, TimeUnit.SECONDS));
-   }
-
-
-   @TestTemplate
-   public void testReferencesDirectlyTX() throws Exception {
-      ParallelDBStorageManager parallelDBStorageManager = new ParallelDBStorageManager(configuration,
-                                                                                       criticalAnalyzer,
-                                                                                       executorFactory,
-                                                                                       executorFactory,
-                                                                                       scheduledExecutorService);
-      parallelDBStorageManager.start();
-
-      JDBCConnectionProvider connectionProvider = storageConfiguration.getConnectionProvider();
-
-      int nrecords = 100;
-
-      CountDownLatch latch = new CountDownLatch(nrecords);
-
-      IOCallback ioCallback = new IOCallback() {
-         @Override
-         public void done() {
-            latch.countDown();
-         }
-
-         @Override
-         public void onError(int errorCode, String errorMessage) {
-
-         }
-      };
-
-      try (Connection connection = connectionProvider.getConnection()) {
-         connection.setAutoCommit(false);
-         ReferencesTXStatement referencesStatement = new ReferencesTXStatement(connection, connectionProvider, storageConfiguration.getParallelDBReferences(), 100);
-         for (int i = 1; i <= nrecords; i++) {
-            long messageID = i;
-            MessageReference reference = mockReference(messageID);
-            referencesStatement.addData(reference, 33, ioCallback);
+            referencesStatement.addData(ReferencesStatement.data(i, 1, i % 2 == 0 ? (long)i : null), ioCallback);
          }
          referencesStatement.flushPending(true);
 
@@ -279,7 +232,7 @@ public class BatchStatementTest extends ParameterDBTestBase {
 
       CountDownLatch latchDone = new CountDownLatch(1);
 
-      StatementsManager statementsManager = new StatementsManager(storageConfiguration, connectionProvider, 100);
+      StatementsManager statementsManager = parallelDBStorageManager.getStatementsManager();
 
       OperationContext context = parallelDBStorageManager.getContext();
       runAfter(OperationContextImpl::clearContext);
@@ -328,21 +281,21 @@ public class BatchStatementTest extends ParameterDBTestBase {
       Connection connection = connectionProvider.getConnection();
       runAfter(connection::close);
 
-      int nrecords = 100;
+      int pairs = 5_000;
+      int nrecords = pairs * 2;
 
       CountDownLatch latchDone = new CountDownLatch(1);
 
-      StatementsManager statementsManager = new StatementsManager(storageConfiguration, connectionProvider, 100);
+      StatementsManager statementsManager = parallelDBStorageManager.getStatementsManager();
 
       OperationContext context = parallelDBStorageManager.getContext();
       runAfter(OperationContextImpl::clearContext);
 
       for (int i = 1; i <= nrecords; i++) {
-         MessageReference reference = mockReference(i);
          if (i % 2 == 0) {
-            statementsManager.storeReference(reference, OperationContextImpl.getContext());
+            parallelDBStorageManager.storeReference(1, i, true);
          } else {
-            statementsManager.storeReferenceTX(reference, i, OperationContextImpl.getContext());
+            parallelDBStorageManager.storeReferenceTransactional(i, 1, i);
          }
          statementsManager.flushTL();
       }
@@ -366,6 +319,8 @@ public class BatchStatementTest extends ParameterDBTestBase {
       assertTrue(latchDone.await(10, TimeUnit.SECONDS));
 
       assertEquals(nrecords, selectCount(connection, storageConfiguration.getParallelDBReferences()));
+      assertEquals(pairs, selectNumber(connection, "SELECT COUNT(*) FROM " + storageConfiguration.getParallelDBReferences() + " WHERE TX_ID IS NULL"));
+      assertEquals(pairs, selectNumber(connection, "SELECT COUNT(*) FROM " + storageConfiguration.getParallelDBReferences() + " WHERE TX_ID IS NOT NULL"));
    }
 
 
@@ -419,10 +374,15 @@ public class BatchStatementTest extends ParameterDBTestBase {
    }
 
    private static int selectCount(Connection connection, String tableName) throws SQLException {
+      return selectNumber(connection, "SELECT COUNT(*) FROM " + tableName);
+   }
+
+   private static int selectNumber(Connection connection, String sqlStatement) throws SQLException {
       try (Statement queryStatement = connection.createStatement()) {
-         ResultSet rset = queryStatement.executeQuery("SELECT COUNT(*) FROM " + tableName);
+         ResultSet rset = queryStatement.executeQuery(sqlStatement);
          rset.next();
          return rset.getInt(1);
       }
    }
+
 }
