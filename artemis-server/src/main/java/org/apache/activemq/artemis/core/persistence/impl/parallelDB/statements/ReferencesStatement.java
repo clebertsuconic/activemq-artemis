@@ -19,6 +19,7 @@ package org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.Types;
 
 import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
 import org.apache.activemq.artemis.api.core.Message;
@@ -32,21 +33,32 @@ public class ReferencesStatement extends BatchableStatement<ReferencesStatement.
       super(connectionProvider, connection, connectionProvider.getSQLProvider().getInsertPDBReferences(tableName), expectedSize);
    }
 
+   public static Data data(long messageID, long queueID, Long txID) {
+      return new Data(messageID, queueID, txID);
+   }
+
    public static class Data {
 
-      public Data(long messageID, long queueID) {
+      public Data(long messageID, long queueID, Long txID) {
          this.messageID = messageID;
          this.queueID = queueID;
+         this.txID = txID;
       }
 
       long messageID;
       long queueID;
+      Long txID;
    }
 
    @Override
-   protected void doOne(Data reference) throws Exception {
-      preparedStatement.setLong(1, reference.messageID);
-      preparedStatement.setLong(2, reference.queueID);
+   protected void doOne(Data data) throws Exception {
+      preparedStatement.setLong(1, data.messageID);
+      preparedStatement.setLong(2, data.queueID);
+      if (data.txID != null) {
+         preparedStatement.setLong(3, data.txID);
+      } else {
+         preparedStatement.setNull(3, Types.NUMERIC);
+      }
    }
 
 }
