@@ -38,7 +38,6 @@ public class StatementsManager {
 
    Connection connection;
    MessageStatement messageStatement;
-   ReferencesTXStatement referencesTXStatement;
    ReferencesStatement referencesStatement;
 
    // We store messages and references on a ThreadLocal buffer until the last attribute is sent,
@@ -80,26 +79,14 @@ public class StatementsManager {
    }
 
    class MessageReferenceTask extends Task {
-      public MessageReferenceTask(long messageID, long queueID, OperationContext context) {
+      public MessageReferenceTask(long messageID, long queueID, Long txID, OperationContext context) {
          super(context);
-         this.data = new ReferencesStatement.Data(messageID, queueID);
+         this.data = new ReferencesStatement.Data(messageID, queueID, txID);
       }
 
       final ReferencesStatement.Data data;
       public void store() {
          referencesStatement.addData(data, context);
-      }
-   }
-
-   class MessageReferenceTXTask extends Task {
-      public MessageReferenceTXTask(long messageID, long queueID, long txID, OperationContext context) {
-         super(context);
-         this.data = new ReferencesTXStatement.Data(messageID, queueID, txID);
-      }
-
-      final ReferencesTXStatement.Data data;
-      public void store() {
-         referencesTXStatement.addData(data, context);
       }
    }
 
@@ -115,7 +102,6 @@ public class StatementsManager {
       connection.setAutoCommit(false);
       messageStatement = new MessageStatement(connection, connectionProvider, databaseConfiguration.getParallelDBMessages(), batchSize);
       referencesStatement = new ReferencesStatement(connection, connectionProvider, databaseConfiguration.getParallelDBReferences(), batchSize);
-      referencesTXStatement = new ReferencesTXStatement(connection, connectionProvider, databaseConfiguration.getParallelDBReferences(), batchSize);
    }
 
    public void close() throws SQLException {
@@ -127,14 +113,9 @@ public class StatementsManager {
       getTLTaskList().add(new MessageTask(message, callback));
    }
 
-   public void storeReference(long messageID, long queueID, OperationContext callback) {
+   public void storeReference(long messageID, long queueID, Long txID, OperationContext callback) {
       callback.storeLineUp();
-      getTLTaskList().add(new MessageReferenceTask(messageID, queueID, callback));
-   }
-
-   public void storeReferenceTX(long messageID, long queueID, long txID, OperationContext callback) {
-      callback.storeLineUp();
-      getTLTaskList().add(new MessageReferenceTXTask(messageID, queueID, txID, callback));
+      getTLTaskList().add(new MessageReferenceTask(messageID, queueID, txID, callback));
    }
 
    public void flushTL() {
@@ -158,7 +139,6 @@ public class StatementsManager {
       taskList.forEach(this::doTask);
       try {
          messageStatement.flushPending(false);
-         referencesTXStatement.flushPending(false);
          referencesStatement.flushPending(false);
       } catch (SQLException e) {
          try {
