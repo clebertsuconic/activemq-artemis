@@ -20,10 +20,13 @@ package org.apache.activemq.artemis.core.persistence.impl.parallelDB;
 import javax.transaction.xa.Xid;
 import java.nio.ByteBuffer;
 import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
@@ -130,7 +133,7 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
       this.databaseConfiguration = (DatabaseStorageConfiguration)configuration.getStoreConfiguration();
       this.connectionProvider = databaseConfiguration.getConnectionProvider();
       journalDelegate.start();
-      initSchema(connectionProvider);
+      initSchema();
    }
 
    @Override
@@ -162,13 +165,15 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
       return journalDelegate.addToPage(store, msg, tx, listCtx);
    }
 
-   private void initSchema(JDBCConnectionProvider connectionProvider) throws Exception {
+   private void initSchema() throws Exception {
       String messagesTableName = databaseConfiguration.getParallelDBMessages();
       String referencesTableName = databaseConfiguration.getParallelDBReferences();
-      JDBCUtils.createTable(connectionProvider, messagesTableName, connectionProvider.getSQLProvider().getCreateParallelDBMessages(messagesTableName));
-      JDBCUtils.createTable(connectionProvider, referencesTableName, connectionProvider.getSQLProvider().getCreateParallelDBReferences(referencesTableName));
-      statementsManager = new StatementsManager(databaseConfiguration, connectionProvider, batchSize);
       try (Connection connection = connectionProvider.getConnection()) {
+         JDBCUtils.createTable(connection, connectionProvider.getSQLProvider(), messagesTableName, connectionProvider.getSQLProvider().getCreateParallelDBMessages(messagesTableName));
+         JDBCUtils.createTable(connection, connectionProvider.getSQLProvider(), referencesTableName, connectionProvider.getSQLProvider().getCreateParallelDBReferences(referencesTableName));
+
+         // TODO: what is the best place for the time?
+         statementsManager = new StatementsManager(scheduledExecutorService, executorFactory.getExecutor(), configuration.getJournalBufferTimeout_NIO(), databaseConfiguration, connectionProvider, batchSize);
       }
    }
 

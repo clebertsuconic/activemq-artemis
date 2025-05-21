@@ -257,10 +257,6 @@ public class BatchStatementTest extends ParameterDBTestBase {
          }
       });
 
-      assertEquals(1, latchDone.getCount());
-
-      statementsManager.flush();
-
       assertTrue(latchDone.await(10, TimeUnit.SECONDS));
 
       assertEquals(nrecords, selectCount(connection, storageConfiguration.getParallelDBMessages()));
@@ -311,10 +307,6 @@ public class BatchStatementTest extends ParameterDBTestBase {
 
          }
       });
-
-      assertEquals(1, latchDone.getCount());
-
-      statementsManager.flush();
 
       assertTrue(latchDone.await(10, TimeUnit.SECONDS));
 

@@ -89,11 +89,6 @@ public abstract class BatchableStatement<E> {
       callback.done();
    }
 
-   private void errorCallback(IOCallback callback, int errorCode, String message) {
-      callback.onError(errorCode, message);
-   }
-
-
    protected void flushOne(E element) {
       try {
          doOne(element);
