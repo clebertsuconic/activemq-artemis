@@ -17,10 +17,14 @@
 
 package org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements;
 
+import java.lang.invoke.MethodHandles;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.core.config.storage.DatabaseStorageConfiguration;
@@ -29,8 +33,12 @@ import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.server.ActiveMQScheduledComponent;
 import org.apache.activemq.artemis.core.server.MessageReference;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-public class StatementsManager {
+public class StatementsManager extends ActiveMQScheduledComponent {
+
+   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
    final DatabaseStorageConfiguration databaseConfiguration;
    final JDBCConnectionProvider connectionProvider;
@@ -90,7 +98,13 @@ public class StatementsManager {
       }
    }
 
-   public StatementsManager(DatabaseStorageConfiguration databaseConfiguration, JDBCConnectionProvider connectionProvider, int batchSize) throws SQLException {
+   public StatementsManager(ScheduledExecutorService scheduledExecutorService,
+                            Executor executor,
+                            long flushTime,
+                            DatabaseStorageConfiguration databaseConfiguration,
+                            JDBCConnectionProvider connectionProvider,
+                            int batchSize) throws SQLException {
+      super(scheduledExecutorService, executor, flushTime, flushTime, TimeUnit.MILLISECONDS, true);
       this.databaseConfiguration = databaseConfiguration;
       this.connectionProvider = connectionProvider;
       this.batchSize = batchSize;
@@ -123,6 +137,7 @@ public class StatementsManager {
          pendingTasks.addAll(getTLTaskList());
       }
       getTLTaskList().clear();
+      delay();
    }
 
    private List<Task> extractTaskList() {
@@ -132,6 +147,15 @@ public class StatementsManager {
          pendingTasks.clear();
       }
       return tasksToRun;
+   }
+
+   @Override
+   public void run() {
+      try {
+         flush();
+      } catch (SQLException e) {
+         logger.warn(e.getMessage(), e);
+      }
    }
 
    public void flush() throws SQLException {
