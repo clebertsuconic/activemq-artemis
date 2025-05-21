@@ -72,15 +72,24 @@ public class SimpleManagement implements AutoCloseable {
       return uri;
    }
 
+   public void setSession(ClientSession session) {
+      this.session = session;
+   }
+
    @Override
    public void close() throws Exception {
       if (session != null) {
          session.close();
-         sessionFactory.close();
-         locator.close();
          session = null;
+      }
+
+      if (sessionFactory != null) {
+         sessionFactory.close();
          sessionFactory = null;
-         locator = null;
+      }
+
+      if (locator != null) {
+         locator.close();
       }
    }
 
