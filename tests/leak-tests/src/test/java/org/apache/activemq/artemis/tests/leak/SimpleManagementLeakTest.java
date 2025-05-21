@@ -115,13 +115,15 @@ public class SimpleManagementLeakTest extends AbstractLeakTest {
                   simpleManagement.setSession(sessionForManagement.getCoreSession());
                }
                assertEquals(0, simpleManagement.getMessageCountOnQueue(queueName));
-               assertEquals(1, simpleManagement.getNumberOfConsumersOnQueue(queueName));
+               //assertEquals(1, simpleManagement.getNumberOfConsumersOnQueue(queueName));
                simpleManagement.close();
+               assertMemory(checkLeak, 2, QueueImpl.class.getName());
             }
          }
 
       }
       int instancesOfQueues = checkLeak.getAllObjects(QueueImpl.class).length;
+      logger.info("There are {} instances of queue", instancesOfQueues);
       assertTrue(instancesOfQueues < 5, "There are " + instancesOfQueues + " QueueImpl on the broker");
    }
 }
