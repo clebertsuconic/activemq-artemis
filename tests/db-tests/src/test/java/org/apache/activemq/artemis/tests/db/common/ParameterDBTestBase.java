@@ -20,6 +20,8 @@ package org.apache.activemq.artemis.tests.db.common;
 import java.lang.invoke.MethodHandles;
 import java.sql.Connection;
 import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -187,6 +189,18 @@ public abstract class ParameterDBTestBase extends DBTestBase {
       return dbStorageConfiguration;
    }
 
+
+   protected static int selectCount(Connection connection, String tableName) throws SQLException {
+      return selectNumber(connection, "SELECT COUNT(*) FROM " + tableName);
+   }
+
+   protected static int selectNumber(Connection connection, String sqlStatement) throws SQLException {
+      try (Statement queryStatement = connection.createStatement()) {
+         ResultSet rset = queryStatement.executeQuery(sqlStatement);
+         rset.next();
+         return rset.getInt(1);
+      }
+   }
 
 
 }

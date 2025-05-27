@@ -19,6 +19,7 @@ package org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.Types;
 
 import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
 import org.apache.activemq.artemis.api.core.ActiveMQBuffers;
@@ -28,17 +29,23 @@ import org.apache.activemq.artemis.jdbc.parallelDB.BatchableStatement;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 import org.apache.activemq.artemis.utils.ActiveMQBufferInputStream;
 
-public class MessageStatement extends BatchableStatement<Message> {
+public class MessageStatement extends BatchableStatement<StatementsManager.MessageTask> {
 
    public MessageStatement(Connection connection, JDBCConnectionProvider connectionProvider, String tableName, int expectedSize) throws SQLException {
       super(connectionProvider, connection, connectionProvider.getSQLProvider().getInsertPDBMessages(tableName), expectedSize);
    }
 
    @Override
-   protected void doOne(Message message) throws Exception {
-      ActiveMQBuffer buffer = getPersistedBuffer(message.getPersister(), message);
-      preparedStatement.setLong(1, message.getMessageID());
+   protected void doOne(StatementsManager.MessageTask task) throws Exception {
+      System.out.println("Message persisting " + task.message);
+      ActiveMQBuffer buffer = getPersistedBuffer(task.message.getPersister(), task.message);
+      preparedStatement.setLong(1, task.message.getMessageID());
       preparedStatement.setBlob(2, blobInputStream(buffer));
+      if (task.tx != null) {
+         preparedStatement.setLong(3, task.tx);
+      } else {
+         preparedStatement.setNull(3, Types.NUMERIC);
+      }
    }
 
 }
