@@ -174,6 +174,7 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
 
          // TODO: what is the best place for the time?
          statementsManager = new StatementsManager(scheduledExecutorService, executorFactory.getExecutor(), configuration.getJournalBufferTimeout_NIO(), databaseConfiguration, connectionProvider, batchSize);
+         statementsManager.start();
       }
    }
 
@@ -248,6 +249,7 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
    public void storeMessage(Message message) throws Exception {
       new Exception("store message ").printStackTrace(System.out);
       statementsManager.storeMessage(message, null, getContext());
+      statementsManager.flushTL();
    }
 
    @Override
@@ -257,6 +259,7 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
       if (last) {
          statementsManager.flushTL();
       }
+      statementsManager.flushTL();
    }
 
    @Override
