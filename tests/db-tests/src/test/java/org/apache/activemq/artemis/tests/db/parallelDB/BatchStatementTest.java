@@ -153,7 +153,8 @@ public class BatchStatementTest extends ParameterDBTestBase {
          connection.setAutoCommit(false);
          ReferencesStatement referencesStatement = new ReferencesStatement(connection, connectionProvider, storageConfiguration.getParallelDBReferences(), 100);
          for (int i = 1; i <= nrecords; i++) {
-            referencesStatement.addData(ReferencesStatement.data(i, 1, i % 2 == 0 ? (long)i : null), ioCallback);
+            StatementsManager.MessageReferenceTask task = parallelDBStorageManager.getStatementsManager().newReferenceTask(i, 1, i % 2 == 0 ? (long)i : null, ioCallback);
+            referencesStatement.addData(task, ioCallback);
          }
          referencesStatement.flushPending(true);
 
@@ -204,7 +205,8 @@ public class BatchStatementTest extends ParameterDBTestBase {
             CoreMessage message = new CoreMessage().initBuffer(1 * 1024).setDurable(true);
             message.setMessageID(i);
             message.getBodyBuffer().writeByte((byte) 'Z');
-            messageStatement.addData(message, ioCallback);
+            StatementsManager.MessageTask task = parallelDBStorageManager.getStatementsManager().newMessageTask(message, null, ioCallback);
+            messageStatement.addData(task, ioCallback);
          }
          messageStatement.flushPending(true);
 
@@ -241,7 +243,7 @@ public class BatchStatementTest extends ParameterDBTestBase {
          CoreMessage message = new CoreMessage().initBuffer(1 * 1024).setDurable(true);
          message.setMessageID(i);
          message.getBodyBuffer().writeByte((byte) 'Z');
-         statementsManager.storeMessage(message, OperationContextImpl.getContext());
+         statementsManager.storeMessage(message, null, OperationContextImpl.getContext());
          statementsManager.flushTL();
       }
 
@@ -351,7 +353,8 @@ public class BatchStatementTest extends ParameterDBTestBase {
             CoreMessage message = new CoreMessage().initBuffer(1 * 1024).setDurable(true);
             message.setMessageID(1); // everything should fail with a DuplicateException
             message.getBodyBuffer().writeByte((byte) 'Z');
-            messageStatement.addData(message, ioCallback);
+
+            messageStatement.addData(parallelDBStorageManager.getStatementsManager().newMessageTask(message, null, ioCallback), ioCallback);
          }
          assertThrows(SQLException.class, () -> messageStatement.flushPending(true));
 
@@ -363,18 +366,6 @@ public class BatchStatementTest extends ParameterDBTestBase {
 
       assertEquals(nrecords, errors.get());
 
-   }
-
-   private static int selectCount(Connection connection, String tableName) throws SQLException {
-      return selectNumber(connection, "SELECT COUNT(*) FROM " + tableName);
-   }
-
-   private static int selectNumber(Connection connection, String sqlStatement) throws SQLException {
-      try (Statement queryStatement = connection.createStatement()) {
-         ResultSet rset = queryStatement.executeQuery(sqlStatement);
-         rset.next();
-         return rset.getInt(1);
-      }
    }
 
 }

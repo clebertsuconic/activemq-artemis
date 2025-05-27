@@ -16,6 +16,9 @@
  */
 package org.apache.activemq.artemis.tests.db.parallelDB;
 
+import javax.jms.ConnectionFactory;
+import javax.jms.MessageProducer;
+import javax.jms.Session;
 import java.lang.invoke.MethodHandles;
 import java.sql.Connection;
 import java.util.Collection;
@@ -39,6 +42,7 @@ import org.apache.activemq.artemis.tests.db.common.Database;
 import org.apache.activemq.artemis.tests.db.common.ParameterDBTestBase;
 import org.apache.activemq.artemis.tests.extensions.parameterized.ParameterizedTestExtension;
 import org.apache.activemq.artemis.tests.extensions.parameterized.Parameters;
+import org.apache.activemq.artemis.tests.util.CFUtil;
 import org.apache.activemq.artemis.utils.ExecutorFactory;
 import org.apache.activemq.artemis.utils.actors.OrderedExecutorFactory;
 import org.apache.activemq.artemis.utils.critical.CriticalAnalyzer;
@@ -50,6 +54,7 @@ import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -127,6 +132,53 @@ public class BasicParallelTest extends ParameterDBTestBase {
       message.getBodyBuffer().writeByte((byte)'Z');
 
       parallelDBStorageManager.storeMessage(message);
+      parallelDBStorageManager.storeReference(1, 333, true);
+
+      CountDownLatch done = new CountDownLatch(1);
+      parallelDBStorageManager.getContext().executeOnCompletion(new IOCallback() {
+         @Override
+         public void done() {
+            done.countDown();
+         }
+
+         @Override
+         public void onError(int errorCode, String errorMessage) {
+
+         }
+      });
+
+      assertTrue(done.await(10, TimeUnit.SECONDS));
+   }
+
+
+   @TestTemplate
+   public void testStoreMessageFromServer() throws Exception {
+
+      ActiveMQServer server = createServer(true, configuration);
+
+      server.start();
+
+      String[] protocols = {"CORE", "AMQP", "OPENWIRE"};
+      for (String p : protocols) {
+         ConnectionFactory factory = CFUtil.createConnectionFactory( p, "tcp://localhost:61616");
+         try (javax.jms.Connection connection = factory.createConnection()) {
+            try (Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE)) {
+               MessageProducer producer = session.createProducer(session.createQueue("TEST"));
+               producer.send(session.createTextMessage("test: " + p));
+               //session.commit();
+            }
+            try (Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE)) {
+               MessageProducer producer = session.createProducer(session.createQueue("TEST"));
+               producer.send(session.createTextMessage("test: " + p));
+            }
+         }
+      }
+      server.stop();
+      try (Connection connection = storageConfiguration.getConnectionProvider().getConnection()) {
+         assertEquals(6, selectCount(connection, storageConfiguration.getParallelDBMessages()));
+         assertEquals(6, selectCount(connection, storageConfiguration.getParallelDBReferences()));
+      }
+
    }
 
    @TestTemplate
@@ -144,30 +196,50 @@ public class BasicParallelTest extends ParameterDBTestBase {
 
       CountDownLatch latch = new CountDownLatch(nrecords);
 
-      IOCallback ioCallback = new IOCallback() {
-         @Override
-         public void done() {
-            latch.countDown();
-         }
-
-         @Override
-         public void onError(int errorCode, String errorMessage) {
-
-         }
-      };
-
       try (Connection connection = connectionProvider.getConnection()) {
          connection.setAutoCommit(false);
-         MessageStatement messageStatement = new MessageStatement(connection, connectionProvider, storageConfiguration.getParallelDBMessages(), 100);
          for (int i = 1; i <= 100; i++) {
             CoreMessage message = new CoreMessage().initBuffer(1 * 1024).setDurable(true);
             message.setMessageID(i);
             message.getBodyBuffer().writeByte((byte) 'Z');
-            messageStatement.addData(message, ioCallback);
+            parallelDBStorageManager.storeMessage(message);
          }
-         messageStatement.flushPending(true);
+         latch.await(10, TimeUnit.SECONDS);
+         assertTrue(latch.await(10, TimeUnit.SECONDS));
+         assertEquals(100, selectCount(connection, storageConfiguration.getParallelDBMessages()));
       }
-
-      assertTrue(latch.await(10, TimeUnit.SECONDS));
    }
+
+
+   @TestTemplate
+   public void testStoreMessageOnBatchableStatementTX() throws Exception {
+      ParallelDBStorageManager parallelDBStorageManager = new ParallelDBStorageManager(configuration,
+                                                                                       criticalAnalyzer,
+                                                                                       executorFactory,
+                                                                                       executorFactory,
+                                                                                       scheduledExecutorService);
+      parallelDBStorageManager.start();
+
+      JDBCConnectionProvider connectionProvider = storageConfiguration.getConnectionProvider();
+
+      int nrecords = 100;
+
+      CountDownLatch latch = new CountDownLatch(nrecords);
+
+      try (Connection connection = connectionProvider.getConnection()) {
+         connection.setAutoCommit(false);
+         for (int i = 1; i <= 100; i++) {
+            CoreMessage message = new CoreMessage().initBuffer(1 * 1024).setDurable(true);
+            message.setMessageID(i);
+            message.getBodyBuffer().writeByte((byte) 'Z');
+            parallelDBStorageManager.storeMessageTransactional(3, message);
+            parallelDBStorageManager.storeReferenceTransactional(3, 3, message.getMessageID());
+            parallelDBStorageManager.commit(3);
+         }
+         latch.await(10, TimeUnit.SECONDS);
+         assertTrue(latch.await(10, TimeUnit.SECONDS));
+         assertEquals(100, selectCount(connection, storageConfiguration.getParallelDBMessages()));
+      }
+   }
+
 }

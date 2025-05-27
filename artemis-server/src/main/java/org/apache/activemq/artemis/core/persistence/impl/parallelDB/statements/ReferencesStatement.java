@@ -27,35 +27,18 @@ import org.apache.activemq.artemis.core.server.MessageReference;
 import org.apache.activemq.artemis.jdbc.parallelDB.BatchableStatement;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 
-public class ReferencesStatement extends BatchableStatement<ReferencesStatement.Data> {
+public class ReferencesStatement extends BatchableStatement<StatementsManager.MessageReferenceTask> {
 
    public ReferencesStatement(Connection connection, JDBCConnectionProvider connectionProvider, String tableName, int expectedSize) throws SQLException {
       super(connectionProvider, connection, connectionProvider.getSQLProvider().getInsertPDBReferences(tableName), expectedSize);
    }
 
-   public static Data data(long messageID, long queueID, Long txID) {
-      return new Data(messageID, queueID, txID);
-   }
-
-   public static class Data {
-
-      public Data(long messageID, long queueID, Long txID) {
-         this.messageID = messageID;
-         this.queueID = queueID;
-         this.txID = txID;
-      }
-
-      long messageID;
-      long queueID;
-      Long txID;
-   }
-
    @Override
-   protected void doOne(Data data) throws Exception {
-      preparedStatement.setLong(1, data.messageID);
-      preparedStatement.setLong(2, data.queueID);
-      if (data.txID != null) {
-         preparedStatement.setLong(3, data.txID);
+   protected void doOne(StatementsManager.MessageReferenceTask task) throws Exception {
+      preparedStatement.setLong(1, task.messageID);
+      preparedStatement.setLong(2, task.queueID);
+      if (task.txID != null) {
+         preparedStatement.setLong(3, task.txID);
       } else {
          preparedStatement.setNull(3, Types.NUMERIC);
       }
