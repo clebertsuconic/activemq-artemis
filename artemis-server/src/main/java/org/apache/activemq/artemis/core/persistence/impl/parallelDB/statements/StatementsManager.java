@@ -67,36 +67,52 @@ public class StatementsManager extends ActiveMQScheduledComponent {
    ArrayList<Task> pendingTasks = new ArrayList<>();
 
    abstract class Task {
-      final OperationContext context;
-      Task(OperationContext context) {
+      final IOCallback context;
+      Task(IOCallback context) {
          this.context = context;
       }
       public abstract void store();
    }
 
-   class MessageTask extends Task {
-      public MessageTask(Message message, OperationContext context) {
+   public class MessageTask extends Task {
+      public MessageTask(Message message, Long tx, IOCallback context) {
          super(context);
          this.message = message;
+         this.tx = tx;
       }
 
       final Message message;
+      final Long tx;
+
       public void store() {
-         messageStatement.addData(message, context);
+         messageStatement.addData(this, context);
       }
    }
 
-   class MessageReferenceTask extends Task {
-      public MessageReferenceTask(long messageID, long queueID, Long txID, OperationContext context) {
+   public class MessageReferenceTask extends Task {
+      long messageID;
+      long queueID;
+      Long txID;
+      public MessageReferenceTask(long messageID, long queueID, Long txID, IOCallback context) {
          super(context);
-         this.data = new ReferencesStatement.Data(messageID, queueID, txID);
+         this.messageID = messageID;
+         this.queueID = queueID;
+         this.txID = txID;
       }
 
-      final ReferencesStatement.Data data;
       public void store() {
-         referencesStatement.addData(data, context);
+         referencesStatement.addData(this, context);
       }
    }
+
+   public MessageReferenceTask newReferenceTask(long messageID, long queueID, Long txID, IOCallback context) {
+      return new MessageReferenceTask(messageID, queueID, txID, context);
+   }
+
+   public MessageTask newMessageTask(Message message, Long txID, IOCallback context) {
+      return new MessageTask(message, txID, context);
+   }
+
 
    public StatementsManager(ScheduledExecutorService scheduledExecutorService,
                             Executor executor,
@@ -122,9 +138,9 @@ public class StatementsManager extends ActiveMQScheduledComponent {
       connection.close();
    }
 
-   public void storeMessage(Message message, OperationContext callback) {
+   public void storeMessage(Message message, Long tx, OperationContext callback) {
       callback.storeLineUp();
-      getTLTaskList().add(new MessageTask(message, callback));
+      getTLTaskList().add(new MessageTask(message, tx, callback));
    }
 
    public void storeReference(long messageID, long queueID, Long txID, OperationContext callback) {
