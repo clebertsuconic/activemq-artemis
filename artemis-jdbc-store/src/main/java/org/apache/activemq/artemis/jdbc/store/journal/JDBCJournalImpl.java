@@ -240,11 +240,13 @@ public class JDBCJournalImpl extends JDBCTableBase implements Journal {
                case JDBCJournalRecord.COMMIT_RECORD:
                   // We perform all the deletes and add the commit record in the same Database TX
                   holder = transactions.get(record.getTxId());
-                  for (RecordInfo info : holder.recordsToDelete) {
-                     deletedRecords.add(record.getId());
-                     deletedRecords.add(info.id);
-                     deleteJournalRecords.setLong(1, info.id);
-                     deleteJournalRecords.addBatch();
+                  if (holder != null) {
+                     for (RecordInfo info : holder.recordsToDelete) {
+                        deletedRecords.add(record.getId());
+                        deletedRecords.add(info.id);
+                        deleteJournalRecords.setLong(1, info.id);
+                        deleteJournalRecords.addBatch();
+                     }
                   }
                   record.writeRecord(insertJournalRecords);
                   committedTransactions.add(record.getTxId());
@@ -302,8 +304,13 @@ public class JDBCJournalImpl extends JDBCTableBase implements Journal {
       List<TransactionHolder> iterableCopyTx = new ArrayList<>();
       iterableCopyTx.addAll(transactions.values());
 
-      for (Long txId : committedTx) {
-         transactions.get(txId).committed = true;
+      if (committedTx != null) {
+         for (Long txId : committedTx) {
+            TransactionHolder holder = transactions.get(txId);
+            if (holder != null) {
+               holder.committed = true;
+            }
+         }
       }
       boolean hasDeletedJournalTxRecords = false;
       // TODO (mtaylor) perhaps we could store a reverse mapping of IDs to prevent this O(n) loop

@@ -162,10 +162,10 @@ public class BasicParallelTest extends ParameterDBTestBase {
       for (String p : protocols) {
          ConnectionFactory factory = CFUtil.createConnectionFactory( p, "tcp://localhost:61616");
          try (javax.jms.Connection connection = factory.createConnection()) {
-            try (Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE)) {
+            try (Session session = connection.createSession(true, Session.SESSION_TRANSACTED)) {
                MessageProducer producer = session.createProducer(session.createQueue("TEST"));
                producer.send(session.createTextMessage("test: " + p));
-               //session.commit();
+               session.commit();
             }
             try (Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE)) {
                MessageProducer producer = session.createProducer(session.createQueue("TEST"));

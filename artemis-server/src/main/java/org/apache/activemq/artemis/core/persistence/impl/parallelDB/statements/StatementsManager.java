@@ -87,6 +87,11 @@ public class StatementsManager extends ActiveMQScheduledComponent {
       public void store() {
          messageStatement.addData(this, context);
       }
+
+      @Override
+      public String toString() {
+         return "MessageTask{" + "message=" + message + ", tx=" + tx + '}';
+      }
    }
 
    public class MessageReferenceTask extends Task {
@@ -102,6 +107,11 @@ public class StatementsManager extends ActiveMQScheduledComponent {
 
       public void store() {
          referencesStatement.addData(this, context);
+      }
+
+      @Override
+      public String toString() {
+         return "MessageReferenceTask{" + "messageID=" + messageID + ", queueID=" + queueID + ", txID=" + txID + '}';
       }
    }
 
@@ -121,6 +131,8 @@ public class StatementsManager extends ActiveMQScheduledComponent {
                             JDBCConnectionProvider connectionProvider,
                             int batchSize) throws SQLException {
       super(scheduledExecutorService, executor, flushTime, flushTime, TimeUnit.MILLISECONDS, true);
+
+      logger.info("FlushTime {}", flushTime);
       this.databaseConfiguration = databaseConfiguration;
       this.connectionProvider = connectionProvider;
       this.batchSize = batchSize;
