@@ -16,22 +16,12 @@
  */
 package org.apache.activemq.artemis.tests.db.parallelDB;
 
-import java.lang.invoke.MethodHandles;
 import java.sql.Connection;
-import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.Collection;
-import java.util.List;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.activemq.artemis.core.config.Configuration;
-import org.apache.activemq.artemis.core.config.storage.DatabaseStorageConfiguration;
 import org.apache.activemq.artemis.core.io.IOCallback;
 import org.apache.activemq.artemis.core.message.impl.CoreMessage;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
@@ -40,22 +30,11 @@ import org.apache.activemq.artemis.core.persistence.impl.parallelDB.ParallelDBSt
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.MessageStatement;
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.ReferencesStatement;
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.StatementsManager;
-import org.apache.activemq.artemis.core.server.MessageReference;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
-import org.apache.activemq.artemis.tests.db.common.Database;
-import org.apache.activemq.artemis.tests.db.common.ParameterDBTestBase;
 import org.apache.activemq.artemis.tests.extensions.parameterized.ParameterizedTestExtension;
-import org.apache.activemq.artemis.tests.extensions.parameterized.Parameters;
-import org.apache.activemq.artemis.utils.ExecutorFactory;
-import org.apache.activemq.artemis.utils.actors.OrderedExecutorFactory;
-import org.apache.activemq.artemis.utils.critical.CriticalAnalyzer;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestTemplate;
 import org.junit.jupiter.api.condition.DisabledIf;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mockito;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -64,63 +43,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 @DisabledIf("isNoDatabaseSelected")
 @ExtendWith(ParameterizedTestExtension.class)
-public class BatchStatementTest extends ParameterDBTestBase {
-
-   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-
-   DatabaseStorageConfiguration storageConfiguration;
-   Configuration configuration;
-
-   ExecutorService executorService;
-
-   ScheduledExecutorService scheduledExecutorService;
-
-   ExecutorFactory executorFactory;
-
-   CriticalAnalyzer criticalAnalyzer;
-
-   @Parameters(name = "db={0}")
-   public static Collection<Object[]> parameters() {
-      List<Database> dbList = Database.selectedList();
-      dbList.remove(Database.DERBY); // no derby on this test
-
-      return convertParameters(dbList);
-   }
-
-   // Used in @DisabledIf on class, avoids no-params failure with only -PDB-derby-tests
-   public static boolean isNoDatabaseSelected() {
-      return parameters().isEmpty();
-   }
-
-   @BeforeEach
-   @Override
-   public void setUp() throws Exception {
-      super.setUp();
-      assumeTrue(database != Database.DERBY);
-      dropDatabase();
-   }
-
-   @Override
-   protected final String getJDBCClassName() {
-      return database.getDriverClass();
-   }
-
-   @BeforeEach
-   public void setupTest() throws Exception {
-      storageConfiguration = createDefaultDatabaseStorageConfiguration();
-      this.configuration = createDefaultNettyConfig();
-      this.configuration.setStoreConfiguration(storageConfiguration);
-
-      executorService = Executors.newFixedThreadPool(5);
-      runAfter(executorService::shutdownNow);
-
-      scheduledExecutorService = Executors.newScheduledThreadPool(5);
-      runAfter(scheduledExecutorService::shutdownNow);
-
-      executorFactory = new OrderedExecutorFactory(executorService);
-      criticalAnalyzer = Mockito.mock(CriticalAnalyzer.class);
-   }
-
+public class MessagesStatementTest extends AbstractStatementTest {
 
    @TestTemplate
    public void testReferencesDirectly() throws Exception {
@@ -162,13 +85,6 @@ public class BatchStatementTest extends ParameterDBTestBase {
       }
 
       assertTrue(latch.await(10, TimeUnit.SECONDS));
-   }
-
-   private static MessageReference mockReference(long messageID) {
-      MessageReference reference = Mockito.mock(MessageReference.class);
-      Mockito.doAnswer((a) -> messageID).when(reference).getMessageID();
-      Mockito.doAnswer(a -> 1L).when(reference).getQueueID();
-      return reference;
    }
 
    @TestTemplate

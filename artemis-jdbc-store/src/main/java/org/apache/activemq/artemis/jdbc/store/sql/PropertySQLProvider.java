@@ -111,7 +111,8 @@ public class PropertySQLProvider implements SQLProvider {
    @Override
    public String[] getCreateParallelDBMessages(String tableName) {
       return new String[] {
-         format(sql("create-parallelDB-messages"), tableName)
+         format(sql("create-parallelDB-messages"), tableName),
+         format(sql("create-parallelDB-messages-index"), tableName)
       };
    }
 
@@ -126,10 +127,9 @@ public class PropertySQLProvider implements SQLProvider {
    }
 
    @Override
-   public String getInsertPDBReferencesTX(String tableName) {
-      return format(sql("insert-parallelDB-referencesTX"), tableName);
+   public String getUpdateTX(String tableName) {
+      return format(sql(""), tableName);
    }
-
 
    @Override
    public String getInsertJournalRecordsSQL(String tableName) {
