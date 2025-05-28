@@ -215,6 +215,7 @@ public class BasicParallelTest extends ParameterDBTestBase {
             message.getBodyBuffer().writeByte((byte) 'Z');
             parallelDBStorageManager.storeMessage(message);
          }
+         parallelDBStorageManager.getStatementsManager().flushTL();
          latch.await(10, TimeUnit.SECONDS);
          assertTrue(latch.await(10, TimeUnit.SECONDS));
          assertEquals(100, selectCount(connection, storageConfiguration.getParallelDBMessages()));
