@@ -42,7 +42,6 @@ public class MessageStatement extends BatchableStatement<StatementsManager.Messa
 
    @Override
    protected void doOne(StatementsManager.MessageTask task) throws Exception {
-      logger.info("Message persisting {}", task.message);
       ActiveMQBuffer buffer = getPersistedBuffer(task.message.getPersister(), task.message);
       preparedStatement.setLong(1, task.message.getMessageID());
       preparedStatement.setBlob(2, blobInputStream(buffer));

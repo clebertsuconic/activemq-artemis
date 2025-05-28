@@ -130,7 +130,7 @@ public class StatementsManager extends ActiveMQScheduledComponent {
                             DatabaseStorageConfiguration databaseConfiguration,
                             JDBCConnectionProvider connectionProvider,
                             int batchSize) throws SQLException {
-      super(scheduledExecutorService, executor, flushTime, flushTime, TimeUnit.MILLISECONDS, true);
+      super(scheduledExecutorService, executor, 100, 100, TimeUnit.MILLISECONDS, true);
 
       logger.info("FlushTime {}", flushTime);
       this.databaseConfiguration = databaseConfiguration;
@@ -182,6 +182,8 @@ public class StatementsManager extends ActiveMQScheduledComponent {
       try {
          flush();
       } catch (SQLException e) {
+         logger.warn(e.getMessage(), e);
+      } catch (Throwable e) {
          logger.warn(e.getMessage(), e);
       }
    }

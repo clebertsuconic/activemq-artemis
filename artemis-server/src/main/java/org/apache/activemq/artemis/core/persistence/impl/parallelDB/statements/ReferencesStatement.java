@@ -40,7 +40,6 @@ public class ReferencesStatement extends BatchableStatement<StatementsManager.Me
 
    @Override
    protected void doOne(StatementsManager.MessageReferenceTask task) throws Exception {
-      logger.info("storing reference {}", task);
       preparedStatement.setLong(1, task.messageID);
       preparedStatement.setLong(2, task.queueID);
       if (task.txID != null) {
