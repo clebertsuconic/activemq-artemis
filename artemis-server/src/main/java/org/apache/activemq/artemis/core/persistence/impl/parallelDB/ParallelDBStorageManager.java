@@ -247,19 +247,15 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
 
    @Override
    public void storeMessage(Message message) throws Exception {
-      new Exception("store message ").printStackTrace(System.out);
       statementsManager.storeMessage(message, null, getContext());
-      statementsManager.flushTL();
    }
 
    @Override
    public void storeReference(long queueID, long messageID, boolean last) throws Exception {
-      new Exception("storeRference " + queueID + ", message = " + messageID + ", last=" + last).printStackTrace(System.out);
       statementsManager.storeReference(messageID, queueID, null, getContext());
       if (last) {
          statementsManager.flushTL();
       }
-      statementsManager.flushTL();
    }
 
    @Override
@@ -308,7 +304,6 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
 
    @Override
    public void storeMessageTransactional(long txID, Message message) throws Exception {
-      new Exception("store message transaction").printStackTrace(System.out);
       statementsManager.storeMessage(message, txID, getContext());
       statementsManager.flushTL();
    }
