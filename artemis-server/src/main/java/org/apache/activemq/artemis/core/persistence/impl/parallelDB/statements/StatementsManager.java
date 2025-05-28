@@ -151,6 +151,9 @@ public class StatementsManager extends ActiveMQScheduledComponent {
    }
 
    public void storeMessage(Message message, Long tx, OperationContext callback) {
+      if (!getTLTaskList().isEmpty()) {
+         flushTL();
+      }
       callback.storeLineUp();
       getTLTaskList().add(new MessageTask(message, tx, callback));
    }
