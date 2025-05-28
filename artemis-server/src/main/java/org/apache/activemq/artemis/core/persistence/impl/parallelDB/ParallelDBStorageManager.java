@@ -380,6 +380,7 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
 
    @Override
    public void commit(long txID) throws Exception {
+      statementsManager.flushTL();
       journalDelegate.commit(txID);
    }
 
