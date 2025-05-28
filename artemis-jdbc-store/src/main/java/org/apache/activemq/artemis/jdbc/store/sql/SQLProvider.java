@@ -108,7 +108,7 @@ public interface SQLProvider {
 
    String getInsertPDBReferences(String tableName);
 
-   String getInsertPDBReferencesTX(String tableName);
+   String getUpdateTX(String tableName);
 
    interface Factory {
       SQLProvider create();
