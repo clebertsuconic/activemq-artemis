@@ -45,94 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class TXStatementsTest extends AbstractStatementTest {
 
    @TestTemplate
-   public void testReferencesDirectly() throws Exception {
-      ParallelDBStorageManager parallelDBStorageManager = new ParallelDBStorageManager(configuration,
-                                                                                       criticalAnalyzer,
-                                                                                       executorFactory,
-                                                                                       executorFactory,
-                                                                                       scheduledExecutorService);
-      parallelDBStorageManager.start();
-
-      JDBCConnectionProvider connectionProvider = storageConfiguration.getConnectionProvider();
-
-      int nrecords = 100;
-
-      CountDownLatch latch = new CountDownLatch(nrecords);
-
-      IOCallback ioCallback = new IOCallback() {
-         @Override
-         public void done() {
-            latch.countDown();
-         }
-
-         @Override
-         public void onError(int errorCode, String errorMessage) {
-
-         }
-      };
-
-      try (Connection connection = connectionProvider.getConnection()) {
-         connection.setAutoCommit(false);
-         ReferencesStatement referencesStatement = new ReferencesStatement(connection, connectionProvider, storageConfiguration.getParallelDBReferences(), 100);
-         for (int i = 1; i <= nrecords; i++) {
-            StatementsManager.MessageReferenceTask task = parallelDBStorageManager.getStatementsManager().newReferenceTask(i, 1, i % 2 == 0 ? (long)i : null, ioCallback);
-            referencesStatement.addData(task, ioCallback);
-         }
-         referencesStatement.flushPending(true);
-
-         assertEquals(nrecords, selectCount(connection, "ART_REFERENCES"));
-      }
-
-      assertTrue(latch.await(10, TimeUnit.SECONDS));
-   }
-
-   @TestTemplate
-   public void testMessagesDirectly() throws Exception {
-      ParallelDBStorageManager parallelDBStorageManager = new ParallelDBStorageManager(configuration,
-                                                                                       criticalAnalyzer,
-                                                                                       executorFactory,
-                                                                                       executorFactory,
-                                                                                       scheduledExecutorService);
-      parallelDBStorageManager.start();
-
-      JDBCConnectionProvider connectionProvider = storageConfiguration.getConnectionProvider();
-
-      int nrecords = 100;
-
-      CountDownLatch latch = new CountDownLatch(nrecords);
-
-      IOCallback ioCallback = new IOCallback() {
-         @Override
-         public void done() {
-            latch.countDown();
-         }
-
-         @Override
-         public void onError(int errorCode, String errorMessage) {
-
-         }
-      };
-
-      try (Connection connection = connectionProvider.getConnection()) {
-         connection.setAutoCommit(false);
-         MessageStatement messageStatement = new MessageStatement(connection, connectionProvider, storageConfiguration.getParallelDBMessages(), 100);
-         for (int i = 1; i <= nrecords; i++) {
-            CoreMessage message = new CoreMessage().initBuffer(1 * 1024).setDurable(true);
-            message.setMessageID(i);
-            message.getBodyBuffer().writeByte((byte) 'Z');
-            StatementsManager.MessageTask task = parallelDBStorageManager.getStatementsManager().newMessageTask(message, null, ioCallback);
-            messageStatement.addData(task, ioCallback);
-         }
-         messageStatement.flushPending(true);
-
-         assertEquals(nrecords, selectCount(connection, "ART_MESSAGES"));
-      }
-
-      assertTrue(latch.await(10, TimeUnit.SECONDS));
-   }
-
-   @TestTemplate
-   public void testMessagesStorageManager() throws Exception {
+   public void testTXMessagesStorageManager() throws Exception {
       ParallelDBStorageManager parallelDBStorageManager = new ParallelDBStorageManager(configuration,
                                                                                        criticalAnalyzer,
                                                                                        executorFactory,
@@ -147,6 +60,8 @@ public class TXStatementsTest extends AbstractStatementTest {
 
       int nrecords = 100;
 
+      assertTrue(nrecords % 2 == 0, "nrecords must be even");
+
       CountDownLatch latchDone = new CountDownLatch(1);
 
       StatementsManager statementsManager = parallelDBStorageManager.getStatementsManager();
@@ -154,13 +69,21 @@ public class TXStatementsTest extends AbstractStatementTest {
       OperationContext context = parallelDBStorageManager.getContext();
       runAfter(OperationContextImpl::clearContext);
 
+      long txID = 10;
       for (int i = 1; i <= nrecords; i++) {
          CoreMessage message = new CoreMessage().initBuffer(1 * 1024).setDurable(true);
          message.setMessageID(i);
          message.getBodyBuffer().writeByte((byte) 'Z');
-         statementsManager.storeMessage(message, null, OperationContextImpl.getContext());
+         statementsManager.storeMessage(message, txID, OperationContextImpl.getContext());
+         statementsManager.storeReference(i, 1, txID, context);
          statementsManager.flushTL();
+         if (i == nrecords / 2) {
+            txID = 11;
+         }
       }
+
+      statementsManager.storeTX(10, true, true, context);
+      statementsManager.flushTL();
 
       context.executeOnCompletion(new IOCallback() {
          @Override
@@ -175,112 +98,13 @@ public class TXStatementsTest extends AbstractStatementTest {
       });
 
       assertTrue(latchDone.await(10, TimeUnit.SECONDS));
+
 
       assertEquals(nrecords, selectCount(connection, storageConfiguration.getParallelDBMessages()));
+      assertEquals(nrecords / 2, selectNumber(connection, "SELECT COUNT(*) FROM ART_MESSAGES WHERE TX_ID=10 AND TX_VALID IS NOT NULL"));
+      assertEquals(nrecords / 2, selectNumber(connection, "SELECT COUNT(*) FROM ART_REFERENCES WHERE TX_ID=10 AND TX_VALID IS NOT NULL"));
+      // we did not update 11
+      assertEquals(nrecords / 2, selectNumber(connection, "SELECT COUNT(*) FROM ART_MESSAGES WHERE TX_ID=11 AND TX_VALID IS NULL"));
+      assertEquals(nrecords / 2, selectNumber(connection, "SELECT COUNT(*) FROM ART_REFERENCES WHERE TX_ID=11 AND TX_VALID IS NULL"));
    }
-
-
-   @TestTemplate
-   public void testMessagesReferencesStorageManager() throws Exception {
-      ParallelDBStorageManager parallelDBStorageManager = new ParallelDBStorageManager(configuration,
-                                                                                       criticalAnalyzer,
-                                                                                       executorFactory,
-                                                                                       executorFactory,
-                                                                                       scheduledExecutorService);
-      parallelDBStorageManager.start();
-
-      JDBCConnectionProvider connectionProvider = storageConfiguration.getConnectionProvider();
-
-      Connection connection = connectionProvider.getConnection();
-      runAfter(connection::close);
-
-      int pairs = 5_000;
-      int nrecords = pairs * 2;
-
-      CountDownLatch latchDone = new CountDownLatch(1);
-
-      StatementsManager statementsManager = parallelDBStorageManager.getStatementsManager();
-
-      OperationContext context = parallelDBStorageManager.getContext();
-      runAfter(OperationContextImpl::clearContext);
-
-      for (int i = 1; i <= nrecords; i++) {
-         if (i % 2 == 0) {
-            parallelDBStorageManager.storeReference(1, i, true);
-         } else {
-            parallelDBStorageManager.storeReferenceTransactional(i, 1, i);
-         }
-         statementsManager.flushTL();
-      }
-
-      context.executeOnCompletion(new IOCallback() {
-         @Override
-         public void done() {
-            latchDone.countDown();
-         }
-
-         @Override
-         public void onError(int errorCode, String errorMessage) {
-
-         }
-      });
-
-      assertTrue(latchDone.await(10, TimeUnit.SECONDS));
-
-      assertEquals(nrecords, selectCount(connection, storageConfiguration.getParallelDBReferences()));
-      assertEquals(pairs, selectNumber(connection, "SELECT COUNT(*) FROM " + storageConfiguration.getParallelDBReferences() + " WHERE TX_ID IS NULL"));
-      assertEquals(pairs, selectNumber(connection, "SELECT COUNT(*) FROM " + storageConfiguration.getParallelDBReferences() + " WHERE TX_ID IS NOT NULL"));
-   }
-
-
-
-   @TestTemplate
-   public void testTreatExceptionOnError() throws Exception {
-      ParallelDBStorageManager parallelDBStorageManager = new ParallelDBStorageManager(configuration,
-                                                                                       criticalAnalyzer,
-                                                                                       executorFactory,
-                                                                                       executorFactory,
-                                                                                       scheduledExecutorService);
-      parallelDBStorageManager.start();
-
-
-      JDBCConnectionProvider connectionProvider = storageConfiguration.getConnectionProvider();
-
-      int nrecords = 100;
-
-      AtomicInteger errors = new AtomicInteger(0);
-
-      IOCallback ioCallback = new IOCallback() {
-         @Override
-         public void done() {
-         }
-
-         @Override
-         public void onError(int errorCode, String errorMessage) {
-            errors.incrementAndGet();
-         }
-      };
-
-      try (Connection connection = connectionProvider.getConnection()) {
-         connection.setAutoCommit(false);
-         MessageStatement messageStatement = new MessageStatement(connection, connectionProvider, storageConfiguration.getParallelDBMessages(), 100);
-         for (int i = 1; i <= nrecords; i++) {
-            CoreMessage message = new CoreMessage().initBuffer(1 * 1024).setDurable(true);
-            message.setMessageID(1); // everything should fail with a DuplicateException
-            message.getBodyBuffer().writeByte((byte) 'Z');
-
-            messageStatement.addData(parallelDBStorageManager.getStatementsManager().newMessageTask(message, null, ioCallback), ioCallback);
-         }
-         assertThrows(SQLException.class, () -> messageStatement.flushPending(true));
-
-         // forcing a commit, even though it failed... it should not commit any success
-         connection.commit();
-
-         assertEquals(0, selectCount(connection, "ART_MESSAGES"));
-      }
-
-      assertEquals(nrecords, errors.get());
-
-   }
-
 }

@@ -78,9 +78,12 @@ public abstract class BatchableStatement<E> {
       }
       if (commit) {
          connection.commit();
+         confirmData();
       }
-      callbacks.forEach(this::okCallback);
+   }
 
+   public void confirmData() {
+      callbacks.forEach(this::okCallback);
       pendingList.clear();
       callbacks.clear();
    }

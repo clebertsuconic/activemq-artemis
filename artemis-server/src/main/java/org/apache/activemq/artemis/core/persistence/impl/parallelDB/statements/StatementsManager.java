@@ -47,6 +47,8 @@ public class StatementsManager extends ActiveMQScheduledComponent {
    Connection connection;
    MessageStatement messageStatement;
    ReferencesStatement referencesStatement;
+   UpdateTXStatement txMessagesStatement;
+   UpdateTXStatement txReferencesStatement;
 
    // We store messages and references on a ThreadLocal buffer until the last attribute is sent,
    // at that time we flush everything.
@@ -93,6 +95,35 @@ public class StatementsManager extends ActiveMQScheduledComponent {
          return "MessageTask{" + "message=" + message + ", tx=" + tx + '}';
       }
    }
+
+   public class TXTask extends Task {
+      long txID;
+      boolean messages;
+      boolean references;
+
+      public TXTask(long txID, boolean messages, boolean references, IOCallback context) {
+         super(context);
+         this.txID = txID;
+         this.messages = messages;
+         this.references = references;
+      }
+
+      public void store() {
+         if (messages) {
+            txMessagesStatement.addData(this, context);
+         }
+
+         if (references) {
+            txReferencesStatement.addData(this, context);
+         }
+      }
+
+      @Override
+      public String toString() {
+         return "TXTask{" + "txID=" + txID + ", messages=" + messages + ", references=" + references + '}';
+      }
+   }
+
 
    public class MessageReferenceTask extends Task {
       long messageID;
@@ -144,16 +175,19 @@ public class StatementsManager extends ActiveMQScheduledComponent {
       connection.setAutoCommit(false);
       messageStatement = new MessageStatement(connection, connectionProvider, databaseConfiguration.getParallelDBMessages(), batchSize);
       referencesStatement = new ReferencesStatement(connection, connectionProvider, databaseConfiguration.getParallelDBReferences(), batchSize);
+      txMessagesStatement = new UpdateTXStatement(connection, connectionProvider, databaseConfiguration.getParallelDBMessages(), batchSize);
+      txReferencesStatement = new UpdateTXStatement(connection, connectionProvider, databaseConfiguration.getParallelDBReferences(), batchSize);
    }
 
    public void close() throws SQLException {
       connection.close();
    }
 
+   public void storeTX(long txID, boolean messages, boolean references, OperationContext context) {
+      getTLTaskList().add(new TXTask(txID, messages, references, context));
+   }
+
    public void storeMessage(Message message, Long tx, OperationContext callback) {
-      if (!getTLTaskList().isEmpty()) {
-         flushTL();
-      }
       callback.storeLineUp();
       getTLTaskList().add(new MessageTask(message, tx, callback));
    }
@@ -197,6 +231,8 @@ public class StatementsManager extends ActiveMQScheduledComponent {
       try {
          messageStatement.flushPending(false);
          referencesStatement.flushPending(false);
+         txReferencesStatement.flushPending(false);
+         txMessagesStatement.flushPending(false);
       } catch (SQLException e) {
          try {
             connection.rollback();
@@ -205,6 +241,10 @@ public class StatementsManager extends ActiveMQScheduledComponent {
          throw e;
       }
       connection.commit();
+      messageStatement.confirmData();
+      referencesStatement.confirmData();
+      txReferencesStatement.confirmData();
+      txMessagesStatement.confirmData();
    }
 
    private void doTask(Task task) {
