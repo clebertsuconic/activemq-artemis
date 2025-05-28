@@ -128,7 +128,7 @@ public class PropertySQLProvider implements SQLProvider {
 
    @Override
    public String getUpdateTX(String tableName) {
-      return format(sql(""), tableName);
+      return format(sql("update-parallelDB-tx"), tableName);
    }
 
    @Override
