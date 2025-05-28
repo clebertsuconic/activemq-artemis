@@ -21,6 +21,7 @@ import javax.jms.MessageProducer;
 import javax.jms.Session;
 import java.lang.invoke.MethodHandles;
 import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -158,6 +159,8 @@ public class BasicParallelTest extends ParameterDBTestBase {
 
       server.start();
 
+      int nMessages = 0;
+
       String[] protocols = {"CORE", "AMQP", "OPENWIRE"};
       for (String p : protocols) {
          ConnectionFactory factory = CFUtil.createConnectionFactory( p, "tcp://localhost:61616");
@@ -166,19 +169,27 @@ public class BasicParallelTest extends ParameterDBTestBase {
                MessageProducer producer = session.createProducer(session.createQueue("TEST"));
                producer.send(session.createTextMessage("test: " + p));
                session.commit();
+               nMessages++;
+               checkCounts(nMessages);
             }
             try (Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE)) {
                MessageProducer producer = session.createProducer(session.createQueue("TEST"));
                producer.send(session.createTextMessage("test: " + p));
+               nMessages++;
+               checkCounts(nMessages);
             }
          }
       }
+      checkCounts(nMessages);
       server.stop();
-      try (Connection connection = storageConfiguration.getConnectionProvider().getConnection()) {
-         assertEquals(6, selectCount(connection, storageConfiguration.getParallelDBMessages()));
-         assertEquals(6, selectCount(connection, storageConfiguration.getParallelDBReferences()));
-      }
 
+   }
+
+   private void checkCounts(int messageCount) throws SQLException {
+      try (Connection jdbcconnection = storageConfiguration.getConnectionProvider().getConnection()) {
+         assertEquals(messageCount, selectCount(jdbcconnection, storageConfiguration.getParallelDBMessages()));
+         assertEquals(messageCount, selectCount(jdbcconnection, storageConfiguration.getParallelDBReferences()));
+      }
    }
 
    @TestTemplate
