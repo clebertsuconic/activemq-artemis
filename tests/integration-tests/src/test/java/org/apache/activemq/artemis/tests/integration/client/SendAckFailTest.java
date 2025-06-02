@@ -562,8 +562,8 @@ public class SendAckFailTest extends SpawnedTestBase {
       }
 
       @Override
-      public void commit(long txID) throws Exception {
-         manager.commit(txID);
+      public void commit(long txID, boolean send, boolean ack, boolean paged) throws Exception {
+         manager.commit(txID, true, true, true);
       }
 
       @Override

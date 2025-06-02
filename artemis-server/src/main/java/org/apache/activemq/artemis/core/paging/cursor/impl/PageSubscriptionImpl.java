@@ -655,7 +655,7 @@ public final class PageSubscriptionImpl implements PageSubscription {
          }
 
          if (isPersistent) {
-            store.commit(tx);
+            store.commit(tx, true, true, true);
          }
 
          cursorProvider.close(this);
@@ -692,6 +692,10 @@ public final class PageSubscriptionImpl implements PageSubscription {
             lastAckedPosition = pos;
             PageCursorInfo pageInfo = getPageInfo(pos);
             pageInfo.loadACK(pos);
+         }
+
+         if (txDeleteCursorOnReload >= 0) {
+            store.commit(txDeleteCursorOnReload, true, true, true);
          }
 
          recoveredACK.clear();

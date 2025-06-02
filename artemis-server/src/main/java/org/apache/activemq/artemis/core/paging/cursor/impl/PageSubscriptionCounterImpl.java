@@ -290,7 +290,7 @@ public class PageSubscriptionCounterImpl extends BasePagingCounter {
                storage.deletePageCounter(tx, incElement.id);
             }
             if (tx >= 0) {
-               storage.commit(tx);
+               storage.commit(tx, true, true, true);
             }
          } catch (Exception e) {
             logger.warn(e.getMessage(), e);
@@ -346,7 +346,7 @@ public class PageSubscriptionCounterImpl extends BasePagingCounter {
          }
 
          if (txCleanup >= 0) {
-            storage.commit(txCleanup);
+            storage.commit(txCleanup, true, true, true);
          }
       } catch (Exception e) {
          newRecordID = recordID;
