@@ -20,13 +20,10 @@ package org.apache.activemq.artemis.core.persistence.impl.parallelDB;
 import javax.transaction.xa.Xid;
 import java.nio.ByteBuffer;
 import java.sql.Connection;
-import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
@@ -78,7 +75,6 @@ import org.apache.activemq.artemis.core.transaction.ResourceManager;
 import org.apache.activemq.artemis.core.transaction.Transaction;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCUtils;
-import org.apache.activemq.artemis.jdbc.store.sql.SQLProvider;
 import org.apache.activemq.artemis.utils.ArtemisCloseable;
 import org.apache.activemq.artemis.utils.ExecutorFactory;
 import org.apache.activemq.artemis.utils.IDGenerator;
@@ -379,9 +375,10 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
    }
 
    @Override
-   public void commit(long txID) throws Exception {
+   public void commit(long txID, boolean send, boolean ack, boolean paged) throws Exception {
+      statementsManager.storeTX(txID, send, send, getContext());
       statementsManager.flushTL();
-      journalDelegate.commit(txID);
+      journalDelegate.commit(txID, true, true, true);
    }
 
    @Override

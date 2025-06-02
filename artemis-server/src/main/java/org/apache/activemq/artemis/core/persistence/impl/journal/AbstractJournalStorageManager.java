@@ -609,7 +609,12 @@ public abstract class AbstractJournalStorageManager extends AbstractStorageManag
    }
 
    @Override
-   public void commit(final long txID) throws Exception {
+   public void commit(final long txID, boolean send, boolean ack, boolean paged) throws Exception {
+      commit(txID, true);
+   }
+
+   @Override
+   public void journalCommit(final long txID) throws Exception {
       commit(txID, true);
    }
 

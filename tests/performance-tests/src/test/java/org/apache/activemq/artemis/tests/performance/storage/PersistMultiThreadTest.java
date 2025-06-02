@@ -158,7 +158,7 @@ public class PersistMultiThreadTest extends ActiveMQTestBase {
 
             // each thread will store a single message that will never be deleted, trying to force compacting to happen
             storeMessage(txID, id);
-            storage.commit(txID);
+            storage.journalCommit(txID);
 
             OperationContext ctx = storage.getContext();
 
@@ -176,7 +176,7 @@ public class PersistMultiThreadTest extends ActiveMQTestBase {
                   storeMessage(txID, id);
                }
 
-               storage.commit(txID);
+               storage.journalCommit(txID);
                ctx.waitCompletion();
 
                for (long deleteID : messageID) {

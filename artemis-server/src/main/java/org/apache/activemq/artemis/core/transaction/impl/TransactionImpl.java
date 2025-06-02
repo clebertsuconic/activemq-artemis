@@ -80,6 +80,10 @@ public class TransactionImpl implements Transaction {
 
    private Runnable delayedRunnable;
 
+   private boolean messagesSent;
+   private boolean ackedMessages;
+   private boolean pagedMessages;
+
    @Override
    public boolean isAsync() {
       return async;
@@ -422,7 +426,7 @@ public class TransactionImpl implements Transaction {
          if (async) {
             storageManager.asyncCommit(id);
          } else {
-            storageManager.commit(id);
+            storageManager.commit(id, true, true, true);
          }
       }
    }
@@ -454,7 +458,7 @@ public class TransactionImpl implements Transaction {
             if (async) {
                storageManager.asyncCommit(id);
             } else {
-               storageManager.commit(id);
+               storageManager.commit(id, true, true, true);
             }
          }
       } else {
@@ -717,8 +721,32 @@ public class TransactionImpl implements Transaction {
       return properties == null ? null : properties.get(index);
    }
 
-   // Private
-   // -------------------------------------------------------------------
+   public boolean isMessagesSent() {
+      return messagesSent;
+   }
+
+   @Override
+   public void setMessagesSent() {
+      this.messagesSent = true;
+   }
+
+   public boolean isAckedMessages() {
+      return ackedMessages;
+   }
+
+   @Override
+   public void setAckedMessages() {
+      this.ackedMessages = true;
+   }
+
+   public boolean isPagedMessages() {
+      return pagedMessages;
+   }
+
+   @Override
+   public void setPagedMessages() {
+      this.pagedMessages = true;
+   }
 
    protected void doRollback() throws Exception {
       if (containsPersistent || xid != null && state == State.PREPARED) {

@@ -212,7 +212,7 @@ public class NullStorageManager implements StorageManager {
    }
 
    @Override
-   public void commit(final long txID) throws Exception {
+   public void commit(final long txID, boolean send, boolean ack, boolean paged) throws Exception {
    }
 
    @Override
