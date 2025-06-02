@@ -126,4 +126,16 @@ public interface Transaction {
     */
    void delayDone();
 
+
+   void setMessagesSent();
+
+   boolean isAckedMessages();
+
+   void setAckedMessages();
+
+   boolean isPagedMessages();
+
+   void setPagedMessages();
+
+
 }

@@ -143,7 +143,7 @@ public class PageCounterRebuildTest extends ActiveMQTestBase {
          called.incrementAndGet();
 
          return null;
-      }).when(mockStorage).commit(Mockito.anyLong());
+      }).when(mockStorage).journalCommit(Mockito.anyLong());
 
       PageSubscriptionCounterImplAccessor.reset(nonPersistentPagingCounter);
 
