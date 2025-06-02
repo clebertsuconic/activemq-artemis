@@ -33,7 +33,6 @@ import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.io.IOCallback;
 import org.apache.activemq.artemis.core.io.OperationConsistencyLevel;
 import org.apache.activemq.artemis.core.io.SequentialFile;
-import org.apache.activemq.artemis.core.io.SequentialFileFactory;
 import org.apache.activemq.artemis.core.journal.Journal;
 import org.apache.activemq.artemis.core.journal.JournalLoadInformation;
 import org.apache.activemq.artemis.core.journal.RecordInfo;
@@ -277,7 +276,9 @@ public interface StorageManager extends MapStorageManager, IDGenerator, ActiveMQ
 
    void prepare(long txID, Xid xid) throws Exception;
 
-   void commit(long txID) throws Exception;
+   void journalCommit(long txID) throws Exception;
+
+   void commit(long txID, boolean send, boolean ack, boolean paged) throws Exception;
 
    void commit(long txID, boolean lineUpContext) throws Exception;
 

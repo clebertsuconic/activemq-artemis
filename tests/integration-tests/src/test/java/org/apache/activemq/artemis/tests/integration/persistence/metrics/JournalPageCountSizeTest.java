@@ -62,7 +62,7 @@ public class JournalPageCountSizeTest extends ActiveMQTestBase {
 
       long tx = server.getStorageManager().generateID();
       server.getStorageManager().storePageCounter(tx, 1, 1, 100);
-      server.getStorageManager().commit(tx);
+      server.getStorageManager().journalCommit(tx);
       server.getStorageManager().stop();
 
       JournalStorageManager journalStorageManager = (JournalStorageManager) server.getStorageManager();
@@ -114,7 +114,7 @@ public class JournalPageCountSizeTest extends ActiveMQTestBase {
 
       long tx = server.getStorageManager().generateID();
       server.getStorageManager().storePageCounterInc(tx, 1, 1, 1000);
-      server.getStorageManager().commit(tx);
+      server.getStorageManager().journalCommit(tx);
       server.getStorageManager().stop();
 
       JournalStorageManager journalStorageManager = (JournalStorageManager) server.getStorageManager();

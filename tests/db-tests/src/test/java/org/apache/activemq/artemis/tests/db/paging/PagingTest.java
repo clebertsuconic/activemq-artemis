@@ -631,7 +631,7 @@ public class PagingTest extends ParameterDBTestBase {
       // Forcing a situation in the data that would cause an issue while reloading the data
       long tx = server.getStorageManager().generateID();
       server.getStorageManager().storePageCompleteTransactional(tx, serverQueue.getID(), new PagePositionImpl(1, 10));
-      server.getStorageManager().commit(tx);
+      server.getStorageManager().journalCommit(tx);
       server.getStorageManager().storeCursorAcknowledge(serverQueue.getID(), new PagePositionImpl(1, 0));
 
       server.stop();
@@ -3772,7 +3772,7 @@ public class PagingTest extends ParameterDBTestBase {
          server.getStorageManager().storePageCompleteTransactional(tx, queue1.getID(), new PagePositionImpl(i, 1));
       }
 
-      server.getStorageManager().commit(tx);
+      server.getStorageManager().journalCommit(tx);
 
       session.close();
       sf.close();

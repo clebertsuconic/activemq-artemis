@@ -394,10 +394,10 @@ public class JournalPagingTest extends ActiveMQTestBase {
          long tx = sm.generateID();
          PageTransactionInfoImpl txinfo = new PageTransactionInfoImpl(tx);
          sm.storePageTransaction(tx, txinfo);
-         sm.commit(tx);
+         sm.journalCommit(tx);
          tx = sm.generateID();
          sm.updatePageTransaction(tx, txinfo, 1);
-         sm.commit(tx);
+         sm.journalCommit(tx);
       }
 
       server.stop();
