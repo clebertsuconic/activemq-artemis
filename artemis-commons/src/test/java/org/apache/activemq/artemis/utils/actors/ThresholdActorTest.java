@@ -93,6 +93,63 @@ public class ThresholdActorTest {
       }
    }
 
+
+   @Test
+   public void testPauseProcessing() throws Exception {
+      lastProcessed.set(0);
+      final ExecutorService executorService = Executors.newSingleThreadExecutor();
+      AtomicInteger timesOpen = new AtomicInteger(0);
+      AtomicInteger timesClose = new AtomicInteger(0);
+      AtomicBoolean open = new AtomicBoolean(true);
+      try {
+         semaphore.acquire();
+         ThresholdActor<Integer> actor = new ThresholdActor<>(executorService, this::limitedProcess, 10, (s) -> 1, () -> {
+            timesClose.incrementAndGet();
+            open.set(false);
+         }, () -> {
+            timesOpen.incrementAndGet();
+            open.set(true);
+         });
+
+         for (int i = 0; i < 10; i++) {
+            actor.act(i);
+         }
+         assertTrue(open.get());
+         assertEquals(0, timesClose.get());
+
+         actor.act(99);
+         assertEquals(1, timesClose.get());
+         assertEquals(0, timesOpen.get());
+
+         assertFalse(open.get());
+
+         actor.act(1000);
+
+         actor.flush(); // a flush here shuld not change anything, as it was already called once on the previous overflow
+         assertEquals(1, timesClose.get());
+         assertEquals(0, timesOpen.get());
+         assertFalse(open.get());
+
+         semaphore.release();
+         Wait.assertTrue(open::get);
+
+         assertEquals(1, timesClose.get());
+         assertEquals(1, timesOpen.get());
+         Wait.assertEquals(1000, lastProcessed::get, 5000, 1);
+
+         actor.flush();
+
+         open.set(false);
+
+         // measuring after forced flush
+         Wait.assertEquals(2, timesOpen::get, 5000, 1);
+         Wait.assertTrue(open::get);
+      } finally {
+         executorService.shutdown();
+      }
+   }
+
+
    public void limitedProcess(Integer i) {
       try {
          semaphore.acquire();
