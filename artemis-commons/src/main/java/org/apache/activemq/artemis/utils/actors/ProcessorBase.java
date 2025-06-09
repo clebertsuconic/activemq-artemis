@@ -33,6 +33,7 @@ public abstract class ProcessorBase<T> extends HandlerBase {
    public static final int STATE_NOT_RUNNING = 0;
    public static final int STATE_RUNNING = 1;
    public static final int STATE_FORCED_SHUTDOWN = 2;
+   public static final int STATE_BLOCKED = 3;
 
    protected final Queue<T> tasks = new ConcurrentLinkedQueue<>();
 
@@ -47,7 +48,7 @@ public abstract class ProcessorBase<T> extends HandlerBase {
    @SuppressWarnings("unused")
    private volatile int state = STATE_NOT_RUNNING;
    // Request of forced shutdown
-   private volatile boolean requestedForcedShutdown = false;
+   private volatile boolean interruptTasks = false;
    // Request of educated shutdown:
    protected volatile boolean requestedShutdown = false;
    // Request to yield to another thread
@@ -63,8 +64,8 @@ public abstract class ProcessorBase<T> extends HandlerBase {
             try {
                T task;
                //while the queue is not empty we process in order:
-               //if requestedForcedShutdown==true than no new tasks will be drained from the tasks q.
-               while (!yielded && !requestedForcedShutdown && (task = tasks.poll()) != null) {
+               //if interruptTasks==true than no new tasks will be drained from the tasks q.
+               while (!yielded && !interruptTasks && (task = tasks.poll()) != null) {
                   doTask(task);
                }
             } finally {
@@ -86,6 +87,19 @@ public abstract class ProcessorBase<T> extends HandlerBase {
 
       if (yielded) {
          yielded = false;
+         delegate.execute(task);
+      }
+   }
+
+   // TODO: rename it to pause and resume
+   public void interruptTasks() {
+      interruptTasks = true;
+      stateUpdater.set(this, STATE_BLOCKED);
+   }
+
+   public void resumeTasks() {
+      interruptTasks = false;
+      if (stateUpdater.compareAndSet(this, STATE_BLOCKED, STATE_NOT_RUNNING)) {
          delegate.execute(task);
       }
    }
@@ -121,7 +135,7 @@ public abstract class ProcessorBase<T> extends HandlerBase {
     */
    public int shutdownNow(Consumer<? super T> onPendingItem, int timeout, TimeUnit unit) {
       //alert anyone that has been requested (at least) an immediate shutdown
-      requestedForcedShutdown = true;
+      interruptTasks = true;
       requestedShutdown = true;
       yielded = false;
 

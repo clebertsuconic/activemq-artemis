@@ -38,6 +38,8 @@ import org.apache.activemq.artemis.api.core.QueueConfiguration;
 import org.apache.activemq.artemis.api.core.RoutingType;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.client.impl.ClientConsumerImpl;
+import org.apache.activemq.artemis.core.io.IOCallback;
+import org.apache.activemq.artemis.core.protocol.openwire.OpenWireConnection;
 import org.apache.activemq.artemis.core.protocol.openwire.OpenWireConstants;
 import org.apache.activemq.artemis.core.protocol.openwire.OpenWireMessageConverter;
 import org.apache.activemq.artemis.core.server.MessageReference;
@@ -424,10 +426,22 @@ public class AMQConsumer {
       if (delayedDispatchPrompter != null) {
          delayedDispatchPrompter.cancel(false);
       }
-      if (info.getPrefetchSize() > 1) {
-         // because response required is false on a RemoveConsumerCommand, a new consumer could miss canceled prefetched messages
-         // we await the operation context completion before handling a subsequent command
-         session.getCoreSession().getSessionContext().waitCompletion();
+      OpenWireConnection openWireConnection = session.getConnection();
+      if (openWireConnection != null) {
+         openWireConnection.block();
+         session.getCoreSession().getSessionContext().executeOnCompletion(new IOCallback() {
+            @Override
+            public void done() {
+               session.getConnection().unblock();
+            }
+
+            @Override
+            public void onError(int errorCode, String errorMessage) {
+               // because response required is false on a RemoveConsumerCommand, a new consumer could miss canceled prefetched messages
+               // we await the operation context completion before handling a subsequent command
+               session.getConnection().unblock();
+            }
+         });
       }
    }
 
