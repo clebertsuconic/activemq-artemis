@@ -266,7 +266,9 @@ public class AMQConsumer {
    }
 
    public void acquireCredit(int n, boolean delivered) {
+      System.err.println("Acquiring credit " + n + ", delivered = " + delivered);
       if (messagePullHandler.get() != null) {
+         System.err.println("There's no messagePullHandler...");
          //don't acquire any credits when the pull handler controls it!!
          return;
       }
@@ -283,7 +285,9 @@ public class AMQConsumer {
          }
       }
 
+      System.err.println("getting " + n + " credits finally");
       int oldwindow = currentWindow.getAndAdd(n);
+      System.err.println("There are " + currentWindow.get() + " credits now");
 
       boolean promptDelivery = oldwindow < prefetchSize;
 
@@ -308,11 +312,22 @@ public class AMQConsumer {
          int size = dispatch.getMessage().getSize();
          reference.setProtocolData(MessageId.class, dispatch.getMessage().getMessageId());
          session.deliverMessage(dispatch);
-         currentWindow.decrementAndGet();
+         // Prevent races with other updates that can lead to credit going negative and starving consumers.
+         currentWindow.updateAndGet(this::decrementWindow);
          return size;
       } catch (Throwable t) {
          logger.warn("Error during message dispatch", t);
          return 0;
+      }
+   }
+
+   int decrementWindow(int value) {
+      if (value > 0) {
+         System.err.println("Value decrementing from " + value);
+         return value - 1;
+      } else {
+         System.err.println("preventing a negative value " + value);
+         return value;
       }
    }
 
@@ -414,6 +429,7 @@ public class AMQConsumer {
 
    public void processMessagePull(MessagePull messagePull) throws Exception {
       currentWindow.incrementAndGet();
+      System.err.println("Processing message pull increment, it is now " + currentWindow.get());
       MessagePullHandler pullHandler = messagePullHandler.get();
       if (pullHandler != null) {
          pullHandler.nextSequence(messagePullSequence++, messagePull.getTimeout());
@@ -443,7 +459,6 @@ public class AMQConsumer {
          });
       }
    }
-
 
    public org.apache.activemq.command.ActiveMQDestination getOpenwireDestination() {
       return openwireDestination;
@@ -482,7 +497,7 @@ public class AMQConsumer {
     */
    private class MessagePullHandler {
 
-      private long next = -1;
+      private volatile long next = -1;
       private long timeout;
       private CountDownLatch latch = new CountDownLatch(1);
       private ScheduledFuture<?> messagePullFuture;
@@ -506,10 +521,17 @@ public class AMQConsumer {
          if (message.containsProperty(ClientConsumerImpl.FORCED_DELIVERY_MESSAGE)) {
             if (next >= 0) {
                if (timeout <= 0) {
+                  // Prevent races with other updates that can lead to credit going negative and starving consumers.
+                  currentWindow.updateAndGet(i -> i > 0 ? i - 1 : i);
                   latch.countDown();
                } else {
                   messagePullFuture = scheduledPool.schedule(() -> {
                      if (next >= 0) {
+                        // Timed pull did not get a message before the timeout, reduce credit. This
+                        // can race with an actual message arriving so we must ensure we don't reduce
+                        // credit below zero as we want credit to always be zero or on active pull it
+                        // should be one (greater than one indicates a broken client implementation).
+                        currentWindow.updateAndGet(i -> i > 0 ? i - 1 : i);
                         handleDeliverNullDispatch();
                      }
                   }, timeout, TimeUnit.MILLISECONDS);
@@ -535,7 +557,7 @@ public class AMQConsumer {
    }
 
    public void addRolledback(MessageReference messageReference) {
-      currentWindow.decrementAndGet();
+      new Exception("Rollback...").printStackTrace();
       getRolledbackMessageRefsOrCreate().add(messageReference);
    }
 
