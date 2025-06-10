@@ -308,8 +308,7 @@ public class AMQConsumer {
          int size = dispatch.getMessage().getSize();
          reference.setProtocolData(MessageId.class, dispatch.getMessage().getMessageId());
          session.deliverMessage(dispatch);
-         // Prevent races with other updates that can lead to credit going negative and starving consumers.
-         currentWindow.updateAndGet(i -> i > 0 ? i - 1 : i);
+         currentWindow.decrementAndGet();
          return size;
       } catch (Throwable t) {
          logger.warn("Error during message dispatch", t);
@@ -445,6 +444,7 @@ public class AMQConsumer {
       }
    }
 
+
    public org.apache.activemq.command.ActiveMQDestination getOpenwireDestination() {
       return openwireDestination;
    }
@@ -482,7 +482,7 @@ public class AMQConsumer {
     */
    private class MessagePullHandler {
 
-      private volatile long next = -1;
+      private long next = -1;
       private long timeout;
       private CountDownLatch latch = new CountDownLatch(1);
       private ScheduledFuture<?> messagePullFuture;
@@ -506,17 +506,10 @@ public class AMQConsumer {
          if (message.containsProperty(ClientConsumerImpl.FORCED_DELIVERY_MESSAGE)) {
             if (next >= 0) {
                if (timeout <= 0) {
-                  // Prevent races with other updates that can lead to credit going negative and starving consumers.
-                  currentWindow.updateAndGet(i -> i > 0 ? i - 1 : i);
                   latch.countDown();
                } else {
                   messagePullFuture = scheduledPool.schedule(() -> {
                      if (next >= 0) {
-                        // Timed pull did not get a message before the timeout, reduce credit. This
-                        // can race with an actual message arriving so we must ensure we don't reduce
-                        // credit below zero as we want credit to always be zero or on active pull it
-                        // should be one (greater than one indicates a broken client implementation).
-                        currentWindow.updateAndGet(i -> i > 0 ? i - 1 : i);
                         handleDeliverNullDispatch();
                      }
                   }, timeout, TimeUnit.MILLISECONDS);
