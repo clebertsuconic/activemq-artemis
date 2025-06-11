@@ -29,11 +29,13 @@ import javax.jms.QueueBrowser;
 import javax.jms.Session;
 import javax.jms.TextMessage;
 import java.util.Enumeration;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.activemq.artemis.tests.integration.openwire.BasicOpenWireTest;
 import org.apache.activemq.command.ActiveMQDestination;
 import org.apache.activemq.command.ActiveMQQueue;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 /**
  * adapted from: org.apache.activemq.JmsQueueBrowserTest
@@ -351,6 +353,7 @@ public class JmsQueueBrowserTest extends BasicOpenWireTest {
       for (int i = 0; i < numberOfMessages; i++) {
         TextMessage message = session.createTextMessage("Message: " + i);
         message.setIntProperty("i", i);
+        producer.send(message);
       }
       session.commit();
 
