@@ -19,6 +19,7 @@ package org.apache.activemq.artemis.tests.integration.openwire.amq;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import javax.jms.Message;
@@ -333,6 +334,36 @@ public class JmsQueueBrowserTest extends BasicOpenWireTest {
       assertEquals(numberOfMessages, numberBrowsed);
       browser.close();
       producer.close();
+   }
+
+
+   @Test
+   @Timeout(value = 10, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+   public void testTXLargeCount() throws Exception {
+      Session session = connection.createSession(true, Session.SESSION_TRANSACTED);
+      ActiveMQQueue destination = (ActiveMQQueue) this.createDestination(session, ActiveMQDestination.QUEUE_TYPE);
+      connection.start();
+
+      MessageProducer producer = session.createProducer(destination);
+
+      int numberOfMessages = 4096;
+
+      for (int i = 0; i < numberOfMessages; i++) {
+        TextMessage message = session.createTextMessage("Message: " + i);
+        message.setIntProperty("i", i);
+      }
+      session.commit();
+
+      MessageConsumer consumer = session.createConsumer(destination);
+
+      for (int i = 0; i < numberOfMessages; i++) {
+         TextMessage message = (TextMessage) consumer.receive(1000);
+         assertNotNull(message);
+         assertEquals(i, message.getIntProperty("i"));
+      }
+      session.commit();
+      assertNull(consumer.receiveNoWait());
+
    }
 
    /*
