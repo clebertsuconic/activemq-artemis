@@ -124,7 +124,7 @@ public class PagedSNFSoakTest extends SoakTestBase {
    @Test
    @Timeout(240)
    public void testRandomProtocol() throws Exception {
-      testAccumulateAndSend("AMQP");
+      testAccumulateAndSend(randomProtocol());
    }
 
    private void testAccumulateAndSend(final String protocol) throws Exception {
