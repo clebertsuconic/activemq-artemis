@@ -673,6 +673,12 @@ public class PagingStoreImpl implements PagingStore {
    }
 
    @Override
+   public void priorityExecute(Runnable run) {
+      executor.priorityExecute(run);
+   }
+
+
+   @Override
    public void flushExecutors() {
       FutureLatch future = new FutureLatch();
 
