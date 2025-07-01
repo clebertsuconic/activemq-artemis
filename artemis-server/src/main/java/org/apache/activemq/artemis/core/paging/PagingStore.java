@@ -237,6 +237,10 @@ public interface PagingStore extends ActiveMQComponent, RefCountMessageListener 
 
    void execute(Runnable runnable);
 
+   default void priorityExecute(Runnable runnable) {
+      execute(runnable);
+   }
+
    ArtemisExecutor getExecutor();
 
    /**

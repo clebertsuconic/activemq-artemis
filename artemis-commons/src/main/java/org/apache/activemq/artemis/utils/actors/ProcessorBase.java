@@ -17,6 +17,7 @@
 package org.apache.activemq.artemis.utils.actors;
 
 import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
@@ -35,7 +36,7 @@ public abstract class ProcessorBase<T> extends HandlerBase {
    public static final int STATE_FORCED_SHUTDOWN = 2;
    public static final int STATE_PAUSED = 3;
 
-   protected final Queue<T> tasks = new ConcurrentLinkedQueue<>();
+   protected final ConcurrentLinkedDeque<T> tasks = new ConcurrentLinkedDeque<>();
 
    private final Executor delegate;
    /**
@@ -207,6 +208,22 @@ public abstract class ProcessorBase<T> extends HandlerBase {
          onAddedTaskIfNotRunning(state);
       }
    }
+
+
+   protected void priorityTask(T command) {
+      if (requestedShutdown) {
+         logAddOnShutdown();
+         return;
+      }
+      //The shutdown process could finish right after the above check: shutdownNow can drain the remaining tasks
+      tasks.addFirst(command);
+      //cache locally the state to avoid multiple volatile loads
+      final int state = stateUpdater.get(this);
+      if (state != STATE_RUNNING) {
+         onAddedTaskIfNotRunning(state);
+      }
+   }
+
 
    /**
     * This has to be called on the assumption that state!=STATE_RUNNING. It is packed separately from

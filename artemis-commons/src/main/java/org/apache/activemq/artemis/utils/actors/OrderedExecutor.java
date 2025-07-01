@@ -74,6 +74,13 @@ public class OrderedExecutor extends ProcessorBase<Runnable> implements ArtemisE
       task(run);
    }
 
+
+   @Override
+   public final void priorityExecute(Runnable runnable) {
+      priorityTask(runnable);
+   }
+
+
    @Override
    public String toString() {
       return "OrderedExecutor(tasks=" + tasks + ")";

@@ -59,6 +59,10 @@ public interface ArtemisExecutor extends Executor {
       }
    }
 
+   default void priorityExecute(Runnable runnable) {
+      execute(runnable);
+   }
+
    /**
     * It will wait the current execution (if there is one) to finish but will not complete any further executions
     */

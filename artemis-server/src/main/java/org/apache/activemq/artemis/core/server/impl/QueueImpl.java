@@ -3215,7 +3215,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
          logger.trace("Scheduling depage for queue {}", queueConfiguration.getName());
 
          depagePending = true;
-         pageSubscription.getPagingStore().execute(() -> depage(scheduleExpiry));
+         pageSubscription.getPagingStore().priorityExecute(() -> depage(scheduleExpiry));
       }
    }
 

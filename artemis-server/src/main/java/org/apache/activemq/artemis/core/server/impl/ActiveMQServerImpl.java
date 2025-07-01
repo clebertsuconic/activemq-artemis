@@ -3242,7 +3242,7 @@ public class ActiveMQServerImpl implements ActiveMQServer {
 
          int maxIO = configuration.getPageMaxConcurrentIO() <= 0 ? Integer.MAX_VALUE : configuration.getPageMaxConcurrentIO();
          this.pageExecutorPool = new ActiveMQThreadPoolExecutor(0, maxIO, 60L, TimeUnit.SECONDS, tFactory);
-         this.pageExecutorFactory = new OrderedExecutorFactory(pageExecutorPool);
+         this.pageExecutorFactory = new OrderedExecutorFactory(pageExecutorPool).setFair(true);
       }
 
        /*
