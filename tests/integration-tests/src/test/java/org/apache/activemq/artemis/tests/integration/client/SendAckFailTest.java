@@ -426,18 +426,6 @@ public class SendAckFailTest extends SpawnedTestBase {
       }
 
       @Override
-      public void confirmPendingLargeMessageTX(Transaction transaction,
-                                               long messageID,
-                                               long recordID) throws Exception {
-         manager.confirmPendingLargeMessageTX(transaction, messageID, recordID);
-      }
-
-      @Override
-      public void confirmPendingLargeMessage(long recordID) throws Exception {
-         manager.confirmPendingLargeMessage(recordID);
-      }
-
-      @Override
       public void storeMessage(Message message) throws Exception {
          manager.storeMessage(message);
       }

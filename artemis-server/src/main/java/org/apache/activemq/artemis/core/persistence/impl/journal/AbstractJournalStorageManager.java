@@ -375,24 +375,6 @@ public abstract class AbstractJournalStorageManager extends CriticalComponentImp
    // Non transactional operations
 
    @Override
-   public void confirmPendingLargeMessageTX(final Transaction tx, long messageID, long recordID) throws Exception {
-      try (ArtemisCloseable lock = closeableReadLock()) {
-         installLargeMessageConfirmationOnTX(tx, recordID);
-         messageJournal.appendDeleteRecordTransactional(tx.getID(), recordID, new DeleteEncoding(JournalRecordIds.ADD_LARGE_MESSAGE_PENDING, messageID));
-      }
-   }
-
-   /**
-    * We don't need messageID now but we are likely to need it we ever decide to support a database
-    */
-   @Override
-   public void confirmPendingLargeMessage(long recordID) throws Exception {
-      try (ArtemisCloseable lock = closeableReadLock()) {
-         messageJournal.tryAppendDeleteRecord(recordID, true, this::messageUpdateCallback, getContext());
-      }
-   }
-
-   @Override
    public void storeMapRecord(long id,
                               byte recordType,
                               Persister persister,
@@ -2089,12 +2071,8 @@ public abstract class AbstractJournalStorageManager extends CriticalComponentImp
 
             switch (b) {
                case ADD_LARGE_MESSAGE_PENDING: {
-                  long messageID = buff.readLong();
-                  if (!pendingLargeMessages.remove(new Pair<>(recordDeleted.id, messageID))) {
-                     ActiveMQServerLogger.LOGGER.largeMessageNotFound(recordDeleted.id);
-                  }
-                  installLargeMessageConfirmationOnTX(tx, recordDeleted.id);
-                  break;
+                  // reading just to position the buffer, not used any more
+                  buff.readLong();
                }
                default:
                   ActiveMQServerLogger.LOGGER.journalInvalidRecordTypeOnPreparedTX(b);
@@ -2294,14 +2272,4 @@ public abstract class AbstractJournalStorageManager extends CriticalComponentImp
 
       return credits >= 0;
    }
-
-   private void installLargeMessageConfirmationOnTX(Transaction tx, long recordID) {
-      TXLargeMessageConfirmationOperation txoper = (TXLargeMessageConfirmationOperation) tx.getProperty(TransactionPropertyIndexes.LARGE_MESSAGE_CONFIRMATIONS);
-      if (txoper == null) {
-         txoper = new TXLargeMessageConfirmationOperation(this);
-         tx.putProperty(TransactionPropertyIndexes.LARGE_MESSAGE_CONFIRMATIONS, txoper);
-      }
-      txoper.confirmedMessages.add(recordID);
-   }
-
 }

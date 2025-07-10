@@ -652,16 +652,6 @@ public class NullStorageManager implements StorageManager {
    }
 
    @Override
-   public void confirmPendingLargeMessageTX(final Transaction transaction,
-                                            final long messageID,
-                                            final long recordID) throws Exception {
-   }
-
-   @Override
-   public void confirmPendingLargeMessage(final long recordID) throws Exception {
-   }
-
-   @Override
    public void stop(final boolean ioCriticalError, boolean sendFailover) throws Exception {
    }
 
