@@ -694,9 +694,9 @@ public final class PageSubscriptionImpl implements PageSubscription {
             pageInfo.loadACK(pos);
          }
 
-         if (txDeleteCursorOnReload >= 0) {
+         /*if (txDeleteCursorOnReload >= 0) {
             store.commit(txDeleteCursorOnReload, true, true, true);
-         }
+         } */
 
          recoveredACK.clear();
          recoveredACK = null;

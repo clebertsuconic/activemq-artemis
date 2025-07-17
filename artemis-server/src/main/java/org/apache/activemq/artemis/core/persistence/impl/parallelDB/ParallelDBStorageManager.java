@@ -194,16 +194,6 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
    }
 
    @Override
-   public void confirmPendingLargeMessageTX(Transaction tx, long messageID, long recordID) throws Exception {
-      journalDelegate.confirmPendingLargeMessageTX(tx, messageID, recordID);
-   }
-
-   @Override
-   public void confirmPendingLargeMessage(long recordID) throws Exception {
-      journalDelegate.confirmPendingLargeMessage(recordID);
-   }
-
-   @Override
    public void storeMapRecord(long id,
                               byte recordType,
                               Persister persister,
