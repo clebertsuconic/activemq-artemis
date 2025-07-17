@@ -1170,10 +1170,6 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
          applyExpiryDelay(message, settings);
       }
 
-      if (context.getTransaction() != null) {
-         context.getTransaction()
-      }
-
       final boolean startedTX;
       if (context.isDuplicateDetection()) {
          final DuplicateCheckResult duplicateCheckResult = checkDuplicateID(message, context, rejectDuplicates);
