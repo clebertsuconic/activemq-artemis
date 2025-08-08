@@ -36,6 +36,10 @@ public final class NettyPooledAllocatorMetrics implements MeterBinder {
    private final PooledByteBufAllocatorMetric metric;
    private final Tags commonTags;
 
+   public NettyPooledAllocatorMetrics(final PooledByteBufAllocatorMetric pooledAllocatorMetric) {
+      this(pooledAllocatorMetric, Tags.empty());
+   }
+
    public NettyPooledAllocatorMetrics(final PooledByteBufAllocatorMetric pooledAllocatorMetric, final Tags commonTags) {
       this.metric = pooledAllocatorMetric;
       this.commonTags = commonTags;
