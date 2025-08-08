@@ -569,6 +569,76 @@ public class LargeMessageCompressTest extends LargeMessageTestBase {
       locator2.close();
    }
 
+
+   @TestTemplate
+   public void testCompressedMessageRouting2() throws Exception {
+      SimpleString DATA = SimpleString.of(RandomUtil.randomAlphaNumericString(1024 * 1024));
+
+      ActiveMQServer server = createServer(true, isNetty());
+      server.start();
+
+      server.createQueue(QueueConfiguration.of(ADDRESS).setRoutingType(RoutingType.ANYCAST));
+
+      locator.setAckBatchSize(0);
+
+      ClientSessionFactory sf = locator.createSessionFactory();
+      ClientSession session = sf.createSession(true, true);
+      ClientProducer producer = session.createProducer(ADDRESS);
+      ClientConsumer consumer = session.createConsumer(ADDRESS);
+
+      ClientMessage message = session.createMessage(true);
+      message.getBodyBuffer().writeNullableSimpleString(DATA);
+      producer.send(message);
+
+      session.start();
+      message = consumer.receive(2000);
+      assertNotNull(message);
+      assertTrue(message.getBooleanProperty(Message.HDR_LARGE_COMPRESSED));
+      message.checkCompletion();
+      message.acknowledge();
+
+      try (ServerLocator locator2 = createFactory(isNetty());
+           ServerLocator locator3 = createFactory(isNetty())) {
+         locator2.setMinLargeMessageSize(10240);
+         locator3.setMinLargeMessageSize(10240);
+         ClientSessionFactory sf2 = locator2.createSessionFactory();
+         ClientSessionFactory sf3 = locator3.createSessionFactory();
+         ClientSession session2 = sf2.createSession(true, true);
+         ClientSession session3 = sf3.createSession(true, true);
+         ClientProducer producer2 = session2.createProducer(ADDRESS);
+         ClientProducer producer3 = session3.createProducer(ADDRESS);
+
+         //Notice the _AMQ_LARGE_SIZE value changing part way through
+         for (int i = 0; i < 3; i++) {
+            System.out.println(message);
+            producer.send(message);
+            System.out.println(message);
+            producer2.send(message);
+            System.out.println(message);
+            producer3.send(message);
+         }
+      }
+
+      ClientMessage receivedMessage;
+
+      System.out.println("Send");
+
+      System.out.println("Receive");
+
+      for (int i = 0; i < 9; i++) {
+         receivedMessage = consumer.receive(2000);
+         assertNotNull(receivedMessage);
+         System.out.println(receivedMessage);
+         assertEquals(DATA, receivedMessage.getBodyBuffer().readNullableSimpleString());
+         receivedMessage.acknowledge();
+      }
+
+      consumer.close();
+
+   }
+
+
+
    @TestTemplate
    public void testCompressedMessageRouting() throws Exception {
       SimpleString DATA = SimpleString.of(RandomUtil.randomAlphaNumericString(1024 * 1024));
@@ -596,31 +666,31 @@ public class LargeMessageCompressTest extends LargeMessageTestBase {
       message.checkCompletion();
       message.acknowledge();
 
-      ServerLocator locator2 = createFactory(isNetty());
-      ServerLocator locator3 = createFactory(isNetty());
-      locator2.setMinLargeMessageSize(10240);
-      //Any sufficiently large value here causes a "java.lang.NegativeArraySizeException"
-      locator3.setMinLargeMessageSize(1024000);
+      try (ServerLocator locator2 = createFactory(isNetty());
+           ServerLocator locator3 = createFactory(isNetty())) {
+         locator2.setMinLargeMessageSize(10240);
+         locator3.setMinLargeMessageSize(1024 * 1024);
+         ClientSessionFactory sf2 = locator2.createSessionFactory();
+         ClientSessionFactory sf3 = locator3.createSessionFactory();
+         ClientSession session2 = sf2.createSession(true, true);
+         ClientSession session3 = sf3.createSession(true, true);
+         ClientProducer producer2 = session2.createProducer(ADDRESS);
+         ClientProducer producer3 = session3.createProducer(ADDRESS);
 
-      ClientSessionFactory sf2 = locator2.createSessionFactory();
-      ClientSessionFactory sf3 = locator3.createSessionFactory();
-      ClientSession session2 = sf2.createSession(true, true);
-      ClientSession session3 = sf3.createSession(true, true);
-      ClientProducer producer2 = session2.createProducer(ADDRESS);
-      ClientProducer producer3 = session3.createProducer(ADDRESS);
+         //Notice the _AMQ_LARGE_SIZE value changing part way through
+         for (int i = 0; i < 3; i++) {
+            System.out.println(message);
+            producer.send(message);
+            System.out.println(message);
+            producer2.send(message);
+            System.out.println(message);
+            producer3.send(message);
+         }
+      }
+
       ClientMessage receivedMessage;
 
       System.out.println("Send");
-
-      //Notice the _AMQ_LARGE_SIZE value changing part way through
-      for (int i = 0; i < 3; i++) {
-         System.out.println(message);
-         producer.send(message);
-         System.out.println(message);
-         producer2.send(message);
-         System.out.println(message);
-         producer3.send(message);
-      }
 
       System.out.println("Receive");
 
