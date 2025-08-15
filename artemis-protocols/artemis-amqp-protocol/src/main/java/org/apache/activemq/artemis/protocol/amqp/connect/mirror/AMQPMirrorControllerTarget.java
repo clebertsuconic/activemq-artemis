@@ -282,6 +282,7 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
       OperationContext oldContext = recoverContext();
       incrementSettle();
 
+      logger.info("{}::actualDelivery call for {}", server, message);
       logger.trace("{}::actualDelivery call for {}", server, message);
       setControllerInUse(this);
 
@@ -516,9 +517,14 @@ public class AMQPMirrorControllerTarget extends ProtonAbstractReceiver implement
       String internalMirrorID = (String) deliveryAnnotations.getValue().get(BROKER_ID);
       if (internalMirrorID == null) {
          internalMirrorID = getRemoteMirrorId(); // not passing the ID means the data was generated on the remote broker
+         logger.info("InternalMirrorID from property= {}", internalMirrorID);
+      } else {
+         logger.info("internalMirrorID={}", internalMirrorID);
       }
+
       Long internalIDLong = (Long) deliveryAnnotations.getValue().get(INTERNAL_ID);
       String internalAddress = (String) deliveryAnnotations.getValue().get(INTERNAL_DESTINATION);
+
 
       Collection<String> targetQueues = (Collection<String>) deliveryAnnotations.getValue().get(TARGET_QUEUES);
 

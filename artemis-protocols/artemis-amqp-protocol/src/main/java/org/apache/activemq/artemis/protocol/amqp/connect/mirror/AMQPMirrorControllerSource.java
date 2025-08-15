@@ -298,11 +298,12 @@ public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> im
       }
       String remoteID = getRemoteMirrorId();
       if (remoteID == null) {
-         // This is to avoid a reflection (Miror sendin messages back to itself) from a small period of time one node reconnects but not the opposite direction.
+         // This is to avoid a reflection (Mirror sending messages back to itself) from a small period of time one node reconnects but not the opposite direction.
          Object localRemoteID = message.getAnnotation(BROKER_ID_SIMPLE_STRING);
+         logger.info("SettingUp LocalRemoteID={}", localRemoteID);
          if (localRemoteID != null) {
             remoteID = String.valueOf(localRemoteID);
-            logger.debug("Remote link is not initialized yet, setting remoteID from message as {}", remoteID);
+            logger.debug("info link is not initialized yet, setting remoteID from message as {}", remoteID);
          }
       }
       return sameNode(remoteID, controller.getRemoteMirrorId());
@@ -341,19 +342,21 @@ public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> im
       SimpleString address = context.getAddress(message);
 
       if (context.isInternal()) {
-         logger.trace("sendMessage::server {} is discarding send to avoid sending to internal queue", server);
+         logger.info("sendMessage::server {} is discarding send {} to avoid sending to internal queue", server, message);
          return;
       }
 
       if (invalidTarget(context.getMirrorSource(), message)) {
-         logger.trace("sendMessage::server {} is discarding send to avoid infinite loop (reflection with the mirror)", server);
+         logger.info("sendMessage::server {} is discarding send {} to avoid infinite loop (reflection with the mirror)", server, message);
          return;
       }
 
       if (ignoreAddress(address)) {
-         logger.trace("sendMessage::server {} is discarding send to address {}, address doesn't match filter", server, address);
+         logger.info("sendMessage::server {} is discarding send {} to address {}, address doesn't match filter", server, address, message);
          return;
       }
+
+      logger.info("sendMessage::server {} is SENDING {}", server, message);
 
       try {
          context.setReusable(false);
@@ -370,7 +373,7 @@ public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> im
          }
 
          if (nodeID != null && nodeID.equals(remoteID)) {
-            logger.trace("sendMessage::Message {} already belonged to the node, {}, it won't circle send", message, getRemoteMirrorId());
+            logger.info("sendMessage::Message {} already belonged to the node, {}, it won't circle send", message, getRemoteMirrorId());
             return;
          }
 

@@ -16,10 +16,16 @@
  */
 package org.apache.activemq.artemis.protocol.amqp.connect.mirror;
 
+import java.lang.invoke.MethodHandles;
+
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
 import org.apache.qpid.proton.engine.Link;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class BasicMirrorController<T extends Link> {
+
+   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
    protected final ActiveMQServer server;
 
@@ -45,6 +51,7 @@ public class BasicMirrorController<T extends Link> {
       if (link != null && link.getRemoteProperties() != null && link.getRemoteProperties().containsKey(AMQPMirrorControllerSource.BROKER_ID)) {
          return (String)link.getRemoteProperties().get(AMQPMirrorControllerSource.BROKER_ID);
       } else {
+         logger.info("WHAT???? this is null", new Exception("trace"));
          return null;
       }
    }
