@@ -255,6 +255,7 @@ public class AckManager implements ActiveMQComponent {
 
    // to be used with the same executor as the PagingStore executor
    public void retryAddress(SimpleString address, LongObjectHashMap<JournalHashMap<AckRetry, AckRetry, Queue>> acksToRetry) {
+      logger.info("Retrying {} with {} elements", address, acksToRetry.size());
 
 
       // This is an optimization:
@@ -317,7 +318,7 @@ public class AckManager implements ActiveMQComponent {
                }
             }
          } else {
-            logger.trace("Page Scan not required for address {}", address);
+            logger.debug("Page Scan not required for address {}", address);
          }
 
          checkFlowControlMirrorTargets();
@@ -359,6 +360,7 @@ public class AckManager implements ActiveMQComponent {
    }
 
    private void validateExpireSet(SimpleString address, long queueID, JournalHashMap<AckRetry, AckRetry, Queue> retries) {
+      logger.info("Validating, retries::{}", retries.size());
       for (AckRetry retry : retries.valuesCopy()) {
          // we only remove or configure to be removed if the retry was initially seen on the start of the process
          // this is to avoid a race where an ACK entered the list after the scan been through where the element was supposed to be
@@ -369,6 +371,7 @@ public class AckManager implements ActiveMQComponent {
                }
                if (logger.isDebugEnabled()) {
                   logger.debug("Retried {} {} times, giving up on the entry now. Configured Page Attempts={}", retry, retry.getPageAttempts(), configuration.getMirrorAckManagerPageAttempts());
+                  logger.info("Retried {} {} times, giving up on the entry now. Configured Page Attempts={}", retry, retry.getPageAttempts(), configuration.getMirrorAckManagerPageAttempts());
                }
                if (retries.remove(retry) != null) {
                   mirrorRegistry.decrementMirrorAckSize();
@@ -377,9 +380,10 @@ public class AckManager implements ActiveMQComponent {
                if (logger.isTraceEnabled()) {
                   logger.trace("Retry {} attempted {} times on paging, Configuration Page Attempts={}", retry, retry.getPageAttempts(), configuration.getMirrorAckManagerPageAttempts());
                }
+               logger.info("Retry {} attempted {} times on paging, Configuration Page Attempts={}", retry, retry.getPageAttempts(), configuration.getMirrorAckManagerPageAttempts());
             }
          } else {
-            logger.trace("Retry {} queue attempted {} times on paging, QueueAttempts {} Configuration Page Attempts={}", retry, retry.getQueueAttempts(), retry.getPageAttempts(), configuration.getMirrorAckManagerPageAttempts());
+            logger.info("Retry {} attempted {} times on paging, Configuration Page Attempts={}", retry, retry.getPageAttempts(), configuration.getMirrorAckManagerPageAttempts());
          }
       }
    }
@@ -479,12 +483,13 @@ public class AckManager implements ActiveMQComponent {
          AtomicInteger queueSnapshotCount = snapshotCount.get(queue.getID());
          for (AckRetry retry : queueRetries.valuesCopy()) {
             if (ack(retry.getNodeID(), queue, retry.getMessageID(), retry.getReason(), false)) {
-               logger.trace("Removing retry {} as the retry went ok", retry);
+               logger.info("Removing retry {} as the retry went ok", retry);
                queueRetries.remove(retry);
                mirrorRegistry.decrementMirrorAckSize();
                decrementSnapshotCount(retry, queueSnapshotCount);
             } else {
                int retried = retry.attemptedQueue();
+               logger.info("retry {} attempted {} times on the queue", retry, retried);
                if (logger.isTraceEnabled()) {
                   logger.trace("retry {} attempted {} times on the queue", retry, retried);
                }

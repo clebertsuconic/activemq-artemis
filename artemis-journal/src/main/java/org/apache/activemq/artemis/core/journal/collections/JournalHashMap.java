@@ -249,6 +249,7 @@ public class JournalHashMap<K, V, C> implements Map<K, V> {
 
    @Override
    public synchronized V remove(Object key) {
+      logger.info("Removing {}", key, new Exception("trace"));
       MapRecord<K, V> record = map.remove(key);
       this.removed(record);
       return record.value;
