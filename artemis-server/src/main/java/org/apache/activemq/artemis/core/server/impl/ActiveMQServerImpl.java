@@ -3279,6 +3279,12 @@ public class ActiveMQServerImpl implements ActiveMQServer {
          }
       }
 
+
+      logger.info("\n" +
+                     "*******************************************************************************************************************************\n" +
+                     "Evaluation test for ARTEMIS-5627, including Transaction upgrade prototype\n" +
+                     "*******************************************************************************************************************************");
+
       managementService = new ManagementServiceImpl(mbeanServer, configuration);
 
       if (configuration.getMemoryMeasureInterval() != -1) {
