@@ -77,7 +77,36 @@ public class BasicParallelTest extends AbstractStatementTest {
 
 
    @TestTemplate
-   public void testStoreMessageFromServer() throws Exception {
+   public void testStoreMessageFromServerNonTX() throws Exception {
+
+      ActiveMQServer server = createServer(true, configuration);
+
+      server.start();
+
+      int nMessages = 0;
+
+      String[] protocols = {"CORE", "AMQP", "OPENWIRE"};
+      for (String p : protocols) {
+         ConnectionFactory factory = CFUtil.createConnectionFactory( p, "tcp://localhost:61616");
+         try (javax.jms.Connection connection = factory.createConnection()) {
+            try (Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE)) {
+               MessageProducer producer = session.createProducer(session.createQueue("TEST"));
+               for (int i = 0; i < 10; i++) {
+                  producer.send(session.createTextMessage("test: " + p));
+                  nMessages++;
+               }
+               checkMessageCounts(nMessages);
+            }
+         }
+      }
+      checkMessageCounts(nMessages);
+      server.stop();
+
+   }
+
+
+   @TestTemplate
+   public void testStoreMessageFromServerTX() throws Exception {
 
       ActiveMQServer server = createServer(true, configuration);
 
@@ -91,15 +120,11 @@ public class BasicParallelTest extends AbstractStatementTest {
          try (javax.jms.Connection connection = factory.createConnection()) {
             try (Session session = connection.createSession(true, Session.SESSION_TRANSACTED)) {
                MessageProducer producer = session.createProducer(session.createQueue("TEST"));
-               producer.send(session.createTextMessage("test: " + p));
+               for (int i = 0; i < 10; i++){
+                  producer.send(session.createTextMessage("test: " + p));
+                  nMessages++;
+               }
                session.commit();
-               nMessages++;
-               checkMessageCounts(nMessages);
-            }
-            try (Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE)) {
-               MessageProducer producer = session.createProducer(session.createQueue("TEST"));
-               producer.send(session.createTextMessage("test: " + p));
-               nMessages++;
                checkMessageCounts(nMessages);
             }
          }

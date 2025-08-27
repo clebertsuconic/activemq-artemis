@@ -33,6 +33,7 @@ import org.apache.activemq.artemis.tests.db.common.ParameterDBTestBase;
 import org.apache.activemq.artemis.tests.extensions.parameterized.ParameterizedTestExtension;
 import org.apache.activemq.artemis.tests.extensions.parameterized.Parameters;
 import org.apache.activemq.artemis.utils.ExecutorFactory;
+import org.apache.activemq.artemis.utils.Wait;
 import org.apache.activemq.artemis.utils.actors.OrderedExecutorFactory;
 import org.apache.activemq.artemis.utils.critical.CriticalAnalyzer;
 import org.junit.jupiter.api.BeforeEach;
