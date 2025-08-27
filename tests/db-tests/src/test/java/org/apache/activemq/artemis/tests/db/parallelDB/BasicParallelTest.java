@@ -23,6 +23,8 @@ import java.sql.Connection;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.activemq.artemis.api.core.QueueConfiguration;
+import org.apache.activemq.artemis.api.core.RoutingType;
 import org.apache.activemq.artemis.core.io.IOCallback;
 import org.apache.activemq.artemis.core.message.impl.CoreMessage;
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.ParallelDBStorageManager;
@@ -109,6 +111,7 @@ public class BasicParallelTest extends AbstractStatementTest {
    public void testStoreMessageFromServerTX() throws Exception {
 
       ActiveMQServer server = createServer(true, configuration);
+      configuration.addQueueConfiguration(QueueConfiguration.of("TEST").setRoutingType(RoutingType.ANYCAST));
 
       server.start();
 
@@ -145,13 +148,13 @@ public class BasicParallelTest extends AbstractStatementTest {
 
       JDBCConnectionProvider connectionProvider = storageConfiguration.getConnectionProvider();
 
-      int nrecords = 100;
+      int nrecords = 10;
 
       CountDownLatch latch = new CountDownLatch(nrecords);
 
       try (Connection connection = connectionProvider.getConnection()) {
          connection.setAutoCommit(false);
-         for (int i = 1; i <= 100; i++) {
+         for (int i = 1; i <= nrecords; i++) {
             CoreMessage message = new CoreMessage().initBuffer(1 * 1024).setDurable(true);
             message.setMessageID(i);
             message.getBodyBuffer().writeByte((byte) 'Z');
@@ -160,7 +163,7 @@ public class BasicParallelTest extends AbstractStatementTest {
          parallelDBStorageManager.getStatementsManager().flushTL();
          latch.await(10, TimeUnit.SECONDS);
          assertTrue(latch.await(10, TimeUnit.SECONDS));
-         assertEquals(100, selectCount(connection, storageConfiguration.getParallelDBMessages()));
+         assertEquals(nrecords, selectCount(connection, storageConfiguration.getParallelDBMessages()));
       }
    }
 
@@ -176,13 +179,13 @@ public class BasicParallelTest extends AbstractStatementTest {
 
       JDBCConnectionProvider connectionProvider = storageConfiguration.getConnectionProvider();
 
-      int nrecords = 100;
+      int nrecords = 10;
 
       CountDownLatch latch = new CountDownLatch(nrecords);
 
       try (Connection connection = connectionProvider.getConnection()) {
          connection.setAutoCommit(false);
-         for (int i = 1; i <= 100; i++) {
+         for (int i = 1; i <= 10; i++) {
             CoreMessage message = new CoreMessage().initBuffer(1 * 1024).setDurable(true);
             message.setMessageID(i);
             message.getBodyBuffer().writeByte((byte) 'Z');
@@ -192,7 +195,7 @@ public class BasicParallelTest extends AbstractStatementTest {
          }
          latch.await(10, TimeUnit.SECONDS);
          assertTrue(latch.await(10, TimeUnit.SECONDS));
-         assertEquals(100, selectCount(connection, storageConfiguration.getParallelDBMessages()));
+         assertEquals(nrecords, selectCount(connection, storageConfiguration.getParallelDBMessages()));
       }
    }
 

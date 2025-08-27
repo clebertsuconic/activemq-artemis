@@ -183,8 +183,10 @@ public class StatementsManager extends ActiveMQScheduledComponent {
       connection.close();
    }
 
-   public void storeTX(long txID, boolean messages, boolean references, OperationContext context) {
-      getTLTaskList().add(new TXTask(txID, messages, references, context));
+   public void storeTX(long txID, boolean messages, boolean references, OperationContext callback) {
+      callback.storeLineUp();
+      callback.storeLineUp();
+      getTLTaskList().add(new TXTask(txID, messages, references, callback));
    }
 
    public void storeMessage(Message message, Long tx, OperationContext callback) {
