@@ -311,6 +311,11 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
    }
 
    @Override
+   public void deletePendingLargeMessage(long recordID) throws Exception {
+      journalDelegate.deletePendingLargeMessage(recordID);
+   }
+
+   @Override
    public void storeAcknowledgeTransactional(long txID, long queueID, long messageID) throws Exception {
    }
 

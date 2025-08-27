@@ -276,7 +276,9 @@ public interface StorageManager extends MapStorageManager, IDGenerator, ActiveMQ
 
    void prepare(long txID, Xid xid) throws Exception;
 
-   void journalCommit(long txID) throws Exception;
+   default void journalCommit(long txID) throws Exception {
+      commit(txID, true);
+   }
 
    void commit(long txID, boolean send, boolean ack, boolean paged) throws Exception;
 
