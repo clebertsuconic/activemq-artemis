@@ -373,7 +373,6 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
    public void commit(long txID, boolean send, boolean ack, boolean paged) throws Exception {
       statementsManager.storeTX(txID, send, send, getContext());
       statementsManager.flushTL();
-      journalDelegate.commit(txID, true, true, true);
    }
 
    @Override
