@@ -614,11 +614,6 @@ public abstract class AbstractJournalStorageManager extends AbstractStorageManag
    }
 
    @Override
-   public void journalCommit(final long txID) throws Exception {
-      commit(txID, true);
-   }
-
-   @Override
    public void commitBindings(final long txID) throws Exception {
       bindingsJournal.appendCommitRecord(txID, true, getContext(true), true);
    }
