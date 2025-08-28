@@ -811,6 +811,7 @@ public final class FileConfigurationParser extends XMLConfigurationUtil {
          config.setJournalBufferTimeout_NIO(journalBufferTimeout);
          config.setJournalBufferSize_NIO(journalBufferSize);
          config.setJournalMaxIO_NIO(journalMaxIO);
+         logger.info("journalTimeoutNIO::{}", config.getJournalBufferTimeout_NIO());
       }
 
       config.setJournalFileOpenTimeout(getInteger(e, "journal-file-open-timeout", ActiveMQDefaultConfiguration.getDefaultJournalFileOpenTimeout(), GT_ZERO));
