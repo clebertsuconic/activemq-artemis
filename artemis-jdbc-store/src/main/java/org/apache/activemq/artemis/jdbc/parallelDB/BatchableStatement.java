@@ -17,6 +17,7 @@
 
 package org.apache.activemq.artemis.jdbc.parallelDB;
 
+import java.lang.invoke.MethodHandles;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -29,8 +30,12 @@ import org.apache.activemq.artemis.core.io.IOCallback;
 import org.apache.activemq.artemis.core.persistence.Persister;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 import org.apache.activemq.artemis.utils.ActiveMQBufferInputStream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public abstract class BatchableStatement<E> {
+
+   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
    final JDBCConnectionProvider connectionProvider;
    final Connection connection;
@@ -61,6 +66,7 @@ public abstract class BatchableStatement<E> {
 
    public void flushPending(boolean commit) throws SQLException {
       if (pendingList.isEmpty()) return;
+      logger.info("flushing {} on {}", pendingList.size(), this.getClass().getName());
       pendingList.forEach(this::flushOne);
       try {
          preparedStatement.executeBatch();

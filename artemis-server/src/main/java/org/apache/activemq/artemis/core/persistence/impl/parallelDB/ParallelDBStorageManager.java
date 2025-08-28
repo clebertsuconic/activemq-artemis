@@ -18,6 +18,7 @@
 package org.apache.activemq.artemis.core.persistence.impl.parallelDB;
 
 import javax.transaction.xa.Xid;
+import java.lang.invoke.MethodHandles;
 import java.nio.ByteBuffer;
 import java.sql.Connection;
 import java.util.List;
@@ -79,8 +80,12 @@ import org.apache.activemq.artemis.utils.ArtemisCloseable;
 import org.apache.activemq.artemis.utils.ExecutorFactory;
 import org.apache.activemq.artemis.utils.IDGenerator;
 import org.apache.activemq.artemis.utils.critical.CriticalAnalyzer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ParallelDBStorageManager extends AbstractStorageManager {
+
+   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
    // TODO: provide configuration for this
    final int batchSize = 1000;
@@ -168,7 +173,9 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
          JDBCUtils.createTable(connection, connectionProvider.getSQLProvider(), messagesTableName, connectionProvider.getSQLProvider().getCreateParallelDBMessages(messagesTableName));
          JDBCUtils.createTable(connection, connectionProvider.getSQLProvider(), referencesTableName, connectionProvider.getSQLProvider().getCreateParallelDBReferences(referencesTableName));
 
-         // TODO: what is the best place for the time?
+         // TODO-IMPORTANT meant do not merge without fixing this:
+         // TODO-IMPORTANT: what is the best place for the time?
+         logger.info("Timeout:: {}", configuration.getJournalBufferTimeout_NIO());
          statementsManager = new StatementsManager(scheduledExecutorService, executorFactory.getExecutor(), configuration.getJournalBufferTimeout_NIO(), databaseConfiguration, connectionProvider, batchSize);
          statementsManager.start();
       }
