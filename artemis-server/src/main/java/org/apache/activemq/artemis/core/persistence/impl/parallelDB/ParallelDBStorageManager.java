@@ -88,7 +88,7 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
    // TODO: provide configuration for this
-   final int batchSize = 1000;
+   final int batchSize = 10_000;
 
    final Configuration configuration;
    JDBCConnectionProvider connectionProvider;
