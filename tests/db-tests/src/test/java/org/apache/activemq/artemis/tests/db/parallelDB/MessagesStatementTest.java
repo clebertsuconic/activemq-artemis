@@ -31,8 +31,8 @@ import org.apache.activemq.artemis.core.persistence.impl.parallelDB.ParallelDBSt
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.MessageStatement;
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.ReferencesStatement;
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.StatementsManager;
-import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.tasks.MessageReferenceTask;
-import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.tasks.MessageTask;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.tasks.MessageReferenceTask;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.tasks.MessageTask;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 import org.apache.activemq.artemis.tests.extensions.parameterized.ParameterizedTestExtension;
 import org.junit.jupiter.api.TestTemplate;

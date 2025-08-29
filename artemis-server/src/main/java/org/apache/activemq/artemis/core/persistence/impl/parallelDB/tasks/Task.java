@@ -15,11 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.tasks;
+package org.apache.activemq.artemis.core.persistence.impl.parallelDB.tasks;
 
 import org.apache.activemq.artemis.core.io.IOCallback;
-import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.DatabaseWorker;
-import org.apache.activemq.artemis.jdbc.parallelDB.BatchableStatement;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.Worker;
 
 public abstract class Task {
 
@@ -29,5 +28,5 @@ public abstract class Task {
       this.context = context;
    }
 
-   public abstract void store(DatabaseWorker worker);
+   public abstract void store(Worker worker);
 }

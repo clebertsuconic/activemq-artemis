@@ -28,10 +28,12 @@ import java.util.concurrent.TimeUnit;
 import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.core.config.storage.DatabaseStorageConfiguration;
 import org.apache.activemq.artemis.core.journal.IOCompletion;
-import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.tasks.Task;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.tasks.MessageReferenceTask;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.tasks.MessageTask;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.tasks.TXTask;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.tasks.Task;
 import org.apache.activemq.artemis.core.server.ActiveMQScheduledComponent;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
-import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.tasks.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,7 +45,7 @@ public class StatementsManager extends ActiveMQScheduledComponent {
    final JDBCConnectionProvider connectionProvider;
    final int batchSize;
 
-   DatabaseWorker worker;
+   Worker worker;
 
    // We store messages and references on a ThreadLocal buffer until the last attribute is sent,
    // at that time we flush everything.
@@ -88,7 +90,7 @@ public class StatementsManager extends ActiveMQScheduledComponent {
    }
 
    public void init() throws SQLException {
-      worker = new DatabaseWorker(connectionProvider, databaseConfiguration, batchSize);
+      worker = new Worker(connectionProvider, databaseConfiguration, batchSize);
    }
 
    public void close() throws SQLException {

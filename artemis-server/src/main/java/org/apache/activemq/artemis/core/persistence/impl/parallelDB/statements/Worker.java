@@ -22,12 +22,12 @@ import java.sql.SQLException;
 import java.util.List;
 
 import org.apache.activemq.artemis.core.config.storage.DatabaseStorageConfiguration;
-import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.tasks.Task;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.tasks.Task;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 
-public class DatabaseWorker implements Runnable {
+public class Worker implements Runnable {
 
-   public DatabaseWorker(JDBCConnectionProvider connectionProvider, DatabaseStorageConfiguration databaseConfiguration, int batchSize) throws SQLException  {
+   public Worker(JDBCConnectionProvider connectionProvider, DatabaseStorageConfiguration databaseConfiguration, int batchSize) throws SQLException  {
       connection = connectionProvider.getConnection();
       connection.setAutoCommit(false);
       messageStatement = new MessageStatement(connection, connectionProvider, databaseConfiguration.getParallelDBMessages(), batchSize);

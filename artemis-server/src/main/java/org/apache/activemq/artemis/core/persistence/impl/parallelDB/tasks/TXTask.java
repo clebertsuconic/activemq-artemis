@@ -15,30 +15,42 @@
  * limitations under the License.
  */
 
-package org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.tasks;
+package org.apache.activemq.artemis.core.persistence.impl.parallelDB.tasks;
 
-import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.core.journal.IOCompletion;
-import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.DatabaseWorker;
-import org.apache.activemq.artemis.jdbc.parallelDB.BatchableStatement;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.Worker;
 
-public class MessageTask extends Task {
-   public MessageTask(Message message, Long tx, IOCompletion context) {
+public class TXTask extends Task {
+   public long txID;
+   public boolean messages;
+   public boolean references;
+
+   public TXTask(long txID, boolean messages, boolean references, IOCompletion context) {
       super(context);
-      this.message = message;
-      this.tx = tx;
-      context.storeLineUp();
+      this.txID = txID;
+      this.messages = messages;
+      this.references = references;
+      if (messages) {
+         context.storeLineUp();
+      }
+      if (references) {
+         context.storeLineUp();
+      }
    }
 
-   public final Message message;
-   public final Long tx;
+   public void store(Worker worker) {
+      if (messages) {
+         worker.txMessagesStatement.addData(this, context);
+      }
 
-   public void store(DatabaseWorker worker) {
-      worker.messageStatement.addData(this, context);
+      if (references) {
+         worker.txReferencesStatement.addData(this, context);
+      }
    }
 
    @Override
    public String toString() {
-      return "MessageTask{" + "message=" + message + ", tx=" + tx + '}';
+      return "TXTask{" + "txID=" + txID + ", messages=" + messages + ", references=" + references + '}';
    }
 }
+

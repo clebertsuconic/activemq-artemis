@@ -23,13 +23,9 @@ import java.sql.SQLException;
 import java.sql.Types;
 
 import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
-import org.apache.activemq.artemis.api.core.ActiveMQBuffers;
-import org.apache.activemq.artemis.api.core.Message;
-import org.apache.activemq.artemis.core.persistence.Persister;
-import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.tasks.MessageTask;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.tasks.MessageTask;
 import org.apache.activemq.artemis.jdbc.parallelDB.BatchableStatement;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
-import org.apache.activemq.artemis.utils.ActiveMQBufferInputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

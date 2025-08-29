@@ -15,10 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements;
+package org.apache.activemq.artemis.core.persistence.impl.parallelDB.tasks;
 
-public enum StatementType {
-   MESSAGE,
-   REFERENCE,
-   TX
+import org.apache.activemq.artemis.api.core.Message;
+import org.apache.activemq.artemis.core.journal.IOCompletion;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.Worker;
+
+public class MessageTask extends Task {
+   public MessageTask(Message message, Long tx, IOCompletion context) {
+      super(context);
+      this.message = message;
+      this.tx = tx;
+      context.storeLineUp();
+   }
+
+   public final Message message;
+   public final Long tx;
+
+   public void store(Worker worker) {
+      worker.messageStatement.addData(this, context);
+   }
+
+   @Override
+   public String toString() {
+      return "MessageTask{" + "message=" + message + ", tx=" + tx + '}';
+   }
 }

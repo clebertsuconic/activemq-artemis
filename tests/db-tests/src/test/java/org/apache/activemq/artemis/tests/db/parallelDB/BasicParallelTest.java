@@ -27,6 +27,7 @@ import org.apache.activemq.artemis.api.core.QueueConfiguration;
 import org.apache.activemq.artemis.api.core.RoutingType;
 import org.apache.activemq.artemis.core.io.IOCallback;
 import org.apache.activemq.artemis.core.message.impl.CoreMessage;
+import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContextImpl;
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.ParallelDBStorageManager;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
@@ -150,8 +151,6 @@ public class BasicParallelTest extends AbstractStatementTest {
 
       int nrecords = 10;
 
-      CountDownLatch latch = new CountDownLatch(nrecords);
-
       try (Connection connection = connectionProvider.getConnection()) {
          connection.setAutoCommit(false);
          for (int i = 1; i <= nrecords; i++) {
@@ -161,8 +160,7 @@ public class BasicParallelTest extends AbstractStatementTest {
             parallelDBStorageManager.storeMessage(message);
          }
          parallelDBStorageManager.getStatementsManager().flushTL();
-         latch.await(10, TimeUnit.SECONDS);
-         assertTrue(latch.await(10, TimeUnit.SECONDS));
+         OperationContextImpl.getContext().waitCompletion();
          assertEquals(nrecords, selectCount(connection, storageConfiguration.getParallelDBMessages()));
       }
    }
@@ -181,8 +179,6 @@ public class BasicParallelTest extends AbstractStatementTest {
 
       int nrecords = 10;
 
-      CountDownLatch latch = new CountDownLatch(nrecords);
-
       try (Connection connection = connectionProvider.getConnection()) {
          connection.setAutoCommit(false);
          for (int i = 1; i <= 10; i++) {
@@ -193,8 +189,7 @@ public class BasicParallelTest extends AbstractStatementTest {
             parallelDBStorageManager.storeReferenceTransactional(3, 3, message.getMessageID());
             parallelDBStorageManager.commit(3, true, true, true);
          }
-         latch.await(10, TimeUnit.SECONDS);
-         assertTrue(latch.await(10, TimeUnit.SECONDS));
+         OperationContextImpl.getContext().waitCompletion();
          assertEquals(nrecords, selectCount(connection, storageConfiguration.getParallelDBMessages()));
       }
    }

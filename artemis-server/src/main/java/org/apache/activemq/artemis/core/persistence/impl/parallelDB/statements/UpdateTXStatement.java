@@ -20,7 +20,7 @@ package org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements;
 import java.sql.Connection;
 import java.sql.SQLException;
 
-import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.tasks.TXTask;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.tasks.TXTask;
 import org.apache.activemq.artemis.jdbc.parallelDB.BatchableStatement;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 
