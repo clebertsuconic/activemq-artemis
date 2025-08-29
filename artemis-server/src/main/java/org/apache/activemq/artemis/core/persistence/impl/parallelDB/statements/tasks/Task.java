@@ -15,24 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements;
+package org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.tasks;
 
-import java.sql.Connection;
-import java.sql.SQLException;
-
-import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.tasks.TXTask;
+import org.apache.activemq.artemis.core.io.IOCallback;
 import org.apache.activemq.artemis.jdbc.parallelDB.BatchableStatement;
-import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 
-public class UpdateTXStatement extends BatchableStatement<TXTask> {
-
-   public UpdateTXStatement(Connection connection, JDBCConnectionProvider connectionProvider, String tableName, int expectedSize) throws SQLException {
-      super(connectionProvider, connection, connectionProvider.getSQLProvider().getUpdateTX(tableName), expectedSize);
+public abstract class Task<T> {
+   final IOCallback context;
+   Task(IOCallback context) {
+      this.context = context;
    }
-
-   @Override
-   protected void doOne(TXTask task) throws Exception {
-      preparedStatement.setLong(1, task.txID);
-   }
-
+   public abstract void store(BatchableStatement<T> statement);
 }

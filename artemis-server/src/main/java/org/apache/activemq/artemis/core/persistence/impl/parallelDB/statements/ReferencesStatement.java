@@ -24,13 +24,14 @@ import java.sql.Types;
 
 import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
 import org.apache.activemq.artemis.api.core.Message;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.tasks.MessageReferenceTask;
 import org.apache.activemq.artemis.core.server.MessageReference;
 import org.apache.activemq.artemis.jdbc.parallelDB.BatchableStatement;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ReferencesStatement extends BatchableStatement<StatementsManager.MessageReferenceTask> {
+public class ReferencesStatement extends BatchableStatement<MessageReferenceTask> {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
@@ -39,7 +40,7 @@ public class ReferencesStatement extends BatchableStatement<StatementsManager.Me
    }
 
    @Override
-   protected void doOne(StatementsManager.MessageReferenceTask task) throws Exception {
+   protected void doOne(MessageReferenceTask task) throws Exception {
       preparedStatement.setLong(1, task.messageID);
       preparedStatement.setLong(2, task.queueID);
       if (task.txID != null) {

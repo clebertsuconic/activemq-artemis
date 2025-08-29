@@ -18,7 +18,6 @@
 package org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements;
 
 import java.lang.invoke.MethodHandles;
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,11 +27,11 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.core.config.storage.DatabaseStorageConfiguration;
-import org.apache.activemq.artemis.core.io.IOCallback;
-import org.apache.activemq.artemis.core.persistence.OperationContext;
+import org.apache.activemq.artemis.core.journal.IOCompletion;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.tasks.Task;
 import org.apache.activemq.artemis.core.server.ActiveMQScheduledComponent;
-import org.apache.activemq.artemis.core.server.MessageReference;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.tasks.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,11 +43,7 @@ public class StatementsManager extends ActiveMQScheduledComponent {
    final JDBCConnectionProvider connectionProvider;
    final int batchSize;
 
-   Connection connection;
-   MessageStatement messageStatement;
-   ReferencesStatement referencesStatement;
-   UpdateTXStatement txMessagesStatement;
-   UpdateTXStatement txReferencesStatement;
+   DatabaseWorker worker;
 
    // We store messages and references on a ThreadLocal buffer until the last attribute is sent,
    // at that time we flush everything.
@@ -68,89 +63,11 @@ public class StatementsManager extends ActiveMQScheduledComponent {
 
    ArrayList<Task> pendingTasks = new ArrayList<>();
 
-   abstract class Task {
-      final IOCallback context;
-      Task(IOCallback context) {
-         this.context = context;
-      }
-      public abstract void store();
-   }
-
-   public class MessageTask extends Task {
-      public MessageTask(Message message, Long tx, IOCallback context) {
-         super(context);
-         this.message = message;
-         this.tx = tx;
-      }
-
-      final Message message;
-      final Long tx;
-
-      public void store() {
-         messageStatement.addData(this, context);
-      }
-
-      @Override
-      public String toString() {
-         return "MessageTask{" + "message=" + message + ", tx=" + tx + '}';
-      }
-   }
-
-   public class TXTask extends Task {
-      long txID;
-      boolean messages;
-      boolean references;
-
-      public TXTask(long txID, boolean messages, boolean references, IOCallback context) {
-         super(context);
-         this.txID = txID;
-         this.messages = messages;
-         this.references = references;
-      }
-
-      public void store() {
-         if (messages) {
-            txMessagesStatement.addData(this, context);
-         }
-
-         if (references) {
-            txReferencesStatement.addData(this, context);
-         }
-      }
-
-      @Override
-      public String toString() {
-         return "TXTask{" + "txID=" + txID + ", messages=" + messages + ", references=" + references + '}';
-      }
-   }
-
-
-   public class MessageReferenceTask extends Task {
-      long messageID;
-      long queueID;
-      Long txID;
-      public MessageReferenceTask(long messageID, long queueID, Long txID, IOCallback context) {
-         super(context);
-         this.messageID = messageID;
-         this.queueID = queueID;
-         this.txID = txID;
-      }
-
-      public void store() {
-         referencesStatement.addData(this, context);
-      }
-
-      @Override
-      public String toString() {
-         return "MessageReferenceTask{" + "messageID=" + messageID + ", queueID=" + queueID + ", txID=" + txID + '}';
-      }
-   }
-
-   public MessageReferenceTask newReferenceTask(long messageID, long queueID, Long txID, IOCallback context) {
+   public MessageReferenceTask newReferenceTask(long messageID, long queueID, Long txID, IOCompletion context) {
       return new MessageReferenceTask(messageID, queueID, txID, context);
    }
 
-   public MessageTask newMessageTask(Message message, Long txID, IOCallback context) {
+   public MessageTask newMessageTask(Message message, Long txID, IOCompletion context) {
       return new MessageTask(message, txID, context);
    }
 
@@ -171,31 +88,23 @@ public class StatementsManager extends ActiveMQScheduledComponent {
    }
 
    public void init() throws SQLException {
-      connection = connectionProvider.getConnection();
-      connection.setAutoCommit(false);
-      messageStatement = new MessageStatement(connection, connectionProvider, databaseConfiguration.getParallelDBMessages(), batchSize);
-      referencesStatement = new ReferencesStatement(connection, connectionProvider, databaseConfiguration.getParallelDBReferences(), batchSize);
-      txMessagesStatement = new UpdateTXStatement(connection, connectionProvider, databaseConfiguration.getParallelDBMessages(), batchSize);
-      txReferencesStatement = new UpdateTXStatement(connection, connectionProvider, databaseConfiguration.getParallelDBReferences(), batchSize);
+      worker = new DatabaseWorker(connectionProvider, databaseConfiguration, batchSize);
    }
 
    public void close() throws SQLException {
-      connection.close();
+      worker.close();
+      worker = null;
    }
 
-   public void storeTX(long txID, boolean messages, boolean references, OperationContext callback) {
-      callback.storeLineUp();
-      callback.storeLineUp();
+   public void storeTX(long txID, boolean messages, boolean references, IOCompletion callback) {
       getTLTaskList().add(new TXTask(txID, messages, references, callback));
    }
 
-   public void storeMessage(Message message, Long tx, OperationContext callback) {
-      callback.storeLineUp();
+   public void storeMessage(Message message, Long tx, IOCompletion callback) {
       getTLTaskList().add(new MessageTask(message, tx, callback));
    }
 
-   public void storeReference(long messageID, long queueID, Long txID, OperationContext callback) {
-      callback.storeLineUp();
+   public void storeReference(long messageID, long queueID, Long txID, IOCompletion callback) {
       getTLTaskList().add(new MessageReferenceTask(messageID, queueID, txID, callback));
    }
 
@@ -230,27 +139,6 @@ public class StatementsManager extends ActiveMQScheduledComponent {
 
    public void flush() throws SQLException {
       List<Task> taskList = extractTaskList();
-      taskList.forEach(this::doTask);
-      try {
-         messageStatement.flushPending(false);
-         referencesStatement.flushPending(false);
-         txReferencesStatement.flushPending(false);
-         txMessagesStatement.flushPending(false);
-      } catch (SQLException e) {
-         try {
-            connection.rollback();
-         } catch (Throwable ignored) {
-         }
-         throw e;
-      }
-      connection.commit();
-      messageStatement.confirmData();
-      referencesStatement.confirmData();
-      txReferencesStatement.confirmData();
-      txMessagesStatement.confirmData();
-   }
-
-   private void doTask(Task task) {
-      task.store();
+      worker.doRun(taskList);
    }
 }

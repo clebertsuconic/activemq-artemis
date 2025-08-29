@@ -15,24 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements;
+package org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.tasks;
 
-import java.sql.Connection;
-import java.sql.SQLException;
-
-import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.tasks.TXTask;
+import org.apache.activemq.artemis.core.journal.IOCompletion;
 import org.apache.activemq.artemis.jdbc.parallelDB.BatchableStatement;
-import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 
-public class UpdateTXStatement extends BatchableStatement<TXTask> {
+public class MessageReferenceTask extends Task<MessageReferenceTask> {
+   public long messageID;
+   public long queueID;
+   public Long txID;
 
-   public UpdateTXStatement(Connection connection, JDBCConnectionProvider connectionProvider, String tableName, int expectedSize) throws SQLException {
-      super(connectionProvider, connection, connectionProvider.getSQLProvider().getUpdateTX(tableName), expectedSize);
+   public MessageReferenceTask(long messageID, long queueID, Long txID, IOCompletion context) {
+      super(context);
+      this.messageID = messageID;
+      this.queueID = queueID;
+      this.txID = txID;
+      context.storeLineUp();
+   }
+
+   public void store(BatchableStatement<MessageReferenceTask> statement) {
+      statement.addData(this, context);
    }
 
    @Override
-   protected void doOne(TXTask task) throws Exception {
-      preparedStatement.setLong(1, task.txID);
+   public String toString() {
+      return "MessageReferenceTask{" + "messageID=" + messageID + ", queueID=" + queueID + ", txID=" + txID + '}';
    }
-
 }

@@ -23,6 +23,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.activemq.artemis.core.io.IOCallback;
+import org.apache.activemq.artemis.core.journal.IOCompletion;
 import org.apache.activemq.artemis.core.message.impl.CoreMessage;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContextImpl;
@@ -30,6 +31,8 @@ import org.apache.activemq.artemis.core.persistence.impl.parallelDB.ParallelDBSt
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.MessageStatement;
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.ReferencesStatement;
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.StatementsManager;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.tasks.MessageReferenceTask;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.tasks.MessageTask;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 import org.apache.activemq.artemis.tests.extensions.parameterized.ParameterizedTestExtension;
 import org.junit.jupiter.api.TestTemplate;
@@ -60,7 +63,7 @@ public class MessagesStatementTest extends AbstractStatementTest {
 
       CountDownLatch latch = new CountDownLatch(nrecords);
 
-      IOCallback ioCallback = new IOCallback() {
+      IOCompletion ioCallback = new IOCompletion() {
          @Override
          public void done() {
             latch.countDown();
@@ -68,7 +71,10 @@ public class MessagesStatementTest extends AbstractStatementTest {
 
          @Override
          public void onError(int errorCode, String errorMessage) {
+         }
 
+         @Override
+         public void storeLineUp() {
          }
       };
 
@@ -76,7 +82,7 @@ public class MessagesStatementTest extends AbstractStatementTest {
          connection.setAutoCommit(false);
          ReferencesStatement referencesStatement = new ReferencesStatement(connection, connectionProvider, storageConfiguration.getParallelDBReferences(), 100);
          for (int i = 1; i <= nrecords; i++) {
-            StatementsManager.MessageReferenceTask task = parallelDBStorageManager.getStatementsManager().newReferenceTask(i, 1, i % 2 == 0 ? (long)i : null, ioCallback);
+            MessageReferenceTask task = parallelDBStorageManager.getStatementsManager().newReferenceTask(i, 1, i % 2 == 0 ? (long)i : null, ioCallback);
             referencesStatement.addData(task, ioCallback);
          }
          referencesStatement.flushPending(true);
@@ -102,7 +108,7 @@ public class MessagesStatementTest extends AbstractStatementTest {
 
       CountDownLatch latch = new CountDownLatch(nrecords);
 
-      IOCallback ioCallback = new IOCallback() {
+      IOCompletion ioCallback = new IOCompletion() {
          @Override
          public void done() {
             latch.countDown();
@@ -110,7 +116,10 @@ public class MessagesStatementTest extends AbstractStatementTest {
 
          @Override
          public void onError(int errorCode, String errorMessage) {
+         }
 
+         @Override
+         public void storeLineUp() {
          }
       };
 
@@ -121,7 +130,7 @@ public class MessagesStatementTest extends AbstractStatementTest {
             CoreMessage message = new CoreMessage().initBuffer(1 * 1024).setDurable(true);
             message.setMessageID(i);
             message.getBodyBuffer().writeByte((byte) 'Z');
-            StatementsManager.MessageTask task = parallelDBStorageManager.getStatementsManager().newMessageTask(message, null, ioCallback);
+            MessageTask task = parallelDBStorageManager.getStatementsManager().newMessageTask(message, null, ioCallback);
             messageStatement.addData(task, ioCallback);
          }
          messageStatement.flushPending(true);
@@ -251,7 +260,7 @@ public class MessagesStatementTest extends AbstractStatementTest {
 
       AtomicInteger errors = new AtomicInteger(0);
 
-      IOCallback ioCallback = new IOCallback() {
+      IOCompletion ioCallback = new IOCompletion() {
          @Override
          public void done() {
          }
@@ -259,6 +268,10 @@ public class MessagesStatementTest extends AbstractStatementTest {
          @Override
          public void onError(int errorCode, String errorMessage) {
             errors.incrementAndGet();
+         }
+
+         @Override
+         public void storeLineUp() {
          }
       };
 
