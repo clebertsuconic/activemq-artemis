@@ -18,9 +18,10 @@
 package org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.tasks;
 
 import org.apache.activemq.artemis.core.journal.IOCompletion;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.DatabaseWorker;
 import org.apache.activemq.artemis.jdbc.parallelDB.BatchableStatement;
 
-public class MessageReferenceTask extends Task<MessageReferenceTask> {
+public class MessageReferenceTask extends Task {
    public long messageID;
    public long queueID;
    public Long txID;
@@ -33,8 +34,8 @@ public class MessageReferenceTask extends Task<MessageReferenceTask> {
       context.storeLineUp();
    }
 
-   public void store(BatchableStatement<MessageReferenceTask> statement) {
-      statement.addData(this, context);
+   public void store(DatabaseWorker worker) {
+      worker.referencesStatement.addData(this, context);
    }
 
    @Override

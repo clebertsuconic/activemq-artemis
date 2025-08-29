@@ -15,19 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.tasks;
+package org.apache.activemq.artemis.tests.db.parallelDB;
 
-import org.apache.activemq.artemis.core.io.IOCallback;
-import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.DatabaseWorker;
-import org.apache.activemq.artemis.jdbc.parallelDB.BatchableStatement;
+import javax.jms.*;
 
-public abstract class Task {
+import org.apache.activemq.artemis.tests.util.CFUtil;
+import org.junit.jupiter.api.Test;
 
-   final IOCallback context;
+public class TestDelete {
 
-   Task(IOCallback context) {
-      this.context = context;
+
+
+   @Test
+   public void testSendAndCommit() throws Exception {
+
+      ConnectionFactory cf = CFUtil.createConnectionFactory("OPENWIRE", "tcp://localhost:61616");
+      try (Connection connection = cf.createConnection()) {
+         Session session = connection.createSession(true, Session.SESSION_TRANSACTED);
+         MessageProducer producer = session.createProducer(session.createQueue("TEST"));
+         for (int i = 0; i < 1500; i++) {
+            producer.send(session.createTextMessage("hello"));
+         }
+
+         session.commit();
+
+
+
+      }
+
    }
 
-   public abstract void store(DatabaseWorker worker);
 }

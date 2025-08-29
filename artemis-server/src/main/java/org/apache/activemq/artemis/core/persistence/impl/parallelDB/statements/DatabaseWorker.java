@@ -37,10 +37,10 @@ public class DatabaseWorker implements Runnable {
    }
 
    final Connection connection;
-   final MessageStatement messageStatement;
-   final ReferencesStatement referencesStatement;
-   final UpdateTXStatement txMessagesStatement;
-   final UpdateTXStatement txReferencesStatement;
+   public final MessageStatement messageStatement;
+   public final ReferencesStatement referencesStatement;
+   public final UpdateTXStatement txMessagesStatement;
+   public final UpdateTXStatement txReferencesStatement;
 
    public void doRun(List<Task> taskList) throws SQLException {
       taskList.forEach(this::doStore);
@@ -64,6 +64,7 @@ public class DatabaseWorker implements Runnable {
    }
 
    public void doStore(Task task) {
+      task.store(this);
    }
 
    public void close() throws SQLException {

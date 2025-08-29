@@ -18,9 +18,10 @@
 package org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.tasks;
 
 import org.apache.activemq.artemis.core.journal.IOCompletion;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.DatabaseWorker;
 import org.apache.activemq.artemis.jdbc.parallelDB.BatchableStatement;
 
-public class TXTask extends Task<TXTask> {
+public class TXTask extends Task {
    public long txID;
    public boolean messages;
    public boolean references;
@@ -38,13 +39,13 @@ public class TXTask extends Task<TXTask> {
       }
    }
 
-   public void store(BatchableStatement<TXTask> statement) {
+   public void store(DatabaseWorker worker) {
       if (messages) {
-         statement.addData(this, context);
+         worker.txMessagesStatement.addData(this, context);
       }
 
       if (references) {
-         statement.addData(this, context);
+         worker.txReferencesStatement.addData(this, context);
       }
    }
 
