@@ -20,6 +20,8 @@ package org.apache.activemq.artemis.tests.db.common;
 import java.lang.invoke.MethodHandles;
 import java.sql.Connection;
 import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -28,13 +30,14 @@ import org.apache.activemq.artemis.core.config.Configuration;
 import org.apache.activemq.artemis.core.config.storage.DatabaseStorageConfiguration;
 import org.apache.activemq.artemis.tests.extensions.parameterized.Parameter;
 import org.apache.activemq.artemis.tests.extensions.parameterized.ParameterizedTestExtension;
+import org.apache.activemq.artemis.utils.RealServerTestBase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @ExtendWith(ParameterizedTestExtension.class)
-public abstract class ParameterDBTestBase extends DBTestBase {
+public abstract class ParameterDBTestBase extends RealServerTestBase {
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
    @Override
@@ -90,10 +93,6 @@ public abstract class ParameterDBTestBase extends DBTestBase {
       return parameters;
    }
 
-   protected ClassLoader getDBClassLoader() throws Exception {
-      return database.getDBClassLoader();
-   }
-
    public Connection getConnection() throws Exception {
       return database.getConnection();
    }
@@ -110,7 +109,7 @@ public abstract class ParameterDBTestBase extends DBTestBase {
             }
             yield 1;
          }
-         default -> dropTables("MESSAGE", "LARGE_MESSAGE", "PAGE_STORE", "NODE_MANAGER", "BINDING");
+         default -> dropTables("MESSAGE", "LARGE_MESSAGE", "PAGE_STORE", "NODE_MANAGER", "BINDING", "ART_MESSAGES", "ART_REFERENCES");
       };
    }
 
@@ -191,6 +190,18 @@ public abstract class ParameterDBTestBase extends DBTestBase {
       return dbStorageConfiguration;
    }
 
+
+   protected static int selectCount(Connection connection, String tableName) throws SQLException {
+      return selectNumber(connection, "SELECT COUNT(*) FROM " + tableName);
+   }
+
+   protected static int selectNumber(Connection connection, String sqlStatement) throws SQLException {
+      try (Statement queryStatement = connection.createStatement()) {
+         ResultSet rset = queryStatement.executeQuery(sqlStatement);
+         rset.next();
+         return rset.getInt(1);
+      }
+   }
 
 
 }

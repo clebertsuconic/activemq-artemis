@@ -25,6 +25,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.activemq.artemis.jdbc.store.logging.LoggingConnection;
 import org.apache.activemq.artemis.jdbc.store.sql.PropertySQLProvider;
+import org.apache.activemq.artemis.jdbc.store.sql.SQLProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.lang.invoke.MethodHandles;
@@ -38,6 +39,7 @@ public class JDBCConnectionProvider {
    private boolean supportNetworkTimeout;
    private final String user;
    private final String password;
+   private final SQLProvider sqlProvider;
 
    public JDBCConnectionProvider(DataSource dataSource) {
       this(dataSource, null, null);
@@ -50,7 +52,12 @@ public class JDBCConnectionProvider {
       this.supportNetworkTimeout = true;
       this.user = user;
       this.password = password;
+      this.sqlProvider = new PropertySQLProvider.Factory(this).create();
       addDerbyShutdownHook();
+   }
+
+   public SQLProvider getSQLProvider() {
+      return sqlProvider;
    }
 
    public synchronized Connection getConnection() throws SQLException {

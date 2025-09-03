@@ -109,6 +109,7 @@ import org.apache.activemq.artemis.core.persistence.impl.journal.JDBCJournalStor
 import org.apache.activemq.artemis.core.persistence.impl.journal.JournalStorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContextImpl;
 import org.apache.activemq.artemis.core.persistence.impl.nullpm.NullStorageManager;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.ParallelDBStorageManager;
 import org.apache.activemq.artemis.core.postoffice.Binding;
 import org.apache.activemq.artemis.core.postoffice.BindingType;
 import org.apache.activemq.artemis.core.postoffice.Bindings;
@@ -3136,7 +3137,7 @@ public class ActiveMQServerImpl implements ActiveMQServer {
    protected StorageManager createStorageManager() {
       if (configuration.isPersistenceEnabled()) {
          if (configuration.isUsingDatabasePersistence()) {
-            JDBCJournalStorageManager journal = new JDBCJournalStorageManager(configuration, getCriticalAnalyzer(), getScheduledPool(), executorFactory, ioExecutorFactory, ioCriticalErrorListener);
+            ParallelDBStorageManager journal = new ParallelDBStorageManager(configuration, getCriticalAnalyzer(), executorFactory, ioExecutorFactory, getScheduledPool(), threadPool);
             this.getCriticalAnalyzer().add(journal);
             return journal;
          } else {

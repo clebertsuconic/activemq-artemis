@@ -306,6 +306,31 @@ public class BindingsImplTest extends ActiveMQTestBase {
       public void delayDone() {
 
       }
+
+      @Override
+      public void setMessagesSent() {
+
+      }
+
+      @Override
+      public boolean isAckedMessages() {
+         return false;
+      }
+
+      @Override
+      public void setAckedMessages() {
+
+      }
+
+      @Override
+      public boolean isPagedMessages() {
+         return false;
+      }
+
+      @Override
+      public void setPagedMessages() {
+
+      }
    }
 
    private final class FakeFilter implements Filter {

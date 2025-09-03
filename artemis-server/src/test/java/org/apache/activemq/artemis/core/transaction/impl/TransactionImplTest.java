@@ -611,7 +611,7 @@ public class TransactionImplTest extends ServerTestBase {
       }
 
       @Override
-      public void commit(long txID) throws Exception {
+      public void commit(long txID, boolean send, boolean ack, boolean paged) throws Exception {
 
       }
 

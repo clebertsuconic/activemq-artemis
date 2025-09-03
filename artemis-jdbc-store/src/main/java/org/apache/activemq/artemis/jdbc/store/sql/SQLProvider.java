@@ -18,94 +18,99 @@ package org.apache.activemq.artemis.jdbc.store.sql;
 
 public interface SQLProvider {
 
-   enum DatabaseStoreType {
-      PAGE, MESSAGE_JOURNAL, BINDINGS_JOURNAL, LARGE_MESSAGE, NODE_MANAGER
-   }
-
    long getMaxBlobSize();
 
-   String[] getCreateJournalTableSQL();
+   String[] getCreateJournalTableSQL(String tableName);
 
-   String getInsertJournalRecordsSQL();
+   String[] getCreateParallelDBMessages(String tableName);
 
-   String getSelectJournalRecordsSQL();
+   String[] getCreateParallelDBReferences(String tableName);
 
-   String getDeleteJournalRecordsSQL();
+   String getInsertJournalRecordsSQL(String tableName);
 
-   String getDeleteJournalTxRecordsSQL();
+   String getSelectJournalRecordsSQL(String tableName);
 
-   String getTableName();
+   String getDeleteJournalRecordsSQL(String tableName);
 
-   String[] getCreateFileTableSQL();
+   String getDeleteJournalTxRecordsSQL(String tableName);
 
-   String getInsertFileSQL();
+   String[] getCreateFileTableSQL(String tableName);
 
-   String getSelectFileNamesByExtensionSQL();
+   String getInsertFileSQL(String tableName);
 
-   String getSelectFileByFileName();
+   String getSelectFileNamesByExtensionSQL(String tableName);
 
-   String getReplaceLargeObjectSQL();
+   String getSelectFileByFileName(String tableName);
 
-   String getAppendToLargeObjectSQL();
+   String getReplaceLargeObjectSQL(String tableName);
 
-   String getReadLargeObjectSQL();
+   String getAppendToLargeObjectSQL(String tableName);
 
-   String getDeleteFileSQL();
+   String getReadLargeObjectSQL(String tableName);
 
-   String getUpdateFileNameByIdSQL();
+   String getDeleteFileSQL(String tableName);
 
-   String getCopyFileRecordByIdSQL();
+   String getUpdateFileNameByIdSQL(String tableName);
 
-   String getDropFileTableSQL();
+   String getCopyFileRecordByIdSQL(String tableName);
 
-   String getCloneFileRecordByIdSQL();
+   String getDropFileTableSQL(String tableName);
 
-   String getCountJournalRecordsSQL();
+   String getCloneFileRecordByIdSQL(String tableName);
 
-   boolean closeConnectionOnShutdown();
+   String getCountJournalRecordsSQL(String tableName);
 
-   String createNodeManagerStoreTableSQL();
+   boolean closeConnectionOnShutdown(String tableName);
 
-   String createStateSQL();
+   String createNodeManagerStoreTableSQL(String tableName);
 
-   String createNodeIdSQL();
+   String createStateSQL(String tableName);
 
-   String createPrimaryLockSQL();
+   String createNodeIdSQL(String tableName);
 
-   String createBackupLockSQL();
+   String createPrimaryLockSQL(String tableName);
 
-   String tryAcquirePrimaryLockSQL();
+   String createBackupLockSQL(String tableName);
 
-   String tryAcquireBackupLockSQL();
+   String tryAcquirePrimaryLockSQL(String tableName);
 
-   String tryReleasePrimaryLockSQL();
+   String tryAcquireBackupLockSQL(String tableName);
 
-   String tryReleaseBackupLockSQL();
+   String tryReleasePrimaryLockSQL(String tableName);
 
-   String isPrimaryLockedSQL();
+   String tryReleaseBackupLockSQL(String tableName);
 
-   String isBackupLockedSQL();
+   String isPrimaryLockedSQL(String tableName);
 
-   String renewPrimaryLockSQL();
+   String isBackupLockedSQL(String tableName);
 
-   String renewBackupLockSQL();
+   String renewPrimaryLockSQL(String tableName);
 
-   String currentTimestampSQL();
+   String renewBackupLockSQL(String tableName);
+
+   String currentTimestampSQL(String tableName);
 
    String currentTimestampTimeZoneId();
 
-   String writeStateSQL();
+   String writeStateSQL(String tableName);
 
-   String readStateSQL();
+   String readStateSQL(String tableName);
 
-   String writeNodeIdSQL();
+   String writeNodeIdSQL(String tableName);
 
-   String initializeNodeIdSQL();
+   String initializeNodeIdSQL(String tableName);
 
-   String readNodeIdSQL();
+   String readNodeIdSQL(String tableName);
+
+   String applyCase(String tableName);
+
+   String getInsertPDBMessages(String tableName);
+
+   String getInsertPDBReferences(String tableName);
+
+   String getUpdateTX(String tableName);
 
    interface Factory {
-
-      SQLProvider create(String tableName, DatabaseStoreType dbStoreType);
+      SQLProvider create();
    }
 }
