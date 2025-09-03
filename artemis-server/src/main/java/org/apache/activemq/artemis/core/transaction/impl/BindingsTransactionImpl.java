@@ -28,7 +28,7 @@ public class BindingsTransactionImpl extends TransactionImpl {
    @Override
    protected void doCommit() throws Exception {
       if (isContainsPersistent()) {
-         storageManager.commitBindings(getID());
+         storageManager.commitBindings(storageTx, getID());
          setState(State.COMMITTED);
       }
    }
@@ -36,7 +36,7 @@ public class BindingsTransactionImpl extends TransactionImpl {
    @Override
    protected void doRollback() throws Exception {
       if (isContainsPersistent()) {
-         storageManager.rollbackBindings(getID());
+         storageManager.rollbackBindings(storageTx, getID());
          setState(State.ROLLEDBACK);
       }
    }

@@ -55,17 +55,14 @@ public class DatabaseStoreConfigurationTest extends ServerTestBase {
 
    @Test
    public void testOracle12TableSize() {
-      for (SQLProvider.DatabaseStoreType storeType : SQLProvider.DatabaseStoreType.values()) {
          Throwable rte = null;
          try {
-            new PropertySQLProvider.Factory(ORACLE).create("_A_TABLE_NAME_THAT_IS_TOO_LONG_", storeType);
-         } catch (Throwable t) {
+            new PropertySQLProvider.Factory(ORACLE).create().applyCase("_A_TABLE_NAME_THAT_IS_TOO_LONG_");
+         } catch (RuntimeException t) {
             rte = t;
          }
 
          assertNotNull(rte);
-         assertTrue(rte.getMessage().contains("The maximum name size for the " + storeType.name().toLowerCase() + " store table, when using Oracle12C is 30 characters."));
-      }
    }
 
    protected Configuration createConfiguration(String fileName) throws Exception {

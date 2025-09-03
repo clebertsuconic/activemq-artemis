@@ -22,29 +22,30 @@ import java.sql.Connection;
 import java.sql.SQLException;
 
 import org.apache.activemq.artemis.core.config.storage.DatabaseStorageConfiguration;
-import org.apache.activemq.artemis.jdbc.store.drivers.AbstractJDBCDriver;
+import org.apache.activemq.artemis.jdbc.store.drivers.JDBCTableBase;
 import org.apache.activemq.artemis.jdbc.store.sql.SQLProvider;
 
-public class TestJDBCDriver extends AbstractJDBCDriver {
+public class TestJDBCTableBase extends JDBCTableBase {
 
-   public static TestJDBCDriver usingDbConf(DatabaseStorageConfiguration dbConf,
-                                            SQLProvider provider) {
-      return usingDbConf(dbConf, provider, false);
+   public static TestJDBCTableBase usingDbConf(DatabaseStorageConfiguration dbConf,
+                                               SQLProvider sqlProvider, String tableName) {
+      return usingDbConf(dbConf, sqlProvider, tableName, false);
    }
 
-   public static TestJDBCDriver usingDbConf(DatabaseStorageConfiguration dbConf,
-                                            SQLProvider provider,
-                                            boolean initialize) {
+   public static TestJDBCTableBase usingDbConf(DatabaseStorageConfiguration dbConf,
+                                               SQLProvider provider,
+                                               String tableName,
+                                               boolean initialize) {
 
-      TestJDBCDriver driver = new TestJDBCDriver(initialize);
-      driver.setSqlProvider(provider);
+      TestJDBCTableBase driver = new TestJDBCTableBase(initialize);
+      driver.setTableName(tableName);
       driver.setJdbcConnectionProvider(dbConf.getConnectionProvider());
       return driver;
    }
 
    private boolean initialize;
 
-   private TestJDBCDriver(boolean initialize) {
+   private TestJDBCTableBase(boolean initialize) {
       this.initialize = initialize;
    }
 
@@ -55,12 +56,12 @@ public class TestJDBCDriver extends AbstractJDBCDriver {
    @Override
    protected void createSchema() {
       try (Connection connection = getJdbcConnectionProvider().getConnection()) {
-         connection.createStatement().execute(sqlProvider.createNodeManagerStoreTableSQL());
+         connection.createStatement().execute(sqlProvider.createNodeManagerStoreTableSQL(tableName));
          if (initialize) {
-            connection.createStatement().execute(sqlProvider.createNodeIdSQL());
-            connection.createStatement().execute(sqlProvider.createStateSQL());
-            connection.createStatement().execute(sqlProvider.createPrimaryLockSQL());
-            connection.createStatement().execute(sqlProvider.createBackupLockSQL());
+            connection.createStatement().execute(sqlProvider.createNodeIdSQL(tableName));
+            connection.createStatement().execute(sqlProvider.createStateSQL(tableName));
+            connection.createStatement().execute(sqlProvider.createPrimaryLockSQL(tableName));
+            connection.createStatement().execute(sqlProvider.createBackupLockSQL(tableName));
          }
       } catch (SQLException e) {
          fail(e.getMessage());

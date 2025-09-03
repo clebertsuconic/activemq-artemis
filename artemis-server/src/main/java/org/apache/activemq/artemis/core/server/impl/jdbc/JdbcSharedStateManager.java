@@ -22,7 +22,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.function.Supplier;
 
-import org.apache.activemq.artemis.jdbc.store.drivers.AbstractJDBCDriver;
+import org.apache.activemq.artemis.jdbc.store.drivers.JDBCTableBase;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 import org.apache.activemq.artemis.jdbc.store.sql.SQLProvider;
 import org.apache.activemq.artemis.utils.UUID;
@@ -34,7 +34,7 @@ import java.lang.invoke.MethodHandles;
  * JDBC implementation of a {@link SharedStateManager}.
  */
 @SuppressWarnings("SynchronizeOnNonFinalField")
-final class JdbcSharedStateManager extends AbstractJDBCDriver implements SharedStateManager {
+final class JdbcSharedStateManager extends JDBCTableBase implements SharedStateManager {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
    private static final int MAX_SETUP_ATTEMPTS = 20;
@@ -54,8 +54,9 @@ final class JdbcSharedStateManager extends AbstractJDBCDriver implements SharedS
                                                                 long locksExpirationMillis,
                                                                 long allowedTimeDiff,
                                                                 JDBCConnectionProvider connectionProvider,
-                                                                SQLProvider provider) {
-      return usingConnectionProvider(holderId, locksExpirationMillis, allowedTimeDiff, -1, connectionProvider, provider);
+                                                                SQLProvider provider,
+                                                                String tableName) {
+      return usingConnectionProvider(holderId, locksExpirationMillis, allowedTimeDiff, -1, connectionProvider, provider, tableName);
    }
 
    public static JdbcSharedStateManager usingConnectionProvider(String holderId,
@@ -63,11 +64,12 @@ final class JdbcSharedStateManager extends AbstractJDBCDriver implements SharedS
                                                                 long queryTimeoutMillis,
                                                                 long allowedTimeDiff,
                                                                 JDBCConnectionProvider connectionProvider,
-                                                                SQLProvider provider) {
+                                                                SQLProvider provider,
+                                                                String tableName) {
       final JdbcSharedStateManager sharedStateManager = new JdbcSharedStateManager(holderId, locksExpirationMillis,
                                                                                    queryTimeoutMillis, allowedTimeDiff);
       sharedStateManager.setJdbcConnectionProvider(connectionProvider);
-      sharedStateManager.setSqlProvider(provider);
+      sharedStateManager.setTableName(tableName);
       try {
          sharedStateManager.start();
          return sharedStateManager;
@@ -79,7 +81,7 @@ final class JdbcSharedStateManager extends AbstractJDBCDriver implements SharedS
    @Override
    protected void createSchema() {
       try {
-         createTable(sqlProvider.createNodeManagerStoreTableSQL(), sqlProvider.createNodeIdSQL(), sqlProvider.createStateSQL(), sqlProvider.createPrimaryLockSQL(), sqlProvider.createBackupLockSQL());
+         createTable(sqlProvider.createNodeManagerStoreTableSQL(tableName), sqlProvider.createNodeIdSQL(tableName), sqlProvider.createStateSQL(tableName), sqlProvider.createPrimaryLockSQL(tableName), sqlProvider.createBackupLockSQL(tableName));
       } catch (SQLException e) {
          //no op: if a table already exists is not a problem in this case, the prepareStatements() call will fail right after it if the table is not correctly initialized
          logger.debug("Error while creating the schema of the JDBC shared state manager", e);
@@ -89,20 +91,22 @@ final class JdbcSharedStateManager extends AbstractJDBCDriver implements SharedS
    static JdbcLeaseLock createPrimaryLock(String holderId,
                                           JDBCConnectionProvider connectionProvider,
                                           SQLProvider sqlProvider,
+                                          String tableName,
                                           long expirationMillis,
                                           long allowedTimeDiff) {
-      return createPrimaryLock(holderId, connectionProvider, sqlProvider, expirationMillis, -1, allowedTimeDiff);
+      return createPrimaryLock(holderId, connectionProvider, sqlProvider, tableName, expirationMillis, -1, allowedTimeDiff);
    }
 
    static JdbcLeaseLock createPrimaryLock(String holderId,
                                           JDBCConnectionProvider connectionProvider,
                                           SQLProvider sqlProvider,
+                                          String tableName,
                                           long expirationMillis,
                                           long queryTimeoutMillis,
                                           long allowedTimeDiff) {
-      return new JdbcLeaseLock(holderId, connectionProvider, sqlProvider.tryAcquirePrimaryLockSQL(),
-                               sqlProvider.tryReleasePrimaryLockSQL(), sqlProvider.renewPrimaryLockSQL(),
-                               sqlProvider.isPrimaryLockedSQL(), sqlProvider.currentTimestampSQL(),
+      return new JdbcLeaseLock(holderId, connectionProvider, sqlProvider.tryAcquirePrimaryLockSQL(tableName),
+                               sqlProvider.tryReleasePrimaryLockSQL(tableName), sqlProvider.renewPrimaryLockSQL(tableName),
+                               sqlProvider.isPrimaryLockedSQL(tableName), sqlProvider.currentTimestampSQL(tableName),
                                sqlProvider.currentTimestampTimeZoneId(), expirationMillis, queryTimeoutMillis,
                                "PRIMARY", allowedTimeDiff);
    }
@@ -110,25 +114,26 @@ final class JdbcSharedStateManager extends AbstractJDBCDriver implements SharedS
    static JdbcLeaseLock createBackupLock(String holderId,
                                          JDBCConnectionProvider connectionProvider,
                                          SQLProvider sqlProvider,
+                                         String tableName,
                                          long expirationMillis,
                                          long queryTimeoutMillis,
                                          long allowedTimeDiff) {
-      return new JdbcLeaseLock(holderId, connectionProvider, sqlProvider.tryAcquireBackupLockSQL(),
-                               sqlProvider.tryReleaseBackupLockSQL(), sqlProvider.renewBackupLockSQL(),
-                               sqlProvider.isBackupLockedSQL(), sqlProvider.currentTimestampSQL(),
+      return new JdbcLeaseLock(holderId, connectionProvider, sqlProvider.tryAcquireBackupLockSQL(tableName),
+                               sqlProvider.tryReleaseBackupLockSQL(tableName), sqlProvider.renewBackupLockSQL(tableName),
+                               sqlProvider.isBackupLockedSQL(tableName), sqlProvider.currentTimestampSQL(tableName),
                                sqlProvider.currentTimestampTimeZoneId(), expirationMillis, queryTimeoutMillis,
                                "BACKUP", allowedTimeDiff);
    }
 
    @Override
    protected void prepareStatements() {
-      this.primaryLock = createPrimaryLock(this.holderId, this.connectionProvider, sqlProvider, lockExpirationMillis, queryTimeoutMillis, allowedTimeDiff);
-      this.backupLock = createBackupLock(this.holderId, this.connectionProvider, sqlProvider, lockExpirationMillis, queryTimeoutMillis, allowedTimeDiff);
-      this.readNodeId = sqlProvider.readNodeIdSQL();
-      this.writeNodeId = sqlProvider.writeNodeIdSQL();
-      this.initializeNodeId = sqlProvider.initializeNodeIdSQL();
-      this.writeState = sqlProvider.writeStateSQL();
-      this.readState = sqlProvider.readStateSQL();
+      this.primaryLock = createPrimaryLock(this.holderId, this.connectionProvider, sqlProvider, tableName, lockExpirationMillis, queryTimeoutMillis, allowedTimeDiff);
+      this.backupLock = createBackupLock(this.holderId, this.connectionProvider, sqlProvider, tableName, lockExpirationMillis, queryTimeoutMillis, allowedTimeDiff);
+      this.readNodeId = sqlProvider.readNodeIdSQL(tableName);
+      this.writeNodeId = sqlProvider.writeNodeIdSQL(tableName);
+      this.initializeNodeId = sqlProvider.initializeNodeIdSQL(tableName);
+      this.writeState = sqlProvider.writeStateSQL(tableName);
+      this.readState = sqlProvider.readStateSQL(tableName);
    }
 
    private JdbcSharedStateManager(String holderId, long lockExpirationMillis, long queryTimeoutMillis, long allowedTimeDiff) {

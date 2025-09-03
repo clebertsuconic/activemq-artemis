@@ -50,7 +50,7 @@ import org.apache.activemq.artemis.core.journal.TransactionFailureCallback;
 import org.apache.activemq.artemis.core.journal.impl.JournalFile;
 import org.apache.activemq.artemis.core.journal.impl.SimpleWaitIOCallback;
 import org.apache.activemq.artemis.core.server.ActiveMQScheduledComponent;
-import org.apache.activemq.artemis.jdbc.store.drivers.AbstractJDBCDriver;
+import org.apache.activemq.artemis.jdbc.store.drivers.JDBCTableBase;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 import org.apache.activemq.artemis.jdbc.store.sql.SQLProvider;
 import org.apache.activemq.artemis.utils.collections.SparseArrayLinkedList;
@@ -58,7 +58,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.lang.invoke.MethodHandles;
 
-public class JDBCJournalImpl extends AbstractJDBCDriver implements Journal {
+public class JDBCJournalImpl extends JDBCTableBase implements Journal {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
@@ -110,12 +110,12 @@ public class JDBCJournalImpl extends AbstractJDBCDriver implements Journal {
    private final IOCriticalErrorListener criticalIOErrorListener;
 
    public JDBCJournalImpl(JDBCConnectionProvider connectionProvider,
-                          SQLProvider provider,
+                          String tableName,
                           ScheduledExecutorService scheduledExecutorService,
                           Executor completeExecutor,
                           IOCriticalErrorListener criticalIOErrorListener,
                           long syncDelay) {
-      super(connectionProvider, provider);
+      super(connectionProvider, tableName);
       records = new ArrayList<>();
       this.scheduledExecutorService = scheduledExecutorService;
       this.completeExecutor = completeExecutor;
@@ -159,17 +159,17 @@ public class JDBCJournalImpl extends AbstractJDBCDriver implements Journal {
 
    @Override
    protected void createSchema() throws SQLException {
-      createTable(sqlProvider.getCreateJournalTableSQL());
+      createTable(sqlProvider.getCreateJournalTableSQL(tableName));
    }
 
    @Override
    protected void prepareStatements() {
       logger.trace("preparing statements");
-      insertJournalRecords = sqlProvider.getInsertJournalRecordsSQL();
-      selectJournalRecords = sqlProvider.getSelectJournalRecordsSQL();
-      countJournalRecords = sqlProvider.getCountJournalRecordsSQL();
-      deleteJournalRecords = sqlProvider.getDeleteJournalRecordsSQL();
-      deleteJournalTxRecords = sqlProvider.getDeleteJournalTxRecordsSQL();
+      insertJournalRecords = sqlProvider.getInsertJournalRecordsSQL(tableName);
+      selectJournalRecords = sqlProvider.getSelectJournalRecordsSQL(tableName);
+      countJournalRecords = sqlProvider.getCountJournalRecordsSQL(tableName);
+      deleteJournalRecords = sqlProvider.getDeleteJournalRecordsSQL(tableName);
+      deleteJournalTxRecords = sqlProvider.getDeleteJournalTxRecordsSQL(tableName);
    }
 
    @Override
@@ -240,11 +240,13 @@ public class JDBCJournalImpl extends AbstractJDBCDriver implements Journal {
                case JDBCJournalRecord.COMMIT_RECORD:
                   // We perform all the deletes and add the commit record in the same Database TX
                   holder = transactions.get(record.getTxId());
-                  for (RecordInfo info : holder.recordsToDelete) {
-                     deletedRecords.add(record.getId());
-                     deletedRecords.add(info.id);
-                     deleteJournalRecords.setLong(1, info.id);
-                     deleteJournalRecords.addBatch();
+                  if (holder != null) {
+                     for (RecordInfo info : holder.recordsToDelete) {
+                        deletedRecords.add(record.getId());
+                        deletedRecords.add(info.id);
+                        deleteJournalRecords.setLong(1, info.id);
+                        deleteJournalRecords.addBatch();
+                     }
                   }
                   record.writeRecord(insertJournalRecords);
                   committedTransactions.add(record.getTxId());
@@ -302,8 +304,13 @@ public class JDBCJournalImpl extends AbstractJDBCDriver implements Journal {
       List<TransactionHolder> iterableCopyTx = new ArrayList<>();
       iterableCopyTx.addAll(transactions.values());
 
-      for (Long txId : committedTx) {
-         transactions.get(txId).committed = true;
+      if (committedTx != null) {
+         for (Long txId : committedTx) {
+            TransactionHolder holder = transactions.get(txId);
+            if (holder != null) {
+               holder.committed = true;
+            }
+         }
       }
       boolean hasDeletedJournalTxRecords = false;
       // TODO (mtaylor) perhaps we could store a reverse mapping of IDs to prevent this O(n) loop

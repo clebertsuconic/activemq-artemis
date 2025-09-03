@@ -1,0 +1,351 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.activemq.artemis.tests.db.parallelDB;
+
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import org.apache.activemq.artemis.core.journal.IOCompletion;
+import org.apache.activemq.artemis.core.message.impl.CoreMessage;
+import org.apache.activemq.artemis.core.persistence.OperationContext;
+import org.apache.activemq.artemis.core.persistence.StorageTX;
+import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContextImpl;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.ParallelDBStorageManager;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.InsertMessageStatement;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.ReferencesStatement;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.dbdata.MessageData;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.dbdata.MessageReferenceData;
+import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
+import org.apache.activemq.artemis.tests.extensions.parameterized.ParameterizedTestExtension;
+import org.junit.jupiter.api.TestTemplate;
+import org.junit.jupiter.api.condition.DisabledIf;
+import org.junit.jupiter.api.extension.ExtendWith;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
+@DisabledIf("isNoDatabaseSelected")
+@ExtendWith(ParameterizedTestExtension.class)
+public class MessagesStatementTest extends AbstractStatementTest {
+
+   @TestTemplate
+   public void testReferencesDirectly() throws Exception {
+      ParallelDBStorageManager parallelDBStorageManager = new ParallelDBStorageManager(configuration,
+                                                                                       criticalAnalyzer,
+                                                                                       executorFactory,
+                                                                                       executorFactory,
+                                                                                       scheduledExecutorService,
+                                                                                       executorService);
+      parallelDBStorageManager.start();
+
+      JDBCConnectionProvider connectionProvider = storageConfiguration.getConnectionProvider();
+
+      int nrecords = 100;
+
+      CountDownLatch latch = new CountDownLatch(nrecords);
+
+      IOCompletion ioCallback = new IOCompletion() {
+         @Override
+         public void done() {
+            latch.countDown();
+         }
+
+         @Override
+         public void onError(int errorCode, String errorMessage) {
+         }
+
+         @Override
+         public void storeLineUp() {
+         }
+      };
+
+      try (Connection connection = connectionProvider.getConnection()) {
+         connection.setAutoCommit(false);
+         ReferencesStatement referencesStatement = new ReferencesStatement(connection, connectionProvider, storageConfiguration, 100);
+         for (int i = 1; i <= nrecords; i++) {
+            MessageReferenceData task = parallelDBStorageManager.getStatementsManager().newReferenceTask(i, 1, i % 2 == 0 ? (long)i : null, ioCallback);
+            referencesStatement.addData(task, ioCallback);
+         }
+         referencesStatement.flushPending(true);
+
+         assertEquals(nrecords, selectCount(connection, "ART_REFERENCES"));
+      }
+
+      assertTrue(latch.await(10, TimeUnit.SECONDS));
+   }
+
+   @TestTemplate
+   public void testMessagesDirectly() throws Exception {
+      ParallelDBStorageManager parallelDBStorageManager = new ParallelDBStorageManager(configuration,
+                                                                                       criticalAnalyzer,
+                                                                                       executorFactory,
+                                                                                       executorFactory,
+                                                                                       scheduledExecutorService,
+                                                                                       executorService);
+      parallelDBStorageManager.start();
+
+      JDBCConnectionProvider connectionProvider = storageConfiguration.getConnectionProvider();
+
+      int nrecords = 100;
+
+      CountDownLatch latch = new CountDownLatch(nrecords);
+
+      IOCompletion ioCallback = new IOCompletion() {
+         @Override
+         public void done() {
+            latch.countDown();
+         }
+
+         @Override
+         public void onError(int errorCode, String errorMessage) {
+         }
+
+         @Override
+         public void storeLineUp() {
+         }
+      };
+
+      try (Connection connection = connectionProvider.getConnection()) {
+         connection.setAutoCommit(false);
+         InsertMessageStatement insertMessageStatement = new InsertMessageStatement(connection, connectionProvider, storageConfiguration, 100);
+         for (int i = 1; i <= nrecords; i++) {
+            CoreMessage message = new CoreMessage().initBuffer(1 * 1024).setDurable(true);
+            message.setMessageID(i);
+            message.getBodyBuffer().writeByte((byte) 'Z');
+            MessageData task = parallelDBStorageManager.getStatementsManager().newMessageTask(message, null, ioCallback);
+            insertMessageStatement.addData(task, ioCallback);
+         }
+         insertMessageStatement.flushPending(true);
+
+         assertEquals(nrecords, selectCount(connection, "ART_MESSAGES"));
+      }
+
+      assertTrue(latch.await(10, TimeUnit.SECONDS));
+   }
+
+   @TestTemplate
+   public void testMessagesStorageManager() throws Exception {
+      ParallelDBStorageManager parallelDBStorageManager = new ParallelDBStorageManager(configuration,
+                                                                                       criticalAnalyzer,
+                                                                                       executorFactory,
+                                                                                       executorFactory,
+                                                                                       scheduledExecutorService,
+                                                                                       executorService);
+      parallelDBStorageManager.start();
+
+      JDBCConnectionProvider connectionProvider = storageConfiguration.getConnectionProvider();
+
+      Connection connection = connectionProvider.getConnection();
+      runAfter(connection::close);
+
+      int nrecords = 100;
+
+      OperationContext context = parallelDBStorageManager.getContext();
+      runAfter(OperationContextImpl::clearContext);
+
+      for (int i = 1; i <= nrecords; i++) {
+         CoreMessage message = new CoreMessage().initBuffer(1 * 1024).setDurable(true);
+         message.setMessageID(i);
+         message.getBodyBuffer().writeByte((byte) 'Z');
+
+         if (i % 2 == 0) {
+            parallelDBStorageManager.storeMessage(message);
+         } else {
+            long tx = parallelDBStorageManager.generateID();
+            StorageTX storageTX = parallelDBStorageManager.generateTX(tx);
+            parallelDBStorageManager.storeMessageTransactional(storageTX, tx, message);
+            parallelDBStorageManager.commit(storageTX, tx);
+         }
+      }
+
+      assertTrue(context.waitCompletion(5000));
+
+      assertEquals(nrecords, selectCount(connection, storageConfiguration.getParallelDBMessages()));
+
+      int recordsToDelete = 20;
+
+      for (int i = 1; i <= recordsToDelete; i++) {
+         parallelDBStorageManager.deleteMessage(i);
+      }
+
+      assertTrue(context.waitCompletion(5000));
+      assertEquals(nrecords - recordsToDelete, selectCount(connection, storageConfiguration.getParallelDBMessages()));
+   }
+
+
+   @TestTemplate
+   public void testMessagesAckTX() throws Exception {
+      ParallelDBStorageManager parallelDBStorageManager = new ParallelDBStorageManager(configuration,
+                                                                                       criticalAnalyzer,
+                                                                                       executorFactory,
+                                                                                       executorFactory,
+                                                                                       scheduledExecutorService,
+                                                                                       executorService);
+      parallelDBStorageManager.start();
+
+      JDBCConnectionProvider connectionProvider = storageConfiguration.getConnectionProvider();
+
+      Connection connection = connectionProvider.getConnection();
+      runAfter(connection::close);
+
+      int nrecords = 1000;
+
+      OperationContext context = parallelDBStorageManager.getContext();
+      runAfter(OperationContextImpl::clearContext);
+
+      long tx = parallelDBStorageManager.generateID();
+      StorageTX storageTX = parallelDBStorageManager.generateTX(tx);
+      for (int i = 1; i <= nrecords; i++) {
+         parallelDBStorageManager.storeReferenceTransactional(storageTX, tx, 1, i);
+      }
+      parallelDBStorageManager.commit(storageTX, tx);
+
+      assertTrue(context.waitCompletion(5000));
+
+      assertEquals(nrecords, selectCount(connection, storageConfiguration.getParallelDBReferences()));
+
+      tx = parallelDBStorageManager.generateID();
+      storageTX = parallelDBStorageManager.generateTX(tx);
+      for (int i = 1; i <= nrecords; i++) {
+         parallelDBStorageManager.storeAcknowledgeTransactional(storageTX, tx, 1, i);
+      }
+      parallelDBStorageManager.commit(storageTX, tx);
+      assertTrue(context.waitCompletion(5000));
+
+      assertEquals(0, selectCount(connection, storageConfiguration.getParallelDBMessages()));
+   }
+
+
+
+
+   @TestTemplate
+   public void testMessagesReferencesStorageManager() throws Exception {
+      ParallelDBStorageManager parallelDBStorageManager = new ParallelDBStorageManager(configuration,
+                                                                                       criticalAnalyzer,
+                                                                                       executorFactory,
+                                                                                       executorFactory,
+                                                                                       scheduledExecutorService,
+                                                                                       executorService);
+      parallelDBStorageManager.start();
+
+      JDBCConnectionProvider connectionProvider = storageConfiguration.getConnectionProvider();
+
+      Connection connection = connectionProvider.getConnection();
+      runAfter(connection::close);
+
+      int nrecords = 100;
+
+      OperationContext context = parallelDBStorageManager.getContext();
+      runAfter(OperationContextImpl::clearContext);
+
+      for (int i = 1; i <= nrecords; i++) {
+         if (i % 2 == 0) {
+            parallelDBStorageManager.storeReference(1, i, true);
+         } else {
+            long txID = parallelDBStorageManager.generateID();
+            StorageTX storageTX = parallelDBStorageManager.generateTX(txID);
+            parallelDBStorageManager.storeReferenceTransactional(storageTX, txID, 1, i);
+            parallelDBStorageManager.commit(storageTX, txID);
+         }
+      }
+
+      assertTrue(context.waitCompletion(5000));
+
+      assertEquals(nrecords, selectCount(connection, storageConfiguration.getParallelDBReferences()));
+
+
+      int recordsToDelete = 20;
+
+      for (int i = 1; i <= recordsToDelete; i++) {
+         if (i % 2 == 1) {
+            parallelDBStorageManager.storeAcknowledge(1, i);
+         } else {
+            long txID = parallelDBStorageManager.generateID();
+            StorageTX storageTX = parallelDBStorageManager.generateTX(txID);
+            parallelDBStorageManager.storeAcknowledgeTransactional(storageTX, txID, 1, i);
+            parallelDBStorageManager.commit(storageTX, txID);
+         }
+      }
+
+      assertTrue(context.waitCompletion(5000));
+
+      assertEquals(nrecords - recordsToDelete, selectCount(connection, storageConfiguration.getParallelDBReferences()));
+
+   }
+
+
+
+   @TestTemplate
+   public void testTreatExceptionOnError() throws Exception {
+      ParallelDBStorageManager parallelDBStorageManager = new ParallelDBStorageManager(configuration,
+                                                                                       criticalAnalyzer,
+                                                                                       executorFactory,
+                                                                                       executorFactory,
+                                                                                       scheduledExecutorService,
+                                                                                       executorService);
+      parallelDBStorageManager.start();
+
+
+      JDBCConnectionProvider connectionProvider = storageConfiguration.getConnectionProvider();
+
+      int nrecords = 100;
+
+      AtomicInteger errors = new AtomicInteger(0);
+
+      IOCompletion ioCallback = new IOCompletion() {
+         @Override
+         public void done() {
+         }
+
+         @Override
+         public void onError(int errorCode, String errorMessage) {
+            errors.incrementAndGet();
+         }
+
+         @Override
+         public void storeLineUp() {
+         }
+      };
+
+      try (Connection connection = connectionProvider.getConnection()) {
+         connection.setAutoCommit(false);
+         InsertMessageStatement insertMessageStatement = new InsertMessageStatement(connection, connectionProvider, storageConfiguration, 100);
+         for (int i = 1; i <= nrecords; i++) {
+            CoreMessage message = new CoreMessage().initBuffer(1 * 1024).setDurable(true);
+            message.setMessageID(1); // everything should fail with a DuplicateException
+            message.getBodyBuffer().writeByte((byte) 'Z');
+
+            insertMessageStatement.addData(parallelDBStorageManager.getStatementsManager().newMessageTask(message, null, ioCallback), ioCallback);
+         }
+         assertThrows(SQLException.class, () -> insertMessageStatement.flushPending(true));
+
+         // forcing a commit, even though it failed... it should not commit any success
+         connection.commit();
+
+         assertEquals(0, selectCount(connection, "ART_MESSAGES"));
+      }
+
+      assertEquals(nrecords, errors.get());
+
+   }
+
+}

@@ -96,6 +96,7 @@ import org.apache.activemq.artemis.core.persistence.GroupingInfo;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.QueueBindingInfo;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
+import org.apache.activemq.artemis.core.persistence.StorageTX;
 import org.apache.activemq.artemis.core.persistence.config.AbstractPersistedAddressSetting;
 import org.apache.activemq.artemis.core.persistence.config.PersistedBridgeConfiguration;
 import org.apache.activemq.artemis.core.persistence.config.PersistedConnector;
@@ -106,6 +107,7 @@ import org.apache.activemq.artemis.core.persistence.impl.journal.JDBCJournalStor
 import org.apache.activemq.artemis.core.persistence.impl.journal.JournalStorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContextImpl;
 import org.apache.activemq.artemis.core.persistence.impl.nullpm.NullStorageManager;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.ParallelDBStorageManager;
 import org.apache.activemq.artemis.core.postoffice.Binding;
 import org.apache.activemq.artemis.core.postoffice.BindingType;
 import org.apache.activemq.artemis.core.postoffice.Bindings;
@@ -3135,7 +3137,7 @@ public class ActiveMQServerImpl implements ActiveMQServer {
    protected StorageManager createStorageManager() {
       if (configuration.isPersistenceEnabled()) {
          if (configuration.isUsingDatabasePersistence()) {
-            JDBCJournalStorageManager journal = new JDBCJournalStorageManager(configuration, getCriticalAnalyzer(), getScheduledPool(), executorFactory, ioExecutorFactory, ioCriticalErrorListener);
+            ParallelDBStorageManager journal = new ParallelDBStorageManager(configuration, getCriticalAnalyzer(), executorFactory, ioExecutorFactory, getScheduledPool(), threadPool);
             this.getCriticalAnalyzer().add(journal);
             return journal;
          } else {
@@ -3973,8 +3975,9 @@ public class ActiveMQServerImpl implements ActiveMQServer {
          }
 
          long txID = storageManager.generateID();
-         storageManager.deleteAddressBinding(txID, addressInfo.getId());
-         storageManager.commitBindings(txID);
+         StorageTX storageTX = storageManager.generateTX(txID);
+         storageManager.deleteAddressBinding(storageTX, txID, addressInfo.getId());
+         storageManager.commitBindings(storageTX, txID);
          pagingManager.deletePageStore(address);
       } finally {
          clearAddressCache();
@@ -4114,20 +4117,22 @@ public class ActiveMQServerImpl implements ActiveMQServer {
          final QueueBinding localQueueBinding = new LocalQueueBinding(queue.getAddress(), queue, nodeManager.getNodeId());
 
          long txID = 0;
+         StorageTX storageTX = null;
          if (queue.isDurable()) {
             txID = storageManager.generateID();
-            storageManager.addQueueBinding(txID, localQueueBinding);
+            storageTX = storageManager.generateTX(txID);
+            storageManager.addQueueBinding(storageTX, txID, localQueueBinding);
          }
 
          try {
             postOfficeInUse.addBinding(localQueueBinding);
             if (queue.isDurable()) {
-               storageManager.commitBindings(txID);
+               storageManager.commitBindings(storageTX, txID);
             }
          } catch (Exception e) {
             try {
                if (queueConfiguration.isDurable()) {
-                  storageManager.rollbackBindings(txID);
+                  storageManager.rollbackBindings(storageTX, txID);
                }
                try {
                   queue.close();

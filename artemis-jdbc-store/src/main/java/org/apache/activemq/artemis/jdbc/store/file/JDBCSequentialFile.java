@@ -68,7 +68,7 @@ public class JDBCSequentialFile implements SequentialFile {
 
    private final JDBCSequentialFileFactory fileFactory;
 
-   private final JDBCSequentialFileFactoryDriver dbDriver;
+   private final JDBCSequentialFileFactoryBase dbDriver;
 
    MpscUnboundedArrayQueue<ScheduledWrite> writeQueue = new MpscUnboundedArrayQueue<>(8192);
 
@@ -88,7 +88,7 @@ public class JDBCSequentialFile implements SequentialFile {
                       final Executor executor,
                       final ScheduledExecutorService scheduledExecutorService,
                       final long syncDelay,
-                      final JDBCSequentialFileFactoryDriver driver) throws SQLException {
+                      final JDBCSequentialFileFactoryBase driver) throws SQLException {
       this.fileFactory = fileFactory;
       this.filename = filename;
       this.extension = filename.contains(".") ? filename.substring(filename.lastIndexOf(".") + 1, filename.length()) : "";

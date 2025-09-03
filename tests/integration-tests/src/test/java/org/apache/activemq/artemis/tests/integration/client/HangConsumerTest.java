@@ -53,6 +53,7 @@ import org.apache.activemq.artemis.core.paging.PagingStore;
 import org.apache.activemq.artemis.core.paging.cursor.PageSubscription;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
+import org.apache.activemq.artemis.core.persistence.StorageTX;
 import org.apache.activemq.artemis.core.persistence.impl.journal.JournalRecordIds;
 import org.apache.activemq.artemis.core.postoffice.PostOffice;
 import org.apache.activemq.artemis.core.postoffice.impl.LocalQueueBinding;
@@ -330,13 +331,14 @@ public class HangConsumerTest extends ActiveMQTestBase {
 
       long queueID = server.getStorageManager().generateID();
       long txID = server.getStorageManager().generateID();
+      StorageTX storageTX = server.getStorageManager().generateTX(txID);
 
       // Forcing a situation where the server would unexpectedly create a duplicated queue. The server should still start normally
       LocalQueueBinding newBinding = new LocalQueueBinding(QUEUE,
                                                            new QueueImpl(QueueConfiguration.of(QUEUE).setRoutingType(RoutingType.ANYCAST).setId(queueID), null, null, null, null, null, null, null, null, server, null),
                                                            server.getNodeID());
-      server.getStorageManager().addQueueBinding(txID, newBinding);
-      server.getStorageManager().commitBindings(txID);
+      server.getStorageManager().addQueueBinding(storageTX, txID, newBinding);
+      server.getStorageManager().commitBindings(storageTX, txID);
 
       server.stop();
 

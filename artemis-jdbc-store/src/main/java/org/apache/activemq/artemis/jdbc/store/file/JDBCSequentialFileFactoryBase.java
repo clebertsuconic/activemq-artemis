@@ -26,7 +26,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.activemq.artemis.jdbc.store.drivers.AbstractJDBCDriver;
+import org.apache.activemq.artemis.jdbc.store.drivers.JDBCTableBase;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 import org.apache.activemq.artemis.jdbc.store.sql.SQLProvider;
 import org.slf4j.Logger;
@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
 import java.lang.invoke.MethodHandles;
 
 @SuppressWarnings("SynchronizeOnNonFinalField")
-public class JDBCSequentialFileFactoryDriver extends AbstractJDBCDriver {
+public class JDBCSequentialFileFactoryBase extends JDBCTableBase {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
@@ -51,32 +51,32 @@ public class JDBCSequentialFileFactoryDriver extends AbstractJDBCDriver {
    protected Integer appendToLargeObjectResultSetConcurrency;
    protected String selectFileNamesByExtension;
 
-   JDBCSequentialFileFactoryDriver() {
+   JDBCSequentialFileFactoryBase() {
       super();
    }
 
-   JDBCSequentialFileFactoryDriver(JDBCConnectionProvider connectionProvider, SQLProvider provider) {
-      super(connectionProvider, provider);
+   JDBCSequentialFileFactoryBase(JDBCConnectionProvider connectionProvider, String tableName) {
+      super(connectionProvider, tableName);
    }
 
    @Override
    protected void createSchema() throws SQLException {
-      createTable(sqlProvider.getCreateFileTableSQL());
+      createTable(sqlProvider.getCreateFileTableSQL(tableName));
    }
 
    @Override
    protected void prepareStatements() {
-      this.deleteFile = sqlProvider.getDeleteFileSQL();
-      this.createFile = sqlProvider.getInsertFileSQL();
+      this.deleteFile = sqlProvider.getDeleteFileSQL(tableName);
+      this.createFile = sqlProvider.getInsertFileSQL(tableName);
       this.createFileColumnNames = new String[] {"ID"};
-      this.selectFileByFileName = sqlProvider.getSelectFileByFileName();
-      this.copyFileRecord = sqlProvider.getCopyFileRecordByIdSQL();
-      this.renameFile = sqlProvider.getUpdateFileNameByIdSQL();
-      this.readLargeObject = sqlProvider.getReadLargeObjectSQL();
-      this.appendToLargeObject = sqlProvider.getAppendToLargeObjectSQL();
+      this.selectFileByFileName = sqlProvider.getSelectFileByFileName(tableName);
+      this.copyFileRecord = sqlProvider.getCopyFileRecordByIdSQL(tableName);
+      this.renameFile = sqlProvider.getUpdateFileNameByIdSQL(tableName);
+      this.readLargeObject = sqlProvider.getReadLargeObjectSQL(tableName);
+      this.appendToLargeObject = sqlProvider.getAppendToLargeObjectSQL(tableName);
       this.appendToLargeObjectResultSetType = ResultSet.TYPE_FORWARD_ONLY;
       this.appendToLargeObjectResultSetConcurrency = ResultSet.CONCUR_UPDATABLE;
-      this.selectFileNamesByExtension = sqlProvider.getSelectFileNamesByExtensionSQL();
+      this.selectFileNamesByExtension = sqlProvider.getSelectFileNamesByExtensionSQL(tableName);
    }
 
    public List<String> listFiles(String extension) throws Exception {
@@ -335,7 +335,7 @@ public class JDBCSequentialFileFactoryDriver extends AbstractJDBCDriver {
          try {
             connection.setAutoCommit(false);
             try (Statement statement = connection.createStatement()) {
-               statement.executeUpdate(sqlProvider.getDropFileTableSQL());
+               statement.executeUpdate(sqlProvider.getDropFileTableSQL(tableName));
             }
             connection.commit();
          } catch (SQLException e) {

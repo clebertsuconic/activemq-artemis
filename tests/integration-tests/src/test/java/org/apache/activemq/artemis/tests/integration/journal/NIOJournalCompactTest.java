@@ -49,6 +49,7 @@ import org.apache.activemq.artemis.core.journal.impl.JournalFileImpl;
 import org.apache.activemq.artemis.core.journal.impl.JournalImpl;
 import org.apache.activemq.artemis.core.journal.impl.dataformat.ByteArrayEncoding;
 import org.apache.activemq.artemis.core.message.impl.CoreMessage;
+import org.apache.activemq.artemis.core.persistence.StorageTX;
 import org.apache.activemq.artemis.core.persistence.impl.journal.JournalStorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContextImpl;
 import org.apache.activemq.artemis.tests.unit.core.journal.impl.JournalImplTestBase;
@@ -2057,6 +2058,7 @@ public class NIOJournalCompactTest extends JournalImplTestBase {
                   limiter.limit();
                   final long[] values = new long[100];
                   long tx = seqGenerator.incrementAndGet();
+                  StorageTX storageTX = storage.generateTX(tx);
 
                   OperationContextImpl ctx = new OperationContextImpl(executor);
                   storage.setContext(ctx);
@@ -2069,7 +2071,7 @@ public class NIOJournalCompactTest extends JournalImplTestBase {
 
                      message.getBodyBuffer().writeBytes(new byte[1024]);
 
-                     storage.storeMessageTransactional(tx, message);
+                     storage.storeMessageTransactional(storageTX, tx, message);
                   }
                   CoreMessage message = new CoreMessage(seqGenerator.incrementAndGet(), 100);
 
@@ -2081,7 +2083,7 @@ public class NIOJournalCompactTest extends JournalImplTestBase {
                   logger.debug("message stored {}", message);
 
                   logger.debug("Going to commit {}", tx);
-                  storage.commit(tx);
+                  storage.commit(storageTX, tx);
                   logger.debug("Committed {}", tx);
 
                   ctx.executeOnCompletion(new IOCallback() {

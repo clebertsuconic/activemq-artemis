@@ -37,6 +37,7 @@ import org.apache.activemq.artemis.api.jms.ActiveMQJMSClient;
 import org.apache.activemq.artemis.core.filter.Filter;
 import org.apache.activemq.artemis.core.filter.impl.FilterImpl;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
+import org.apache.activemq.artemis.core.persistence.StorageTX;
 import org.apache.activemq.artemis.core.postoffice.Binding;
 import org.apache.activemq.artemis.core.postoffice.Bindings;
 import org.apache.activemq.artemis.core.postoffice.impl.BindingsImpl;
@@ -88,13 +89,15 @@ public class TopicCleanupTest extends JMSTestBase {
          for (int i = 0; i < 100; i++) {
             long txid = storage.generateID();
 
+            StorageTX storageTX = storage.generateTX(txid);
+
             final Queue queue = new QueueImpl(QueueConfiguration.of("topic").setRoutingType(RoutingType.MULTICAST).setId(storage.generateID()), FilterImpl.createFilter(Filter.GENERIC_IGNORED_FILTER), null, null, server.getScheduledPool(), server.getPostOffice(), storage, server.getAddressSettingsRepository(), server.getExecutorFactory().getExecutor(), server, null);
 
             LocalQueueBinding binding = new LocalQueueBinding(queue.getAddress(), queue, server.getNodeID());
 
-            storage.addQueueBinding(txid, binding);
+            storage.addQueueBinding(storageTX, txid, binding);
 
-            storage.commitBindings(txid);
+            storage.commitBindings(storageTX, txid);
          }
 
          jmsServer.stop();

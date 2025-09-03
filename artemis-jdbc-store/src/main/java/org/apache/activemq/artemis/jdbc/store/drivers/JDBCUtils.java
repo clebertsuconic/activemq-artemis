@@ -16,7 +16,12 @@
  */
 package org.apache.activemq.artemis.jdbc.store.drivers;
 
+import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLWarning;
+import java.sql.Statement;
+import java.util.Arrays;
 import java.util.Map;
 
 import org.apache.activemq.artemis.jdbc.store.sql.PropertySQLProvider;
@@ -24,6 +29,7 @@ import org.apache.activemq.artemis.jdbc.store.sql.SQLProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.lang.invoke.MethodHandles;
+import java.util.stream.Stream;
 
 public class JDBCUtils {
 
@@ -35,18 +41,18 @@ public class JDBCUtils {
       return new PropertySQLProvider.Factory(dialect);
    }
 
-   public static SQLProvider getSQLProvider(String driverClass, String tableName, SQLProvider.DatabaseStoreType storeType) {
+   public static SQLProvider getSQLProvider(String driverClass) {
       PropertySQLProvider.Factory.SQLDialect dialect = PropertySQLProvider.Factory.identifyDialect(driverClass);
-      logger.trace("getSQLProvider Returning SQL provider for dialect {} for driver::{}, tableName::{}", dialect, driverClass, tableName);
+      logger.trace("getSQLProvider Returning SQL provider for dialect {} for driver::{}", dialect, driverClass);
       PropertySQLProvider.Factory factory = new PropertySQLProvider.Factory(dialect);
-      return factory.create(tableName, storeType);
+      return factory.create();
    }
 
-   public static SQLProvider getSQLProvider(Map<String, Object> dataSourceProperties, String tableName, SQLProvider.DatabaseStoreType storeType) {
+   public static SQLProvider getSQLProvider(Map<String, Object> dataSourceProperties) {
       PropertySQLProvider.Factory.SQLDialect dialect = PropertySQLProvider.Factory.investigateDialect(dataSourceProperties);
-      logger.trace("getSQLProvider Returning SQL provider for dialect {}, tableName::{}", dialect, tableName);
+      logger.trace("getSQLProvider Returning SQL provider for dialect {}", dialect);
       PropertySQLProvider.Factory factory = new PropertySQLProvider.Factory(dialect);
-      return factory.create(tableName, storeType);
+      return factory.create();
    }
 
    /**
@@ -105,4 +111,104 @@ public class JDBCUtils {
       final String message = exception.getMessage();
       return errorMessage.append("SQLState: ").append(sqlState).append(" ErrorCode: ").append(errorCode).append(" Message: ").append(message);
    }
+
+
+   /** It will create a table accordingly to the SQLProvider on the connectionProvider, after verifying if it exists. */
+   public static void createTable(JDBCConnectionProvider connectionProvider, String tableName, String... sqls) throws SQLException {
+
+      try (Connection connection = connectionProvider.getConnection()) {
+         createTable(connection, connectionProvider.getSQLProvider(), tableName, sqls);
+      }
+   }
+   public static void createTable(Connection connection, SQLProvider sqlProvider, String tableName, String... sqls) throws SQLException {
+      logger.trace("Validating if table {} didn't exist before creating", tableName);
+         try {
+            connection.setAutoCommit(false);
+            final boolean tableExists;
+            try (ResultSet rs = connection.getMetaData().getTables(null, null, tableName, null)) {
+               if (rs == null || !rs.next()) {
+                  tableExists = false;
+                  if (logger.isTraceEnabled()) {
+                     logger.trace("Table {} did not exist, creating it with SQL={}", tableName, Arrays.toString(sqls));
+                  }
+                  if (rs != null) {
+                     final SQLWarning sqlWarning = rs.getWarnings();
+                     if (sqlWarning != null) {
+                        logger.warn(JDBCUtils.appendSQLExceptionDetails(new StringBuilder(), sqlWarning).toString());
+                     }
+                  }
+               } else {
+                  tableExists = true;
+               }
+            }
+            if (tableExists) {
+               logger.trace("Validating if the existing table {} is initialized or not", tableName);
+               try (Statement statement = connection.createStatement();
+                    ResultSet cntRs = statement.executeQuery(sqlProvider.getCountJournalRecordsSQL(tableName))) {
+                  logger.trace("Validation of the existing table {} initialization is started", tableName);
+                  int rows;
+                  if (cntRs.next() && (rows = cntRs.getInt(1)) > 0) {
+                     logger.trace("Table {} did exist but is not empty. Skipping initialization. Found {} rows.", tableName, rows);
+                     if (logger.isDebugEnabled()) {
+                        final long expectedRows = Stream.of(sqls).map(String::toUpperCase).filter(sql -> sql.contains("INSERT INTO")).count();
+                        if (rows < expectedRows) {
+                           logger.debug("Table {} was expected to contain {} rows while it has {} rows.", tableName, expectedRows, rows);
+                        }
+                     }
+                     connection.commit();
+                     return;
+                  } else {
+                     sqls = Stream.of(sqls).filter(sql -> {
+                        final String upperCaseSql = sql.toUpperCase();
+                        return !(upperCaseSql.contains("CREATE TABLE") || upperCaseSql.contains("CREATE INDEX"));
+                     }).toArray(String[]::new);
+                     if (sqls.length > 0) {
+                        logger.trace("Table {} did exist but is empty. Starting initialization.", tableName);
+                     } else {
+                        logger.trace("Table {} did exist but is empty. Initialization completed: no initialization statements left.", tableName);
+                        connection.commit();
+                     }
+                  }
+               } catch (SQLException e) {
+                  //that's not a real issue and do not deserve any user-level log:
+                  //some DBMS just return stale information about table existence
+                  //and can fail on later attempts to access them
+                  if (logger.isTraceEnabled()) {
+                     logger.trace(JDBCUtils.appendSQLExceptionDetails(new StringBuilder("Can't verify the initialization of table ").append(tableName).append(" due to:"), e, sqlProvider.getCountJournalRecordsSQL(tableName)).toString());
+                  }
+                  try {
+                     connection.rollback();
+                  } catch (SQLException rollbackEx) {
+                     logger.debug("Rollback failed while validating initialization of a table", rollbackEx);
+                  }
+                  connection.setAutoCommit(false);
+                  logger.trace("Table {} seems to exist, but we can't verify the initialization. Keep trying to create and initialize.", tableName);
+               }
+            }
+            if (sqls.length > 0) {
+               try (Statement statement = connection.createStatement()) {
+                  for (String sql : sqls) {
+                     statement.executeUpdate(sql);
+                     final SQLWarning statementSqlWarning = statement.getWarnings();
+                     if (statementSqlWarning != null) {
+                        logger.warn(JDBCUtils.appendSQLExceptionDetails(new StringBuilder(), statementSqlWarning, sql).toString());
+                     }
+                  }
+               }
+
+               connection.commit();
+            }
+         } catch (SQLException e) {
+            final String sqlStatements = String.join("\n", sqls);
+            logger.error(JDBCUtils.appendSQLExceptionDetails(new StringBuilder(), e, sqlStatements).toString());
+            try {
+               connection.rollback();
+            } catch (SQLException rollbackEx) {
+               logger.error(JDBCUtils.appendSQLExceptionDetails(new StringBuilder(), rollbackEx, sqlStatements).toString());
+               throw rollbackEx;
+            }
+            throw e;
+         }
+   }
+
 }
