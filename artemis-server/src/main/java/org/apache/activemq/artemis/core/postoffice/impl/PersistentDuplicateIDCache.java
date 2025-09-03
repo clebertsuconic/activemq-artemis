@@ -133,7 +133,7 @@ final class PersistentDuplicateIDCache implements DuplicateIDCache {
       }
 
       if (txID != -1) {
-         storageManager.commit(txID);
+         storageManager.commit(txID, true, true, true);
       }
 
       pos = this.ids.size();
@@ -330,7 +330,7 @@ final class PersistentDuplicateIDCache implements DuplicateIDCache {
                storageManager.deleteDuplicateIDTransactional(tx, id.getB());
             }
          }
-         storageManager.commit(tx);
+         storageManager.commit(tx, true, true, true);
       }
 
       ids.clear();

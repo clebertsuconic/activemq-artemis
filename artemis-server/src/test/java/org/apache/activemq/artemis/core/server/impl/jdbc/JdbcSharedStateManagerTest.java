@@ -30,20 +30,21 @@ public class JdbcSharedStateManagerTest extends ServerTestBase {
 
    private DatabaseStorageConfiguration dbConf;
    private SQLProvider sqlProvider;
+   private String tableName;
 
    @BeforeEach
    public void configure() {
       dbConf = createDefaultDatabaseStorageConfiguration();
+      tableName = dbConf.getNodeManagerStoreTableName();
       sqlProvider = JDBCUtils.getSQLProvider(
-         dbConf.getJdbcDriverClassName(),
-         dbConf.getNodeManagerStoreTableName(),
-         SQLProvider.DatabaseStoreType.NODE_MANAGER);
+         dbConf.getJdbcDriverClassName());
    }
 
-   private TestJDBCDriver createFakeDriver(boolean initializeTable) {
-      return TestJDBCDriver.usingDbConf(
+   private TestJDBCTableBase createFakeDriver(boolean initializeTable) {
+      return TestJDBCTableBase.usingDbConf(
          dbConf,
          sqlProvider,
+         tableName,
          initializeTable);
    }
 
@@ -53,7 +54,8 @@ public class JdbcSharedStateManagerTest extends ServerTestBase {
          dbConf.getJdbcLockExpirationMillis(),
          dbConf.getJdbcAllowedTimeDiff(),
          dbConf.getConnectionProvider(),
-         sqlProvider);
+         sqlProvider,
+         tableName);
    }
 
    @Test
@@ -70,7 +72,7 @@ public class JdbcSharedStateManagerTest extends ServerTestBase {
    @Test
    @Timeout(10)
    public void shouldStartIfTableExistEmpty() throws Exception {
-      final TestJDBCDriver fakeDriver = createFakeDriver(false);
+      final TestJDBCTableBase fakeDriver = createFakeDriver(false);
       fakeDriver.start();
       final JdbcSharedStateManager sharedStateManager = createSharedStateManager();
       sharedStateManager.stop();
@@ -84,7 +86,7 @@ public class JdbcSharedStateManagerTest extends ServerTestBase {
    @Test
    @Timeout(10)
    public void shouldStartIfTableExistInitialized() throws Exception {
-      final TestJDBCDriver fakeDriver = createFakeDriver(true);
+      final TestJDBCTableBase fakeDriver = createFakeDriver(true);
       fakeDriver.start();
       final JdbcSharedStateManager sharedStateManager = createSharedStateManager();
       sharedStateManager.stop();

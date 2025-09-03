@@ -71,6 +71,16 @@ public class DatabaseStorageConfiguration implements StoreConfiguration {
 
    private int maxPageSizeBytes = ActiveMQDefaultConfiguration.getDefaultJdbcMaxPageSizeBytes();
 
+   // TODO: configure this on XML and properties
+   public String getParallelDBMessages() {
+      return "ART_MESSAGES";
+   }
+
+   // TODO: Provide configuration
+   public String getParallelDBReferences() {
+      return "ART_REFERENCES";
+   }
+
    @Override
    public StoreType getStoreType() {
       return StoreType.DATABASE;
@@ -169,35 +179,7 @@ public class DatabaseStorageConfiguration implements StoreConfiguration {
     */
    private DataSource getDataSource() {
       if (dataSource == null) {
-         // the next settings are going to be applied only if the datasource is the default one
-         if (ActiveMQDefaultConfiguration.getDefaultDataSourceClassName().equals(dataSourceClassName)) {
-            // these default settings will be applied only if a custom configuration won't override them
-            if (!dataSourceProperties.containsKey("driverClassName")) {
-               addDataSourceProperty("driverClassName", jdbcDriverClassName);
-            }
-            if (!dataSourceProperties.containsKey("url")) {
-               addDataSourceProperty("url", jdbcConnectionUrl);
-            }
-            if (!dataSourceProperties.containsKey("username")) {
-               if (jdbcUser != null) {
-                  addDataSourceProperty("username", jdbcUser);
-               }
-            }
-            if (!dataSourceProperties.containsKey("password")) {
-               if (jdbcPassword != null) {
-                  addDataSourceProperty("password", jdbcPassword);
-               }
-            }
-            if (!dataSourceProperties.containsKey("maxTotal")) {
-               // Let the pool to have unbounded number of connections by default to prevent connection starvation
-               addDataSourceProperty("maxTotal", "-1");
-            }
-            if (!dataSourceProperties.containsKey("poolPreparedStatements")) {
-               // Let the pool to have unbounded number of cached prepared statements to save the initialization cost
-               addDataSourceProperty("poolPreparedStatements", "true");
-            }
-         }
-         dataSource = JDBCDataSourceUtils.getDataSource(dataSourceClassName, dataSourceProperties);
+         dataSource = JDBCDataSourceUtils.getDataSource(jdbcDriverClassName, jdbcConnectionUrl, jdbcUser, jdbcPassword, "-1", dataSourceClassName, dataSourceProperties);
       }
       return dataSource;
    }
@@ -234,16 +216,7 @@ public class DatabaseStorageConfiguration implements StoreConfiguration {
    }
 
    public void addDataSourceProperty(String key, String value) {
-      if (value.toLowerCase().equals("true") || value.toLowerCase().equals("false")) {
-         dataSourceProperties.put(key, Boolean.parseBoolean(value.toLowerCase()));
-      } else {
-         try {
-            int i = Integer.parseInt(value);
-            dataSourceProperties.put(key, i);
-         } catch (NumberFormatException nfe) {
-            dataSourceProperties.put(key, value);
-         }
-      }
+      JDBCDataSourceUtils.addDataSourceProperty(dataSourceProperties, key, value);
    }
 
    public Map<String, Object> getDataSourceProperties() {

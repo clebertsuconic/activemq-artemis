@@ -69,25 +69,21 @@ public class JDBCJournalStorageManager extends JournalStorageManager {
          final JDBCJournalImpl bindingsJournal;
          final JDBCJournalImpl messageJournal;
          final JDBCSequentialFileFactory largeMessagesFactory;
-         SQLProvider.Factory sqlProviderFactory = dbConf.getSqlProviderFactory();
-         if (sqlProviderFactory == null) {
-            sqlProviderFactory = new PropertySQLProvider.Factory(connectionProvider);
-         }
          bindingsJournal = new JDBCJournalImpl(
                  connectionProvider,
-                 sqlProviderFactory.create(dbConf.getBindingsTableName(), SQLProvider.DatabaseStoreType.BINDINGS_JOURNAL),
+                 dbConf.getBindingsTableName(),
                  scheduledExecutorService,
                  executorFactory.getExecutor(),
                  criticalErrorListener, dbConf.getJdbcJournalSyncPeriodMillis());
          messageJournal = new JDBCJournalImpl(
                  connectionProvider,
-                 sqlProviderFactory.create(dbConf.getMessageTableName(), SQLProvider.DatabaseStoreType.MESSAGE_JOURNAL),
+                 dbConf.getMessageTableName(),
                  scheduledExecutorService, executorFactory.getExecutor(),
                  criticalErrorListener,
                  dbConf.getJdbcJournalSyncPeriodMillis());
          largeMessagesFactory = new JDBCSequentialFileFactory(
                  connectionProvider,
-                 sqlProviderFactory.create(dbConf.getLargeMessageTableName(), SQLProvider.DatabaseStoreType.LARGE_MESSAGE),
+                 dbConf.getLargeMessageTableName(),
                  executorFactory.getExecutor(),
                  scheduledExecutorService,
                  dbConf.getJdbcJournalSyncPeriodMillis(),
