@@ -55,6 +55,7 @@ import org.apache.activemq.artemis.core.paging.impl.PageTransactionInfoImpl;
 import org.apache.activemq.artemis.core.paging.impl.PagingStoreFactoryNIO;
 import org.apache.activemq.artemis.core.paging.impl.PagingStoreImpl;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
+import org.apache.activemq.artemis.core.persistence.StorageTX;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
 import org.apache.activemq.artemis.core.server.Queue;
 import org.apache.activemq.artemis.core.server.impl.AddressInfo;
@@ -392,12 +393,14 @@ public class JournalPagingTest extends ActiveMQTestBase {
 
       for (int i = 0; i < 1000; i++) {
          long tx = sm.generateID();
+         StorageTX storageTX = sm.generateTX(tx);
          PageTransactionInfoImpl txinfo = new PageTransactionInfoImpl(tx);
-         sm.storePageTransaction(tx, txinfo);
-         sm.journalCommit(tx);
+         sm.storePageTransaction(storageTX, tx, txinfo);
+         sm.commit(storageTX, tx);
          tx = sm.generateID();
-         sm.updatePageTransaction(tx, txinfo, 1);
-         sm.journalCommit(tx);
+         storageTX = sm.generateTX(tx);
+         sm.updatePageTransaction(storageTX, tx, txinfo, 1);
+         sm.commit(storageTX, tx);
       }
 
       server.stop();

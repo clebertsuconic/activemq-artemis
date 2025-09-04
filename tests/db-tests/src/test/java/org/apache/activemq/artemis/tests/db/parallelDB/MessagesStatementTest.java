@@ -26,13 +26,14 @@ import org.apache.activemq.artemis.core.io.IOCallback;
 import org.apache.activemq.artemis.core.journal.IOCompletion;
 import org.apache.activemq.artemis.core.message.impl.CoreMessage;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
+import org.apache.activemq.artemis.core.persistence.StorageTX;
 import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContextImpl;
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.ParallelDBStorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.MessageStatement;
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.ReferencesStatement;
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.worker.DataManager;
-import org.apache.activemq.artemis.core.persistence.impl.parallelDB.data.MessageData;
-import org.apache.activemq.artemis.core.persistence.impl.parallelDB.data.MessageReferenceData;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.dbdata.MessageData;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.dbdata.MessageReferenceData;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 import org.apache.activemq.artemis.tests.extensions.parameterized.ParameterizedTestExtension;
 import org.junit.jupiter.api.TestTemplate;
@@ -172,7 +173,6 @@ public class MessagesStatementTest extends AbstractStatementTest {
          message.setMessageID(i);
          message.getBodyBuffer().writeByte((byte) 'Z');
          statementsManager.storeMessage(message, null, OperationContextImpl.getContext());
-         statementsManager.flushTL();
       }
 
       context.executeOnCompletion(new IOCallback() {
@@ -222,9 +222,10 @@ public class MessagesStatementTest extends AbstractStatementTest {
          if (i % 2 == 0) {
             parallelDBStorageManager.storeReference(1, i, true);
          } else {
-            parallelDBStorageManager.storeReferenceTransactional(i, 1, i);
+
+            StorageTX storageTX = parallelDBStorageManager.generateTX(i);
+            parallelDBStorageManager.storeReferenceTransactional(storageTX, i, 1, i);
          }
-         statementsManager.flushTL();
       }
 
       context.executeOnCompletion(new IOCallback() {
@@ -242,8 +243,7 @@ public class MessagesStatementTest extends AbstractStatementTest {
       assertTrue(latchDone.await(10, TimeUnit.SECONDS));
 
       assertEquals(nrecords, selectCount(connection, storageConfiguration.getParallelDBReferences()));
-      assertEquals(pairs, selectNumber(connection, "SELECT COUNT(*) FROM " + storageConfiguration.getParallelDBReferences() + " WHERE TX_ID IS NULL"));
-      assertEquals(pairs, selectNumber(connection, "SELECT COUNT(*) FROM " + storageConfiguration.getParallelDBReferences() + " WHERE TX_ID IS NOT NULL"));
+      assertEquals(pairs, selectNumber(connection, "SELECT COUNT(*) FROM " + storageConfiguration.getParallelDBReferences()));
    }
 
 

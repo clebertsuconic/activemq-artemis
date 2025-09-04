@@ -1712,7 +1712,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
 
             if (durableRef) {
                if (transactional) {
-                  storageManager.storeAcknowledgeTransactional(tx.getID(), queueConfiguration.getId(), message.getMessageID());
+                  storageManager.storeAcknowledgeTransactional(tx.getStorageTx(), tx.getID(), queueConfiguration.getId(), message.getMessageID());
                   tx.setContainsPersistent();
                } else {
                   storageManager.storeAcknowledge(queueConfiguration.getId(), message.getMessageID());
@@ -2214,7 +2214,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
          }
 
          if (isDurable()) {
-            storageManager.deleteQueueBinding(tx.getID(), getID());
+            storageManager.deleteQueueBinding(tx.getStorageTx(), tx.getID(), getID());
             tx.setContainsPersistent();
          }
 

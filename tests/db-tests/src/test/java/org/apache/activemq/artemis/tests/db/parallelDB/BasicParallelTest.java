@@ -27,6 +27,7 @@ import org.apache.activemq.artemis.api.core.QueueConfiguration;
 import org.apache.activemq.artemis.api.core.RoutingType;
 import org.apache.activemq.artemis.core.io.IOCallback;
 import org.apache.activemq.artemis.core.message.impl.CoreMessage;
+import org.apache.activemq.artemis.core.persistence.StorageTX;
 import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContextImpl;
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.ParallelDBStorageManager;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
@@ -160,7 +161,6 @@ public class BasicParallelTest extends AbstractStatementTest {
             message.getBodyBuffer().writeByte((byte) 'Z');
             parallelDBStorageManager.storeMessage(message);
          }
-         parallelDBStorageManager.getStatementsManager().flushTL();
          OperationContextImpl.getContext().waitCompletion();
          assertEquals(nrecords, selectCount(connection, storageConfiguration.getParallelDBMessages()));
       }
@@ -187,11 +187,12 @@ public class BasicParallelTest extends AbstractStatementTest {
             CoreMessage message = new CoreMessage().initBuffer(1 * 1024).setDurable(true);
             message.setMessageID(i);
             message.getBodyBuffer().writeByte((byte) 'Z');
-            parallelDBStorageManager.storeMessageTransactional(3, message);
-            parallelDBStorageManager.storeReferenceTransactional(3, 3, message.getMessageID());
-            parallelDBStorageManager.commit(3, true, true, true);
+            StorageTX tx = parallelDBStorageManager.generateTX(3);
+            parallelDBStorageManager.storeMessageTransactional(tx, 3, message);
+            parallelDBStorageManager.storeReferenceTransactional(tx, 3, 3, message.getMessageID());
+            parallelDBStorageManager.commit(tx, 3);
+            assertTrue(OperationContextImpl.getContext().waitCompletion(5000));
          }
-         OperationContextImpl.getContext().waitCompletion();
          assertEquals(nrecords, selectCount(connection, storageConfiguration.getParallelDBMessages()));
       }
    }

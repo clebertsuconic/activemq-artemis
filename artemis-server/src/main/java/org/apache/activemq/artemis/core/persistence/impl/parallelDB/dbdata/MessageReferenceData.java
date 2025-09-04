@@ -14,30 +14,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.activemq.artemis.core.transaction.impl;
 
-import org.apache.activemq.artemis.core.persistence.StorageManager;
+package org.apache.activemq.artemis.core.persistence.impl.parallelDB.dbdata;
 
+import org.apache.activemq.artemis.core.journal.IOCompletion;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.worker.DataWorker;
 
-public class BindingsTransactionImpl extends TransactionImpl {
+public class MessageReferenceData extends DBData {
+   public long messageID;
+   public long queueID;
+   public Long txID;
 
-   public BindingsTransactionImpl(StorageManager storage) {
-      super(storage, 0);
+   public MessageReferenceData(long messageID, long queueID, Long txID, IOCompletion context) {
+      super(context);
+      this.messageID = messageID;
+      this.queueID = queueID;
+      this.txID = txID;
+      context.storeLineUp();
+   }
+
+   public void store(DataWorker worker) {
+      worker.referencesStatement.addData(this, context);
    }
 
    @Override
-   protected void doCommit() throws Exception {
-      if (isContainsPersistent()) {
-         storageManager.commitBindings(storageTx, getID());
-         setState(State.COMMITTED);
-      }
-   }
-
-   @Override
-   protected void doRollback() throws Exception {
-      if (isContainsPersistent()) {
-         storageManager.rollbackBindings(storageTx, getID());
-         setState(State.ROLLEDBACK);
-      }
+   public String toString() {
+      return "MessageReferenceTask{" + "messageID=" + messageID + ", queueID=" + queueID + ", txID=" + txID + '}';
    }
 }

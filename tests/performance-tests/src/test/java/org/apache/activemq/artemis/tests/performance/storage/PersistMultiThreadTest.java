@@ -38,6 +38,7 @@ import org.apache.activemq.artemis.core.paging.cursor.PageSubscription;
 import org.apache.activemq.artemis.core.paging.impl.Page;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
+import org.apache.activemq.artemis.core.persistence.StorageTX;
 import org.apache.activemq.artemis.core.replication.ReplicationManager;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
 import org.apache.activemq.artemis.core.server.JournalType;
@@ -155,10 +156,11 @@ public class PersistMultiThreadTest extends ActiveMQTestBase {
 
             long id = storage.generateID();
             long txID = storage.generateID();
+            StorageTX storageTX = storage.generateTX(txID);
 
             // each thread will store a single message that will never be deleted, trying to force compacting to happen
-            storeMessage(txID, id);
-            storage.journalCommit(txID);
+            storeMessage(storageTX, txID, id);
+            storage.commit(storageTX, txID);
 
             OperationContext ctx = storage.getContext();
 
@@ -173,10 +175,10 @@ public class PersistMultiThreadTest extends ActiveMQTestBase {
 
                   messageID[msgI] = id;
 
-                  storeMessage(txID, id);
+                  storeMessage(storageTX, txID, id);
                }
 
-               storage.journalCommit(txID);
+               storage.commit(storageTX, txID);
                ctx.waitCompletion();
 
                for (long deleteID : messageID) {
@@ -192,14 +194,14 @@ public class PersistMultiThreadTest extends ActiveMQTestBase {
 
       }
 
-      private void storeMessage(long txID, long id) throws Exception {
+      private void storeMessage(StorageTX storageTX, long txID, long id) throws Exception {
          Message message = new CoreMessage(id, 10 * 1024);
 
          message.getBodyBuffer().writeBytes(new byte[104]);
          message.putStringProperty("hello", "" + id);
 
-         storage.storeMessageTransactional(txID, message);
-         storage.storeReferenceTransactional(txID, 1, id);
+         storage.storeMessageTransactional(storageTX, txID, message);
+         storage.storeReferenceTransactional(storageTX, txID, 1, id);
 
          message.refDown();
       }

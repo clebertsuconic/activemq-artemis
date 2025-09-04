@@ -28,6 +28,7 @@ import org.apache.activemq.artemis.api.core.ObjLongPair;
 import org.apache.activemq.artemis.api.core.Pair;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
+import org.apache.activemq.artemis.core.persistence.StorageTX;
 import org.apache.activemq.artemis.core.postoffice.DuplicateIDCache;
 import org.apache.activemq.artemis.core.server.ActiveMQServerLogger;
 import org.apache.activemq.artemis.core.server.MessageReference;
@@ -90,6 +91,7 @@ final class PersistentDuplicateIDCache implements DuplicateIDCache {
       // Then, delete the exceeding ones.
 
       long txID = -1;
+      StorageTX storageTX = null;
 
       int toNotBeAdded = ids.size() - cacheSize;
       if (toNotBeAdded < 0) {
@@ -110,12 +112,13 @@ final class PersistentDuplicateIDCache implements DuplicateIDCache {
          if (toNotBeAdded > 0) {
             if (txID == -1) {
                txID = storageManager.generateID();
+               storageTX = storageManager.generateTX(txID);
             }
             if (logger.isTraceEnabled()) {
                logger.trace("deleting id = {}", describeID(id.getA(), id.getB()));
             }
 
-            storageManager.deleteDuplicateIDTransactional(txID, id.getB());
+            storageManager.deleteDuplicateIDTransactional(storageTX, txID, id.getB());
             toNotBeAdded--;
          } else {
             ByteArray bah = new ByteArray(id.getA());
@@ -133,7 +136,7 @@ final class PersistentDuplicateIDCache implements DuplicateIDCache {
       }
 
       if (txID != -1) {
-         storageManager.commit(txID, true, true, true);
+         storageManager.commit(storageTX, txID);
       }
 
       pos = this.ids.size();
@@ -235,7 +238,7 @@ final class PersistentDuplicateIDCache implements DuplicateIDCache {
 
          addToCacheInMemory(holder, recordID);
       } else {
-         storageManager.storeDuplicateIDTransactional(tx.getID(), address, holder.bytes, recordID);
+         storageManager.storeDuplicateIDTransactional(tx.getStorageTx(), tx.getID(), address, holder.bytes, recordID);
 
          tx.setContainsPersistent();
 
@@ -323,14 +326,15 @@ final class PersistentDuplicateIDCache implements DuplicateIDCache {
       final int idsSize = ids.size();
       if (idsSize > 0) {
          long tx = storageManager.generateID();
+         StorageTX storageTX = storageManager.generateTX(tx);
          for (int i = 0; i < idsSize; i++) {
             final ObjLongPair<ByteArray> id = ids.get(i);
             if (id.getA() != null) {
                assert id.getB() != NIL;
-               storageManager.deleteDuplicateIDTransactional(tx, id.getB());
+               storageManager.deleteDuplicateIDTransactional(storageTX, tx, id.getB());
             }
          }
-         storageManager.commit(tx, true, true, true);
+         storageManager.commit(storageTX, tx);
       }
 
       ids.clear();

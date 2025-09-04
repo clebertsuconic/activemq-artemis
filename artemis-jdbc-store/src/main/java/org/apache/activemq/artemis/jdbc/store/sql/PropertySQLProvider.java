@@ -112,8 +112,7 @@ public class PropertySQLProvider implements SQLProvider {
    @Override
    public String[] getCreateParallelDBMessages(String tableName) {
       return new String[] {
-         format(sql("create-parallelDB-messages"), tableName),
-         format(sql("create-parallelDB-messages-index"), tableName)
+         format(sql("create-parallelDB-messages"), tableName)
       };
    }
 

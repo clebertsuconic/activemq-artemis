@@ -14,17 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.activemq.artemis.core.persistence;
 
-/** this interface was created specifically to allow the JDBC storage manager
- * to hold data until commit is called.
- * In case the storage manager decide to hold all the Transaction date until a commit happens,
- * the storage may decide to add any special data for that purpose on implementations of this interface.
- *
- * This interface is pretty much a tagging interface, and all the implementation will endup being specific to the storage itself. */
-public interface StorageTX {
+package org.apache.activemq.artemis.core.persistence.impl.parallelDB.dbdata;
 
-   // TODO-important: remove this
-   boolean isEmpty();
+import org.apache.activemq.artemis.core.io.IOCallback;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.worker.DataWorker;
 
+public abstract class DBData {
+
+   final IOCallback context;
+
+   DBData(IOCallback context) {
+      this.context = context;
+   }
+
+   public abstract void store(DataWorker worker);
 }

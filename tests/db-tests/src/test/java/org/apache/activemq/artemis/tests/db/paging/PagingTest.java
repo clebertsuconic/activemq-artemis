@@ -104,6 +104,7 @@ import org.apache.activemq.artemis.core.paging.impl.PagingStoreImpl;
 import org.apache.activemq.artemis.core.paging.impl.PagingStoreTestAccessor;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
+import org.apache.activemq.artemis.core.persistence.StorageTX;
 import org.apache.activemq.artemis.core.persistence.impl.journal.AckDescribe;
 import org.apache.activemq.artemis.core.persistence.impl.journal.DescribeJournal;
 import org.apache.activemq.artemis.core.persistence.impl.journal.JournalRecordIds;
@@ -630,8 +631,9 @@ public class PagingTest extends ParameterDBTestBase {
 
       // Forcing a situation in the data that would cause an issue while reloading the data
       long tx = server.getStorageManager().generateID();
-      server.getStorageManager().storePageCompleteTransactional(tx, serverQueue.getID(), new PagePositionImpl(1, 10));
-      server.getStorageManager().journalCommit(tx);
+      StorageTX storageTX = server.getStorageManager().generateTX(tx);
+      server.getStorageManager().storePageCompleteTransactional(storageTX, tx, serverQueue.getID(), new PagePositionImpl(1, 10));
+      server.getStorageManager().commit(storageTX, tx);
       server.getStorageManager().storeCursorAcknowledge(serverQueue.getID(), new PagePositionImpl(1, 0));
 
       server.stop();
@@ -3768,11 +3770,12 @@ public class PagingTest extends ParameterDBTestBase {
       // if it is complete we must move to another page avoiding races on cleanup
       // which could happen during a crash / restart
       long tx = server.getStorageManager().generateID();
+      StorageTX storageTX = server.getStorageManager().generateTX(tx);
       for (int i = 1; i <= 20; i++) {
-         server.getStorageManager().storePageCompleteTransactional(tx, queue1.getID(), new PagePositionImpl(i, 1));
+         server.getStorageManager().storePageCompleteTransactional(storageTX, tx, queue1.getID(), new PagePositionImpl(i, 1));
       }
 
-      server.getStorageManager().journalCommit(tx);
+      server.getStorageManager().commit(storageTX, tx);
 
       session.close();
       sf.close();

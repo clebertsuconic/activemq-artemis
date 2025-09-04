@@ -29,10 +29,11 @@ import java.util.concurrent.TimeUnit;
 import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.core.config.storage.DatabaseStorageConfiguration;
 import org.apache.activemq.artemis.core.journal.IOCompletion;
-import org.apache.activemq.artemis.core.persistence.impl.parallelDB.data.DBData;
-import org.apache.activemq.artemis.core.persistence.impl.parallelDB.data.MessageData;
-import org.apache.activemq.artemis.core.persistence.impl.parallelDB.data.MessageReferenceData;
-import org.apache.activemq.artemis.core.persistence.impl.parallelDB.data.TXData;
+import org.apache.activemq.artemis.core.persistence.StorageTX;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.ParallelDBStoreTX;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.dbdata.DBData;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.dbdata.MessageData;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.dbdata.MessageReferenceData;
 import org.apache.activemq.artemis.core.server.ActiveMQScheduledComponent;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 import org.slf4j.Logger;
@@ -52,22 +53,6 @@ public class DataManager extends ActiveMQScheduledComponent {
 
    List<DataWorker> allWorkers;
    LinkedBlockingDeque<DataWorker> workers;
-
-   // We store messages and references on a ThreadLocal buffer until the last attribute is sent,
-   // at that time we flush everything.
-   // this is to make sure that we store everything as part of the same DB operation
-   private static final ThreadLocal<List<DBData>> bufferMessagesList = new ThreadLocal<>();
-
-   private List<DBData> getTLTaskList() {
-      List<DBData> tlDataList = bufferMessagesList.get();
-
-      if (tlDataList == null) {
-         tlDataList = new ArrayList<>();
-         bufferMessagesList.set(tlDataList);
-      }
-
-      return tlDataList;
-   }
 
    ArrayList<DBData> pendingData = new ArrayList<>();
 
@@ -117,24 +102,42 @@ public class DataManager extends ActiveMQScheduledComponent {
       // TODO close workers
    }
 
-   public void storeTX(long txID, int messages, int references, int paged, int acks, IOCompletion callback) {
-      getTLTaskList().add(new TXData(callback, txID, messages, references, paged, acks));
+   public void storeTX(StorageTX storageTX) {
+      flushData(castTX(storageTX).dataList);
+   }
+
+   private void flushData(List<DBData> dbData) {
+      synchronized (this) {
+         pendingData.addAll(dbData);
+      }
+      delay();
+   }
+
+   private void flushData(DBData dbData) {
+      synchronized (this) {
+         pendingData.add(dbData);
+      }
+      delay();
+   }
+
+   private ParallelDBStoreTX castTX(StorageTX storageTX) {
+      return (ParallelDBStoreTX) storageTX;
+   }
+
+   public void storeMessage(StorageTX storageTX, Message message, Long tx, IOCompletion callback) {
+      castTX(storageTX).addData(new MessageData(message, tx, callback));
    }
 
    public void storeMessage(Message message, Long tx, IOCompletion callback) {
-      getTLTaskList().add(new MessageData(message, tx, callback));
+      flushData(new MessageData(message, tx, callback));
+   }
+
+   public void storeReference(StorageTX storageTX, long messageID, long queueID, Long txID, IOCompletion callback) {
+      castTX(storageTX).addData(new MessageReferenceData(messageID, queueID, txID, callback));
    }
 
    public void storeReference(long messageID, long queueID, Long txID, IOCompletion callback) {
-      getTLTaskList().add(new MessageReferenceData(messageID, queueID, txID, callback));
-   }
-
-   public void flushTL() {
-      synchronized (this) {
-         pendingData.addAll(getTLTaskList());
-      }
-      getTLTaskList().clear();
-      delay();
+      flushData(new MessageReferenceData(messageID, queueID, txID, callback));
    }
 
    private List<DBData> extractTaskList() {

@@ -141,10 +141,10 @@ public class RefsOperation extends TransactionOperationAbstract {
                   int durableRefCount = ref.getQueue().durableUp(ref.getMessage());
 
                   if (durableRefCount == 1) {
-                     storageManager.storeMessageTransactional(ackedTX.getID(), message);
+                     storageManager.storeMessageTransactional(ackedTX.getStorageTx(), ackedTX.getID(), message);
                   }
 
-                  storageManager.storeReferenceTransactional(ackedTX.getID(), queue.getID(), message.getMessageID());
+                  storageManager.storeReferenceTransactional(ackedTX.getStorageTx(), ackedTX.getID(), queue.getID(), message.getMessageID());
 
                   ackedTX.setContainsPersistent();
                }

@@ -15,24 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements;
+package org.apache.activemq.artemis.core.persistence.impl.parallelDB.dbdata;
 
-import java.sql.Connection;
-import java.sql.SQLException;
+import org.apache.activemq.artemis.api.core.Message;
+import org.apache.activemq.artemis.core.journal.IOCompletion;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.worker.DataWorker;
 
-import org.apache.activemq.artemis.core.persistence.impl.parallelDB.data.TXData;
-import org.apache.activemq.artemis.jdbc.parallelDB.BatchableStatement;
-import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
+public class MessageData extends DBData {
+   public MessageData(Message message, Long tx, IOCompletion context) {
+      super(context);
+      this.message = message;
+      this.tx = tx;
+      context.storeLineUp();
+   }
 
-public class UpdateTXStatement extends BatchableStatement<TXData> {
+   public final Message message;
+   public final Long tx;
 
-   public UpdateTXStatement(Connection connection, JDBCConnectionProvider connectionProvider, String tableName, int expectedSize) throws SQLException {
-      super(connectionProvider, connection, connectionProvider.getSQLProvider().getUpdateTX(tableName), expectedSize);
+   public void store(DataWorker worker) {
+      worker.messageStatement.addData(this, context);
    }
 
    @Override
-   protected void doOne(TXData task) throws Exception {
-      preparedStatement.setLong(1, task.txID);
+   public String toString() {
+      return "MessageTask{" + "message=" + message + ", tx=" + tx + '}';
    }
-
 }

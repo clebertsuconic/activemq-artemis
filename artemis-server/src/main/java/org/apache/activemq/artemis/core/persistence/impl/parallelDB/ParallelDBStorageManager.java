@@ -50,6 +50,7 @@ import org.apache.activemq.artemis.core.persistence.AddressQueueStatus;
 import org.apache.activemq.artemis.core.persistence.GroupingInfo;
 import org.apache.activemq.artemis.core.persistence.Persister;
 import org.apache.activemq.artemis.core.persistence.QueueBindingInfo;
+import org.apache.activemq.artemis.core.persistence.StorageTX;
 import org.apache.activemq.artemis.core.persistence.config.AbstractPersistedAddressSetting;
 import org.apache.activemq.artemis.core.persistence.config.PersistedAddressSettingJSON;
 import org.apache.activemq.artemis.core.persistence.config.PersistedBridgeConfiguration;
@@ -97,14 +98,14 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
    DatabaseStorageConfiguration databaseConfiguration;
 
    // the plan is to have many of these in a pool, for now while I bootstrap things I'm just having one
-   DataManager statementsManager;
+   DataManager dataManager;
 
    public Configuration getConfig() {
       return journalDelegate.getConfig();
    }
 
    public DataManager getStatementsManager() {
-      return statementsManager;
+      return dataManager;
    }
 
    @Override
@@ -180,9 +181,14 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
          // TODO-IMPORTANT meant do not merge without fixing this:
          // TODO-IMPORTANT: what is the best place for the time?
          logger.info("Timeout:: {}", configuration.getJournalBufferTimeout_NIO());
-         statementsManager = new DataManager(scheduledExecutorService, executorFactory.getExecutor(), executorService, configuration.getJournalBufferTimeout_NIO(), databaseConfiguration, connectionProvider, batchSize);
-         statementsManager.start();
+         dataManager = new DataManager(scheduledExecutorService, executorFactory.getExecutor(), executorService, configuration.getJournalBufferTimeout_NIO(), databaseConfiguration, connectionProvider, batchSize);
+         dataManager.start();
       }
+   }
+
+   @Override
+   public StorageTX generateTX(long tx) {
+      return new ParallelDBStoreTX(tx);
    }
 
    @Override
@@ -244,15 +250,12 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
 
    @Override
    public void storeMessage(Message message) throws Exception {
-      statementsManager.storeMessage(message, null, getContext());
+      dataManager.storeMessage(message, null, getContext());
    }
 
    @Override
    public void storeReference(long queueID, long messageID, boolean last) throws Exception {
-      statementsManager.storeReference(messageID, queueID, null, getContext());
-      if (last) {
-         statementsManager.flushTL();
-      }
+      dataManager.storeReference(messageID, queueID, null, getContext());
    }
 
    @Override
@@ -272,6 +275,7 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
 
    @Override
    public void deleteMessage(long messageID) throws Exception {
+      logger.info("Deleting messageID {}", messageID);
 
    }
 
@@ -300,25 +304,23 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
    }
 
    @Override
-   public void storeMessageTransactional(long txID, Message message) throws Exception {
-      statementsManager.storeMessage(message, txID, getContext());
-      statementsManager.flushTL();
+   public void storeMessageTransactional(StorageTX storageTX, long txID, Message message) throws Exception {
+      dataManager.storeMessage(storageTX, message, txID, getContext());
    }
 
    @Override
-   public void storePageTransaction(long txID, PageTransactionInfo pageTransaction) throws Exception {
-      journalDelegate.storePageTransaction(txID, pageTransaction);
+   public void storePageTransaction(StorageTX storageTX, long txID, PageTransactionInfo pageTransaction) throws Exception {
+      journalDelegate.storePageTransaction(storageTX, txID, pageTransaction);
    }
 
    @Override
-   public void updatePageTransaction(long txID, PageTransactionInfo pageTransaction, int depages) throws Exception {
-      journalDelegate.updatePageTransaction(txID, pageTransaction, depages);
+   public void updatePageTransaction(StorageTX storageTX, long txID, PageTransactionInfo pageTransaction, int depages) throws Exception {
+      journalDelegate.updatePageTransaction(storageTX, txID, pageTransaction, depages);
    }
 
    @Override
-   public void storeReferenceTransactional(long txID, long queueID, long messageID) throws Exception {
-      statementsManager.storeReference(messageID, queueID, txID, getContext());
-      statementsManager.flushTL();
+   public void storeReferenceTransactional(StorageTX storageTX, long txID, long queueID, long messageID) throws Exception {
+      dataManager.storeReference(storageTX, messageID, queueID, txID, getContext());
    }
 
    @Override
@@ -327,17 +329,19 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
    }
 
    @Override
-   public void storeAcknowledgeTransactional(long txID, long queueID, long messageID) throws Exception {
+   public void storeAcknowledgeTransactional(StorageTX storageTX, long txID, long queueID, long messageID) throws Exception {
+
+      // TODO
    }
 
    @Override
-   public void storeCursorAcknowledgeTransactional(long txID, long queueID, PagePosition position) throws Exception {
-      journalDelegate.storeCursorAcknowledgeTransactional(txID, queueID, position);
+   public void storeCursorAcknowledgeTransactional(StorageTX storageTX, long txID, long queueID, PagePosition position) throws Exception {
+      journalDelegate.storeCursorAcknowledgeTransactional(storageTX, txID, queueID, position);
    }
 
    @Override
-   public void storePageCompleteTransactional(long txID, long queueID, PagePosition position) throws Exception {
-      journalDelegate.storePageCompleteTransactional(txID, queueID, position);
+   public void storePageCompleteTransactional(StorageTX storageTX, long txID, long queueID, PagePosition position) throws Exception {
+      journalDelegate.storePageCompleteTransactional(storageTX, txID, queueID, position);
    }
 
    @Override
@@ -346,8 +350,8 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
    }
 
    @Override
-   public void deleteCursorAcknowledgeTransactional(long txID, long ackID) throws Exception {
-      journalDelegate.deleteCursorAcknowledgeTransactional(txID, ackID);
+   public void deleteCursorAcknowledgeTransactional(StorageTX storageTX, long txID, long ackID) throws Exception {
+      journalDelegate.deleteCursorAcknowledgeTransactional(storageTX, txID, ackID);
    }
 
    @Override
@@ -371,65 +375,67 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
    }
 
    @Override
-   public void updateScheduledDeliveryTimeTransactional(long txID, MessageReference ref) throws Exception {
-      journalDelegate.updateScheduledDeliveryTimeTransactional(txID, ref);
+   public void updateScheduledDeliveryTimeTransactional(StorageTX storageTX, long txID, MessageReference ref) throws Exception {
+      journalDelegate.updateScheduledDeliveryTimeTransactional(storageTX, txID, ref);
    }
 
    @Override
-   public void prepare(long txID, Xid xid) throws Exception {
-      journalDelegate.prepare(txID, xid);
+   public void prepare(StorageTX storageTX, long txID, Xid xid) throws Exception {
+      journalDelegate.prepare(storageTX, txID, xid);
+   }
+
+
+   @Override
+   public void commitBindings(StorageTX storageTX, long txID) throws Exception {
+      journalDelegate.commitBindings(storageTX, txID);
    }
 
    @Override
-   public void commit(long txID, int messages, int references, int paged, int acks) throws Exception {
-      statementsManager.storeTX(txID, messages, references, paged, acks, getContext());
-      statementsManager.flushTL();
+   public void rollbackBindings(StorageTX storageTX, long txID) throws Exception {
+      journalDelegate.rollbackBindings(storageTX, txID);
    }
 
    @Override
-   public void commitBindings(long txID) throws Exception {
-      journalDelegate.commitBindings(txID);
+   public void commit(StorageTX storageTX, long txID, boolean lineUpContext) throws Exception {
+
+      if (storageTX == null || storageTX.isEmpty()) {
+         // TODO-NOW: this is for the proof of concept where we still delegate to the old journal,
+         // this thing should go before merged into the main branch
+         journalDelegate.commit(storageTX, txID, lineUpContext);
+      } else {
+         dataManager.storeTX(storageTX);
+      }
    }
 
    @Override
-   public void rollbackBindings(long txID) throws Exception {
-      journalDelegate.rollbackBindings(txID);
+   public void asyncCommit(StorageTX storageTX, long txID) throws Exception {
+      journalDelegate.asyncCommit(storageTX, txID);
    }
 
    @Override
-   public void commit(long txID, boolean lineUpContext) throws Exception {
-      journalDelegate.commit(txID, lineUpContext);
+   public void rollback(StorageTX storageTX, long txID) throws Exception {
+      journalDelegate.rollback(storageTX, txID);
    }
 
    @Override
-   public void asyncCommit(long txID) throws Exception {
-      journalDelegate.asyncCommit(txID);
-   }
-
-   @Override
-   public void rollback(long txID) throws Exception {
-      journalDelegate.rollback(txID);
-   }
-
-   @Override
-   public void storeDuplicateIDTransactional(long txID,
+   public void storeDuplicateIDTransactional(StorageTX storageTX, long txID,
                                              SimpleString address,
                                              byte[] duplID,
                                              long recordID) throws Exception {
-      journalDelegate.storeDuplicateIDTransactional(txID, address, duplID, recordID);
+      journalDelegate.storeDuplicateIDTransactional(storageTX, txID, address, duplID, recordID);
    }
 
    @Override
-   public void updateDuplicateIDTransactional(long txID,
+   public void updateDuplicateIDTransactional(StorageTX storageTX, long txID,
                                               SimpleString address,
                                               byte[] duplID,
                                               long recordID) throws Exception {
-      journalDelegate.updateDuplicateIDTransactional(txID, address, duplID, recordID);
+      journalDelegate.updateDuplicateIDTransactional(storageTX, txID, address, duplID, recordID);
    }
 
    @Override
-   public void deleteDuplicateIDTransactional(long txID, long recordID) throws Exception {
-      journalDelegate.deleteDuplicateIDTransactional(txID, recordID);
+   public void deleteDuplicateIDTransactional(StorageTX storageTX, long txID, long recordID) throws Exception {
+      journalDelegate.deleteDuplicateIDTransactional(storageTX, txID, recordID);
    }
 
    @Override
@@ -597,23 +603,23 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
    }
 
    @Override
-   public void deleteGrouping(long tx, GroupBinding groupBinding) throws Exception {
-      journalDelegate.deleteGrouping(tx, groupBinding);
+   public void deleteGrouping(StorageTX storageTX, long tx, GroupBinding groupBinding) throws Exception {
+      journalDelegate.deleteGrouping(storageTX, tx, groupBinding);
    }
 
    @Override
-   public void updateQueueBinding(long tx, Binding binding) throws Exception {
-      journalDelegate.updateQueueBinding(tx, binding);
+   public void updateQueueBinding(StorageTX storageTX, long tx, Binding binding) throws Exception {
+      journalDelegate.updateQueueBinding(storageTX, tx, binding);
    }
 
    @Override
-   public void addQueueBinding(long tx, Binding binding) throws Exception {
-      journalDelegate.addQueueBinding(tx, binding);
+   public void addQueueBinding(StorageTX storageTX, long tx, Binding binding) throws Exception {
+      journalDelegate.addQueueBinding(storageTX, tx, binding);
    }
 
    @Override
-   public void deleteQueueBinding(long tx, long queueBindingID) throws Exception {
-      journalDelegate.deleteQueueBinding(tx, queueBindingID);
+   public void deleteQueueBinding(StorageTX storageTX, long tx, long queueBindingID) throws Exception {
+      journalDelegate.deleteQueueBinding(storageTX, tx, queueBindingID);
    }
 
    @Override
@@ -637,18 +643,18 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
    }
 
    @Override
-   public void addAddressBinding(long tx, AddressInfo addressInfo) throws Exception {
-      journalDelegate.addAddressBinding(tx, addressInfo);
+   public void addAddressBinding(StorageTX storageTX, long tx, AddressInfo addressInfo) throws Exception {
+      journalDelegate.addAddressBinding(storageTX, tx, addressInfo);
    }
 
    @Override
-   public void deleteAddressBinding(long tx, long addressBindingID) throws Exception {
-      journalDelegate.deleteAddressBinding(tx, addressBindingID);
+   public void deleteAddressBinding(StorageTX storageTX, long tx, long addressBindingID) throws Exception {
+      journalDelegate.deleteAddressBinding(storageTX, tx, addressBindingID);
    }
 
    @Override
-   public long storePageCounterInc(long txID, long queueID, int value, long persistentSize) throws Exception {
-      return journalDelegate.storePageCounterInc(txID, queueID, value, persistentSize);
+   public long storePageCounterInc(StorageTX storageTX, long txID, long queueID, int value, long persistentSize) throws Exception {
+      return journalDelegate.storePageCounterInc(storageTX, txID, queueID, value, persistentSize);
    }
 
    @Override
@@ -657,8 +663,8 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
    }
 
    @Override
-   public long storePageCounter(long txID, long queueID, long value, long persistentSize) throws Exception {
-      return journalDelegate.storePageCounter(txID, queueID, value, persistentSize);
+   public long storePageCounter(StorageTX storageTX, long txID, long queueID, long value, long persistentSize) throws Exception {
+      return journalDelegate.storePageCounter(storageTX, txID, queueID, value, persistentSize);
    }
 
    @Override
@@ -667,18 +673,18 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
    }
 
    @Override
-   public void deleteIncrementRecord(long txID, long recordID) throws Exception {
-      journalDelegate.deleteIncrementRecord(txID, recordID);
+   public void deleteIncrementRecord(StorageTX storageTX, long txID, long recordID) throws Exception {
+      journalDelegate.deleteIncrementRecord(storageTX, txID, recordID);
    }
 
    @Override
-   public void deletePageCounter(long txID, long recordID) throws Exception {
-      journalDelegate.deletePageCounter(txID, recordID);
+   public void deletePageCounter(StorageTX storageTX, long txID, long recordID) throws Exception {
+      journalDelegate.deletePageCounter(storageTX, txID, recordID);
    }
 
    @Override
-   public void deletePendingPageCounter(long txID, long recordID) throws Exception {
-      journalDelegate.deletePendingPageCounter(txID, recordID);
+   public void deletePendingPageCounter(StorageTX storageTX, long txID, long recordID) throws Exception {
+      journalDelegate.deletePendingPageCounter(storageTX, txID, recordID);
    }
 
    @Override

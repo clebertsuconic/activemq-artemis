@@ -23,10 +23,9 @@ import java.sql.SQLException;
 import java.util.List;
 
 import org.apache.activemq.artemis.core.config.storage.DatabaseStorageConfiguration;
-import org.apache.activemq.artemis.core.persistence.impl.parallelDB.data.DBData;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.dbdata.DBData;
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.MessageStatement;
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.ReferencesStatement;
-import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.UpdateTXStatement;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,16 +44,12 @@ public class DataWorker implements Runnable {
       connection.setAutoCommit(false);
       messageStatement = new MessageStatement(connection, connectionProvider, databaseConfiguration.getParallelDBMessages(), batchSize);
       referencesStatement = new ReferencesStatement(connection, connectionProvider, databaseConfiguration.getParallelDBReferences(), batchSize);
-      txMessagesStatement = new UpdateTXStatement(connection, connectionProvider, databaseConfiguration.getParallelDBMessages(), batchSize);
-      txReferencesStatement = new UpdateTXStatement(connection, connectionProvider, databaseConfiguration.getParallelDBReferences(), batchSize);
       this.name = name;
    }
 
    final Connection connection;
    public final MessageStatement messageStatement;
    public final ReferencesStatement referencesStatement;
-   public final UpdateTXStatement txMessagesStatement;
-   public final UpdateTXStatement txReferencesStatement;
 
    List<DBData> dataList;
 
@@ -70,8 +65,6 @@ public class DataWorker implements Runnable {
          try {
             messageStatement.flushPending(false);
             referencesStatement.flushPending(false);
-            txReferencesStatement.flushPending(false);
-            txMessagesStatement.flushPending(false);
          } catch (SQLException e) {
             try {
                connection.rollback();
@@ -82,14 +75,10 @@ public class DataWorker implements Runnable {
          connection.commit();
          messageStatement.confirmData();
          referencesStatement.confirmData();
-         txReferencesStatement.confirmData();
-         txMessagesStatement.confirmData();
       } catch (Exception e) {
          logger.warn(e.getMessage(), e);
          messageStatement.clear();
          referencesStatement.clear();
-         txReferencesStatement.clear();
-         txMessagesStatement.clear();
          // TODO-important treat the exception with something like critical exception... or retries...
       } finally {
          this.dataList = null;
