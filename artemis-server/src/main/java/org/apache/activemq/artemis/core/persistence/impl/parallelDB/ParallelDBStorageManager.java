@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
 
@@ -63,7 +62,7 @@ import org.apache.activemq.artemis.core.persistence.config.PersistedUser;
 import org.apache.activemq.artemis.core.persistence.impl.AbstractStorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.PageCountPending;
 import org.apache.activemq.artemis.core.persistence.impl.journal.JDBCJournalStorageManager;
-import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.StatementsManager;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.worker.DataManager;
 import org.apache.activemq.artemis.core.postoffice.Binding;
 import org.apache.activemq.artemis.core.postoffice.PostOffice;
 import org.apache.activemq.artemis.core.replication.ReplicationManager;
@@ -98,13 +97,13 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
    DatabaseStorageConfiguration databaseConfiguration;
 
    // the plan is to have many of these in a pool, for now while I bootstrap things I'm just having one
-   StatementsManager statementsManager;
+   DataManager statementsManager;
 
    public Configuration getConfig() {
       return journalDelegate.getConfig();
    }
 
-   public StatementsManager getStatementsManager() {
+   public DataManager getStatementsManager() {
       return statementsManager;
    }
 
@@ -181,7 +180,7 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
          // TODO-IMPORTANT meant do not merge without fixing this:
          // TODO-IMPORTANT: what is the best place for the time?
          logger.info("Timeout:: {}", configuration.getJournalBufferTimeout_NIO());
-         statementsManager = new StatementsManager(scheduledExecutorService, executorFactory.getExecutor(), executorService, configuration.getJournalBufferTimeout_NIO(), databaseConfiguration, connectionProvider, batchSize);
+         statementsManager = new DataManager(scheduledExecutorService, executorFactory.getExecutor(), executorService, configuration.getJournalBufferTimeout_NIO(), databaseConfiguration, connectionProvider, batchSize);
          statementsManager.start();
       }
    }
@@ -382,8 +381,8 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
    }
 
    @Override
-   public void commit(long txID, boolean send, boolean ack, boolean paged) throws Exception {
-      statementsManager.storeTX(txID, send, ack, getContext());
+   public void commit(long txID, int messages, int references, int paged, int acks) throws Exception {
+      statementsManager.storeTX(txID, messages, references, paged, acks, getContext());
       statementsManager.flushTL();
    }
 

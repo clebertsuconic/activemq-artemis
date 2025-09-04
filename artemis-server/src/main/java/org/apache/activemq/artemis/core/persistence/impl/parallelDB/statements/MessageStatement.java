@@ -23,13 +23,13 @@ import java.sql.SQLException;
 import java.sql.Types;
 
 import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
-import org.apache.activemq.artemis.core.persistence.impl.parallelDB.tasks.MessageTask;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.data.MessageData;
 import org.apache.activemq.artemis.jdbc.parallelDB.BatchableStatement;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class MessageStatement extends BatchableStatement<MessageTask> {
+public class MessageStatement extends BatchableStatement<MessageData> {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
@@ -38,7 +38,7 @@ public class MessageStatement extends BatchableStatement<MessageTask> {
    }
 
    @Override
-   protected void doOne(MessageTask task) throws Exception {
+   protected void doOne(MessageData task) throws Exception {
       ActiveMQBuffer buffer = getPersistedBuffer(task.message.getPersister(), task.message);
       preparedStatement.setLong(1, task.message.getMessageID());
       preparedStatement.setBlob(2, blobInputStream(buffer));

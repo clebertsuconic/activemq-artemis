@@ -67,6 +67,7 @@ import org.apache.activemq.artemis.core.persistence.GroupingInfo;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.Persister;
 import org.apache.activemq.artemis.core.persistence.QueueBindingInfo;
+import org.apache.activemq.artemis.core.persistence.StorageTX;
 import org.apache.activemq.artemis.core.persistence.config.AbstractPersistedAddressSetting;
 import org.apache.activemq.artemis.core.persistence.config.PersistedAddressSetting;
 import org.apache.activemq.artemis.core.persistence.config.PersistedAddressSettingJSON;
@@ -487,7 +488,7 @@ public abstract class AbstractJournalStorageManager extends AbstractStorageManag
    // Transactional operations
 
    @Override
-   public void storeMessageTransactional(final long txID, final Message message) throws Exception {
+   public void storeMessageTransactional(final StorageTX txdata, final long txID, final Message message) throws Exception {
       if (message.getMessageID() <= 0) {
          throw ActiveMQMessageBundle.BUNDLE.messageIdNotAssigned();
       }
@@ -504,7 +505,7 @@ public abstract class AbstractJournalStorageManager extends AbstractStorageManag
    }
 
    @Override
-   public void storePageTransaction(final long txID, final PageTransactionInfo pageTransaction) throws Exception {
+   public void storePageTransaction(final StorageTX txdata, final long txID, final PageTransactionInfo pageTransaction) throws Exception {
       try (ArtemisCloseable lock = closeableReadLock()) {
          pageTransaction.setRecordID(generateID());
          messageJournal.appendAddRecordTransactional(txID, pageTransaction.getRecordID(), JournalRecordIds.PAGE_TRANSACTION, pageTransaction);
@@ -512,7 +513,7 @@ public abstract class AbstractJournalStorageManager extends AbstractStorageManag
    }
 
    @Override
-   public void updatePageTransaction(final long txID,
+   public void updatePageTransaction(final StorageTX storageTx, final long txID,
                                      final PageTransactionInfo pageTransaction,
                                      final int depages) throws Exception {
       try (ArtemisCloseable lock = closeableReadLock()) {
@@ -521,14 +522,14 @@ public abstract class AbstractJournalStorageManager extends AbstractStorageManag
    }
 
    @Override
-   public void storeReferenceTransactional(final long txID, final long queueID, final long messageID) throws Exception {
+   public void storeReferenceTransactional(final StorageTX storageTx, final long txID, final long queueID, final long messageID) throws Exception {
       try (ArtemisCloseable lock = closeableReadLock()) {
          messageJournal.appendUpdateRecordTransactional(txID, messageID, JournalRecordIds.ADD_REF, new RefEncoding(queueID));
       }
    }
 
    @Override
-   public void storeAcknowledgeTransactional(final long txID,
+   public void storeAcknowledgeTransactional(final StorageTX storageTx, final long txID,
                                              final long queueID,
                                              final long messageID) throws Exception {
       try (ArtemisCloseable lock = closeableReadLock()) {
@@ -537,7 +538,7 @@ public abstract class AbstractJournalStorageManager extends AbstractStorageManag
    }
 
    @Override
-   public void storeCursorAcknowledgeTransactional(long txID, long queueID, PagePosition position) throws Exception {
+   public void storeCursorAcknowledgeTransactional(final StorageTX storageTx, long txID, long queueID, PagePosition position) throws Exception {
       try (ArtemisCloseable lock = closeableReadLock()) {
          long ackID = idGenerator.generateID();
          position.setRecordID(ackID);
@@ -546,7 +547,7 @@ public abstract class AbstractJournalStorageManager extends AbstractStorageManag
    }
 
    @Override
-   public void storePageCompleteTransactional(long txID, long queueID, PagePosition position) throws Exception {
+   public void storePageCompleteTransactional(final StorageTX storageTx, long txID, long queueID, PagePosition position) throws Exception {
       long recordID = idGenerator.generateID();
       position.setRecordID(recordID);
       messageJournal.appendAddRecordTransactional(txID, recordID, JournalRecordIds.PAGE_CURSOR_COMPLETE, new CursorAckRecordEncoding(queueID, position));
@@ -558,7 +559,7 @@ public abstract class AbstractJournalStorageManager extends AbstractStorageManag
    }
 
    @Override
-   public void deleteCursorAcknowledgeTransactional(long txID, long ackID) throws Exception {
+   public void deleteCursorAcknowledgeTransactional(final StorageTX storageTx, long txID, long ackID) throws Exception {
       try (ArtemisCloseable lock = closeableReadLock()) {
          messageJournal.appendDeleteRecordTransactional(txID, ackID);
       }
@@ -594,7 +595,7 @@ public abstract class AbstractJournalStorageManager extends AbstractStorageManag
    }
 
    @Override
-   public void updateScheduledDeliveryTimeTransactional(final long txID, final MessageReference ref) throws Exception {
+   public void updateScheduledDeliveryTimeTransactional(final StorageTX storageTx, final long txID, final MessageReference ref) throws Exception {
       ScheduledDeliveryEncoding encoding = new ScheduledDeliveryEncoding(ref.getScheduledDeliveryTime(), ref.getQueue().getID());
       try (ArtemisCloseable lock = closeableReadLock()) {
          messageJournal.appendUpdateRecordTransactional(txID, ref.getMessage().getMessageID(), JournalRecordIds.SET_SCHEDULED_DELIVERY_TIME, encoding);
@@ -602,30 +603,25 @@ public abstract class AbstractJournalStorageManager extends AbstractStorageManag
    }
 
    @Override
-   public void prepare(final long txID, final Xid xid) throws Exception {
+   public void prepare(final StorageTX storageTx, final long txID, final Xid xid) throws Exception {
       try (ArtemisCloseable lock = closeableReadLock()) {
          messageJournal.appendPrepareRecord(txID, new XidEncoding(xid), syncTransactional, getContext(syncTransactional));
       }
    }
 
    @Override
-   public void commit(final long txID, boolean send, boolean ack, boolean paged) throws Exception {
-      commit(txID, true);
-   }
-
-   @Override
-   public void commitBindings(final long txID) throws Exception {
+   public void commitBindings(final StorageTX storageTx, final long txID) throws Exception {
       bindingsJournal.appendCommitRecord(txID, true, getContext(true), true);
    }
 
    @Override
-   public void rollbackBindings(final long txID) throws Exception {
+   public void rollbackBindings(final StorageTX storageTx, final long txID) throws Exception {
       // no need to sync, it's going away anyways
       bindingsJournal.appendRollbackRecord(txID, false);
    }
 
    @Override
-   public void commit(final long txID, final boolean lineUpContext) throws Exception {
+   public void commit(final StorageTX storageTx, final long txID, final boolean lineUpContext) throws Exception {
       try (ArtemisCloseable lock = closeableReadLock()) {
          messageJournal.appendCommitRecord(txID, syncTransactional, getContext(syncTransactional), lineUpContext);
          if (!lineUpContext && !syncTransactional) {
@@ -645,21 +641,21 @@ public abstract class AbstractJournalStorageManager extends AbstractStorageManag
    }
 
    @Override
-   public void asyncCommit(final long txID) throws Exception {
+   public void asyncCommit(final StorageTX storageTx, final long txID) throws Exception {
       try (ArtemisCloseable lock = closeableReadLock()) {
          messageJournal.appendCommitRecord(txID, false, getContext(true), true);
       }
    }
 
    @Override
-   public void rollback(final long txID) throws Exception {
+   public void rollback(final StorageTX storageTx, final long txID) throws Exception {
       try (ArtemisCloseable lock = closeableReadLock()) {
          messageJournal.appendRollbackRecord(txID, syncTransactional, getContext(syncTransactional));
       }
    }
 
    @Override
-   public void storeDuplicateIDTransactional(final long txID,
+   public void storeDuplicateIDTransactional(final StorageTX storageTx, final long txID,
                                              final SimpleString address,
                                              final byte[] duplID,
                                              final long recordID) throws Exception {
@@ -671,7 +667,7 @@ public abstract class AbstractJournalStorageManager extends AbstractStorageManag
    }
 
    @Override
-   public void updateDuplicateIDTransactional(final long txID,
+   public void updateDuplicateIDTransactional(final StorageTX storageTx, final long txID,
                                               final SimpleString address,
                                               final byte[] duplID,
                                               final long recordID) throws Exception {
@@ -683,7 +679,7 @@ public abstract class AbstractJournalStorageManager extends AbstractStorageManag
    }
 
    @Override
-   public void deleteDuplicateIDTransactional(final long txID, final long recordID) throws Exception {
+   public void deleteDuplicateIDTransactional(final StorageTX storageTx, final long txID, final long recordID) throws Exception {
       try (ArtemisCloseable lock = closeableReadLock()) {
          messageJournal.appendDeleteRecordTransactional(txID, recordID);
       }
@@ -1362,7 +1358,7 @@ public abstract class AbstractJournalStorageManager extends AbstractStorageManag
       ActiveMQServerLogger.LOGGER.failedToLoadPreparedTX(String.valueOf(encodingXid != null ? encodingXid.xid : null), e);
 
       try {
-         rollback(txInfo.getId());
+         rollback(null, txInfo.getId());
       } catch (Throwable e2) {
          logger.warn(e.getMessage(), e2);
       }
@@ -1415,7 +1411,7 @@ public abstract class AbstractJournalStorageManager extends AbstractStorageManag
    }
 
    @Override
-   public void deleteGrouping(long tx, final GroupBinding groupBinding) throws Exception {
+   public void deleteGrouping(StorageTX txdata, long tx, final GroupBinding groupBinding) throws Exception {
       try (ArtemisCloseable lock = closeableReadLock()) {
          bindingsJournal.appendDeleteRecordTransactional(tx, groupBinding.getId());
       }
@@ -1424,12 +1420,12 @@ public abstract class AbstractJournalStorageManager extends AbstractStorageManag
    // BindingsImpl operations
 
    @Override
-   public void updateQueueBinding(long tx, Binding binding) throws Exception {
+   public void updateQueueBinding(StorageTX txdata, long tx, Binding binding) throws Exception {
       internalQueueBinding(true, tx, binding);
    }
 
    @Override
-   public void addQueueBinding(final long tx, final Binding binding) throws Exception {
+   public void addQueueBinding(StorageTX txdata, final long tx, final Binding binding) throws Exception {
       internalQueueBinding(false, tx, binding);
    }
 
@@ -1452,7 +1448,7 @@ public abstract class AbstractJournalStorageManager extends AbstractStorageManag
    }
 
    @Override
-   public void deleteQueueBinding(long tx, final long queueBindingID) throws Exception {
+   public void deleteQueueBinding(StorageTX txdata, long tx, final long queueBindingID) throws Exception {
       try (ArtemisCloseable lock = closeableReadLock()) {
          bindingsJournal.appendDeleteRecordTransactional(tx, queueBindingID);
       }
@@ -1495,7 +1491,7 @@ public abstract class AbstractJournalStorageManager extends AbstractStorageManag
    }
 
    @Override
-   public void addAddressBinding(final long tx, final AddressInfo addressInfo) throws Exception {
+   public void addAddressBinding(StorageTX txdata, final long tx, final AddressInfo addressInfo) throws Exception {
       PersistentAddressBindingEncoding bindingEncoding = new PersistentAddressBindingEncoding(addressInfo.getName(), addressInfo.getRoutingTypes(), addressInfo.isAutoCreated(), addressInfo.isInternal());
 
       try (ArtemisCloseable lock = closeableReadLock()) {
@@ -1507,14 +1503,14 @@ public abstract class AbstractJournalStorageManager extends AbstractStorageManag
    }
 
    @Override
-   public void deleteAddressBinding(long tx, final long addressBindingID) throws Exception {
+   public void deleteAddressBinding(StorageTX txdata, long tx, final long addressBindingID) throws Exception {
       try (ArtemisCloseable lock = closeableReadLock()) {
          bindingsJournal.appendDeleteRecordTransactional(tx, addressBindingID);
       }
    }
 
    @Override
-   public long storePageCounterInc(long txID, long queueID, int value, long persistentSize) throws Exception {
+   public long storePageCounterInc(StorageTX txdata, long txID, long queueID, int value, long persistentSize) throws Exception {
       try (ArtemisCloseable lock = closeableReadLock()) {
          long recordID = idGenerator.generateID();
          messageJournal.appendAddRecordTransactional(txID, recordID, JournalRecordIds.PAGE_CURSOR_COUNTER_INC, new PageCountRecordInc(queueID, value, persistentSize));
@@ -1532,7 +1528,7 @@ public abstract class AbstractJournalStorageManager extends AbstractStorageManag
    }
 
    @Override
-   public long storePageCounter(long txID, long queueID, long value, long persistentSize) throws Exception {
+   public long storePageCounter(StorageTX txdata, long txID, long queueID, long value, long persistentSize) throws Exception {
       try (ArtemisCloseable lock = closeableReadLock()) {
          final long recordID = idGenerator.generateID();
          messageJournal.appendAddRecordTransactional(txID, recordID, JournalRecordIds.PAGE_CURSOR_COUNTER_VALUE, new PageCountRecord(queueID, value, persistentSize));
@@ -1553,21 +1549,21 @@ public abstract class AbstractJournalStorageManager extends AbstractStorageManag
    }
 
    @Override
-   public void deleteIncrementRecord(long txID, long recordID) throws Exception {
+   public void deleteIncrementRecord(final StorageTX txdata, long txID, long recordID) throws Exception {
       try (ArtemisCloseable lock = closeableReadLock()) {
          messageJournal.appendDeleteRecordTransactional(txID, recordID);
       }
    }
 
    @Override
-   public void deletePageCounter(long txID, long recordID) throws Exception {
+   public void deletePageCounter(final StorageTX txdata, long txID, long recordID) throws Exception {
       try (ArtemisCloseable lock = closeableReadLock()) {
          messageJournal.appendDeleteRecordTransactional(txID, recordID);
       }
    }
 
    @Override
-   public void deletePendingPageCounter(long txID, long recordID) throws Exception {
+   public void deletePendingPageCounter(final StorageTX txdata, long txID, long recordID) throws Exception {
       try (ArtemisCloseable lock = closeableReadLock()) {
          messageJournal.appendDeleteRecordTransactional(txID, recordID);
       }

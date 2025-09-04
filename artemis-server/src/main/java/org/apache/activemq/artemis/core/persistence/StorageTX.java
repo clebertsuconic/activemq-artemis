@@ -14,30 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.activemq.artemis.core.persistence;
 
-package org.apache.activemq.artemis.core.persistence.impl.parallelDB.tasks;
+/** this interface was created specifically to allow the JDBC storage manager
+ * to hold data until commit is called.
+ * In case the storage manager decide to hold all the Transaction date until a commit happens,
+ * the storage may decide to add any special data for that purpose on implementations of this interface.
+ *
+ * This interface is pretty much a tagging interface, and all the implementation will endup being specific to the storage itself. */
+public interface StorageTX {
 
-import org.apache.activemq.artemis.api.core.Message;
-import org.apache.activemq.artemis.core.journal.IOCompletion;
-import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.Worker;
-
-public class MessageTask extends Task {
-   public MessageTask(Message message, Long tx, IOCompletion context) {
-      super(context);
-      this.message = message;
-      this.tx = tx;
-      context.storeLineUp();
-   }
-
-   public final Message message;
-   public final Long tx;
-
-   public void store(Worker worker) {
-      worker.messageStatement.addData(this, context);
-   }
-
-   @Override
-   public String toString() {
-      return "MessageTask{" + "message=" + message + ", tx=" + tx + '}';
-   }
 }

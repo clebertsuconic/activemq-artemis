@@ -24,6 +24,7 @@ import org.apache.activemq.artemis.core.paging.PagingStore;
 import org.apache.activemq.artemis.core.paging.cursor.PageSubscription;
 import org.apache.activemq.artemis.core.paging.cursor.PageSubscriptionCounter;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
+import org.apache.activemq.artemis.core.persistence.StorageTX;
 import org.apache.activemq.artemis.core.server.ActiveMQServerLogger;
 import org.apache.activemq.artemis.core.transaction.Transaction;
 import org.apache.activemq.artemis.core.transaction.TransactionOperation;
@@ -251,13 +252,13 @@ public class PageSubscriptionCounterImpl extends BasePagingCounter {
                if (logger.isTraceEnabled()) {
                   logger.trace("Deleting page counter with recordID={}, using TX={}", this.recordID, tx.getID());
                }
-               storage.deletePageCounter(tx.getID(), this.recordID);
+               storage.deletePageCounter(tx.getStorageTx(), tx.getID(), this.recordID);
                tx.setContainsPersistent();
             }
 
             if (keepZero) {
                tx.setContainsPersistent();
-               recordID = storage.storePageCounter(tx.getID(), subscriptionID, 0L, 0L);
+               recordID = storage.storePageCounter(tx.getStorageTx(), tx.getID(), subscriptionID, 0L, 0L);
             } else {
                recordID = -1;
             }
@@ -282,15 +283,17 @@ public class PageSubscriptionCounterImpl extends BasePagingCounter {
       if (loadList != null) {
          try {
             long tx = -1L;
+            StorageTX storageTX = null;
             logger.debug("Removing increment records on cursor {}", subscriptionID);
             for (PendingCounter incElement : loadList) {
                if (tx < 0) {
                   tx = storage.generateID();
+                  storageTX = storage.generateTX(tx);
                }
-               storage.deletePageCounter(tx, incElement.id);
+               storage.deletePageCounter(storageTX, tx, incElement.id);
             }
             if (tx >= 0) {
-               storage.commit(tx, true, true, true);
+               storage.asyncCommit(storageTX, tx);
             }
          } catch (Exception e) {
             logger.warn(e.getMessage(), e);
@@ -323,13 +326,15 @@ public class PageSubscriptionCounterImpl extends BasePagingCounter {
       long newRecordID = -1;
 
       long txCleanup = -1;
+      StorageTX storageTX = null;
 
       try {
          if (recordID >= 0) {
             if (txCleanup < 0) {
                txCleanup = storage.generateID();
+               storageTX = storage.generateTX(txCleanup);
             }
-            storage.deletePageCounter(txCleanup, recordID);
+            storage.deletePageCounter(storageTX, txCleanup, recordID);
             recordID = -1;
          }
 
@@ -337,7 +342,7 @@ public class PageSubscriptionCounterImpl extends BasePagingCounter {
             if (txCleanup < 0) {
                txCleanup = storage.generateID();
             }
-            newRecordID = storage.storePageCounter(txCleanup, subscriptionID, valueReplace, sizeReplace);
+            newRecordID = storage.storePageCounter(storageTX, txCleanup, subscriptionID, valueReplace, sizeReplace);
          }
 
          if (logger.isDebugEnabled()) {
@@ -346,7 +351,7 @@ public class PageSubscriptionCounterImpl extends BasePagingCounter {
          }
 
          if (txCleanup >= 0) {
-            storage.commit(txCleanup, true, true, true);
+            storage.asyncCommit(storageTX, txCleanup);
          }
       } catch (Exception e) {
          newRecordID = recordID;
@@ -354,7 +359,7 @@ public class PageSubscriptionCounterImpl extends BasePagingCounter {
          ActiveMQServerLogger.LOGGER.problemCleaningPagesubscriptionCounter(e);
          if (txCleanup >= 0) {
             try {
-               storage.rollback(txCleanup);
+               storage.rollback(storageTX, txCleanup);
             } catch (Exception ignored) {
             }
          }

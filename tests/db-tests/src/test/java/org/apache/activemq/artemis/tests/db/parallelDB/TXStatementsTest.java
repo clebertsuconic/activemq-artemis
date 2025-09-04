@@ -17,19 +17,15 @@
 package org.apache.activemq.artemis.tests.db.parallelDB;
 
 import java.sql.Connection;
-import java.sql.SQLException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.activemq.artemis.core.io.IOCallback;
 import org.apache.activemq.artemis.core.message.impl.CoreMessage;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContextImpl;
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.ParallelDBStorageManager;
-import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.MessageStatement;
-import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.ReferencesStatement;
-import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.StatementsManager;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.worker.DataManager;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 import org.apache.activemq.artemis.tests.extensions.parameterized.ParameterizedTestExtension;
 import org.junit.jupiter.api.TestTemplate;
@@ -65,7 +61,7 @@ public class TXStatementsTest extends AbstractStatementTest {
 
       CountDownLatch latchDone = new CountDownLatch(1);
 
-      StatementsManager statementsManager = parallelDBStorageManager.getStatementsManager();
+      DataManager statementsManager = parallelDBStorageManager.getStatementsManager();
 
       OperationContext context = parallelDBStorageManager.getContext();
       runAfter(OperationContextImpl::clearContext);
@@ -83,7 +79,7 @@ public class TXStatementsTest extends AbstractStatementTest {
          }
       }
 
-      statementsManager.storeTX(10, true, true, context);
+      statementsManager.storeTX(10L, 1, 1, 1, 1, context);
       statementsManager.flushTL();
 
       context.executeOnCompletion(new IOCallback() {

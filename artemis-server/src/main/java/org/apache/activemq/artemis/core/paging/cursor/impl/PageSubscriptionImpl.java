@@ -660,7 +660,7 @@ public final class PageSubscriptionImpl implements PageSubscription {
          }
 
          if (isPersistent) {
-            store.commit(tx, true, true, true);
+            store.commit(tx, false);
          }
 
          cursorProvider.close(this);

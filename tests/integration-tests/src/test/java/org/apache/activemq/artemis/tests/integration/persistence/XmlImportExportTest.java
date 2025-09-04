@@ -55,6 +55,7 @@ import org.apache.activemq.artemis.api.jms.ActiveMQJMSClient;
 import org.apache.activemq.artemis.cli.commands.ActionContext;
 import org.apache.activemq.artemis.cli.commands.tools.xml.XmlDataExporter;
 import org.apache.activemq.artemis.cli.commands.tools.xml.XmlDataImporter;
+import org.apache.activemq.artemis.core.persistence.StorageTX;
 import org.apache.activemq.artemis.core.persistence.impl.journal.BatchingIDGenerator;
 import org.apache.activemq.artemis.core.persistence.impl.journal.JournalStorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.journal.LargeServerMessageImpl;
@@ -1372,9 +1373,10 @@ public class XmlImportExportTest extends ActiveMQTestBase {
    private void removeAddressAndQueue(org.apache.activemq.artemis.core.server.Queue serverQueue) throws Exception {
       AddressInfo addressInfo = server.getAddressInfo(serverQueue.getAddress());
       long tx = server.getStorageManager().generateID();
-      server.getStorageManager().deleteAddressBinding(tx, addressInfo.getId());
-      server.getStorageManager().deleteQueueBinding(tx, serverQueue.getID());
-      server.getStorageManager().commitBindings(tx);
+      StorageTX storageTX = server.getStorageManager().generateTX(tx);
+      server.getStorageManager().deleteAddressBinding(storageTX, tx, addressInfo.getId());
+      server.getStorageManager().deleteQueueBinding(storageTX, tx, serverQueue.getID());
+      server.getStorageManager().commitBindings(storageTX, tx);
    }
 
 }

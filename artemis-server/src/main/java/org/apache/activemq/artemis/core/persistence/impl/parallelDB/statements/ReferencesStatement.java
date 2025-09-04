@@ -22,13 +22,13 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Types;
 
-import org.apache.activemq.artemis.core.persistence.impl.parallelDB.tasks.MessageReferenceTask;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.data.MessageReferenceData;
 import org.apache.activemq.artemis.jdbc.parallelDB.BatchableStatement;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ReferencesStatement extends BatchableStatement<MessageReferenceTask> {
+public class ReferencesStatement extends BatchableStatement<MessageReferenceData> {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
@@ -37,7 +37,7 @@ public class ReferencesStatement extends BatchableStatement<MessageReferenceTask
    }
 
    @Override
-   protected void doOne(MessageReferenceTask task) throws Exception {
+   protected void doOne(MessageReferenceData task) throws Exception {
       preparedStatement.setLong(1, task.messageID);
       preparedStatement.setLong(2, task.queueID);
       if (task.txID != null) {

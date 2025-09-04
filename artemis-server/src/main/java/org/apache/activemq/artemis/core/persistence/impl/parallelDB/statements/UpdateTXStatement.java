@@ -20,18 +20,18 @@ package org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements;
 import java.sql.Connection;
 import java.sql.SQLException;
 
-import org.apache.activemq.artemis.core.persistence.impl.parallelDB.tasks.TXTask;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.data.TXData;
 import org.apache.activemq.artemis.jdbc.parallelDB.BatchableStatement;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 
-public class UpdateTXStatement extends BatchableStatement<TXTask> {
+public class UpdateTXStatement extends BatchableStatement<TXData> {
 
    public UpdateTXStatement(Connection connection, JDBCConnectionProvider connectionProvider, String tableName, int expectedSize) throws SQLException {
       super(connectionProvider, connection, connectionProvider.getSQLProvider().getUpdateTX(tableName), expectedSize);
    }
 
    @Override
-   protected void doOne(TXTask task) throws Exception {
+   protected void doOne(TXData task) throws Exception {
       preparedStatement.setLong(1, task.txID);
    }
 

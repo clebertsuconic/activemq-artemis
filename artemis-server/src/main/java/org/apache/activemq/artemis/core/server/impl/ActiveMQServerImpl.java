@@ -99,6 +99,7 @@ import org.apache.activemq.artemis.core.persistence.GroupingInfo;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.QueueBindingInfo;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
+import org.apache.activemq.artemis.core.persistence.StorageTX;
 import org.apache.activemq.artemis.core.persistence.config.AbstractPersistedAddressSetting;
 import org.apache.activemq.artemis.core.persistence.config.PersistedBridgeConfiguration;
 import org.apache.activemq.artemis.core.persistence.config.PersistedConnector;
@@ -3971,8 +3972,9 @@ public class ActiveMQServerImpl implements ActiveMQServer {
          }
 
          long txID = storageManager.generateID();
-         storageManager.deleteAddressBinding(txID, addressInfo.getId());
-         storageManager.commitBindings(txID);
+         StorageTX storageTX = storageManager.generateTX(txID);
+         storageManager.deleteAddressBinding(storageTX, txID, addressInfo.getId());
+         storageManager.commitBindings(storageTX, txID);
          pagingManager.deletePageStore(address);
       } finally {
          clearAddressCache();
@@ -4112,20 +4114,22 @@ public class ActiveMQServerImpl implements ActiveMQServer {
          final QueueBinding localQueueBinding = new LocalQueueBinding(queue.getAddress(), queue, nodeManager.getNodeId());
 
          long txID = 0;
+         StorageTX storageTX = null;
          if (queue.isDurable()) {
             txID = storageManager.generateID();
-            storageManager.addQueueBinding(txID, localQueueBinding);
+            storageTX = storageManager.generateTX(txID);
+            storageManager.addQueueBinding(storageTX, txID, localQueueBinding);
          }
 
          try {
             postOfficeInUse.addBinding(localQueueBinding);
             if (queue.isDurable()) {
-               storageManager.commitBindings(txID);
+               storageManager.commitBindings(storageTX, txID);
             }
          } catch (Exception e) {
             try {
                if (queueConfiguration.isDurable()) {
-                  storageManager.rollbackBindings(txID);
+                  storageManager.rollbackBindings(storageTX, txID);
                }
                try {
                   queue.close();

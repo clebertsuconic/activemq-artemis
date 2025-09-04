@@ -30,9 +30,9 @@ import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContex
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.ParallelDBStorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.MessageStatement;
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.ReferencesStatement;
-import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.StatementsManager;
-import org.apache.activemq.artemis.core.persistence.impl.parallelDB.tasks.MessageReferenceTask;
-import org.apache.activemq.artemis.core.persistence.impl.parallelDB.tasks.MessageTask;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.worker.DataManager;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.data.MessageData;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.data.MessageReferenceData;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 import org.apache.activemq.artemis.tests.extensions.parameterized.ParameterizedTestExtension;
 import org.junit.jupiter.api.TestTemplate;
@@ -83,7 +83,7 @@ public class MessagesStatementTest extends AbstractStatementTest {
          connection.setAutoCommit(false);
          ReferencesStatement referencesStatement = new ReferencesStatement(connection, connectionProvider, storageConfiguration.getParallelDBReferences(), 100);
          for (int i = 1; i <= nrecords; i++) {
-            MessageReferenceTask task = parallelDBStorageManager.getStatementsManager().newReferenceTask(i, 1, i % 2 == 0 ? (long)i : null, ioCallback);
+            MessageReferenceData task = parallelDBStorageManager.getStatementsManager().newReferenceTask(i, 1, i % 2 == 0 ? (long)i : null, ioCallback);
             referencesStatement.addData(task, ioCallback);
          }
          referencesStatement.flushPending(true);
@@ -132,7 +132,7 @@ public class MessagesStatementTest extends AbstractStatementTest {
             CoreMessage message = new CoreMessage().initBuffer(1 * 1024).setDurable(true);
             message.setMessageID(i);
             message.getBodyBuffer().writeByte((byte) 'Z');
-            MessageTask task = parallelDBStorageManager.getStatementsManager().newMessageTask(message, null, ioCallback);
+            MessageData task = parallelDBStorageManager.getStatementsManager().newMessageTask(message, null, ioCallback);
             messageStatement.addData(task, ioCallback);
          }
          messageStatement.flushPending(true);
@@ -162,7 +162,7 @@ public class MessagesStatementTest extends AbstractStatementTest {
 
       CountDownLatch latchDone = new CountDownLatch(1);
 
-      StatementsManager statementsManager = parallelDBStorageManager.getStatementsManager();
+      DataManager statementsManager = parallelDBStorageManager.getStatementsManager();
 
       OperationContext context = parallelDBStorageManager.getContext();
       runAfter(OperationContextImpl::clearContext);
@@ -213,7 +213,7 @@ public class MessagesStatementTest extends AbstractStatementTest {
 
       CountDownLatch latchDone = new CountDownLatch(1);
 
-      StatementsManager statementsManager = parallelDBStorageManager.getStatementsManager();
+      DataManager statementsManager = parallelDBStorageManager.getStatementsManager();
 
       OperationContext context = parallelDBStorageManager.getContext();
       runAfter(OperationContextImpl::clearContext);

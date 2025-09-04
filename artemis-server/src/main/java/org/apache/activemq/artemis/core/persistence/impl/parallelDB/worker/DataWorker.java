@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements;
+package org.apache.activemq.artemis.core.persistence.impl.parallelDB.worker;
 
 import java.lang.invoke.MethodHandles;
 import java.sql.Connection;
@@ -23,20 +23,23 @@ import java.sql.SQLException;
 import java.util.List;
 
 import org.apache.activemq.artemis.core.config.storage.DatabaseStorageConfiguration;
-import org.apache.activemq.artemis.core.persistence.impl.parallelDB.tasks.Task;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.data.DBData;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.MessageStatement;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.ReferencesStatement;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.UpdateTXStatement;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class Worker implements Runnable {
+public class DataWorker implements Runnable {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
-   private final StatementsManager statementsManager;
+   private final DataManager statementsManager;
 
    private final String name;
 
-   public Worker(StatementsManager statementsManager, JDBCConnectionProvider connectionProvider, DatabaseStorageConfiguration databaseConfiguration, int batchSize, String name) throws SQLException  {
+   public DataWorker(DataManager statementsManager, JDBCConnectionProvider connectionProvider, DatabaseStorageConfiguration databaseConfiguration, int batchSize, String name) throws SQLException  {
       this.statementsManager = statementsManager;
       connection = connectionProvider.getConnection();
       connection.setAutoCommit(false);
@@ -53,17 +56,17 @@ public class Worker implements Runnable {
    public final UpdateTXStatement txMessagesStatement;
    public final UpdateTXStatement txReferencesStatement;
 
-   List<Task> taskList;
+   List<DBData> dataList;
 
-   public void setTaskList(List<Task> taskList) {
-      this.taskList = taskList;
+   public void setTaskList(List<DBData> dataList) {
+      this.dataList = dataList;
    }
 
    @Override
    public void run() {
-      logger.info("Worker {} running with {} tasks", name, taskList.size());
+      logger.info("Worker {} running with {} tasks", name, dataList.size());
       try {
-         taskList.forEach(this::doStore);
+         dataList.forEach(this::doStore);
          try {
             messageStatement.flushPending(false);
             referencesStatement.flushPending(false);
@@ -89,13 +92,13 @@ public class Worker implements Runnable {
          txMessagesStatement.clear();
          // TODO-important treat the exception with something like critical exception... or retries...
       } finally {
-         this.taskList = null;
+         this.dataList = null;
          statementsManager.workerDone(this);
       }
    }
 
-   public void doStore(Task task) {
-      task.store(this);
+   public void doStore(DBData data) {
+      data.store(this);
    }
 
    public void close() {

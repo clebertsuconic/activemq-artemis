@@ -33,6 +33,7 @@ import org.apache.activemq.artemis.api.core.RoutingType;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.config.WildcardConfiguration;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
+import org.apache.activemq.artemis.core.persistence.StorageTX;
 import org.apache.activemq.artemis.core.postoffice.Address;
 import org.apache.activemq.artemis.core.postoffice.AddressManager;
 import org.apache.activemq.artemis.core.postoffice.Binding;
@@ -319,12 +320,13 @@ public class SimpleAddressManager implements AddressManager {
       boolean added = reloadAddressInfo(addressInfo);
       if (!addressInfo.isTemporary() && added && storageManager != null) {
          long txID = storageManager.generateID();
+         StorageTX storageTX = storageManager.generateTX(txID);
          try {
-            storageManager.addAddressBinding(txID, addressInfo);
-            storageManager.commitBindings(txID);
+            storageManager.addAddressBinding(storageTX, txID, addressInfo);
+            storageManager.commitBindings(storageTX, txID);
          } catch (Exception e) {
             try {
-               storageManager.rollbackBindings(txID);
+               storageManager.rollbackBindings(storageTX, txID);
             } catch (Exception ignored) {
             }
             throw e;
@@ -356,13 +358,14 @@ public class SimpleAddressManager implements AddressManager {
       if (storageManager != null) {
          //it change the address info without any lock!
          final long txID = storageManager.generateID();
+         final StorageTX storageTX = storageManager.generateTX(txID);
          try {
-            storageManager.deleteAddressBinding(txID, info.getId());
-            storageManager.addAddressBinding(txID, info);
-            storageManager.commitBindings(txID);
+            storageManager.deleteAddressBinding(storageTX, txID, info.getId());
+            storageManager.addAddressBinding(storageTX, txID, info);
+            storageManager.commitBindings(storageTX, txID);
          } catch (Exception e) {
             try {
-               storageManager.rollbackBindings(txID);
+               storageManager.rollbackBindings(storageTX, txID);
             } catch (Throwable ignored) {
             }
             throw e;

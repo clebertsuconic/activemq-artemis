@@ -52,6 +52,7 @@ import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.Persister;
 import org.apache.activemq.artemis.core.persistence.QueueBindingInfo;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
+import org.apache.activemq.artemis.core.persistence.StorageTX;
 import org.apache.activemq.artemis.core.persistence.config.AbstractPersistedAddressSetting;
 import org.apache.activemq.artemis.core.persistence.config.PersistedAddressSettingJSON;
 import org.apache.activemq.artemis.core.persistence.config.PersistedBridgeConfiguration;
@@ -343,7 +344,7 @@ public class TransactionImplTest extends ServerTestBase {
       }
 
       @Override
-      public void asyncCommit(long txID) throws Exception {
+      public void asyncCommit(StorageTX storageTX, long txID) throws Exception {
 
       }
 
@@ -373,7 +374,7 @@ public class TransactionImplTest extends ServerTestBase {
       }
 
       @Override
-      public void updateQueueBinding(long tx, Binding binding) throws Exception {
+      public void updateQueueBinding(StorageTX storageTX, long tx, Binding binding) throws Exception {
 
       }
 
@@ -520,27 +521,27 @@ public class TransactionImplTest extends ServerTestBase {
       }
 
       @Override
-      public void storeMessageTransactional(long txID, Message message) throws Exception {
+      public void storeMessageTransactional(StorageTX storageTX, long txID, Message message) throws Exception {
 
       }
 
       @Override
-      public void storeReferenceTransactional(long txID, long queueID, long messageID) throws Exception {
+      public void storeReferenceTransactional(StorageTX storageTX, long txID, long queueID, long messageID) throws Exception {
 
       }
 
       @Override
-      public void storeAcknowledgeTransactional(long txID, long queueID, long messageID) throws Exception {
+      public void storeAcknowledgeTransactional(StorageTX storageTX, long txID, long queueID, long messageID) throws Exception {
 
       }
 
       @Override
-      public void storeCursorAcknowledgeTransactional(long txID, long queueID, PagePosition position) throws Exception {
+      public void storeCursorAcknowledgeTransactional(StorageTX storageTX, long txID, long queueID, PagePosition position) throws Exception {
 
       }
 
       @Override
-      public void deleteCursorAcknowledgeTransactional(long txID, long ackID) throws Exception {
+      public void deleteCursorAcknowledgeTransactional(StorageTX storageTX, long txID, long ackID) throws Exception {
 
       }
 
@@ -550,7 +551,7 @@ public class TransactionImplTest extends ServerTestBase {
       }
 
       @Override
-      public void storePageCompleteTransactional(long txID, long queueID, PagePosition position) throws Exception {
+      public void storePageCompleteTransactional(StorageTX storageTX, long txID, long queueID, PagePosition position) throws Exception {
 
       }
 
@@ -560,12 +561,12 @@ public class TransactionImplTest extends ServerTestBase {
       }
 
       @Override
-      public void updateScheduledDeliveryTimeTransactional(long txID, MessageReference ref) throws Exception {
+      public void updateScheduledDeliveryTimeTransactional(StorageTX storageTX, long txID, MessageReference ref) throws Exception {
 
       }
 
       @Override
-      public void storeDuplicateIDTransactional(long txID,
+      public void storeDuplicateIDTransactional(StorageTX storageTX, long txID,
                                                 SimpleString address,
                                                 byte[] duplID,
                                                 long recordID) throws Exception {
@@ -573,7 +574,7 @@ public class TransactionImplTest extends ServerTestBase {
       }
 
       @Override
-      public void updateDuplicateIDTransactional(long txID,
+      public void updateDuplicateIDTransactional(StorageTX storageTX, long txID,
                                                  SimpleString address,
                                                  byte[] duplID,
                                                  long recordID) throws Exception {
@@ -581,7 +582,7 @@ public class TransactionImplTest extends ServerTestBase {
       }
 
       @Override
-      public void deleteDuplicateIDTransactional(long txID, long recordID) throws Exception {
+      public void deleteDuplicateIDTransactional(StorageTX storageTX, long txID, long recordID) throws Exception {
 
       }
 
@@ -606,42 +607,37 @@ public class TransactionImplTest extends ServerTestBase {
       }
 
       @Override
-      public void prepare(long txID, Xid xid) throws Exception {
+      public void prepare(StorageTX storageTX, long txID, Xid xid) throws Exception {
 
       }
 
       @Override
-      public void commit(long txID, boolean send, boolean ack, boolean paged) throws Exception {
+      public void commit(StorageTX storageTX, long txID, boolean lineUpContext) throws Exception {
 
       }
 
       @Override
-      public void commit(long txID, boolean lineUpContext) throws Exception {
+      public void rollback(StorageTX storageTX, long txID) throws Exception {
 
       }
 
       @Override
-      public void rollback(long txID) throws Exception {
+      public void rollbackBindings(StorageTX storageTX, long txID) throws Exception {
 
       }
 
       @Override
-      public void rollbackBindings(long txID) throws Exception {
+      public void commitBindings(StorageTX storageTX, long txID) throws Exception {
 
       }
 
       @Override
-      public void commitBindings(long txID) throws Exception {
+      public void storePageTransaction(StorageTX storageTX, long txID, PageTransactionInfo pageTransaction) throws Exception {
 
       }
 
       @Override
-      public void storePageTransaction(long txID, PageTransactionInfo pageTransaction) throws Exception {
-
-      }
-
-      @Override
-      public void updatePageTransaction(long txID, PageTransactionInfo pageTransaction, int depage) throws Exception {
+      public void updatePageTransaction(StorageTX storageTX, long txID, PageTransactionInfo pageTransaction, int depage) throws Exception {
 
       }
 
@@ -675,22 +671,22 @@ public class TransactionImplTest extends ServerTestBase {
       }
 
       @Override
-      public void addQueueBinding(long tx, Binding binding) throws Exception {
+      public void addQueueBinding(StorageTX storageTX, long tx, Binding binding) throws Exception {
 
       }
 
       @Override
-      public void deleteQueueBinding(long tx, long queueBindingID) throws Exception {
+      public void deleteQueueBinding(StorageTX storageTX, long tx, long queueBindingID) throws Exception {
 
       }
 
       @Override
-      public void addAddressBinding(long tx, AddressInfo addressInfo) throws Exception {
+      public void addAddressBinding(StorageTX storageTX, long tx, AddressInfo addressInfo) throws Exception {
 
       }
 
       @Override
-      public void deleteAddressBinding(long tx, long addressBindingID) throws Exception {
+      public void deleteAddressBinding(StorageTX storageTX, long tx, long addressBindingID) throws Exception {
 
       }
 
@@ -707,7 +703,7 @@ public class TransactionImplTest extends ServerTestBase {
       }
 
       @Override
-      public void deleteGrouping(long tx, GroupBinding groupBinding) throws Exception {
+      public void deleteGrouping(StorageTX storageTX, long tx, GroupBinding groupBinding) throws Exception {
 
       }
 
@@ -823,7 +819,7 @@ public class TransactionImplTest extends ServerTestBase {
       }
 
       @Override
-      public long storePageCounter(long txID, long queueID, long value, long size) throws Exception {
+      public long storePageCounter(StorageTX storageTX, long txID, long queueID, long value, long size) throws Exception {
          return 0;
       }
 
@@ -833,22 +829,22 @@ public class TransactionImplTest extends ServerTestBase {
       }
 
       @Override
-      public void deleteIncrementRecord(long txID, long recordID) throws Exception {
+      public void deleteIncrementRecord(StorageTX storageTX, long txID, long recordID) throws Exception {
 
       }
 
       @Override
-      public void deletePageCounter(long txID, long recordID) throws Exception {
+      public void deletePageCounter(StorageTX storageTX, long txID, long recordID) throws Exception {
 
       }
 
       @Override
-      public void deletePendingPageCounter(long txID, long recordID) throws Exception {
+      public void deletePendingPageCounter(StorageTX storageTX, long txID, long recordID) throws Exception {
 
       }
 
       @Override
-      public long storePageCounterInc(long txID, long queueID, int add, long size) throws Exception {
+      public long storePageCounterInc(StorageTX txdata, long txID, long queueID, int add, long size) throws Exception {
          return 0;
       }
 

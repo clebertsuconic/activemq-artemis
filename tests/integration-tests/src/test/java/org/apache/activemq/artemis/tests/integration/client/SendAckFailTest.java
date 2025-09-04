@@ -64,6 +64,7 @@ import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.Persister;
 import org.apache.activemq.artemis.core.persistence.QueueBindingInfo;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
+import org.apache.activemq.artemis.core.persistence.StorageTX;
 import org.apache.activemq.artemis.core.persistence.config.AbstractPersistedAddressSetting;
 import org.apache.activemq.artemis.core.persistence.config.PersistedAddressSettingJSON;
 import org.apache.activemq.artemis.core.persistence.config.PersistedBridgeConfiguration;
@@ -307,13 +308,14 @@ public class SendAckFailTest extends SpawnedTestBase {
       }
 
       @Override
-      public void asyncCommit(long txID) throws Exception {
+      public void asyncCommit(StorageTX storageTX, long txID) throws Exception {
+         manager.asyncCommit(storageTX, txID);
 
       }
 
       @Override
-      public void updateQueueBinding(long tx, Binding binding) throws Exception {
-         manager.updateQueueBinding(tx, binding);
+      public void updateQueueBinding(StorageTX storageTX, long tx, Binding binding) throws Exception {
+         manager.updateQueueBinding(storageTX, tx, binding);
       }
 
       @Override
@@ -476,28 +478,28 @@ public class SendAckFailTest extends SpawnedTestBase {
       }
 
       @Override
-      public void storeMessageTransactional(long txID, Message message) throws Exception {
-         manager.storeMessageTransactional(txID, message);
+      public void storeMessageTransactional(StorageTX storageTX, long txID, Message message) throws Exception {
+         manager.storeMessageTransactional(storageTX, txID, message);
       }
 
       @Override
-      public void storeReferenceTransactional(long txID, long queueID, long messageID) throws Exception {
-         manager.storeReferenceTransactional(txID, queueID, messageID);
+      public void storeReferenceTransactional(StorageTX storageTX, long txID, long queueID, long messageID) throws Exception {
+         manager.storeReferenceTransactional(storageTX, txID, queueID, messageID);
       }
 
       @Override
-      public void storeAcknowledgeTransactional(long txID, long queueID, long messageID) throws Exception {
-         manager.storeAcknowledgeTransactional(txID, queueID, messageID);
+      public void storeAcknowledgeTransactional(StorageTX storageTX, long txID, long queueID, long messageID) throws Exception {
+         manager.storeAcknowledgeTransactional(storageTX, txID, queueID, messageID);
       }
 
       @Override
-      public void storeCursorAcknowledgeTransactional(long txID, long queueID, PagePosition position) throws Exception {
-         manager.storeCursorAcknowledgeTransactional(txID, queueID, position);
+      public void storeCursorAcknowledgeTransactional(StorageTX storageTX, long txID, long queueID, PagePosition position) throws Exception {
+         manager.storeCursorAcknowledgeTransactional(storageTX, txID, queueID, position);
       }
 
       @Override
-      public void deleteCursorAcknowledgeTransactional(long txID, long ackID) throws Exception {
-         manager.deleteCursorAcknowledgeTransactional(txID, ackID);
+      public void deleteCursorAcknowledgeTransactional(StorageTX storageTX, long txID, long ackID) throws Exception {
+         manager.deleteCursorAcknowledgeTransactional(storageTX, txID, ackID);
       }
 
       @Override
@@ -506,8 +508,8 @@ public class SendAckFailTest extends SpawnedTestBase {
       }
 
       @Override
-      public void storePageCompleteTransactional(long txID, long queueID, PagePosition position) throws Exception {
-         manager.storePageCompleteTransactional(txID, queueID, position);
+      public void storePageCompleteTransactional(StorageTX storageTX, long txID, long queueID, PagePosition position) throws Exception {
+         manager.storePageCompleteTransactional(storageTX, txID, queueID, position);
       }
 
       @Override
@@ -516,29 +518,29 @@ public class SendAckFailTest extends SpawnedTestBase {
       }
 
       @Override
-      public void updateScheduledDeliveryTimeTransactional(long txID, MessageReference ref) throws Exception {
-         manager.updateScheduledDeliveryTimeTransactional(txID, ref);
+      public void updateScheduledDeliveryTimeTransactional(StorageTX storageTX, long txID, MessageReference ref) throws Exception {
+         manager.updateScheduledDeliveryTimeTransactional(storageTX, txID, ref);
       }
 
       @Override
-      public void storeDuplicateIDTransactional(long txID,
+      public void storeDuplicateIDTransactional(StorageTX storageTX, long txID,
                                                 SimpleString address,
                                                 byte[] duplID,
                                                 long recordID) throws Exception {
-         manager.storeDuplicateIDTransactional(txID, address, duplID, recordID);
+         manager.storeDuplicateIDTransactional(storageTX, txID, address, duplID, recordID);
       }
 
       @Override
-      public void updateDuplicateIDTransactional(long txID,
+      public void updateDuplicateIDTransactional(StorageTX storageTX, long txID,
                                                  SimpleString address,
                                                  byte[] duplID,
                                                  long recordID) throws Exception {
-         manager.updateDuplicateIDTransactional(txID, address, duplID, recordID);
+         manager.updateDuplicateIDTransactional(storageTX, txID, address, duplID, recordID);
       }
 
       @Override
-      public void deleteDuplicateIDTransactional(long txID, long recordID) throws Exception {
-         manager.deleteDuplicateIDTransactional(txID, recordID);
+      public void deleteDuplicateIDTransactional(StorageTX storageTX, long txID, long recordID) throws Exception {
+         manager.deleteDuplicateIDTransactional(storageTX, txID, recordID);
       }
 
       @Override
@@ -557,43 +559,38 @@ public class SendAckFailTest extends SpawnedTestBase {
       }
 
       @Override
-      public void prepare(long txID, Xid xid) throws Exception {
-         manager.prepare(txID, xid);
+      public void prepare(StorageTX storageTX, long txID, Xid xid) throws Exception {
+         manager.prepare(storageTX, txID, xid);
       }
 
       @Override
-      public void commit(long txID, boolean send, boolean ack, boolean paged) throws Exception {
-         manager.commit(txID, true, true, true);
+      public void commit(StorageTX storageTX, long txID, boolean lineUpContext) throws Exception {
+         manager.commit(storageTX, txID, lineUpContext);
       }
 
       @Override
-      public void commit(long txID, boolean lineUpContext) throws Exception {
-         manager.commit(txID, lineUpContext);
+      public void rollback(StorageTX storageTX, long txID) throws Exception {
+         manager.rollback(storageTX, txID);
       }
 
       @Override
-      public void rollback(long txID) throws Exception {
-         manager.rollback(txID);
+      public void rollbackBindings(StorageTX storageTX, long txID) throws Exception {
+         manager.rollbackBindings(storageTX, txID);
       }
 
       @Override
-      public void rollbackBindings(long txID) throws Exception {
-         manager.rollbackBindings(txID);
+      public void commitBindings(StorageTX storageTX, long txID) throws Exception {
+         manager.commitBindings(storageTX, txID);
       }
 
       @Override
-      public void commitBindings(long txID) throws Exception {
-         manager.commitBindings(txID);
+      public void storePageTransaction(StorageTX storageTX, long txID, PageTransactionInfo pageTransaction) throws Exception {
+         manager.storePageTransaction(storageTX, txID, pageTransaction);
       }
 
       @Override
-      public void storePageTransaction(long txID, PageTransactionInfo pageTransaction) throws Exception {
-         manager.storePageTransaction(txID, pageTransaction);
-      }
-
-      @Override
-      public void updatePageTransaction(long txID, PageTransactionInfo pageTransaction, int depage) throws Exception {
-         manager.updatePageTransaction(txID, pageTransaction, depage);
+      public void updatePageTransaction(StorageTX storageTX, long txID, PageTransactionInfo pageTransaction, int depage) throws Exception {
+         manager.updatePageTransaction(storageTX, txID, pageTransaction, depage);
       }
 
       @Override
@@ -656,13 +653,13 @@ public class SendAckFailTest extends SpawnedTestBase {
       }
 
       @Override
-      public void addQueueBinding(long tx, Binding binding) throws Exception {
-         manager.addQueueBinding(tx, binding);
+      public void addQueueBinding(StorageTX storageTX, long tx, Binding binding) throws Exception {
+         manager.addQueueBinding(storageTX, tx, binding);
       }
 
       @Override
-      public void deleteQueueBinding(long tx, long queueBindingID) throws Exception {
-         manager.deleteQueueBinding(tx, queueBindingID);
+      public void deleteQueueBinding(StorageTX storageTX, long tx, long queueBindingID) throws Exception {
+         manager.deleteQueueBinding(storageTX, tx, queueBindingID);
       }
 
       @Override
@@ -687,13 +684,13 @@ public class SendAckFailTest extends SpawnedTestBase {
       }
 
       @Override
-      public void addAddressBinding(long tx, AddressInfo addressInfo) throws Exception {
-         manager.addAddressBinding(tx, addressInfo);
+      public void addAddressBinding(StorageTX storageTX, long tx, AddressInfo addressInfo) throws Exception {
+         manager.addAddressBinding(storageTX, tx, addressInfo);
       }
 
       @Override
-      public void deleteAddressBinding(long tx, long addressBindingID) throws Exception {
-         manager.deleteAddressBinding(tx, addressBindingID);
+      public void deleteAddressBinding(StorageTX storageTX, long tx, long addressBindingID) throws Exception {
+         manager.deleteAddressBinding(storageTX, tx, addressBindingID);
       }
 
       @Override
@@ -709,8 +706,8 @@ public class SendAckFailTest extends SpawnedTestBase {
       }
 
       @Override
-      public void deleteGrouping(long tx, GroupBinding groupBinding) throws Exception {
-         manager.deleteGrouping(tx, groupBinding);
+      public void deleteGrouping(StorageTX storageTX, long tx, GroupBinding groupBinding) throws Exception {
+         manager.deleteGrouping(storageTX, tx, groupBinding);
       }
 
       @Override
@@ -825,8 +822,8 @@ public class SendAckFailTest extends SpawnedTestBase {
       }
 
       @Override
-      public long storePageCounter(long txID, long queueID, long value, long size) throws Exception {
-         return manager.storePageCounter(txID, queueID, value, size);
+      public long storePageCounter(StorageTX storageTX, long txID, long queueID, long value, long size) throws Exception {
+         return manager.storePageCounter(storageTX, txID, queueID, value, size);
       }
 
       @Override
@@ -835,23 +832,23 @@ public class SendAckFailTest extends SpawnedTestBase {
       }
 
       @Override
-      public void deleteIncrementRecord(long txID, long recordID) throws Exception {
-         manager.deleteIncrementRecord(txID, recordID);
+      public void deleteIncrementRecord(StorageTX storageTX, long txID, long recordID) throws Exception {
+         manager.deleteIncrementRecord(storageTX, txID, recordID);
       }
 
       @Override
-      public void deletePageCounter(long txID, long recordID) throws Exception {
-         manager.deletePageCounter(txID, recordID);
+      public void deletePageCounter(StorageTX storageTX, long txID, long recordID) throws Exception {
+         manager.deletePageCounter(storageTX, txID, recordID);
       }
 
       @Override
-      public void deletePendingPageCounter(long txID, long recordID) throws Exception {
-         manager.deletePendingPageCounter(txID, recordID);
+      public void deletePendingPageCounter(StorageTX storageTX, long txID, long recordID) throws Exception {
+         manager.deletePendingPageCounter(storageTX, txID, recordID);
       }
 
       @Override
-      public long storePageCounterInc(long txID, long queueID, int add, long size) throws Exception {
-         return manager.storePageCounterInc(txID, queueID, add, size);
+      public long storePageCounterInc(StorageTX storageTX, long txID, long queueID, int add, long size) throws Exception {
+         return manager.storePageCounterInc(storageTX, txID, queueID, add, size);
       }
 
       @Override

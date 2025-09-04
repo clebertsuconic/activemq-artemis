@@ -31,6 +31,7 @@ import org.apache.activemq.artemis.core.io.IOCallback;
 import org.apache.activemq.artemis.core.io.OperationConsistencyLevel;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
+import org.apache.activemq.artemis.core.persistence.StorageTX;
 import org.apache.activemq.artemis.core.server.ActiveMQServerLogger;
 import org.apache.activemq.artemis.core.server.Queue;
 import org.apache.activemq.artemis.core.server.impl.AckReason;
@@ -57,6 +58,8 @@ public class TransactionImpl implements Transaction {
    protected final Xid xid;
 
    protected final long id;
+
+   protected final StorageTX storageTx;
 
    protected volatile State state = State.ACTIVE;
 
@@ -125,6 +128,8 @@ public class TransactionImpl implements Transaction {
    private TransactionImpl(final long id, final Xid xid, final StorageManager storageManager, final int timeoutSeconds) {
       this.storageManager = storageManager;
 
+      this.storageTx = storageManager.generateTX(id);
+
       this.xid = xid;
 
       this.id = id;
@@ -162,6 +167,11 @@ public class TransactionImpl implements Transaction {
    @Override
    public long getID() {
       return id;
+   }
+
+   @Override
+   public StorageTX getStorageTx() {
+      return storageTx;
    }
 
    @Override
@@ -226,7 +236,7 @@ public class TransactionImpl implements Transaction {
             if (delayed > 0) {
                delayedRunnable = new DelayedPrepare(id, xid);
             } else {
-               storageManager.prepare(id, xid);
+               storageManager.prepare(storageTx, id, xid);
             }
 
             state = State.PREPARED;
@@ -424,9 +434,9 @@ public class TransactionImpl implements Transaction {
       @Override
       protected void actualRun() throws Exception {
          if (async) {
-            storageManager.asyncCommit(id);
+            storageManager.asyncCommit(storageTx, id);
          } else {
-            storageManager.commit(id, true, true, true);
+            storageManager.commit(storageTx, id, false);
          }
       }
    }
@@ -442,7 +452,7 @@ public class TransactionImpl implements Transaction {
 
       @Override
       protected void actualRun() throws Exception {
-         storageManager.prepare(id, xid);
+         storageManager.prepare(storageTx, id, xid);
       }
    }
 
@@ -456,9 +466,9 @@ public class TransactionImpl implements Transaction {
             delayedRunnable = new DelayedCommit(id);
          } else {
             if (async) {
-               storageManager.asyncCommit(id);
+               storageManager.asyncCommit(storageTx, id);
             } else {
-               storageManager.commit(id, true, true, true);
+               storageManager.commit(storageTx, id, true);
             }
          }
       } else {
@@ -750,7 +760,7 @@ public class TransactionImpl implements Transaction {
 
    protected void doRollback() throws Exception {
       if (containsPersistent || xid != null && state == State.PREPARED) {
-         storageManager.rollback(id);
+         storageManager.rollback(storageTx, id);
       }
    }
 
