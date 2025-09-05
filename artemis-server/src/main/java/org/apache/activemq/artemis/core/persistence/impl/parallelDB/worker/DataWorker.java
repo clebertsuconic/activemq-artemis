@@ -24,6 +24,8 @@ import java.util.List;
 
 import org.apache.activemq.artemis.core.config.storage.DatabaseStorageConfiguration;
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.dbdata.DBData;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.DeleteMessageStatement;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.DeleteReferenceStatement;
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.MessageStatement;
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.statements.ReferencesStatement;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
@@ -44,12 +46,16 @@ public class DataWorker implements Runnable {
       connection.setAutoCommit(false);
       messageStatement = new MessageStatement(connection, connectionProvider, databaseConfiguration.getParallelDBMessages(), batchSize);
       referencesStatement = new ReferencesStatement(connection, connectionProvider, databaseConfiguration.getParallelDBReferences(), batchSize);
+      deleteReferenceStatement = new DeleteReferenceStatement(connection, connectionProvider, databaseConfiguration.getParallelDBReferences(), batchSize);
+      deleteMessageStatement = new DeleteMessageStatement(connection, connectionProvider, databaseConfiguration.getParallelDBReferences(), batchSize);
       this.name = name;
    }
 
    final Connection connection;
    public final MessageStatement messageStatement;
    public final ReferencesStatement referencesStatement;
+   public final DeleteReferenceStatement deleteReferenceStatement;
+   public final DeleteMessageStatement deleteMessageStatement;
 
    List<DBData> dataList;
 

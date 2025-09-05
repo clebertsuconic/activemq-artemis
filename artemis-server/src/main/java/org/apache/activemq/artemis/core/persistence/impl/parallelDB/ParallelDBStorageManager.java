@@ -276,6 +276,7 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
    @Override
    public void deleteMessage(long messageID) throws Exception {
       logger.info("Deleting messageID {}", messageID);
+      dataManager.deleteMessage(messageID, getContext());
 
    }
 
@@ -295,7 +296,12 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
 
    @Override
    public void storeAcknowledge(long queueID, long messageID) throws Exception {
+      dataManager.ackMessage(queueID, messageID, getContext());
+   }
 
+   @Override
+   public void storeAcknowledgeTransactional(StorageTX storageTX, long txID, long queueID, long messageID) throws Exception {
+      dataManager.ackMessage(storageTX, txID, queueID, messageID, getContext());
    }
 
    @Override
@@ -326,12 +332,6 @@ public class ParallelDBStorageManager extends AbstractStorageManager {
    @Override
    public void deletePendingLargeMessage(long recordID) throws Exception {
       journalDelegate.deletePendingLargeMessage(recordID);
-   }
-
-   @Override
-   public void storeAcknowledgeTransactional(StorageTX storageTX, long txID, long queueID, long messageID) throws Exception {
-
-      // TODO
    }
 
    @Override

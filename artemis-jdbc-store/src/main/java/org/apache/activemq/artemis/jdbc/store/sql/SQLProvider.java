@@ -108,6 +108,10 @@ public interface SQLProvider {
 
    String getInsertPDBReferences(String tableName);
 
+   String getDeletePDBReferences(String tableName);
+
+   String getDeletePDBMessages(String tableName);
+
    String getUpdateTX(String tableName);
 
    interface Factory {

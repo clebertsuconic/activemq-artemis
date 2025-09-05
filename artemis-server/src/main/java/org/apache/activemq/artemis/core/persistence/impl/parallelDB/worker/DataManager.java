@@ -32,6 +32,8 @@ import org.apache.activemq.artemis.core.journal.IOCompletion;
 import org.apache.activemq.artemis.core.persistence.StorageTX;
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.ParallelDBStoreTX;
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.dbdata.DBData;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.dbdata.DeleteMessageData;
+import org.apache.activemq.artemis.core.persistence.impl.parallelDB.dbdata.DeleteReferenceData;
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.dbdata.MessageData;
 import org.apache.activemq.artemis.core.persistence.impl.parallelDB.dbdata.MessageReferenceData;
 import org.apache.activemq.artemis.core.server.ActiveMQScheduledComponent;
@@ -130,6 +132,18 @@ public class DataManager extends ActiveMQScheduledComponent {
 
    public void storeMessage(Message message, Long tx, IOCompletion callback) {
       flushData(new MessageData(message, tx, callback));
+   }
+
+   public void deleteMessage(long messageID, IOCompletion callback) {
+      flushData(new DeleteMessageData(messageID, callback));
+   }
+
+   public void ackMessage(long queueID, long messageID, IOCompletion callback) {
+      flushData(new DeleteReferenceData(queueID, messageID, callback));
+   }
+
+   public void ackMessage(StorageTX storageTX, long txID, long queueID, long messageID, IOCompletion callback) {
+      castTX(storageTX).addData(new DeleteReferenceData(queueID, messageID, callback));
    }
 
    public void storeReference(StorageTX storageTX, long messageID, long queueID, Long txID, IOCompletion callback) {

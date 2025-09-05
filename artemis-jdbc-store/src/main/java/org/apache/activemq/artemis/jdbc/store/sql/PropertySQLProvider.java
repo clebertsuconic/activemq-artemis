@@ -127,6 +127,17 @@ public class PropertySQLProvider implements SQLProvider {
    }
 
    @Override
+   public String getDeletePDBReferences(String tableName) {
+      return format(sql("delete-parallelDB-references"), tableName);
+   }
+
+   @Override
+   public String getDeletePDBMessages(String tableName) {
+      return format(sql("delete-parallelDB-messages"), tableName);
+   }
+
+
+   @Override
    public String getUpdateTX(String tableName) {
       return format(sql("update-parallelDB-tx"), tableName);
    }
