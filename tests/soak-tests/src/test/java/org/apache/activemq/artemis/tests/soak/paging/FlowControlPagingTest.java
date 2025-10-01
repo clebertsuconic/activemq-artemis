@@ -92,7 +92,7 @@ public class FlowControlPagingTest extends SoakTestBase {
          HelperCreate cliCreateServer = helperCreate();
          cliCreateServer.setRole("amq").setUser("admin").setPassword("admin").setAllowAnonymous(true).setNoWeb(false).setArtemisInstance(serverLocation);
          // some limited memory to make it more likely to fail
-         cliCreateServer.setArgs("--java-memory", "512M");
+         cliCreateServer.setArgs("--java-memory", "512M", "--nio");
          cliCreateServer.setConfiguration("./src/main/resources/servers/flowControlPaging");
          cliCreateServer.createServer();
       }
@@ -114,8 +114,8 @@ public class FlowControlPagingTest extends SoakTestBase {
 
    public FlowControlPagingTest(String protocol) {
       this.protocol = protocol;
-      MESSAGES = TestParameters.testProperty(TEST_NAME, protocol + "_MESSAGES", 50_000);
-      COMMIT_INTERVAL = TestParameters.testProperty(TEST_NAME, protocol + "_COMMIT_INTERVAL", 1000);
+      MESSAGES = TestParameters.testProperty(TEST_NAME, protocol + "_MESSAGES", 500_000);
+      COMMIT_INTERVAL = TestParameters.testProperty(TEST_NAME, protocol + "_COMMIT_INTERVAL", 10_000);
       // if 0 will use AUTO_ACK
       RECEIVE_COMMIT_INTERVAL = TestParameters.testProperty(TEST_NAME, protocol + "_RECEIVE_COMMIT_INTERVAL", 0);
       MESSAGE_SIZE = TestParameters.testProperty(TEST_NAME, protocol + "_MESSAGE_SIZE", 10000);

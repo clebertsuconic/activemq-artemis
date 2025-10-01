@@ -129,6 +129,7 @@ import org.apache.activemq.artemis.core.server.ActivateCallback;
 import org.apache.activemq.artemis.core.server.ActivationFailureListener;
 import org.apache.activemq.artemis.core.server.ActiveMQComponent;
 import org.apache.activemq.artemis.core.server.ActiveMQMessageBundle;
+import org.apache.activemq.artemis.core.server.ActiveMQScheduledComponent;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
 import org.apache.activemq.artemis.core.server.ActiveMQServerLogger;
 import org.apache.activemq.artemis.core.server.AddressQueryResult;
@@ -1256,6 +1257,11 @@ public class ActiveMQServerImpl implements ActiveMQServer {
                      boolean restarting,
                      boolean isShutdown) {
       logger.debug("Stopping server {}", this);
+
+      if (peskyRunner != null) {
+         peskyRunner.stop();
+         peskyRunner = null;
+      }
 
       synchronized (this) {
          if (state == SERVER_STATE.STOPPED || state == SERVER_STATE.STOPPING) {
@@ -3562,6 +3568,37 @@ public class ActiveMQServerImpl implements ActiveMQServer {
       }
 
       deployFileStoreMonitor();
+
+      peskyRunner = new PeskyRunner(scheduledPool, executorFactory.getExecutor(), 100, 100, TimeUnit.MILLISECONDS, false);
+      peskyRunner.start();
+
+
+   }
+
+   PeskyRunner peskyRunner;
+
+   class PeskyRunner extends ActiveMQScheduledComponent {
+
+      public PeskyRunner(ScheduledExecutorService scheduledExecutorService,
+                         Executor executor,
+                         long initialDelay,
+                         long checkPeriod,
+                         TimeUnit timeUnit,
+                         boolean onDemand) {
+         super(scheduledExecutorService, executor, initialDelay, checkPeriod, timeUnit, onDemand);
+      }
+
+      @Override
+      public void run() {
+         try {
+            JournalStorageManager journalStorageManager = (JournalStorageManager) ActiveMQServerImpl.this.storageManager;
+            logger.info("Starting compactor");
+            journalStorageManager.getBindingsJournal().scheduleCompactAndBlock(1000);
+            logger.info("compactor done");
+         } catch (Exception e) {
+            logger.warn(e.getMessage(), e);
+         }
+      }
    }
 
    private void deployFileStoreMonitor() throws Exception {

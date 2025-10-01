@@ -339,10 +339,6 @@ public class HelperCreate extends HelperBase {
 
       add(listCommands, "--verbose");
 
-      if ("Linux".equals(System.getProperty("os.name"))) {
-         add(listCommands, "--aio");
-      }
-
       for (String str : args) {
          add(listCommands, str);
       }
