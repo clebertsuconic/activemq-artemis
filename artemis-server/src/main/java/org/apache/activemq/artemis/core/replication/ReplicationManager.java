@@ -678,7 +678,7 @@ public final class ReplicationManager implements ActiveMQComponent {
       }
       SequentialFile file = jf.getFile().cloneFile();
       try {
-         ActiveMQServerLogger.LOGGER.replicaSyncFile(file, file.size(), "journal");
+         ActiveMQServerLogger.LOGGER.replicaSyncFile(file, file.size());
          sendLargeFile(content, null, jf.getFileID(), file, Long.MAX_VALUE);
       } finally {
          if (file.isOpen())

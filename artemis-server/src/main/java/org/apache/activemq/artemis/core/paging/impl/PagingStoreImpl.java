@@ -1866,10 +1866,9 @@ public class PagingStoreImpl implements PagingStore {
       for (Integer id : pageIds) {
          SequentialFile sFile = factory.createSequentialFile(createFileName(id));
          if (!sFile.exists()) {
-            logger.info("XXX page {} does not exist", sFile);
             continue;
          }
-         ActiveMQServerLogger.LOGGER.replicaSyncFile(sFile, sFile.size(), storeName);
+         ActiveMQServerLogger.LOGGER.replicaSyncFile(sFile, sFile.size());
          replicator.syncPages(sFile, id, getAddress());
       }
    }
