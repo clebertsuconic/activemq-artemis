@@ -586,6 +586,7 @@ public class JournalStorageManager extends AbstractJournalStorageManager {
                                 String nodeID,
                                 final boolean autoFailBack,
                                 long initialReplicationSyncTimeout) throws Exception {
+      logger.info("Starting replication"); // TODO - remove me
       if (!started) {
          throw new IllegalStateException("JournalStorageManager must be started...");
       }

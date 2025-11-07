@@ -143,8 +143,8 @@ public interface ActiveMQServerLogger {
    @LogMessage(id = 221024, value = "Backup server {} is synchronized with primary server, nodeID={}.", level = LogMessage.Level.INFO)
    void backupServerSynchronized(ActiveMQServerImpl server, String nodeID);
 
-   @LogMessage(id = 221025, value = "Replication: sending {} (size={}) to replica.", level = LogMessage.Level.INFO)
-   void replicaSyncFile(SequentialFile jf, Long size);
+   @LogMessage(id = 221025, value = "Replication: sending {} (size={}) to replica, id={}", level = LogMessage.Level.INFO)
+   void replicaSyncFile(SequentialFile jf, Long size, Object identification);
 
    @LogMessage(id = 221026, value = "Bridge {} connected to forwardingAddress={}. {} does not have any bindings. Messages will be ignored until a binding is created.", level = LogMessage.Level.INFO)
    void bridgeNoBindings(SimpleString name, SimpleString forwardingAddress, SimpleString address);
@@ -1617,4 +1617,7 @@ public interface ActiveMQServerLogger {
 
    @LogMessage(id = 224138, value = "Error Registering DuplicateCacheSize on namespace {}", level = LogMessage.Level.WARN)
    void errorRegisteringDuplicateCacheSize(String address, Exception reason);
+
+   @LogMessage(id = 224153, value = "Cannot find page {} on Address {} while reloading ACKNOWLEDGE_CURSOR, deleting record {}.", level = LogMessage.Level.INFO)
+   void cannotFindPageFileDuringPageAckReload(long pageNr, Object address, long id);
 }
