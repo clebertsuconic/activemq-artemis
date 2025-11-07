@@ -571,6 +571,7 @@ public abstract class AbstractJournalStorageManager extends CriticalComponentImp
 
    @Override
    public void storePageCompleteTransactional(long txID, long queueID, PagePosition position) throws Exception {
+      logger.info("store Page Complete {}", position);
       long recordID = idGenerator.generateID();
       position.setRecordID(recordID);
       messageJournal.appendAddRecordTransactional(txID, recordID, JournalRecordIds.PAGE_CURSOR_COMPLETE, new CursorAckRecordEncoding(queueID, position));
@@ -578,6 +579,7 @@ public abstract class AbstractJournalStorageManager extends CriticalComponentImp
 
    @Override
    public void deletePageComplete(long ackID) throws Exception {
+      logger.info("Delete page Complete {}", ackID, new Exception("Trace"));
       messageJournal.tryAppendDeleteRecord(ackID, this::recordNotFoundCallback, false);
    }
 

@@ -287,6 +287,7 @@ public final class PageSubscriptionImpl implements PageSubscription {
 
          // First get the completed pages using a lock
          synchronized (consumedPages) {
+            consumedPages.forEach((a, b) -> logger.info("Contains {} = {}", a, b));
             // lastAckedPosition = null means no acks were done yet, so we are not ready to cleanup
             if (lastAckedPosition == null) {
                return;

@@ -318,11 +318,15 @@ public class PageCursorProviderImpl implements PageCursorProvider {
                   logger.trace("firstPage={}, minPage={}, currentWritingPage={}", firstPage, minPage, pagingStore.getCurrentWritingPage());
                }
 
+               logger.info("I'm here", new Exception("trace"));
                // First we cleanup regular streaming, at the beginning of set of files
                cleanupRegularStream(depagedPages, depagedPagesSet, cursorList, minPage, firstPage);
+               depagedPages.forEach(p -> logger.info("Right after regular stream:: {}", p));
 
                // Then we do some check on eventual pages that can be already removed but they are away from the streaming
                cleanupMiddleStream(depagedPages, depagedPagesSet, cursorList, minPage, firstPage);
+               depagedPages.forEach(p -> logger.info("Right after middle stream:: {}", p));
+
 
                if (pagingStore.isPageFull()) {
                   checkClearPageLimit();
@@ -369,6 +373,7 @@ public class PageCursorProviderImpl implements PageCursorProvider {
                           ArrayList<PageSubscription> cursorList,
                           long minPage,
                           long firstPage) throws Exception {
+      logger.info("CurrentWritingPage:: {}", pagingStore.getCurrentWritingPage());
       // if the current page is being written...
       // on that case we need to move to verify it in a different way
       Page currentPage = pagingStore.getCurrentPage();
