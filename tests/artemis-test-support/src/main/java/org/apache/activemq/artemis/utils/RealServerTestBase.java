@@ -34,6 +34,7 @@ import java.net.MalformedURLException;
 import java.util.HashSet;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.activemq.artemis.api.core.RoutingType;
 import org.apache.activemq.artemis.api.core.SimpleString;
@@ -76,6 +77,20 @@ public class RealServerTestBase extends ActiveMQTestBase {
       }
       processes.clear();
    }
+
+
+   protected void jstack(long pid, String serverName) throws Exception {
+      try {
+         System.out.println("*******************************************************************************************************************************");
+         System.out.println("jstack on " + serverName);
+         ExecuteUtil.runCommand(true, 1, TimeUnit.MINUTES, "jstack", "" + pid);
+         System.out.println("*******************************************************************************************************************************");
+      } catch (Throwable e) {
+         logger.warn("Error executing jstack on {}", serverName, e);
+      }
+   }
+
+
 
    public void killServer(Process process) {
       processes.remove(process);
