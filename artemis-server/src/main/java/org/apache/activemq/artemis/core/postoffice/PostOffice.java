@@ -116,7 +116,9 @@ public interface PostOffice extends ActiveMQComponent {
 
    void addBinding(Binding binding) throws Exception;
 
-   Binding removeBinding(SimpleString uniqueName, Transaction tx, boolean deleteData) throws Exception;
+   Binding removeBinding(SimpleString uniqueName) throws Exception;
+
+   Binding removeBinding(SimpleString uniqueName, Transaction tx) throws Exception;
 
    /**
     * It will lookup the Binding without creating an item on the Queue if non-existent

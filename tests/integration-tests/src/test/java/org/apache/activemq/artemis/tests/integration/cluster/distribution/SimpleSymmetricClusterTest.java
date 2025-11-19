@@ -41,6 +41,7 @@ import org.apache.activemq.artemis.core.server.cluster.MessageFlowRecord;
 import org.apache.activemq.artemis.core.server.cluster.RemoteQueueBinding;
 import org.apache.activemq.artemis.core.server.cluster.impl.ClusterConnectionImpl;
 import org.apache.activemq.artemis.core.server.cluster.impl.MessageLoadBalancingType;
+import org.apache.activemq.artemis.core.server.impl.AddressInfo;
 import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
 import org.apache.activemq.artemis.tests.integration.management.ManagementControlHelper;
 import org.apache.activemq.artemis.tests.util.Wait;
@@ -369,6 +370,30 @@ public class SimpleSymmetricClusterTest extends ClusterTestBase {
 
       closeAllConsumers();
 
+   }
+
+   @Test
+   public void testX() throws Exception {
+      final String ADDRESS = "queues.testaddress";
+      setupServer(0, false, isNetty());
+      setupServer(1, false, isNetty());
+
+      setupClusterConnection("cluster0", "queues", MessageLoadBalancingType.STRICT, 1, isNetty(), 0, 1);
+      setupClusterConnection("cluster1", "queues", MessageLoadBalancingType.STRICT, 1, isNetty(), 1, 0);
+
+      startServers(0, 1);
+      waitForServerToStart(servers[0]);
+      waitForServerToStart(servers[1]);
+
+      servers[0].addAddressInfo(new AddressInfo(ADDRESS).setAutoCreated(true).addRoutingType(RoutingType.MULTICAST));
+      servers[1].addAddressInfo(new AddressInfo(ADDRESS).setAutoCreated(true).addRoutingType(RoutingType.MULTICAST));
+
+      setupSessionFactory(0, isNetty());
+      setupSessionFactory(1, isNetty());
+
+      send(0, ADDRESS, 2, true, null);
+
+      Wait.assertEquals(1, () -> servers[1].getAddressInfo(SimpleString.of(ADDRESS)).getUnRoutedMessageCount());
    }
 
    @Test

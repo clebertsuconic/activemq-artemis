@@ -2214,7 +2214,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
 
          destroyPaging();
 
-         postOffice.removeBinding(queueConfiguration.getName(), tx, true);
+         postOffice.removeBinding(queueConfiguration.getName(), tx);
 
          if (removeConsumers) {
             for (ConsumerHolder consumerHolder : consumers) {

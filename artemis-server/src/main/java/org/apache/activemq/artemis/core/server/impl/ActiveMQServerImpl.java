@@ -3050,7 +3050,7 @@ public class ActiveMQServerImpl implements ActiveMQServer {
          throw ActiveMQMessageBundle.BUNDLE.bindingNotDivert(name);
       }
 
-      postOffice.removeBinding(name, null, true);
+      postOffice.removeBinding(name);
 
       if (((DivertBinding)binding).getDivert().getTransformer() != null) {
          getServiceRegistry().removeDivertTransformer(name.toString());

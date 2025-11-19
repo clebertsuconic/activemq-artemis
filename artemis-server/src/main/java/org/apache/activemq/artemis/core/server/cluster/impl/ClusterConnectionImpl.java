@@ -1544,7 +1544,7 @@ public final class ClusterConnectionImpl implements ClusterConnection, AfterConn
             return;
          }
 
-         postOffice.removeBinding(binding.getUniqueName(), null, true);
+         postOffice.removeBinding(binding.getUniqueName());
       }
 
       private synchronized void resetBinding(final SimpleString clusterName) throws Exception {

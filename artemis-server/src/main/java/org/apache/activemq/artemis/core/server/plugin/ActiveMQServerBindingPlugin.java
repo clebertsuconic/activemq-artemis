@@ -19,6 +19,7 @@ package org.apache.activemq.artemis.core.server.plugin;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.postoffice.Binding;
+import org.apache.activemq.artemis.core.postoffice.QueueBinding;
 import org.apache.activemq.artemis.core.transaction.Transaction;
 
 public interface ActiveMQServerBindingPlugin extends ActiveMQServerBasePlugin {
@@ -41,15 +42,37 @@ public interface ActiveMQServerBindingPlugin extends ActiveMQServerBasePlugin {
 
    /**
     * Before a binding is removed
+    *
+    * @deprecated use {@link #beforeRemoveBinding(SimpleString, Transaction)}
     */
+   @Deprecated(forRemoval = true)
    default void beforeRemoveBinding(SimpleString uniqueName, Transaction tx, boolean deleteData) throws ActiveMQException {
+
+   }
+
+   /**
+    * Before a binding is removed
+    */
+   default void beforeRemoveBinding(SimpleString uniqueName, Transaction tx) throws ActiveMQException {
+      // by default call the old method for backwards compatibility
+      beforeRemoveBinding(uniqueName, tx, true);
+   }
+
+   /**
+    * After a binding is removed
+    *
+    * @deprecated use {@link #afterRemoveBinding(Binding, Transaction, boolean)}
+    */
+   @Deprecated(forRemoval = true)
+   default void afterRemoveBinding(Binding binding, Transaction tx, boolean deleteData) throws ActiveMQException {
 
    }
 
    /**
     * After a binding is removed
     */
-   default void afterRemoveBinding(Binding binding, Transaction tx, boolean deleteData) throws ActiveMQException {
-
+   default void afterRemoveBinding(Binding binding, Transaction tx) throws ActiveMQException {
+      // by default call the old method for backwards compatibility
+      afterRemoveBinding(binding, tx, true);
    }
 }

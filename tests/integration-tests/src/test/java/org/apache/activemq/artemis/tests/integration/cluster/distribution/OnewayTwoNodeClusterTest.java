@@ -16,15 +16,28 @@
  */
 package org.apache.activemq.artemis.tests.integration.cluster.distribution;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.apache.activemq.artemis.api.core.RoutingType;
+import org.apache.activemq.artemis.api.core.SimpleString;
+import org.apache.activemq.artemis.core.paging.PagingManager;
+import org.apache.activemq.artemis.core.postoffice.DuplicateIDCache;
+import org.apache.activemq.artemis.core.postoffice.impl.PostOfficeImpl;
+import org.apache.activemq.artemis.core.postoffice.impl.PostOfficeTestAccessor;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
 import org.apache.activemq.artemis.core.server.cluster.impl.MessageLoadBalancingType;
+import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
+import org.apache.activemq.artemis.utils.RandomUtil;
+import org.apache.activemq.artemis.utils.Wait;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.lang.invoke.MethodHandles;
+import java.util.Arrays;
+import java.util.concurrent.ConcurrentMap;
 
 public class OnewayTwoNodeClusterTest extends ClusterTestBase {
 
@@ -243,6 +256,42 @@ public class OnewayTwoNodeClusterTest extends ClusterTestBase {
 
       //5 messages were sent across the bridge to the second broker
       verifyBridgeMetrics(0, "cluster1", servers[1].getClusterManager().getNodeId(), 5, 5);
+   }
+
+   @Test
+   public void testWildcardSubscription() throws Exception {
+      startServers(1, 0);
+      servers[1].getAddressSettingsRepository().addMatch("queues.#", new AddressSettings().setAutoDeleteAddresses(true).setAutoDeleteAddressesDelay(2000).setAutoDeleteAddressesSkipUsageCheck(true));
+
+      setupSessionFactory(0, isNetty(), true);
+      setupSessionFactory(1, isNetty(), true);
+
+      createQueue(1, "queues.#", "queue0", null, false, RoutingType.MULTICAST);
+
+      addConsumer(0, 1, "queue0", null);
+
+      waitForBindings(1, "queues.#", 1, 1, true);
+
+      waitForBindings(0, "queues.#", 1, 1, false);
+
+      for (int i = 0; i < 10; i++) {
+         String address = "queues." + RandomUtil.randomAlphaNumericString(5);
+         createAddressInfo(0, address, RoutingType.MULTICAST, -1, false);
+         send(0, address, 1, false, null, RoutingType.MULTICAST, null);
+      }
+
+      Wait.assertEquals(10L, () -> servers[1].locateQueue("queue0").getMessageCount(), 2000, 50);
+      ConcurrentMap<SimpleString, DuplicateIDCache> caches = ((PostOfficeImpl)servers[1].getPostOffice()).getDuplicateIDCaches();
+      assertEquals(10, caches.size());
+      Wait.assertEquals(0, () -> {
+         PostOfficeTestAccessor.sweepAndReapAddresses((PostOfficeImpl) servers[1].getPostOffice());
+         return caches.size();
+      }, 4000, 50);
+      PagingManager pagingManager = servers[1].getPagingManager();
+      Wait.assertEquals(0, () -> {
+         PostOfficeTestAccessor.sweepAndReapAddresses((PostOfficeImpl) servers[1].getPostOffice());
+         return pagingManager.getStoreNames().length - 3;
+      }, 4000, 50);
    }
 
    @Test

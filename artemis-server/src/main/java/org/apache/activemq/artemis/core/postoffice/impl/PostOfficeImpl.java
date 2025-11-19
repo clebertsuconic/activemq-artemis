@@ -889,7 +889,7 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
                if (binding instanceof LocalQueueBinding localQueueBinding) {
                   localQueueBinding.getQueue().deleteQueue(true);
                } else if (binding instanceof RemoteQueueBinding) {
-                  removeBinding(binding.getUniqueName(), null, true);
+                  removeBinding(binding.getUniqueName());
                }
             }
 
@@ -904,6 +904,9 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
          }
 
          removeRetroactiveResources(address);
+
+         deleteDuplicateCache(address);
+
          if (server.hasBrokerAddressPlugins()) {
             server.callBrokerAddressPlugins(plugin -> plugin.afterRemoveAddress(address, addressInfo));
          }
@@ -978,12 +981,16 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
    }
 
    @Override
+   public synchronized Binding removeBinding(final SimpleString uniqueName) throws Exception {
+      return removeBinding(uniqueName, null);
+   }
+
+   @Override
    public synchronized Binding removeBinding(final SimpleString uniqueName,
-                                             Transaction tx,
-                                             boolean deleteData) throws Exception {
+                                             Transaction tx) throws Exception {
 
       if (server.hasBrokerBindingPlugins()) {
-         server.callBrokerBindingPlugins(plugin -> plugin.beforeRemoveBinding(uniqueName, tx, deleteData));
+         server.callBrokerBindingPlugins(plugin -> plugin.beforeRemoveBinding(uniqueName, tx, true));
       }
 
       try {
@@ -994,7 +1001,7 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
             throw new ActiveMQNonExistentQueueException();
          }
 
-         if (deleteData && addressManager.getExistingBindingsForRoutingAddress(binding.getAddress()) == null) {
+         if (addressManager.getExistingBindingsForRoutingAddress(binding.getAddress()) == null) {
             deleteDuplicateCache(binding.getAddress());
          }
 
@@ -1035,7 +1042,7 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
          binding.close();
 
          if (server.hasBrokerBindingPlugins()) {
-            server.callBrokerBindingPlugins(plugin -> plugin.afterRemoveBinding(binding, tx, deleteData));
+            server.callBrokerBindingPlugins(plugin -> plugin.afterRemoveBinding(binding, tx));
          }
 
          return binding;
