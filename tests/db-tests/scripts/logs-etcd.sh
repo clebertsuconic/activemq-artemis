@@ -16,9 +16,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-./stop-db2.sh
-./stop-mssql.sh
-./stop-mysql.sh
-./stop-oracle.sh
-./stop-postgres.sh
-./stop-etcd.sh
+source ./container-define.sh
+
+$CONTAINER_COMMAND logs -f etcd-artemis-test

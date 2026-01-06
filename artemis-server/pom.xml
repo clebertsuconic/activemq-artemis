@@ -91,6 +91,12 @@
          <artifactId>artemis-lockmanager-api</artifactId>
       </dependency>
       <dependency>
+         <groupId>io.etcd</groupId>
+         <artifactId>jetcd-core</artifactId>
+         <version>${etcd.version}</version>
+         <optional>true</optional>
+      </dependency>
+      <dependency>
          <groupId>org.jctools</groupId>
          <artifactId>jctools-core</artifactId>
       </dependency>

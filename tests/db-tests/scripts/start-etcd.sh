@@ -16,9 +16,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-./stop-db2.sh
-./stop-mssql.sh
-./stop-mysql.sh
-./stop-oracle.sh
-./stop-postgres.sh
+source ./container-define.sh
+
 ./stop-etcd.sh
+$CONTAINER_COMMAND run -d --name etcd-artemis-test \
+    -p 2379:2379 \
+    -p 2380:2380 \
+    gcr.io/etcd-development/etcd:v3.5.12 \
+    /usr/local/bin/etcd \
+    --advertise-client-urls http://0.0.0.0:2379 \
+    --listen-client-urls http://0.0.0.0:2379

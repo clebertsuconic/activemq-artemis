@@ -411,6 +411,22 @@ public class TransportConstants {
 
    public static final String DEFAULT_OCSP_RESPONDER_URL = null;
 
+   public static final String ETCD_CONNECTION_PROP_NAME = "etcdConnection";
+
+   public static final String DEFAULT_ETCD_CONNECTION = null;
+
+   public static final String ETCD_LOCK_NAME_PROP_NAME = "etcdLockName";
+
+   public static final String DEFAULT_ETCD_LOCK_NAME = null;
+
+   public static final String ETCD_LEASE_LOCK_SECONDS_PROP_NAME = "etcdLeaseLockSeconds";
+
+   public static final int DEFAULT_ETCD_LEASE_LOCK_SECONDS = 5;
+
+   public static final String ETCD_TTL_MS_PROP_NAME = "etcdTTLMS";
+
+   public static final long DEFAULT_ETCD_TTL_MS = 1000L;
+
    private static int parseDefaultVariable(String variableName, int defaultValue) {
       try {
          String variable = System.getProperty(TransportConstants.class.getName() + "." + variableName);
@@ -494,6 +510,10 @@ public class TransportConstants {
       allowableAcceptorKeys.add(TransportConstants.PROXY_PROTOCOL_ENABLED_PROP_NAME);
       allowableAcceptorKeys.add(TransportConstants.CRC_OPTIONS_PROP_NAME);
       allowableAcceptorKeys.add(TransportConstants.OCSP_RESPONDER_URL_PROP_NAME);
+      allowableAcceptorKeys.add(TransportConstants.ETCD_CONNECTION_PROP_NAME);
+      allowableAcceptorKeys.add(TransportConstants.ETCD_LOCK_NAME_PROP_NAME);
+      allowableAcceptorKeys.add(TransportConstants.ETCD_LEASE_LOCK_SECONDS_PROP_NAME);
+      allowableAcceptorKeys.add(TransportConstants.ETCD_TTL_MS_PROP_NAME);
 
       ALLOWABLE_ACCEPTOR_KEYS = Collections.unmodifiableSet(allowableAcceptorKeys);
 

@@ -88,6 +88,7 @@ import org.apache.activemq.artemis.core.server.cluster.ClusterConnection;
 import org.apache.activemq.artemis.core.server.management.Notification;
 import org.apache.activemq.artemis.core.server.management.NotificationService;
 import org.apache.activemq.artemis.core.server.metrics.MetricsManager;
+import org.apache.activemq.artemis.core.server.etcd.EtcdDistributedLock;
 import org.apache.activemq.artemis.spi.core.protocol.ProtocolManager;
 import org.apache.activemq.artemis.spi.core.remoting.BufferHandler;
 import org.apache.activemq.artemis.spi.core.remoting.Connection;
@@ -225,6 +226,11 @@ public class NettyAcceptor extends AbstractAcceptor {
    private final ScheduledExecutorService scheduledThreadPool;
 
    private NotificationService notificationService;
+
+   private String etcdLockName;
+   private String etcdConnection;
+   private int etcdLeaseLockSeconds;
+   private long etcdTTLMS;
 
    /**
     * The amount of time we wait before new tasks are added during a shutdown period.
@@ -421,6 +427,18 @@ public class NettyAcceptor extends AbstractAcceptor {
       autoStart = ConfigurationHelper.getBooleanProperty(TransportConstants.AUTO_START, TransportConstants.DEFAULT_AUTO_START, configuration);
 
       router = ConfigurationHelper.getStringProperty(TransportConstants.ROUTER, TransportConstants.DEFAULT_ROUTER, configuration);
+
+      etcdConnection = ConfigurationHelper.getStringProperty(TransportConstants.ETCD_CONNECTION_PROP_NAME, TransportConstants.DEFAULT_ETCD_CONNECTION, configuration);
+
+      if (etcdConnection != null) {
+         logger.info("ETCDConnection {}", etcdConnection, new Exception("trace"));
+      }
+
+      etcdLockName = ConfigurationHelper.getStringProperty(TransportConstants.ETCD_LOCK_NAME_PROP_NAME, TransportConstants.DEFAULT_ETCD_LOCK_NAME, configuration);
+
+      etcdLeaseLockSeconds = ConfigurationHelper.getIntProperty(TransportConstants.ETCD_LEASE_LOCK_SECONDS_PROP_NAME, TransportConstants.DEFAULT_ETCD_LEASE_LOCK_SECONDS, configuration);
+
+      etcdTTLMS = ConfigurationHelper.getLongProperty(TransportConstants.ETCD_TTL_MS_PROP_NAME, TransportConstants.DEFAULT_ETCD_TTL_MS, configuration);
    }
 
    private Object loadSSLContext() {
@@ -449,8 +467,75 @@ public class NettyAcceptor extends AbstractAcceptor {
       return sslContextConfig;
    }
 
+   public String getEtcdConnection() {
+      return etcdConnection;
+   }
+
+   public void setEtcdConnection(String etcdConnection) {
+      logger.info("EtcdConnection={}", etcdConnection, new Exception("Traced"));
+      this.etcdConnection = etcdConnection;
+   }
+
+   public String getEtcdLockName() {
+      return etcdLockName;
+   }
+
+   public void setEtcLockName(String etcdLockName) {
+      logger.info("etcdLockName={}", etcdLockName, new Exception("trace"));
+      this.etcdLockName = etcdLockName;
+   }
+
+   public int getEtcdLeaseLockSeconds() {
+      return etcdLeaseLockSeconds;
+   }
+
+   public void setEtcdLeaseLockSeconds(int etcdLeaseLockSeconds) {
+      this.etcdLeaseLockSeconds = etcdLeaseLockSeconds;
+   }
+
+   public long getEtcdTTLMS() {
+      return etcdTTLMS;
+   }
+
+   public void setEtcdTTLMS(long etcdTTLMS) {
+      this.etcdTTLMS = etcdTTLMS;
+   }
+
+   EtcdDistributedLock etcdDistributedLock;
+
    @Override
    public synchronized void start() throws Exception {
+      if (etcdLockName != null || etcdConnection != null) {
+         logger.info("Starting with ETCDLock.....", new Exception("trace"));
+         etcdDistributedLock = new EtcdDistributedLock(etcdConnection, etcdLockName, etcdLeaseLockSeconds, etcdTTLMS, scheduledThreadPool, this::startFromETCD, this::stopFromETCD);
+         etcdDistributedLock.start();
+      } else {
+         internalStart();
+      }
+   }
+
+   private void startFromETCD() {
+      boolean succeed = false;
+      while (!succeed) {
+         try {
+            internalStart();
+            succeed = true;
+         } catch (Throwable e) {
+            logger.info("Retrying start");
+            logger.warn(e.getMessage(), e);
+         }
+      }
+   }
+
+   private void stopFromETCD() {
+      try {
+         internalStop();
+      } catch (Throwable e) {
+         logger.warn(e.getMessage(), e);
+      }
+   }
+
+   private void internalStart() throws Exception {
       if (channelClazz != null) {
          // Already started
          return;
@@ -770,6 +855,14 @@ public class NettyAcceptor extends AbstractAcceptor {
 
    @Override
    public void stop() throws Exception {
+      if (etcdDistributedLock != null) {
+         etcdDistributedLock.stop();
+      } else {
+         internalStop();
+      }
+   }
+
+   private void internalStop() throws Exception {
       CountDownLatch latch = new CountDownLatch(1);
       asyncStop(latch::countDown);
       latch.await();

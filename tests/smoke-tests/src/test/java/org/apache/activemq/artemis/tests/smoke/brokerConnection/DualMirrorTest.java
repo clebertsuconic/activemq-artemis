@@ -47,7 +47,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-public class DualMirrorNoContainerTest extends SmokeTestBase {
+public class DualMirrorTest extends SmokeTestBase {
 
    // Change this to true to generate a print-data in certain cases on this test
    private static final boolean PRINT_DATA = false;
