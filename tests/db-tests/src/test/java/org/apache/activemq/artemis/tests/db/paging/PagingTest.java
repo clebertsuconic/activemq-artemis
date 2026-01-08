@@ -1838,7 +1838,7 @@ public class PagingTest extends ParameterDBTestBase {
 
       queue = server.locateQueue(PagingTest.ADDRESS);
 
-      Wait.assertEquals(0, queue::getMessageCount);
+      Wait.assertEquals(0L, queue::getMessageCount, 5000, 100);
 
       Wait.assertFalse(queue.getPageSubscription().getPagingStore()::isPaging, 5000, 100);
 
@@ -1846,6 +1846,78 @@ public class PagingTest extends ParameterDBTestBase {
 
       server.stop();
    }
+
+
+   @TestTemplate
+   public void testAckAndCount() throws Exception {
+      Configuration config = createDefaultInVMConfig().setJournalDirectory(getJournalDir()).setJournalSyncNonTransactional(false).setJournalCompactMinFiles(0).setPageSyncTimeout(1000); // disable compact
+
+      server = createServer(true, config, PagingTest.PAGE_SIZE, PagingTest.PAGE_MAX, -1, -1);
+
+      server.start();
+
+      final int NUM_MESSAGES = 100;
+      final int COMMIT_INTERVAL = 10;
+
+      locator = createInVMNonHALocator().setConsumerWindowSize(10 * 1024 * 1024).setBlockOnNonDurableSend(true).setBlockOnDurableSend(true).setBlockOnAcknowledge(true);
+
+      ClientSessionFactory sf = locator.createSessionFactory();
+
+      ClientSession session = sf.createSession(false, false, false);
+
+      session.createAddress(PagingTest.ADDRESS, RoutingType.MULTICAST, false);
+      session.createQueue(QueueConfiguration.of(PagingTest.ADDRESS).setRoutingType(RoutingType.MULTICAST));
+
+      ClientProducer producer = session.createProducer(PagingTest.ADDRESS);
+
+      ClientMessage message = null;
+
+      byte[] body = new byte[MESSAGE_SIZE];
+
+      ByteBuffer bb = ByteBuffer.wrap(body);
+
+      for (int j = 1; j <= MESSAGE_SIZE; j++) {
+         bb.put(getSamplebyte(j));
+      }
+
+      for (int i = 0; i < NUM_MESSAGES; i++) {
+         message = session.createMessage(true);
+
+         ActiveMQBuffer bodyLocal = message.getBodyBuffer();
+
+         bodyLocal.writeBytes(body);
+
+         producer.send(message);
+         if (i % COMMIT_INTERVAL == 0) {
+            session.commit();
+         }
+      }
+      session.commit();
+      session.close();
+
+      locator = createInVMNonHALocator();
+      locator.setConsumerWindowSize(10 * 1024 * 1024);
+      sf = locator.createSessionFactory();
+      session = sf.createSession(false, false, false);
+      ClientConsumer cons = (ClientConsumerInternal) session.createConsumer(ADDRESS);
+      session.start();
+
+      Queue queue = server.locateQueue(ADDRESS);
+      assertNotNull(queue);
+
+      for (int i = 0; i < NUM_MESSAGES; i++) {
+         message = cons.receive(1000);
+         assertNotNull(message);
+         message.acknowledge();
+         session.commit();
+         Wait.assertEquals((long) (NUM_MESSAGES - i), queue::getMessageCount, 5000, 100);
+      }
+      Wait.assertEquals(0L, queue::getMessageCount, 5000, 100);
+      Wait.assertFalse(getPagingStore(queue)::isPaging);
+
+      server.stop();
+   }
+
 
    @TestTemplate
    public void testDeleteQueue() throws Exception {
