@@ -1742,7 +1742,7 @@ public class PagingTest extends ParameterDBTestBase {
 
       {
          Queue queue = server.locateQueue(QUEUE2);
-         getPagingStore(queue).startPaging();
+         queue.getPagingStore().startPaging();
          Wait.assertEquals(0L, queue::getMessageCount, 5000, 100);
       }
 
@@ -1758,9 +1758,10 @@ public class PagingTest extends ParameterDBTestBase {
             session.commit();
          }
       }
+      session.commit();
       {
          Queue queue = server.locateQueue(QUEUE2);
-         Wait.assertEquals(NUM_MESSAGES, queue::getMessageCount, 5000, 100);
+         Wait.assertEquals((long)NUM_MESSAGES, queue::getMessageCount, 5000, 100);
       }
       session.commit();
       producer.close();
