@@ -1868,6 +1868,9 @@ public class PagingTest extends ParameterDBTestBase {
       session.createAddress(PagingTest.ADDRESS, RoutingType.MULTICAST, false);
       session.createQueue(QueueConfiguration.of(PagingTest.ADDRESS).setRoutingType(RoutingType.MULTICAST));
 
+      Queue queue = server.locateQueue(ADDRESS);
+      queue.getPagingStore().startPaging();
+
       ClientProducer producer = session.createProducer(PagingTest.ADDRESS);
 
       ClientMessage message = null;
@@ -1902,18 +1905,18 @@ public class PagingTest extends ParameterDBTestBase {
       ClientConsumer cons = (ClientConsumerInternal) session.createConsumer(ADDRESS);
       session.start();
 
-      Queue queue = server.locateQueue(ADDRESS);
-      assertNotNull(queue);
+      long total = NUM_MESSAGES;
 
       for (int i = 0; i < NUM_MESSAGES; i++) {
+         Wait.assertEquals(total, queue::getMessageCount, 5000, 100);
+         total--;
          message = cons.receive(1000);
          assertNotNull(message);
          message.acknowledge();
          session.commit();
-         Wait.assertEquals((long) (NUM_MESSAGES - i), queue::getMessageCount, 5000, 100);
       }
       Wait.assertEquals(0L, queue::getMessageCount, 5000, 100);
-      Wait.assertFalse(getPagingStore(queue)::isPaging);
+      Wait.assertFalse(queue.getPageSubscription()::isPaging, 5000, 100);
 
       server.stop();
    }
