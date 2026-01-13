@@ -89,7 +89,7 @@ public class Artemis {
          extraLibs = System.getenv(EXTRA_LIBS_ENVIRONMENT_VARIABLE);
       }
       if (extraLibs != null) {
-         for (String extraLib: extraLibs.split(",")) {
+         for (String extraLib: extraLibs.split(",", -1)) {
             dirs.add(new File(extraLib));
          }
       }

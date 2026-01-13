@@ -1956,7 +1956,7 @@ public final class ServerLocatorImpl implements ServerLocatorInternal, Discovery
       }
       SecurityManagerShim.doPrivileged((PrivilegedAction<Object>) () -> {
 
-         String[] arrayInterceptor = interceptorList.split(",");
+         String[] arrayInterceptor = interceptorList.split(",", -1);
          for (String strValue : arrayInterceptor) {
             Interceptor interceptor = (Interceptor) ClassloadingUtil.newInstanceFromClassLoader(ServerLocatorImpl.class, strValue.trim(), Interceptor.class);
             interceptors.add(interceptor);

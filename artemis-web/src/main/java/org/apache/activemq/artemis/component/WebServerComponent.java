@@ -489,7 +489,7 @@ public class WebServerComponent implements ExternalComponent, WebServerComponent
       }
 
       if (webServerConfig.requestLog.ignorePaths != null && !webServerConfig.requestLog.ignorePaths.isEmpty()) {
-         String[] split = webServerConfig.requestLog.ignorePaths.split(",");
+         String[] split = webServerConfig.requestLog.ignorePaths.split(",", -1);
          String[] ignorePaths = new String[split.length];
          for (int i = 0; i < ignorePaths.length; i++) {
             ignorePaths[i] = split[i].trim();

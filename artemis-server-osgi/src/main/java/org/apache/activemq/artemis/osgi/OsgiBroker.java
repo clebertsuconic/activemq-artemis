@@ -144,7 +144,7 @@ public class OsgiBroker {
       for (TransportConfiguration acceptor : acceptors) {
          Object protocolsFromAcceptor = acceptor.getParams().get(TransportConstants.PROTOCOLS_PROP_NAME);
          if (protocolsFromAcceptor != null) {
-            String[] protocolsSplit = protocolsFromAcceptor.toString().split(",");
+            String[] protocolsSplit = protocolsFromAcceptor.toString().split(",", -1);
             for (String protocol : protocolsSplit) {
                if (!protocols.contains(protocol)) {
                   protocols.add(protocol);

@@ -880,7 +880,7 @@ public final class OpenWireMessageConverter {
    }
 
    private static void setAMQMsgBrokerPath(final ActiveMQMessage amqMsg, final String brokerPath) {
-      String[] brokers = brokerPath.split(",");
+      String[] brokers = brokerPath.split(",", -1);
       BrokerId[] bids = new BrokerId[brokers.length];
       for (int i = 0; i < bids.length; i++) {
          bids[i] = new BrokerId(brokers[i]);
@@ -889,7 +889,7 @@ public final class OpenWireMessageConverter {
    }
 
    private static void setAMQMsgClusterPath(final ActiveMQMessage amqMsg, final String clusterPath) {
-      String[] cluster = clusterPath.split(",");
+      String[] cluster = clusterPath.split(",", -1);
       BrokerId[] bids = new BrokerId[cluster.length];
       for (int i = 0; i < bids.length; i++) {
          bids[i] = new BrokerId(cluster[i]);

@@ -1035,7 +1035,7 @@ public class Create extends InstallAbstract {
       printWriter.println();
 
       for (String str : getQueueList()) {
-         String[] seg = str.split(":");
+         String[] seg = str.split(":", -1);
          String name = seg[0].trim();
          // default routing type to anycast if not specified
          String routingType = (seg.length == 2 ? seg[1].trim() : "anycast");
@@ -1052,7 +1052,7 @@ public class Create extends InstallAbstract {
          printWriter.println("         </address>");
       }
       for (String str : getAddressList()) {
-         String[] seg = str.split(":");
+         String[] seg = str.split(":", -1);
          String name = seg[0].trim();
          // default routing type to multicast if not specified
          String routingType = (seg.length == 2 ? seg[1].trim() : "multicast");

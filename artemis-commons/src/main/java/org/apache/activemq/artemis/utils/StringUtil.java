@@ -53,7 +53,7 @@ public class StringUtil {
    public static List<String> splitStringList(String strList, String delimit) {
       List<String> list = new ArrayList<>();
       if (strList != null && !strList.isEmpty()) {
-         for (String string : strList.split(delimit)) {
+         for (String string : strList.split(delimit, -1)) {
             list.add(string.trim());
          }
       }

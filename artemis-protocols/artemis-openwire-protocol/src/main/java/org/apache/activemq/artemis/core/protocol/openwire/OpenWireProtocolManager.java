@@ -674,14 +674,14 @@ public class OpenWireProtocolManager  extends AbstractProtocolManager<Command, O
 
    @Override
    public void setAnycastPrefix(String anycastPrefix) {
-      for (String prefix : anycastPrefix.split(",")) {
+      for (String prefix : anycastPrefix.split(",", -1)) {
          prefixes.put(SimpleString.of(prefix), RoutingType.ANYCAST);
       }
    }
 
    @Override
    public void setMulticastPrefix(String multicastPrefix) {
-      for (String prefix : multicastPrefix.split(",")) {
+      for (String prefix : multicastPrefix.split(",", -1)) {
          prefixes.put(SimpleString.of(prefix), RoutingType.MULTICAST);
       }
    }
@@ -743,8 +743,8 @@ public class OpenWireProtocolManager  extends AbstractProtocolManager<Command, O
    }
 
    public void setVirtualTopicConsumerWildcards(String virtualTopicConsumerWildcards) {
-      for (String filter : virtualTopicConsumerWildcards.split(",")) {
-         String[] configuration = filter.split(";");
+      for (String filter : virtualTopicConsumerWildcards.split(",", -1)) {
+         String[] configuration = filter.split(";", -1);
          vtConsumerDestinationMatchers.put(DestinationFilter.parseFilter(new ActiveMQQueue(configuration[0])), new VirtualTopicConfig(configuration));
       }
    }

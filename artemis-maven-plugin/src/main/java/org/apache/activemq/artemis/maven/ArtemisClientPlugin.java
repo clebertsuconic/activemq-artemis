@@ -53,7 +53,7 @@ public class ArtemisClientPlugin extends ArtemisAbstractPlugin {
 
 
    protected ClassLoader defineClassLoader(String classPath) throws Exception {
-      String[] classPathArray = classPath.split(File.pathSeparator);
+      String[] classPathArray = classPath.split(File.pathSeparator, -1);
       URL[] elements = new URL[classPathArray.length];
       for (int i = 0; i < classPathArray.length; i++) {
          elements[i] = new File(classPathArray[i]).toPath().toUri().toURL();

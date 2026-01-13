@@ -123,7 +123,7 @@ public class NetworkHealthCheck extends ActiveMQScheduledComponent {
 
    public NetworkHealthCheck parseAddressList(String addressList) {
       if (addressList != null) {
-         String[] addresses = addressList.split(",");
+         String[] addresses = addressList.split(",", -1);
 
          for (String address : addresses) {
             if (!address.trim().isEmpty()) {
@@ -142,7 +142,7 @@ public class NetworkHealthCheck extends ActiveMQScheduledComponent {
 
    public NetworkHealthCheck parseURIList(String addressList) {
       if (addressList != null) {
-         String[] addresses = addressList.split(",");
+         String[] addresses = addressList.split(",", -1);
 
          for (String address : addresses) {
             if (!address.trim().isEmpty()) {

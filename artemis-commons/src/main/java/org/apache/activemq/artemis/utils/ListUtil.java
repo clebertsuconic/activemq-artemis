@@ -25,7 +25,7 @@ public class ListUtil {
       if (commaSeparatedString == null || commaSeparatedString.trim().isEmpty()) {
          return list;
       }
-      String[] values = commaSeparatedString.split(",");
+      String[] values = commaSeparatedString.split(",", -1);
       for (String value : values) {
          list.add(value.trim());
       }

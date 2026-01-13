@@ -280,7 +280,7 @@ public class DecodeJournal extends LockAbstract {
       Properties properties = new Properties();
 
       for (String el : splitLine) {
-         String[] tuple = el.split("@");
+         String[] tuple = el.split("@", -1);
          if (tuple.length == 2) {
             properties.put(tuple[0], tuple[1]);
          } else {

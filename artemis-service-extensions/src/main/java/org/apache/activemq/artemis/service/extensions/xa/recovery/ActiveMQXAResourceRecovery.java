@@ -63,7 +63,7 @@ public class ActiveMQXAResourceRecovery {
    public boolean initialise(final String config) {
       logger.trace("{} initialise: {}", this, config);
 
-      String[] configs = config.split(";");
+      String[] configs = config.split(";", -1);
       XARecoveryConfig[] xaRecoveryConfigs = new XARecoveryConfig[configs.length];
       for (int i = 0, configsLength = configs.length; i < configsLength; i++) {
          String s = configs[i];
@@ -128,7 +128,7 @@ public class ActiveMQXAResourceRecovery {
             throw new IllegalArgumentException("Must specify provider connector factory class name in config");
          }
 
-         String[] strings = config.split(",");
+         String[] strings = config.split(",", -1);
 
          // First (mandatory) param is the connector factory class name
          if (strings.length < 1) {
@@ -160,7 +160,7 @@ public class ActiveMQXAResourceRecovery {
          connectorParameters = new HashMap<>();
          if (strings.length >= 3) {
             for (int i = 3; i < strings.length; i++) {
-               String[] str = strings[i].split("=");
+               String[] str = strings[i].split("=", -1);
                if (str.length == 2) {
                   connectorParameters.put(str[0].trim(), str[1].trim());
                }

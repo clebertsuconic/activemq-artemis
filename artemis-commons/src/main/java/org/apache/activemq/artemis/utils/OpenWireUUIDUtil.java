@@ -45,7 +45,7 @@ public class OpenWireUUIDUtil {
       }
 
       // inspect the last three groups, i.e. X-X-X-(X:X:X), and ensure they're digits
-      String[] end = input.substring(lastDash + 1).split(":");
+      String[] end = input.substring(lastDash + 1).split(":", -1);
       if (end.length != 3) {
          return false;
       }

@@ -40,7 +40,7 @@ public class StompFrameFactoryV10 implements StompFrameFactory {
    @Override
    public ClientStompFrame createFrame(final String data) {
       //split the string at "\n\n"
-      String[] dataFields = data.split("\n\n");
+      String[] dataFields = data.split("\n\n", -1);
 
       StringTokenizer tokenizer = new StringTokenizer(dataFields[0], "\n");
 

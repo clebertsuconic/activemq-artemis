@@ -331,7 +331,7 @@ public class AmqpSupport {
 
       if (useCoreSubscriptionNaming) {
          final boolean durable = !isVolatile;
-         final String subscriptionName = senderId.contains("|") ? senderId.split("\\|")[0] : senderId;
+         final String subscriptionName = senderId.contains("|") ? senderId.split("\\|", -1)[0] : senderId;
          final String clientID = clientId == null || clientId.isEmpty() || global ? null : clientId;
          return DestinationUtil.createQueueNameForSubscription(durable, clientID, subscriptionName);
       } else {
@@ -339,7 +339,7 @@ public class AmqpSupport {
 
          if (shared) {
             if (queue.contains("|")) {
-               queue = queue.split("\\|")[0];
+               queue = queue.split("\\|", -1)[0];
             }
             if (isVolatile) {
                queue += ":shared-volatile";

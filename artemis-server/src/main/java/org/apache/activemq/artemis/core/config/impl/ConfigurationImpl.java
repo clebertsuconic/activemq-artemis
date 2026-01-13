@@ -582,7 +582,7 @@ public class ConfigurationImpl extends javax.security.auth.login.Configuration i
       // system property overrides location of file(s)
       pathsToProperties = resolvePropertiesSources(pathsToProperties);
       if (pathsToProperties != null) {
-         for (String path : pathsToProperties.split(",")) {
+         for (String path : pathsToProperties.split(",", -1)) {
             Pattern patternToUse = defaultPropertiesFileNamePattern;
             if (URISupport.containsQuery(path)) {
                Map<String, String> parameters = URISupport.parseQuery(path);
@@ -929,7 +929,7 @@ public class ConfigurationImpl extends javax.security.auth.login.Configuration i
          @Override
          public <T> T convert(Class<T> type, Object value) {
             List<String> convertedValue = new ArrayList<>();
-            for (String entry : value.toString().split(",")) {
+            for (String entry : value.toString().split(",", -1)) {
                convertedValue.add(entry);
             }
             return (T) convertedValue;
@@ -940,7 +940,7 @@ public class ConfigurationImpl extends javax.security.auth.login.Configuration i
          @Override
          public <T> T convert(Class<T> type, Object value) {
             Set convertedValue = new HashSet();
-            for (String entry : value.toString().split(",")) {
+            for (String entry : value.toString().split(",", -1)) {
                convertedValue.add(entry);
             }
             return (T) convertedValue;
@@ -951,9 +951,9 @@ public class ConfigurationImpl extends javax.security.auth.login.Configuration i
          @Override
          public <T> T convert(Class<T> type, Object value) {
             Map convertedValue = new HashMap();
-            for (String entry : value.toString().split(",")) {
+            for (String entry : value.toString().split(",", -1)) {
                if (!entry.isBlank()) {
-                  String[] kv = entry.split("=");
+                  String[] kv = entry.split("=", -1);
                   if (2 != kv.length) {
                      throw new IllegalArgumentException("map value " + value + " not in k=v format");
                   }

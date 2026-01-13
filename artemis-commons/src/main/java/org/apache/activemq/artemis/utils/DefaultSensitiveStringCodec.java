@@ -270,7 +270,7 @@ public class DefaultSensitiveStringCodec implements SensitiveDataCodec<String> {
 
       @Override
       public boolean verify(char[] plainChars, String storedValue) {
-         String[] parts = storedValue.split(SEPARATOR);
+         String[] parts = storedValue.split(SEPARATOR, -1);
          int originalIterations = Integer.parseInt(parts[0]);
          byte[] salt = ByteUtil.hexToBytes(parts[1]);
          byte[] originalHash = ByteUtil.hexToBytes(parts[2]);

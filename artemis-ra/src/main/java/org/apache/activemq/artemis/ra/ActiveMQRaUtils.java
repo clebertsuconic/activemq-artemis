@@ -118,10 +118,10 @@ public final class ActiveMQRaUtils {
    public static Hashtable<String, String> parseHashtableConfig(final String config) {
       Hashtable<String, String> hashtable = new Hashtable<>();
 
-      String[] topElements = config.split(";");
+      String[] topElements = config.split(";", -1);
 
       for (String element : topElements) {
-         String[] expression = element.split("=");
+         String[] expression = element.split("=", -1);
 
          if (expression.length != 2) {
             throw new IllegalArgumentException("Invalid expression " + element + " at " + config);
@@ -144,16 +144,16 @@ public final class ActiveMQRaUtils {
       String commaPlaceHolder = UUID.randomUUID().toString();
       String replaced = config.replace("\\,", commaPlaceHolder);
 
-      String[] topElements = replaced.split(",");
+      String[] topElements = replaced.split(",", -1);
 
       for (String topElement : topElements) {
          Map<String, Object> map = new HashMap<>();
          result.add(map);
 
-         String[] elements = topElement.split(";");
+         String[] elements = topElement.split(";", -1);
 
          for (String element : elements) {
-            String[] expression = element.split("=");
+            String[] expression = element.split("=", -1);
 
             if (expression.length != 2) {
                throw new IllegalArgumentException("Invalid expression " + element + " at " + config);
@@ -170,7 +170,7 @@ public final class ActiveMQRaUtils {
    public static List<String> parseConnectorConnectorConfig(String config) {
       List<String> res = new ArrayList<>();
 
-      String[] elements = config.split(",");
+      String[] elements = config.split(",", -1);
 
       for (String element : elements) {
          res.add(element.trim());

@@ -129,7 +129,7 @@ public class StompFrameHandlerV11 extends VersionedStompFrameHandler implements 
    }
 
    private void handleHeartBeat(String heartBeatHeader) throws ActiveMQStompException {
-      String[] params = heartBeatHeader.split(",");
+      String[] params = heartBeatHeader.split(",", -1);
       if (params.length != 2) {
          throw new ActiveMQStompException(connection, "Incorrect heartbeat header " + heartBeatHeader);
       }

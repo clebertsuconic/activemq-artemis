@@ -324,7 +324,7 @@ public class StatQueue extends ConnectionAbstract {
             columnSizes[i] = fields[i].toString().length();
          } else {
             List<String> splitTitleArrayList = new ArrayList<>();
-            String[] splitTitleStringArray = fields[i].toString().split("_");
+            String[] splitTitleStringArray = fields[i].toString().split("_", -1);
             centralize[i] = fields[i].center;
 
             for (String s : splitTitleStringArray) {

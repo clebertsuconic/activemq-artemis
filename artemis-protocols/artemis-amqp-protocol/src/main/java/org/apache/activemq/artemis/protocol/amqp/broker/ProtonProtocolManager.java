@@ -379,14 +379,14 @@ public class ProtonProtocolManager extends AbstractProtocolManager<AMQPMessage, 
 
    @Override
    public void setAnycastPrefix(String anycastPrefix) {
-      for (String prefix : anycastPrefix.split(",")) {
+      for (String prefix : anycastPrefix.split(",", -1)) {
          prefixes.put(SimpleString.of(prefix), RoutingType.ANYCAST);
       }
    }
 
    @Override
    public void setMulticastPrefix(String multicastPrefix) {
-      for (String prefix : multicastPrefix.split(",")) {
+      for (String prefix : multicastPrefix.split(",", -1)) {
          prefixes.put(SimpleString.of(prefix), RoutingType.MULTICAST);
       }
    }

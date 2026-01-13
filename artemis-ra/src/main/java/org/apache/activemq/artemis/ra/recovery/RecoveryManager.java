@@ -84,7 +84,7 @@ public final class RecoveryManager implements Serializable {
    }
 
    private void locateRecoveryRegistry() {
-      String[] locatorClasses = RESOURCE_RECOVERY_CLASS_NAMES.split(";");
+      String[] locatorClasses = RESOURCE_RECOVERY_CLASS_NAMES.split(";", -1);
 
       for (String locatorClasse : locatorClasses) {
          try {
