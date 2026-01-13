@@ -27,7 +27,6 @@ import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
-import org.apache.maven.project.MavenProject;
 
 @Mojo(name = "cli", defaultPhase = LifecyclePhase.VERIFY, threadSafe = true)
 public class ArtemisCLIPlugin extends ArtemisAbstractPlugin {
@@ -83,8 +82,6 @@ public class ArtemisCLIPlugin extends ArtemisAbstractPlugin {
    protected void doExecute() throws MojoExecutionException, MojoFailureException {
       // This is to avoid the Run issuing a kill at any point
       Run.setEmbedded(true);
-
-      MavenProject project = (MavenProject) getPluginContext().get("project");
 
       home = findArtemisHome(home, alternateHome);
 

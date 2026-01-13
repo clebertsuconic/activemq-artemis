@@ -175,7 +175,7 @@ public class LogAnnotationProcessor extends AbstractProcessor {
                         if (DEBUG) {
                            debug("... annotated with " + getLogger);
                         }
-                        generateGetLogger(bundleAnnotation, writerOutput, executableMember, getLogger);
+                        generateGetLogger(writerOutput, executableMember, getLogger);
                      }
 
                      if (generatedPaths > 1) {
@@ -345,8 +345,7 @@ public class LogAnnotationProcessor extends AbstractProcessor {
    }
 
 
-   private static void generateGetLogger(LogBundle bundleAnnotation,
-                                  PrintWriter writerOutput,
+   private static void generateGetLogger(PrintWriter writerOutput,
                                   ExecutableElement executableMember,
                                   GetLogger loggerAnnotation) {
 

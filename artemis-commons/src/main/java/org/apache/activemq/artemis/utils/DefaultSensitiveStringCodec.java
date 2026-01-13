@@ -120,10 +120,7 @@ public class DefaultSensitiveStringCodec implements SensitiveDataCodec<String> {
 
    private abstract static class CodecAlgorithm {
 
-      protected Map<String, String> params;
-
       CodecAlgorithm(Map<String, String> params) {
-         this.params = params;
       }
 
       public abstract String decode(String secret) throws Exception;

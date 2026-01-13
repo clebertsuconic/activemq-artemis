@@ -24,7 +24,6 @@ import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
-import org.apache.maven.project.MavenProject;
 
 @Mojo(name = "stop", defaultPhase = LifecyclePhase.VERIFY, threadSafe = true)
 public class ArtemisStopPlugin extends ArtemisAbstractPlugin {
@@ -59,8 +58,6 @@ public class ArtemisStopPlugin extends ArtemisAbstractPlugin {
 
    @Override
    protected void doExecute() throws MojoExecutionException, MojoFailureException {
-      MavenProject project = (MavenProject) getPluginContext().get("project");
-
       home = findArtemisHome(home, alternateHome);
 
       try {
