@@ -1300,7 +1300,7 @@ public abstract class ActiveMQTestBase extends ArtemisTestCase {
          }
          if ((sessionFactory == null || sessionFactory.getBackupConnector() != null) &&
             (isRemoteUpToDate || !waitForSync) &&
-            (!waitForSync || actualServer.getBackupManager() != null && actualServer.getBackupManager().isBackupAnnounced())) {
+            ((!waitForSync) || (actualServer.getBackupManager() != null && actualServer.getBackupManager().isBackupAnnounced()))) {
             break;
          }
          if (System.currentTimeMillis() > (time + toWait)) {

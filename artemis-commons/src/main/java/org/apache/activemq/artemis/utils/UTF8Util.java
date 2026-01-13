@@ -129,12 +129,12 @@ public final class UTF8Util {
          if (charAtPos <= 0x7f) {
             bytes[charCount++] = (byte) charAtPos;
          } else if (charAtPos >= 0x800) {
-            bytes[charCount++] = (byte) (0xE0 | (charAtPos >> 12) & 0x0F);
-            bytes[charCount++] = (byte) (0x80 | (charAtPos >> 6) & 0x3F);
-            bytes[charCount++] = (byte) (0x80 | (charAtPos >> 0) & 0x3F);
+            bytes[charCount++] = (byte) (0xE0 | ((charAtPos >> 12) & 0x0F));
+            bytes[charCount++] = (byte) (0x80 | ((charAtPos >> 6) & 0x3F));
+            bytes[charCount++] = (byte) (0x80 | ((charAtPos >> 0) & 0x3F));
          } else {
-            bytes[charCount++] = (byte) (0xC0 | (charAtPos >> 6) & 0x1F);
-            bytes[charCount++] = (byte) (0x80 | (charAtPos >> 0) & 0x3F);
+            bytes[charCount++] = (byte) (0xC0 | ((charAtPos >> 6) & 0x1F));
+            bytes[charCount++] = (byte) (0x80 | ((charAtPos >> 0) & 0x3F));
          }
       }
 
@@ -149,12 +149,12 @@ public final class UTF8Util {
          if (charAtPos <= 0x7f) {
             PlatformDependent.putByte(bytes, charCount++, (byte) charAtPos);
          } else if (charAtPos >= 0x800) {
-            PlatformDependent.putByte(bytes, charCount++, (byte) (0xE0 | (charAtPos >> 12) & 0x0F));
-            PlatformDependent.putByte(bytes, charCount++, (byte) (0x80 | (charAtPos >> 6) & 0x3F));
-            PlatformDependent.putByte(bytes, charCount++, (byte) (0x80 | (charAtPos >> 0) & 0x3F));
+            PlatformDependent.putByte(bytes, charCount++, (byte) (0xE0 | ((charAtPos >> 12) & 0x0F)));
+            PlatformDependent.putByte(bytes, charCount++, (byte) (0x80 | ((charAtPos >> 6) & 0x3F)));
+            PlatformDependent.putByte(bytes, charCount++, (byte) (0x80 | ((charAtPos >> 0) & 0x3F)));
          } else {
-            PlatformDependent.putByte(bytes, charCount++, (byte) (0xC0 | (charAtPos >> 6) & 0x1F));
-            PlatformDependent.putByte(bytes, charCount++, (byte) (0x80 | (charAtPos >> 0) & 0x3F));
+            PlatformDependent.putByte(bytes, charCount++, (byte) (0xC0 | ((charAtPos >> 6) & 0x1F)));
+            PlatformDependent.putByte(bytes, charCount++, (byte) (0x80 | ((charAtPos >> 0) & 0x3F)));
          }
       }
 
@@ -169,12 +169,12 @@ public final class UTF8Util {
          if (charAtPos <= 0x7f) {
             PlatformDependent.putByte(addressBytes + charCount++, (byte) charAtPos);
          } else if (charAtPos >= 0x800) {
-            PlatformDependent.putByte(addressBytes + charCount++, (byte) (0xE0 | (charAtPos >> 12) & 0x0F));
-            PlatformDependent.putByte(addressBytes + charCount++, (byte) (0x80 | (charAtPos >> 6) & 0x3F));
-            PlatformDependent.putByte(addressBytes + charCount++, (byte) (0x80 | (charAtPos >> 0) & 0x3F));
+            PlatformDependent.putByte(addressBytes + charCount++, (byte) (0xE0 | ((charAtPos >> 12) & 0x0F)));
+            PlatformDependent.putByte(addressBytes + charCount++, (byte) (0x80 | ((charAtPos >> 6) & 0x3F)));
+            PlatformDependent.putByte(addressBytes + charCount++, (byte) (0x80 | ((charAtPos >> 0) & 0x3F)));
          } else {
-            PlatformDependent.putByte(addressBytes + charCount++, (byte) (0xC0 | (charAtPos >> 6) & 0x1F));
-            PlatformDependent.putByte(addressBytes + charCount++, (byte) (0x80 | (charAtPos >> 0) & 0x3F));
+            PlatformDependent.putByte(addressBytes + charCount++, (byte) (0xC0 | ((charAtPos >> 6) & 0x1F)));
+            PlatformDependent.putByte(addressBytes + charCount++, (byte) (0x80 | ((charAtPos >> 0) & 0x3F)));
          }
       }
 

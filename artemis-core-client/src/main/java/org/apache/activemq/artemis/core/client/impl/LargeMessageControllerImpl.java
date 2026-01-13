@@ -476,11 +476,11 @@ public class LargeMessageControllerImpl implements LargeMessageController {
 
    @Override
    public short getShort(final int index) {
-      return (short) ((getByte(index) << 8) | (getByte(index + 1) & 0xFF));
+      return (short) (((getByte(index) << 8)) | (getByte(index + 1) & 0xFF));
    }
 
    public short getShort(final long index) {
-      return (short) ((getByte(index) << 8) | (getByte(index + 1) & 0xFF));
+      return (short) (((getByte(index) << 8)) | (getByte(index + 1) & 0xFF));
    }
 
    private int getUnsignedMedium(final int index) {

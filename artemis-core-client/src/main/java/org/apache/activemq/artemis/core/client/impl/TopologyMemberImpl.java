@@ -121,7 +121,7 @@ public final class TopologyMemberImpl implements TopologyMember {
 
    @Override
    public boolean isMember(TransportConfiguration configuration) {
-      if ((getConnector().getA() != null && getConnector().getA().isSameParams(configuration)) || (getConnector().getB() != null && getConnector().getB().isSameParams(configuration))) {
+      if ((getConnector().getA() != null && getConnector().getA().isSameParams(configuration)) || ((getConnector().getB() != null) && getConnector().getB().isSameParams(configuration))) {
          return true;
       } else {
          return false;

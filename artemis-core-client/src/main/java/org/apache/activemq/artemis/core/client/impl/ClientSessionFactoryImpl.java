@@ -1398,7 +1398,7 @@ public class ClientSessionFactoryImpl implements ClientSessionFactoryInternal, C
 
       @Override
       public synchronized void run() {
-         if (cancelled || stopPingingAfterOne && !first) {
+         if (cancelled || (stopPingingAfterOne && !first)) {
             return;
          }
 

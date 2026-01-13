@@ -215,7 +215,7 @@ public final class SimpleString implements CharSequence, Serializable, Comparabl
       }
       pos <<= 1;
 
-      return (char) ((data[pos] & 0xFF) | ((data[pos + 1] << 8) & 0xFF00));
+      return (char) ((data[pos] & 0xFF) | (((data[pos + 1] << 8) & 0xFF00)));
    }
 
    @Override
@@ -281,7 +281,7 @@ public final class SimpleString implements CharSequence, Serializable, Comparabl
       if (end < start || start < 0 || end > len) {
          throw new IndexOutOfBoundsException();
       } else {
-         int newlen = (end - start) << 1;
+         int newlen = ((end - start) << 1);
          byte[] bytes = new byte[newlen];
 
          System.arraycopy(data, start << 1, bytes, 0, newlen);
