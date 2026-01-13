@@ -247,7 +247,7 @@ public class PrintData extends DBOption {
       } catch (Exception e) {
          out.println("Error: " + e.getMessage());
          e.printStackTrace(out);
-      } finally{
+      } finally {
          executor.shutdownNow();
          scheduled.shutdownNow();
       }
