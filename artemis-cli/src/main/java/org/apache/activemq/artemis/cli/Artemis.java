@@ -129,7 +129,7 @@ public class Artemis implements Runnable {
                   System.setProperty("javax.management.builder.initial", "org.apache.activemq.artemis.core.server.management.ArtemisMBeanServerBuilder");
                }
             } catch (Exception e) {
-               e.printStackTrace();
+               System.err.println("Error loading management context: " + e.getMessage());
             }
          }
       }
@@ -180,7 +180,8 @@ public class Artemis implements Runnable {
          // Yeah.. I really meant System.err..
          // this is the CLI and System.out and System.err are common places for interacting with the user
          // this is a programming error that must be visualized and corrected
-         e.printStackTrace();
+         System.err.println("Error: " + e.getMessage());
+         e.printStackTrace(System.err);
          return e;
       } catch (RuntimeException | InvalidOptionsError re) {
          context.err.println(re.getMessage());

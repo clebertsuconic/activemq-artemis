@@ -37,7 +37,8 @@ public class Completion implements Runnable {
          CommandLine artemisCommand = Artemis.buildCommand(true, true, true);
          System.out.print(AutoComplete.bash(startScript, artemisCommand));
       } catch (Throwable e) {
-         e.printStackTrace();
+         System.err.println("Error generating completion: " + e.getMessage());
+         e.printStackTrace(System.err);
       }
    }
 

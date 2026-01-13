@@ -216,7 +216,8 @@ public abstract class ActionAbstract implements Action, Runnable {
          // When  using the CLI outside of the shell the execute(ActionContext) will be used instead.
          execute(getActionContext());
       } catch (Throwable e) {
-         e.printStackTrace();
+         getActionContext().err.println("Error executing action: " + e.getMessage());
+         e.printStackTrace(getActionContext().err);
       } finally {
          done();
       }

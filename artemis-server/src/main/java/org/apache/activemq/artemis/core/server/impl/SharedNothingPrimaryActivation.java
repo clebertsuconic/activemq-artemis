@@ -271,7 +271,7 @@ public class SharedNothingPrimaryActivation extends PrimaryActivation {
                               startThread.start();
                               startThread.join();
                            } catch (Exception e) {
-                              e.printStackTrace();
+                              logger.warn("Error starting server after restore", e);
                            }
                         }
                      }

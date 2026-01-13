@@ -98,8 +98,7 @@ public class ArtemisDependencyDocPlugin extends ArtemisAbstractPlugin {
             try {
                content = replace(content, entry.getKey(), entry.getValue());
             } catch (Throwable e) {
-               System.out.println("Error on " + entry.getKey());
-               e.printStackTrace();
+               System.err.println("Error on " + entry.getKey() + ": " + e.getMessage());
             }
          }
       }

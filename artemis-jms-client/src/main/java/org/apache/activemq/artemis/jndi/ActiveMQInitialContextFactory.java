@@ -67,8 +67,9 @@ public class ActiveMQInitialContextFactory implements InitialContextFactory {
                data.put(factoryName, createConnectionFactory(providerUrl, factoryName));
             }
          } catch (Exception e) {
-            e.printStackTrace();
-            throw new NamingException("Invalid broker URL");
+            NamingException ne = new NamingException("Invalid broker URL");
+            ne.initCause(e);
+            throw ne;
          }
       }
 
@@ -79,8 +80,9 @@ public class ActiveMQInitialContextFactory implements InitialContextFactory {
             try {
                data.put(jndiName, createConnectionFactory((String) environment.get(key), jndiName));
             } catch (Exception e) {
-               e.printStackTrace();
-               throw new NamingException("Invalid broker URL");
+               NamingException ne = new NamingException("Invalid broker URL");
+               ne.initCause(e);
+               throw ne;
             }
          }
       }

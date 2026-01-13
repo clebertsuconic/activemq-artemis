@@ -112,13 +112,13 @@ public class XMLMessageExporter {
          }
          encoder.close();
       } catch (ActiveMQException e) {
-         e.printStackTrace();
+         System.err.println("Error encoding message body: " + e.getMessage());
       } finally {
          if (encoder != null) {
             try {
                encoder.close();
             } catch (ActiveMQException e) {
-               e.printStackTrace();
+               System.err.println("Error closing encoder: " + e.getMessage());
             }
          }
       }

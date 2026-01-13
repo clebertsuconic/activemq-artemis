@@ -699,7 +699,7 @@ public class LDAPLoginModule implements AuditLoginModule {
                   loginContext.login();
                   brokerGssapiIdentity = loginContext.getSubject();
                } catch (LoginException e) {
-                  e.printStackTrace();
+                  logger.error("GSSAPI login failed for scope: {}", configScope, e);
                   FailedLoginException ex = new FailedLoginException("Error contacting LDAP using GSSAPI in JAAS loginConfigScope: " + configScope);
                   ex.initCause(e);
                   throw ex;

@@ -34,7 +34,7 @@ public class HashUtil {
       } catch (Exception e) {
          context.err.println("Warning: Failed to calculate hash value for password using " + HASH_PROCESSOR);
          context.err.println("Reason: " + e.getMessage());
-         e.printStackTrace();
+         e.printStackTrace(context.err);
       }
       return plaintext;
    }

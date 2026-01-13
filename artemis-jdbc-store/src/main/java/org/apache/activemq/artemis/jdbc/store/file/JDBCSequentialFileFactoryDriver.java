@@ -134,7 +134,7 @@ public class JDBCSequentialFileFactoryDriver extends AbstractJDBCDriver {
             throw e;
          }
       } catch (NullPointerException npe) {
-         npe.printStackTrace();
+         logger.error("Null pointer exception creating file", npe);
          throw npe;
       }
    }

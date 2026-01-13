@@ -566,7 +566,7 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
                   registerRepositoryListenerForRetroactiveAddress(addressInfo.getName());
                }
             } catch (Exception e) {
-               e.printStackTrace();
+               logger.warn("Error registering repository listener for retroactive address", e);
             }
          }
          return result;

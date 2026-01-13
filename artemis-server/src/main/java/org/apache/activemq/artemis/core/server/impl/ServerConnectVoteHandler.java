@@ -45,7 +45,7 @@ public class ServerConnectVoteHandler implements QuorumVoteHandler {
          }
          ActiveMQServerLogger.LOGGER.nodeNotFoundInClusterTopology(nodeid);
       } catch (Exception e) {
-         e.printStackTrace();
+         System.err.println("Error handling server connect vote: " + e.getMessage());
       }
       return new ServerConnectVote(nodeid, !((Boolean) vote.getVote()), null);
    }

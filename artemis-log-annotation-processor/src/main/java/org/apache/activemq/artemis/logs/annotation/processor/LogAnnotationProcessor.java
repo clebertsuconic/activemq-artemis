@@ -60,7 +60,7 @@ public class LogAnnotationProcessor extends AbstractProcessor {
             debugResult = Boolean.parseBoolean(debugEnvVariable);
          }
       } catch (Exception e) {
-         e.printStackTrace();
+         System.err.println("Error reading debug environment variable: " + e.getMessage());
       }
       DEBUG = debugResult;
    }
@@ -196,8 +196,8 @@ public class LogAnnotationProcessor extends AbstractProcessor {
             }
          }
       } catch (Exception e) {
-         e.printStackTrace();
-         processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, e.getMessage());
+         processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "Error processing annotations: " + e.getMessage());
+         e.printStackTrace(System.err);
          return false;
       }
 

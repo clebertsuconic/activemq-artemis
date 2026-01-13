@@ -197,7 +197,7 @@ public class InstallAbstract extends InputAbstract {
       String content = readTextFile(source, filters);
 
       if (content == null) {
-         new Exception(source + " not found").printStackTrace();
+         System.err.println("Error: " + source + " not found");
       }
 
       // and then writing out in the new target encoding..  Let's also replace \n with the values

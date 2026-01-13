@@ -78,7 +78,7 @@ public class InputAbstract extends ActionAbstract {
          try {
             value = Integer.parseInt(input);
          } catch (NumberFormatException e) {
-            e.printStackTrace();
+            getActionContext().err.println("Invalid number format: " + e.getMessage());
             value = null;
          }
       }

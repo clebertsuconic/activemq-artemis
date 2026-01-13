@@ -136,7 +136,8 @@ public class WebSocketServerHandler extends SimpleChannelInboundHandler<Object> 
 
    @Override
    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-      cause.printStackTrace();
+      System.err.println("WebSocket handler exception: " + cause.getMessage());
+      cause.printStackTrace(System.err);
       ctx.close();
    }
 

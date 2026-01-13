@@ -133,7 +133,7 @@ public class Shell implements Runnable {
                   line = reader.readLine(getPrompt(), rightPrompt, (MaskingCallback) null, null);
                   systemRegistry.execute(line);
                } catch (InterruptedException e) {
-                  e.printStackTrace();
+                  System.err.println("Shell interrupted: " + e.getMessage());
                   // Ignore
                } catch (UserInterruptException userInterruptException) {
                   // ignore
@@ -150,7 +150,8 @@ public class Shell implements Runnable {
             }
          }
       } catch (Throwable t) {
-         t.printStackTrace();
+         System.err.println("Shell error: " + t.getMessage());
+         t.printStackTrace(System.err);
       } finally {
          IN_SHELL.get().set(false);
       }
@@ -162,8 +163,7 @@ public class Shell implements Runnable {
       try {
          Artemis.printBanner(System.out);
       } catch (Exception e) {
-         System.out.println("Error recovering the banner:");
-         e.printStackTrace();
+         System.err.println("Error recovering the banner: " + e.getMessage());
       }
       System.out.print(org.apache.activemq.artemis.cli.Terminal.CLEAR_UNICODE);
    }
@@ -180,8 +180,7 @@ public class Shell implements Runnable {
       try {
          setPrompt(Artemis.getNameFromBanner());
       } catch (Exception e) {
-         System.out.println("Error when getting prompt name from banner:");
-         e.printStackTrace();
+         System.err.println("Error when getting prompt name from banner: " + e.getMessage());
 
          setPrompt("Artemis Shell");
       }

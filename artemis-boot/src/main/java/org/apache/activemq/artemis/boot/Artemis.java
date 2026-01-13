@@ -159,7 +159,7 @@ public class Artemis {
       try {
          urls.add(file.toURI().toURL());
       } catch (MalformedURLException e) {
-         e.printStackTrace();
+         System.err.println("Error adding URL: " + e.getMessage());
       }
    }
 

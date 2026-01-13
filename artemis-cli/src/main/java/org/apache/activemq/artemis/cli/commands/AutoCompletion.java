@@ -50,7 +50,8 @@ public class AutoCompletion implements Runnable {
          System.out.println("*******************************************************************************************************************************");
 
       } catch (Throwable e) {
-         e.printStackTrace();
+         System.err.println("Error generating auto-completion: " + e.getMessage());
+         e.printStackTrace(System.err);
       }
    }
 

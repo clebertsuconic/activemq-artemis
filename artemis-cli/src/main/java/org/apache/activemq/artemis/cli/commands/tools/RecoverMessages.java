@@ -129,7 +129,7 @@ public class RecoverMessages extends DBOption {
                      largeMessageFile = null;
                   }
                } catch (Exception e) {
-                  e.printStackTrace();
+                  System.err.println("Error closing large message file: " + e.getMessage());
                }
             }
             @Override

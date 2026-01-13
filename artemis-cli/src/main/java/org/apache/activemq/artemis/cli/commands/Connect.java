@@ -37,8 +37,7 @@ public class Connect extends ConnectionAbstract {
          }
 
       } catch (Exception e) {
-         context.out.println("Connection Failure!");
-         e.printStackTrace();
+         context.err.println("Connection Failure: " + e.getMessage());
       }
       return null;
    }

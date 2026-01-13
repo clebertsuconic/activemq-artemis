@@ -251,7 +251,7 @@ public class SpawnedVMSupport {
                }
                break;
             } catch (Throwable e) {
-               e.printStackTrace();
+               System.err.println("Error checking process: " + e.getMessage());
             }
          }
       }
@@ -361,7 +361,7 @@ public class SpawnedVMSupport {
                }
             }
          } catch (IOException ioe) {
-            ioe.printStackTrace();
+            System.err.println("Error reading process output: " + ioe.getMessage());
          }
       }
    }

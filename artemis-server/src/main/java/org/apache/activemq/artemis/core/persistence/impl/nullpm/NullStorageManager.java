@@ -107,7 +107,7 @@ public class NullStorageManager implements StorageManager {
    }
 
    public NullStorageManager() {
-      this((code, message, file) -> code.printStackTrace());
+      this((code, message, file) -> System.err.println("Critical IO error: " + code + " - " + message));
    }
 
    public NullStorageManager(int nextId) {

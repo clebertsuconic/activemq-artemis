@@ -220,7 +220,7 @@ public class DBOption extends OptionalLocking {
          try {
             fileOutputStream.close();
          } catch (Throwable e) {
-            e.printStackTrace();
+            getActionContext().err.println("Error closing output file: " + e.getMessage());
          }
          getActionContext().out = originalOut;
          fileOutputStream = null;

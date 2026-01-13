@@ -372,7 +372,7 @@ public final class LargeServerMessageImpl extends CoreMessage implements CoreLar
       try {
          return "LargeServerMessage[messageID=" + messageID + ",durable=" + isDurable() + ",userID=" + getUserID() + ",priority=" + this.getPriority() + ", timestamp=" + toDate(getTimestamp()) + ",expiration=" + toDate(getExpiration()) + ", durable=" + durable + ", address=" + getAddress() + ", properties=" + (properties != null ? properties.toString() : "") + "]@" + System.identityHashCode(this);
       } catch (Exception e) {
-         e.printStackTrace();
+         logger.warn("Error generating toString for LargeServerMessage", e);
          return "LargeServerMessage[messageID=" + messageID + "]";
       }
    }

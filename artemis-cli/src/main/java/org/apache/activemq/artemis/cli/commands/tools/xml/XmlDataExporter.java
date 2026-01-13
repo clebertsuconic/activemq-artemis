@@ -339,7 +339,8 @@ public final class XmlDataExporter extends DBOption {
          xmlWriter.flush();
          xmlWriter.close();
       } catch (Throwable e) {
-         e.printStackTrace();
+         getActionContext().err.println("Error exporting data: " + e.getMessage());
+         e.printStackTrace(getActionContext().err);
          this.lastError = e;
       }
    }
@@ -477,7 +478,8 @@ public final class XmlDataExporter extends DBOption {
             }
          }
       } catch (Exception e) {
-         e.printStackTrace();
+         getActionContext().err.println("Error processing paged messages: " + e.getMessage());
+         e.printStackTrace(getActionContext().err);
       }
    }
 

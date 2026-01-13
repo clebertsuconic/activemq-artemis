@@ -157,7 +157,7 @@ public class ArtemisRbacInvocationHandler implements GuardInvocationHandler {
             try {
                activeMQServer.getManagementService().registerHawtioSecurity(this);
             } catch (Exception bestEffort) {
-               bestEffort.printStackTrace();
+               System.err.println("Warning: Failed to register Hawtio security: " + bestEffort.getMessage());
             }
          }
       }

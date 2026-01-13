@@ -147,7 +147,8 @@ public class Run extends LockAbstract {
             assert component.isStarted();
          }
       } catch (Throwable t) {
-         t.printStackTrace();
+         getActionContext().err.println("Server activation failed: " + t.getMessage());
+         t.printStackTrace(getActionContext().err);
          serverActivationFailed.set(t);
          latchRunning.countDown();
       }
@@ -228,7 +229,7 @@ public class Run extends LockAbstract {
             shutdownTimer.cancel();
          }
       } catch (Exception e) {
-         e.printStackTrace();
+         getActionContext().err.println("Error stopping server: " + e.getMessage());
       }
    }
 

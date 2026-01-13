@@ -192,7 +192,7 @@ public class Producer extends DestAbstract {
             } catch (Exception e) {
                context.err.println("Error occurred during import.  Rolling back.");
                session.rollback();
-               e.printStackTrace();
+               e.printStackTrace(context.err);
                return 0;
             }
             context.out.println("Sent " + messageCount + " Messages.");

@@ -57,7 +57,7 @@ public abstract class Configurable extends ActionAbstract {
       getActionContext().err.println();
 
       if (!(e instanceof ActiveMQException)) {
-         e.printStackTrace();
+         e.printStackTrace(getActionContext().err);
       }
    }
 

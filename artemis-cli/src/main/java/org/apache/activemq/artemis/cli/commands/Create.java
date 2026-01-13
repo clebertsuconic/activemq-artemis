@@ -1042,8 +1042,7 @@ public class Create extends InstallAbstract {
          try {
             RoutingType.valueOf(routingType.toUpperCase());
          } catch (Exception e) {
-            e.printStackTrace();
-            getActionContext().err.println("Invalid routing type: " + routingType);
+            getActionContext().err.println("Invalid routing type: " + routingType + " - " + e.getMessage());
          }
          printWriter.println("         <address name=\"" + name + "\">");
          printWriter.println("            <" + routingType + ">");
@@ -1059,8 +1058,7 @@ public class Create extends InstallAbstract {
          try {
             RoutingType.valueOf(routingType.toUpperCase());
          } catch (Exception e) {
-            e.printStackTrace();
-            getActionContext().err.println("Invalid routing type: " + routingType);
+            getActionContext().err.println("Invalid routing type: " + routingType + " - " + e.getMessage());
          }
          printWriter.println("         <address name=\"" + name + "\">");
          printWriter.println("            <" + routingType + "/>");
@@ -1123,8 +1121,7 @@ public class Create extends InstallAbstract {
          } catch (Exception e) {
             filters.put("${journal-buffer.settings}", "");
             filters.put("${page-sync.settings}", "");
-            e.printStackTrace();
-            getActionContext().err.println("Couldn't perform sync calculation, using default values");
+            getActionContext().err.println("Couldn't perform sync calculation, using default values: " + e.getMessage());
          }
       }
    }

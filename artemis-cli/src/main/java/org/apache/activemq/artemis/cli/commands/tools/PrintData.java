@@ -158,7 +158,8 @@ public class PrintData extends DBOption {
             printBanner(out, "Server's ID=" + fileLock.getNodeId().toString());
             fileLock.stop();
          } catch (Exception e) {
-            e.printStackTrace();
+            out.println("Error: " + e.getMessage());
+            e.printStackTrace(out);
          }
       }
 
@@ -193,7 +194,8 @@ public class PrintData extends DBOption {
             printPages(pagingDirectory, describeJournal, out, safe, maxPages, bindingsDescribe);
          }
       } catch (Exception e) {
-         e.printStackTrace();
+         out.println("Error: " + e.getMessage());
+         e.printStackTrace(out);
          return;
       }
 
@@ -204,7 +206,8 @@ public class PrintData extends DBOption {
       try {
          describeJournal = DescribeJournal.describeMessagesJournal(messagesDirectory, out, safe, printRecords, printSurviving, reclaimed);
       } catch (Exception e) {
-         e.printStackTrace();
+         out.println("Error: " + e.getMessage());
+         e.printStackTrace(out);
          return null;
       }
       return describeJournal;
@@ -214,7 +217,8 @@ public class PrintData extends DBOption {
       try {
          return DescribeJournal.describeBindingsJournal(bindingsDirectory, out, safe, printRecords, printSurviving, reclaimed);
       } catch (Exception e) {
-         e.printStackTrace();
+         out.println("Error: " + e.getMessage());
+         e.printStackTrace(out);
          return null;
       }
    }
@@ -241,8 +245,9 @@ public class PrintData extends DBOption {
 
          printPages(describeJournal, sm, manager, out, safe, maxPages, bindingsDescribe);
       } catch (Exception e) {
-         e.printStackTrace();
-      } finally {
+         out.println("Error: " + e.getMessage());
+         e.printStackTrace(out);
+      } finally{
          executor.shutdownNow();
          scheduled.shutdownNow();
       }

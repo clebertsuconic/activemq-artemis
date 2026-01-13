@@ -1713,7 +1713,7 @@ public class QueueControlImpl extends AbstractControl implements QueueControl {
             if (AuditLogger.isResourceLoggingEnabled()) {
                AuditLogger.resumeQueueFailure(queue.getName().toString());
             }
-            e.printStackTrace();
+            logger.warn("Error resuming queue", e);
          }
       } finally {
          blockOnIO();

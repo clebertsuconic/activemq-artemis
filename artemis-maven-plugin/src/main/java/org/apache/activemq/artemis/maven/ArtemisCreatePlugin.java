@@ -245,7 +245,7 @@ public class ArtemisCreatePlugin extends ArtemisAbstractPlugin {
       try {
          outputStream = new FileOutputStream(commandLine);
       } catch (Exception e) {
-         e.printStackTrace();
+         getLog().error("Error creating command file", e);
          throw new MojoExecutionException(e.getMessage(), e);
       }
 

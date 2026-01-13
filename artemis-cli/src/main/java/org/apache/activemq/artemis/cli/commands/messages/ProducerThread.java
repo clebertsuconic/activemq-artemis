@@ -112,7 +112,8 @@ public class ProducerThread extends Thread {
          context.out.println(threadName + " Elapsed time in milli second : " + (tEnd - tStart) + " milli seconds");
 
       } catch (Exception e) {
-         e.printStackTrace();
+         context.err.println("Error producing messages: " + e.getMessage());
+         e.printStackTrace(context.err);
       } finally {
          if (finished != null) {
             finished.countDown();
@@ -121,7 +122,7 @@ public class ProducerThread extends Thread {
             try {
                producer.close();
             } catch (JMSException e) {
-               e.printStackTrace();
+               context.err.println("Error closing producer: " + e.getMessage());
             }
          }
       }

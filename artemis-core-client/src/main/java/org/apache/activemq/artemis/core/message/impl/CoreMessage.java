@@ -1368,7 +1368,7 @@ public class CoreMessage extends RefCountMessage implements ICoreMessage {
                body = simpleBody.toString();
             }
          } catch (Exception e) {
-            e.printStackTrace();
+            logger.warn("Error reading message body", e);
          }
       }
 

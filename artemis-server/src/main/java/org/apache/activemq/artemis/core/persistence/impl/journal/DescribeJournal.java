@@ -559,7 +559,7 @@ public final class DescribeJournal {
             try {
                return messageDescribe.getMsg().getClass().getSimpleName() + "(safe data, size=" + messageDescribe.getMsg().getPersistentSize() + ")";
             } catch (Throwable e) {
-               e.printStackTrace();
+               logger.warn("Error getting persistent size for message", e);
                return messageDescribe.getMsg().getClass().getSimpleName() + "(safe data)";
             }
          } else {
