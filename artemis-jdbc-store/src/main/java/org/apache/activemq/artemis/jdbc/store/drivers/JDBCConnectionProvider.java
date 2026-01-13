@@ -98,7 +98,9 @@ public class JDBCConnectionProvider {
       public void run() {
          try {
             DriverManager.getConnection("jdbc:derby:;shutdown=true");
-         } catch (Exception e) { }
+         } catch (Exception e) {
+            // Ignore - Derby shutdown always throws an exception
+         }
       }
 
    }

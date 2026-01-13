@@ -350,6 +350,7 @@ public class AMQSession implements SessionCallback {
       try {
          connection.serviceException(forcePossibleFailoverReconnect);
       } catch (Exception ignored) {
+         // Ignore - best effort cleanup
       }
       connection.disconnect(forcePossibleFailoverReconnect.getMessage(), true);
    }
@@ -569,6 +570,7 @@ public class AMQSession implements SessionCallback {
       try {
          this.coreSession.close(failed);
       } catch (Exception bestEffort) {
+         // Ignore - best effort cleanup
       }
    }
 

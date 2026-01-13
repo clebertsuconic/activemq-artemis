@@ -1535,6 +1535,7 @@ public class OpenWireConnection extends AbstractRemotingConnection implements Se
                      try {
                         resourceManager.removeTransaction(xid, getRemotingConnection());
                      } catch (ActiveMQException bestEffort) {
+                        // Ignore - best effort cleanup
                      }
                   }
                });

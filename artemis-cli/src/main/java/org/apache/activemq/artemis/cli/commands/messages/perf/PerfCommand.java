@@ -83,7 +83,7 @@ public abstract class PerfCommand extends ConnectionAbstract {
             try {
                completed.await();
             } catch (InterruptedException ignored) {
-
+               // Ignore - shutting down
             }
          }));
          try {

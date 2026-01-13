@@ -48,6 +48,7 @@ public class ActiveMQRAConnectionMetaData implements ConnectionMetaData {
             versionProps.load(in);
          }
       } catch (IOException e) {
+         // Ignore - will use default version properties
       }
       JMS_VERSION_NAME = versionProps.getProperty("activemq.version.implementation.versionName", "2.0");
       JMS_MAJOR_VERSION = Integer.parseInt(versionProps.getProperty("activemq.version.implementation.majorVersion", "2"));

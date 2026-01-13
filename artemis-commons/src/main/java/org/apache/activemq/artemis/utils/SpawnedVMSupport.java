@@ -270,6 +270,7 @@ public class SpawnedVMSupport {
             try {
                alive.waitFor(5, TimeUnit.SECONDS);
             } catch (Exception e) {
+               // Ignore - forced cleanup of spawned processes
             }
          }
       }

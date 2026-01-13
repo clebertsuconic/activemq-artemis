@@ -1100,6 +1100,7 @@ public final class JMSBridgeImpl implements JMSBridge {
                conn.close();
             }
          } catch (Throwable ignored) {
+         // Ignore - cleanup after connection failure
          }
          throw e;
       }
@@ -1423,6 +1424,7 @@ public final class JMSBridgeImpl implements JMSBridge {
             try {
                sourceSession.recover();
             } catch (Throwable ignored) {
+               // Ignore - best effort recovery, ExceptionListener will handle failures
             }
          }
 
@@ -1451,6 +1453,7 @@ public final class JMSBridgeImpl implements JMSBridge {
             tx.rollback();
             abortedMessageCount += messages.size();
          } catch (Throwable ignored) {
+            // Ignore - best effort rollback
          }
 
          ActiveMQJMSBridgeLogger.LOGGER.bridgeAckError(bridgeName, e);
@@ -1494,10 +1497,12 @@ public final class JMSBridgeImpl implements JMSBridge {
          try {
             sourceSession.rollback();
          } catch (Throwable ignored) {
+            // Ignore - best effort rollback
          }
          try {
             targetSession.rollback();
          } catch (Throwable ignored) {
+            // Ignore - best effort rollback
          }
 
          // We don't call failure here, we let the exception listener to deal with it
@@ -2012,6 +2017,7 @@ public final class JMSBridgeImpl implements JMSBridge {
                   start = System.currentTimeMillis();
                   this.wait(toWait);
                } catch (InterruptedException e) {
+                  // Ignore - failover wait loop
                } finally {
                   waited = System.currentTimeMillis() - start;
                   toWait = failoverTimeout - waited;

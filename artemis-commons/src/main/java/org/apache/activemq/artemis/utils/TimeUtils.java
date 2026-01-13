@@ -77,6 +77,7 @@ public final class TimeUtils {
          try {
             Thread.sleep(interval);
          } catch (InterruptedException e) {
+            // Ignore - polling loop
          }
          timeLeft -= interval;
       }

@@ -220,6 +220,7 @@ public final class ActiveMQRaUtils {
                } catch (RuntimeException e) {
                   throw e;
                } catch (Exception e) {
+                  // Ignore - best effort cleanup
                }
 
                throw new IllegalArgumentException("Could not find class " + className);

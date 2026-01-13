@@ -182,14 +182,17 @@ public class SyncCalculation {
          try {
             file.close();
          } catch (Exception e) {
+            // Ignore - best effort cleanup
          }
          try {
             file.delete();
          } catch (Exception e) {
+            // Ignore - best effort cleanup
          }
          try {
             factory.stop();
          } catch (Exception e) {
+            // Ignore - best effort cleanup
          }
       }
    }

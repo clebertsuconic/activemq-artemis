@@ -66,6 +66,7 @@ public class FakeConsumer implements Consumer {
          try {
             wait();
          } catch (InterruptedException e) {
+         // Ignore - best effort cleanup
          }
          timeout -= System.currentTimeMillis() - start;
       }

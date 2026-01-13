@@ -233,6 +233,7 @@ public class ConsumerThread extends Thread {
          try {
             session.commit();
          } catch (Throwable ignored) {
+            // Ignore - best effort commit on cleanup
          }
 
 

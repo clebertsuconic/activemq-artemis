@@ -141,6 +141,7 @@ public class LargeMessageControllerImpl implements LargeMessageController {
          try {
             checkForPacket(totalSize - 1);
          } catch (Throwable ignored) {
+            // Ignore - best effort check
          }
       }
    }

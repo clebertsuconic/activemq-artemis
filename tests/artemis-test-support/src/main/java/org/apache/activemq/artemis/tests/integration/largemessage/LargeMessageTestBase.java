@@ -354,6 +354,7 @@ public abstract class LargeMessageTestBase extends ActiveMQTestBase {
                               buffer.readByte();
                               fail("Supposed to throw an exception");
                            } catch (Exception e) {
+                           // Ignore - best effort cleanup
                            }
                         }
                      } catch (Throwable e) {

@@ -71,7 +71,7 @@ public class ActiveMQRAConnectionManager implements ConnectionManager {
          try {
             conn.destroy();
          } catch (Throwable e) {
-
+            // Ignore - best effort cleanup
          }
       }
    }

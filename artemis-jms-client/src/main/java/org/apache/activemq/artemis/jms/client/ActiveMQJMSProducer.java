@@ -308,6 +308,7 @@ public final class ActiveMQJMSProducer implements JMSProducer {
       try {
          deliveryDelay = producer.getDeliveryDelay();
       } catch (Exception ignored) {
+         // Ignore - will return default value of 0
       }
       return deliveryDelay;
    }

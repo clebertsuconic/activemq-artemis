@@ -85,6 +85,7 @@ public class ThreadLeakCheckDelegate {
                      try {
                         Thread.sleep(500);
                      } catch (Throwable e) {
+                        // Ignore - best effort cleanup
                      }
                   }
                }
@@ -135,6 +136,7 @@ public class ThreadLeakCheckDelegate {
          try {
             finalized.await(100, TimeUnit.MILLISECONDS);
          } catch (InterruptedException e) {
+            // Ignore - best effort cleanup
          }
       }
 
@@ -162,6 +164,7 @@ public class ThreadLeakCheckDelegate {
          try {
             Thread.sleep(500);
          } catch (InterruptedException e) {
+         // Ignore - best effort cleanup
          }
       }
    }

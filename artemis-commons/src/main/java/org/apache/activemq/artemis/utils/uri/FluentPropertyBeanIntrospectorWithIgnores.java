@@ -79,6 +79,7 @@ public class FluentPropertyBeanIntrospectorWithIgnores extends FluentPropertyBea
                readMethod = icontext.getTargetClass().getMethod("is" + capitalise(propertyName), null);
             }
          } catch (NoSuchMethodException ignored) {
+            // Ignore - optional fluent method check
          }
       }
       try {

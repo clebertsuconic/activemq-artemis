@@ -294,6 +294,7 @@ public abstract class AMQPFederationConsumer implements FederationConsumer {
                try {
                   receiver.close(false);
                } catch (ActiveMQAMQPException e) {
+                  // Ignore - best effort close
                } finally {
                   receiver = null;
                }

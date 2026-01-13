@@ -1229,6 +1229,7 @@ public class ConfigurationImpl extends javax.security.auth.login.Configuration i
             return nameVal.toString();
          }
       } catch (Exception expectedAndWillDefaultToStringForm) {
+         // Ignore - best effort cleanup
       }
       return String.valueOf(o);
    }

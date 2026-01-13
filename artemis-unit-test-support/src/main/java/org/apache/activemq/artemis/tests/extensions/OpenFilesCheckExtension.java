@@ -89,6 +89,7 @@ public class OpenFilesCheckExtension implements Extension, AfterAllCallback {
             }
          }
       } catch (Exception ignore) {
+         // Ignore - best effort lsof execution
       }
 
       return openFiles;

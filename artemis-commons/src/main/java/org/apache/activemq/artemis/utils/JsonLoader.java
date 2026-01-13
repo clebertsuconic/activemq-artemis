@@ -76,6 +76,7 @@ public class JsonLoader {
          JsonLoader.writeObject(Map.of(javax.json.stream.JsonGenerator.PRETTY_PRINTING, true), writer, JsonLoader.readObject(reader));
          result = writer.toString();
       } catch (Exception e) {
+         // Ignore - will return original JSON if prettify fails
       }
       return result;
    }

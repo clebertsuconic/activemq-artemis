@@ -43,6 +43,7 @@ public abstract class LockAbstract extends DataAbstract {
             serverLockLock = null;
          }
       } catch (Exception ignored) {
+         // Ignore - best effort cleanup
       }
    }
 

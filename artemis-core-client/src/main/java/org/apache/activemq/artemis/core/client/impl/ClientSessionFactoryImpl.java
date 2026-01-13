@@ -1021,6 +1021,7 @@ public class ClientSessionFactoryImpl implements ClientSessionFactoryInternal, C
          try {
             connectionInUse.destroy();
          } catch (Throwable ignore) {
+            // Ignore - best effort cleanup
          }
 
          connection = null;
@@ -1030,6 +1031,7 @@ public class ClientSessionFactoryImpl implements ClientSessionFactoryInternal, C
                connectorInUse.close();
             }
          } catch (Throwable ignore) {
+            // Ignore - best effort cleanup
          }
 
          connector = null;
@@ -1192,6 +1194,7 @@ public class ClientSessionFactoryImpl implements ClientSessionFactoryInternal, C
          try {
             connector.close();
          } catch (Throwable t) {
+            // Ignore - connector already failed
          }
       }
 
@@ -1277,6 +1280,7 @@ public class ClientSessionFactoryImpl implements ClientSessionFactoryInternal, C
             try {
                connector.close();
             } catch (Throwable t) {
+               // Ignore - cleanup after exception
             }
          }
          connector = null;

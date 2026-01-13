@@ -187,6 +187,7 @@ public class AmqpConnection extends AmqpAbstractResource<Connection> implements 
             try {
                close();
             } catch (Throwable ignore) {
+            // Ignore - best effort cleanup
             }
 
             throw e;
@@ -245,6 +246,7 @@ public class AmqpConnection extends AmqpAbstractResource<Connection> implements 
                   logger.warn("Serializer didn't shutdown cleanly");
                }
             } catch (InterruptedException e) {
+            // Ignore - best effort cleanup
             }
          }
       }
@@ -604,6 +606,7 @@ public class AmqpConnection extends AmqpAbstractResource<Connection> implements 
                         try {
                            transport.close();
                         } catch (IOException e1) {
+                        // Ignore - best effort cleanup
                         }
                         fireClientException(e);
                      }

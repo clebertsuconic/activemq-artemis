@@ -96,6 +96,7 @@ public class ExecuteUtil {
             readStream(processHolder.process.getInputStream(), true, logOutput);
          } catch (Exception dontCare) {
 
+         // Ignore - best effort cleanup
          }
       });
       processHolder.errorStreamReader = new Thread(() -> {
@@ -103,6 +104,7 @@ public class ExecuteUtil {
             readStream(processHolder.process.getErrorStream(), true, logOutput);
          } catch (Exception dontCare) {
 
+         // Ignore - best effort cleanup
          }
       });
       processHolder.errorStreamReader.start();

@@ -641,6 +641,7 @@ public final class ActiveMQRASessionFactoryImpl extends ActiveMQConnectionForCon
                try {
                   session.close();
                } catch (Throwable ignored) {
+                  // Ignore - best effort cleanup
                }
                if (t instanceof Exception exception) {
                   throw exception;

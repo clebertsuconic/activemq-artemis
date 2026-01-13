@@ -206,11 +206,13 @@ public final class XmlDataImporter extends ConnectionConfigurationAbtract {
             session.commit();
             session.close();
          } catch (Throwable ignored) {
+            // Ignore - best effort cleanup
          }
          try {
             managementSession.commit();
             managementSession.close();
          } catch (Throwable ignored) {
+            // Ignore - best effort cleanup
          }
 
 

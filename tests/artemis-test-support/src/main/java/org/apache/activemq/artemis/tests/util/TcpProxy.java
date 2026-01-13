@@ -104,6 +104,7 @@ public final class TcpProxy implements Runnable {
             try {
                Thread.sleep(100);
             } catch (Exception ignored) {
+            // Ignore - best effort cleanup
             }
          }
       }

@@ -745,6 +745,7 @@ public abstract class ActiveMQTestBase extends ArtemisTestCase {
          context.lookup(binding);
          fail("there must be no resource to look up for " + binding);
       } catch (Exception e) {
+         // Ignore - best effort cleanup
       }
    }
 
@@ -1746,6 +1747,7 @@ public abstract class ActiveMQTestBase extends ArtemisTestCase {
                messagesJournal.stop();
             }
          } catch (Throwable ignored) {
+         // Ignore - best effort cleanup
          }
       }
 
@@ -2172,6 +2174,7 @@ public abstract class ActiveMQTestBase extends ArtemisTestCase {
       try {
          Wait.waitFor(() -> queue.getPageSubscription().isCounterPending() == false);
       } catch (Exception ignored) {
+      // Ignore - best effort cleanup
       }
       queue.flushExecutor();
       return (int) queue.getMessageCount();
@@ -2415,6 +2418,7 @@ public abstract class ActiveMQTestBase extends ArtemisTestCase {
             session.close();
             sf.close();
          } catch (Exception ignored) {
+         // Ignore - best effort cleanup
          }
       }
    }

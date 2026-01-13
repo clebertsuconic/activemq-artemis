@@ -100,6 +100,7 @@ public final class ClassloadingUtil {
          if (resource != null)
             return resource;
       } catch (Throwable t) {
+         // Ignore - will try with context class loader
       }
 
       loader = Thread.currentThread().getContextClassLoader();

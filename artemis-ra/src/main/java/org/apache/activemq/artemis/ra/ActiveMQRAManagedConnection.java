@@ -125,6 +125,7 @@ public final class ActiveMQRAManagedConnection implements ManagedConnection, Exc
          try {
             destroy();
          } catch (Throwable ignored) {
+            // Ignore - cleanup after setup failure
          }
 
          throw e;
@@ -132,6 +133,7 @@ public final class ActiveMQRAManagedConnection implements ManagedConnection, Exc
          try {
             destroy();
          } catch (Throwable ignored) {
+            // Ignore - cleanup after setup failure
          }
          throw new ResourceException("Error during setup", t);
       }

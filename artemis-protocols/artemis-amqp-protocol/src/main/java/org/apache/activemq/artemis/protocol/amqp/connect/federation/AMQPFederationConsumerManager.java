@@ -101,6 +101,7 @@ public abstract class AMQPFederationConsumerManager<E, Consumer extends AMQPFede
                try {
                   whenDemandTrackingEntryRemoved(entry, consumer);
                } catch (Exception ignore) {
+                  // Ignore - best effort cleanup
                }
             });
             demandTracking.clear();

@@ -69,6 +69,7 @@ public class FileUtil {
             try {
                Thread.sleep(100);
             } catch (InterruptedException e) {
+               // Ignore - retry loop
             }
             files = directory.list();
             attempts++;

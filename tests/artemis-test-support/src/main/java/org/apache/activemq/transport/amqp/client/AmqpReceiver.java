@@ -907,6 +907,7 @@ public class AmqpReceiver extends AmqpAbstractResource<Receiver> {
          try {
             stream.close();
          } catch (IOException e) {
+         // Ignore - best effort cleanup
          }
       }
    }

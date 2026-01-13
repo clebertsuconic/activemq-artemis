@@ -953,6 +953,7 @@ public class ActiveMQConnectionFactory extends JNDIStorable implements Connectio
          try {
             connection.close();
          } catch (JMSException me) {
+            // Ignore - cleanup after authorization failure
          }
          throw e;
       }

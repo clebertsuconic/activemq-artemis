@@ -2126,6 +2126,7 @@ public abstract class JournalImplTestUnit extends JournalImplTestBase {
                   startFlag.await(5, TimeUnit.SECONDS);
                   journal.appendDeleteRecord(2, false);
                } catch (java.lang.IllegalStateException expected) {
+               // Ignore - best effort cleanup
                } catch (Exception e) {
                   // e.printStackTrace();
                }

@@ -54,6 +54,7 @@ public final class XPathExpression implements BooleanExpression {
       try {
          XPATH_EVALUATOR_FACTORY = xpath -> new JAXPXPathEvaluator(xpath, builder);
       } catch (Throwable e) {
+         // Ignore - XPath factory initialization may fail
       }
    }
 

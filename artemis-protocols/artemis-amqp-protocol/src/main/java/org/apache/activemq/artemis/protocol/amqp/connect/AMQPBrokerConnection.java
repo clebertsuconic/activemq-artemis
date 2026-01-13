@@ -477,6 +477,7 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
                try {
                   connector.close();
                } catch (Exception ex) {
+                  // Ignore - cleanup when connection failed
                }
             }
          }

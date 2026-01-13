@@ -895,6 +895,7 @@ public class JournalImpl extends JournalBase implements TestableJournal, Journal
          try {
             file.getFile().close(false, false);
          } catch (Throwable ignored) {
+            // Ignore - best effort close during cleanup
          }
       }
    }

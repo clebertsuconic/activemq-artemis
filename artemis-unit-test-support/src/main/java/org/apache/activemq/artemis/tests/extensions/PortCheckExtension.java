@@ -68,6 +68,7 @@ public class PortCheckExtension implements Extension, BeforeEachCallback, AfterE
          try {
             s.close();
          } catch (Throwable ignored) {
+            // Ignore - best effort port check
          }
       }
    }

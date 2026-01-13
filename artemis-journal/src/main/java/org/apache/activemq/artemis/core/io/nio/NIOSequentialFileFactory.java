@@ -98,6 +98,7 @@ public class NIOSequentialFileFactory extends AbstractSequentialFileFactory {
                Thread.sleep(100);
             }
          } catch (InterruptedException e) {
+            // Ignore - buffer cleanup loop
          }
 
          buffer2 = ByteBuffer.allocateDirect(size);

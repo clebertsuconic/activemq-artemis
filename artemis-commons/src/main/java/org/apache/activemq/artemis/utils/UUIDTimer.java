@@ -241,6 +241,7 @@ public class UUIDTimer {
          try {
             Thread.sleep(delay);
          } catch (InterruptedException ie) {
+            // Ignore - timing loop
          }
          delay = 1L;
          /*

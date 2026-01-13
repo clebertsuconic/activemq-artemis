@@ -103,6 +103,7 @@ public class ProducerThread extends Thread {
          try {
             session.commit();
          } catch (Throwable ignored) {
+            // Ignore - best effort commit on cleanup
          }
 
          context.out.println(threadName + " Produced: " + this.getSentCount() + " messages");

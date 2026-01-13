@@ -321,6 +321,7 @@ public abstract class AbstractStompClientConnection implements StompClientConnec
       try {
          close();
       } catch (IOException e) {
+         // Ignore - best effort socket close
       } finally {
          this.connected = false;
       }

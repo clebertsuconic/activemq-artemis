@@ -157,6 +157,7 @@ public class MessageOpenTypeFactory<M extends Message> {
          try {
             tabularData = createTabularData(propertyMap, (TabularType) typedPropertyInfo[1], (Class) typedPropertyInfo[2]);
          } catch (Exception ignored) {
+            // Ignore - will check if tabularData is null below
          }
          if (tabularData != null && !tabularData.isEmpty()) {
             rc.put((String) typedPropertyInfo[0], tabularData);

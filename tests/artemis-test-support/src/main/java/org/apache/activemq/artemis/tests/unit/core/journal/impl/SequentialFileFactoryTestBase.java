@@ -344,6 +344,7 @@ public abstract class SequentialFileFactoryTestBase extends ActiveMQTestBase {
          try {
             sf.close();
          } catch (Exception ignored) {
+            // Ignore - test cleanup
          }
       }
    }
@@ -373,6 +374,7 @@ public abstract class SequentialFileFactoryTestBase extends ActiveMQTestBase {
 
          fail("Should throw exception");
       } catch (Exception e) {
+      // Ignore - best effort cleanup
       }
 
       sf.open();

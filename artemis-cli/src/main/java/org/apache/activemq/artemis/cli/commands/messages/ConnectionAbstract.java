@@ -102,6 +102,7 @@ public class ConnectionAbstract extends ConnectionConfigurationAbtract {
          try {
             tryConnect(brokerURL, user, password, cf);
          } catch (Exception e2) {
+            // Ignore - connection retry already failed, will proceed with cached credentials
          }
          return cf;
       } catch (JMSException e) {
@@ -117,6 +118,7 @@ public class ConnectionAbstract extends ConnectionConfigurationAbtract {
          try {
             tryConnect(brokerURL, user, password, cf);
          } catch (Exception e2) {
+            // Ignore - connection retry already failed, will proceed with cached credentials
          }
          return cf;
       }
@@ -158,6 +160,7 @@ public class ConnectionAbstract extends ConnectionConfigurationAbtract {
          try {
             tryConnect(brokerURL, user, password, cf);
          } catch (Exception e2) {
+            // Ignore - connection retry already failed, will proceed with cached credentials
          }
          return cf;
       } catch (JMSException e) {
@@ -175,6 +178,7 @@ public class ConnectionAbstract extends ConnectionConfigurationAbtract {
          try {
             tryConnect(brokerURL, user, password, cf);
          } catch (Exception e2) {
+            // Ignore - connection retry already failed, will proceed with cached credentials
          }
          return cf;
       }

@@ -189,6 +189,7 @@ public class Run extends LockAbstract {
                   getActionContext().err.println("Halting by user request");
                   fileKill.delete();
                } catch (Throwable ignored) {
+                  // Ignore - best effort cleanup before halt
                }
                Runtime.getRuntime().halt(0);
             }

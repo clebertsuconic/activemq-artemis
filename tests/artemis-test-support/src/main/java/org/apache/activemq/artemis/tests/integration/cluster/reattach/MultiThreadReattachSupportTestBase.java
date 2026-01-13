@@ -123,6 +123,7 @@ public abstract class MultiThreadReattachSupportTestBase extends ActiveMQTestBas
                            try {
                               Thread.sleep(1000);
                            } catch (Throwable e) {
+                              // Ignore - best effort cleanup
                            }
                            for (int i = 0; i < 10; i++) {
                               System.err.println("################################ ");

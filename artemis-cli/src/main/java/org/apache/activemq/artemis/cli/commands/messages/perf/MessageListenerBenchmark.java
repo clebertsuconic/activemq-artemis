@@ -297,7 +297,7 @@ public final class MessageListenerBenchmark implements BenchmarkService {
          try {
             connection.close();
          } catch (JMSException ignore) {
-
+            // Ignore - best effort close during cleanup
          }
       });
       jmsConnections.clear();

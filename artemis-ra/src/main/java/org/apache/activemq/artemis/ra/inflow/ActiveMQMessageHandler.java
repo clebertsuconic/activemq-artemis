@@ -377,6 +377,7 @@ public class ActiveMQMessageHandler implements MessageHandler, FailoverEventList
                   try {
                      tm.setTransactionTimeout(0);
                   } catch (SystemException ex) {
+                     // Ignore - best effort cleanup
                   }
                }
             }
