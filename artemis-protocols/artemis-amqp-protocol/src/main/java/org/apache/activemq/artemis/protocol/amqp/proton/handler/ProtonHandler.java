@@ -597,7 +597,7 @@ public class ProtonHandler extends ProtonInitializable implements SaslListener {
                   logger.warn(e.getMessage(), e);
                   ErrorCondition error = new ErrorCondition();
                   error.setCondition(AmqpError.INTERNAL_ERROR);
-                  error.setDescription("Unrecoverable error: " + (Objects.requireNonNullElse(e.getMessage(), e.getClass().getSimpleName())));
+                  error.setDescription("Unrecoverable error: " + Objects.requireNonNullElse(e.getMessage(), e.getClass().getSimpleName()));
                   connection.setCondition(error);
                   connection.close();
                }
@@ -628,7 +628,7 @@ public class ProtonHandler extends ProtonInitializable implements SaslListener {
       logger.warn(e.getMessage(), e);
       ErrorCondition error = new ErrorCondition();
       error.setCondition(AmqpError.INTERNAL_ERROR);
-      error.setDescription("Unrecoverable error: " + (Objects.requireNonNullElse(e.getMessage(), e.getClass().getSimpleName())));
+      error.setDescription("Unrecoverable error: " + Objects.requireNonNullElse(e.getMessage(), e.getClass().getSimpleName()));
       connection.setCondition(error);
       connection.close();
       flush();

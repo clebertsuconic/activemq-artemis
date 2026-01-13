@@ -210,7 +210,7 @@ public final class ObjectNameBuilder {
       return String.format("%s:broker=%s", domain, (jmxUseBrokerName && brokerName != null) ? ObjectName.quote(brokerName) : "artemis");
    }
 
-   @Deprecated()
+   @Deprecated
    public ObjectName getManagementContextObjectName() throws Exception {
       return getSecurityObjectName();
    }

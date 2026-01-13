@@ -1307,7 +1307,7 @@ public abstract class ActiveMQTestBase extends ArtemisTestCase {
             String threadDump = threadDump("can't get synchronization finished " + backup.isReplicaSync());
             System.err.println(threadDump);
             fail("backup started? (" + actualServer.isStarted() + "). Finished synchronizing (" +
-                    (activation) + "). SessionFactory!=null ? " + (sessionFactory != null) +
+                    activation + "). SessionFactory!=null ? " + (sessionFactory != null) +
                     " || sessionFactory.getBackupConnector()==" +
                     (sessionFactory != null ? sessionFactory.getBackupConnector() : "not-applicable") + "\n" + threadDump);
          }

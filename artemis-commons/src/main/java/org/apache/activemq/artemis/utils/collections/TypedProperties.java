@@ -918,7 +918,7 @@ public class TypedProperties {
 
       //LAZY CACHE that uses a benign race condition to avoid too many allocations of ByteValue if contended and to allocate upfront unneeded instances.
       //the Java spec doesn't allow tearing while reading/writing from arrays of references
-      private static final ByteValue[] VALUES = new ByteValue[-(-128) + 127 + 1];
+      private static final ByteValue[] VALUES = new ByteValue[128 + 127 + 1];
 
       private static ByteValue valueOf(byte b) {
          final int offset = 128;

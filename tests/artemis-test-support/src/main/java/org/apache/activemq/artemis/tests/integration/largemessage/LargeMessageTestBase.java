@@ -625,7 +625,7 @@ public abstract class LargeMessageTestBase extends ActiveMQTestBase {
                // ok it can be sent as regular
                stream.resetAdjust(0);
                break;
-            } else if ((!regular) && (totalCompressed > stream.getMinLarge())) {
+            } else if (!regular && totalCompressed > stream.getMinLarge()) {
                // now it cannot be sent as regular
                stream.resetAdjust(0);
                break;

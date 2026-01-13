@@ -1087,7 +1087,7 @@ public class JournalImpl extends JournalBase implements TestableJournal, Journal
             JournalCompactor compactor = JournalImpl.this.compactor;
             JournalRecord jrnRecord = records.get(id);
             if (jrnRecord == null) {
-               if (compactor == null || (!compactor.containsRecord(id))) {
+               if (compactor == null || !compactor.containsRecord(id)) {
                   if (updateCallback != null) {
                      updateCallback.onUpdate(id, false);
                   }

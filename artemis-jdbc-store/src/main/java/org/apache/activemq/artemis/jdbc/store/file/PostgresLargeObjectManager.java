@@ -70,7 +70,7 @@ public class PostgresLargeObjectManager {
             throw new SQLException("Couldn't access org.postgresql.largeobject.LargeObjectManager", ex);
          }
       } else {
-         return (connection.unwrap(PGConnection.class)).getLargeObjectAPI().createLO();
+         return connection.unwrap(PGConnection.class).getLargeObjectAPI().createLO();
       }
    }
 
@@ -107,7 +107,7 @@ public class PostgresLargeObjectManager {
             throw new SQLException("Couldn't access org.postgresql.largeobject.LargeObjectManager", ex);
          }
       } else {
-         return (connection.unwrap(PGConnection.class)).getLargeObjectAPI().open(oid, mode);
+         return connection.unwrap(PGConnection.class).getLargeObjectAPI().open(oid, mode);
       }
    }
 
@@ -217,7 +217,7 @@ public class PostgresLargeObjectManager {
             throw new SQLException("Couldn't access org.postgresql.largeobject.LargeObjectManager", ex);
          }
       } else {
-         return (connection.unwrap(PGConnection.class)).getLargeObjectAPI();
+         return connection.unwrap(PGConnection.class).getLargeObjectAPI();
       }
    }
 

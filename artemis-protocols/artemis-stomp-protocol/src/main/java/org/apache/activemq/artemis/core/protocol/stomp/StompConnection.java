@@ -381,7 +381,7 @@ public final class StompConnection extends AbstractRemotingConnection {
          }
       }
 
-      if (this.version != (StompVersions.V1_0)) {
+      if (this.version != StompVersions.V1_0) {
          VersionedStompFrameHandler newHandler = VersionedStompFrameHandler.getHandler(this, this.version, scheduledExecutorService, executorFactory);
          newHandler.initDecoder(this.frameHandler);
          this.frameHandler = newHandler;

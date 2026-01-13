@@ -965,7 +965,7 @@ public class Create extends InstallAbstract {
          printer.println(applyFilters("            <connector name=\"artemis\">tcp://${host}:${default.port}</connector>", filters));
          int counter = 0;
          for (String node: getStaticNodes()) {
-            printer.println("            <connector name = \"node" + (counter++) + "\">" + node + "</connector>");
+            printer.println("            <connector name = \"node" + counter++ + "\">" + node + "</connector>");
          }
          printer.println("      </connectors>");
          return stringWriter.toString();

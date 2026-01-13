@@ -50,7 +50,7 @@ public class JsonLoader {
 
    public static void writeObject(Map<String, Object> properties, Writer writer, JsonObject jsonObject) {
       try (JsonWriter jsonReader = provider.createWriterFactory(properties).createWriter(writer)) {
-         jsonReader.writeObject((((JsonObjectImpl)jsonObject).getRawObject()));
+         jsonReader.writeObject(((JsonObjectImpl)jsonObject).getRawObject());
       }
    }
 

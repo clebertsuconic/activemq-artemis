@@ -89,7 +89,7 @@ public interface Message {
 
    // We use certain AMQP properteis in mirror. We have to remove them in case of protocol conversion between AMQP and CORE
    Predicate<SimpleString> AMQP_PROPERTY_PREDICATE =
-      name -> (name.startsWith(Message.PREFIX_AMQP_ANNOTATIONS));
+      name -> name.startsWith(Message.PREFIX_AMQP_ANNOTATIONS);
 
    SimpleString HDR_ROUTE_TO_IDS = SimpleString.of("_AMQ_ROUTE_TO");
 

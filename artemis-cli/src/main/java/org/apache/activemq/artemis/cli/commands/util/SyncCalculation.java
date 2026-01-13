@@ -211,7 +211,7 @@ public class SyncCalculation {
 
    public static long toNanos(long time, long blocks, boolean verbose, ActionContext context) {
 
-      double blocksPerMillisecond = (double) blocks / (double) (time);
+      double blocksPerMillisecond = (double) blocks / (double) time;
 
       if (verbose) {
          context.out.println("Blocks per millisecond::" + blocksPerMillisecond);

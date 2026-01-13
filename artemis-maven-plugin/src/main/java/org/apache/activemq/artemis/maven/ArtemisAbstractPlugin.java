@@ -128,7 +128,7 @@ public abstract class ArtemisAbstractPlugin extends AbstractMojo {
       if (extraRepositories != null) {
          inUseRepositories = new ArrayList<>();
          for (String  strRepo: extraRepositories) {
-            RemoteRepository repo = new RemoteRepository.Builder("repo" + (repositories++), "default", strRepo).build();
+            RemoteRepository repo = new RemoteRepository.Builder("repo" + repositories++, "default", strRepo).build();
             inUseRepositories.add(repo);
             remoteRepos.add(repo);
          }

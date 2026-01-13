@@ -139,7 +139,7 @@ public class ArtemisCreatePlugin extends ArtemisAbstractPlugin {
    /**
     * Folders with libs to be copied into target
     */
-   @Parameter()
+   @Parameter
    private String[] libFolders;
 
    @Parameter(defaultValue = "${localRepository}")

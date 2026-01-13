@@ -232,7 +232,7 @@ public class ByteUtil {
       output[offset + 4] = (byte)(x >>> 24);
       output[offset + 5] = (byte)(x >>> 16);
       output[offset + 6] = (byte)(x >>>  8);
-      output[offset + 7] = (byte)(x);
+      output[offset + 7] = (byte) x;
    }
 
    public static byte[] doubleLongToBytes(long value1, long value2) {

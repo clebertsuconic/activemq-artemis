@@ -192,7 +192,7 @@ public class ProducerThread extends Thread {
             answer = session.createTextMessage(messageText);
          }
       }
-      if ((msgGroupID != null) && (!msgGroupID.isEmpty())) {
+      if (msgGroupID != null && !msgGroupID.isEmpty()) {
          answer.setStringProperty("JMSXGroupID", msgGroupID);
       }
 

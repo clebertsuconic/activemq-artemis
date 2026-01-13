@@ -450,12 +450,12 @@ public class StatQueue extends ConnectionAbstract {
 
       Map<String, Object> filterMap = new HashMap<>();
 
-      if (((fieldName != null) && (!fieldName.trim().isEmpty())) && ((queueName != null && !queueName.trim().isEmpty()))) {
+      if (fieldName != null && !fieldName.trim().isEmpty() && queueName != null && !queueName.trim().isEmpty()) {
          getActionContext().err.println("'--field' and '--queueName' cannot be specified together.");
          return null;
       }
 
-      if ((fieldName != null) && (!fieldName.trim().isEmpty())) {
+      if (fieldName != null && !fieldName.trim().isEmpty()) {
          try {
             FIELD field = FIELD.valueOfJsonId(fieldName);
 

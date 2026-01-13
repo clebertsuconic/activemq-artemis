@@ -688,7 +688,7 @@ public abstract class ProtonAbstractReceiver extends ProtonInitializable impleme
 
    protected static boolean outcomeSupported(final Source source, final Symbol outcome) {
       if (source != null && source.getOutcomes() != null) {
-         return Arrays.asList((source).getOutcomes()).contains(outcome);
+         return Arrays.asList(source.getOutcomes()).contains(outcome);
       }
       return false;
    }

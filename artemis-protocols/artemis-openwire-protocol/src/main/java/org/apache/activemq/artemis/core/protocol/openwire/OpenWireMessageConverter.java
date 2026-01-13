@@ -191,16 +191,16 @@ public final class OpenWireMessageConverter {
       final ActiveMQDestination replyTo = messageSend.getReplyTo();
       if (replyTo != null) {
          if (replyTo instanceof TemporaryQueue temporaryQueue) {
-            MessageUtil.setJMSReplyTo(coreMessage, org.apache.activemq.artemis.jms.client.ActiveMQDestination.TEMP_QUEUE_QUALIFED_PREFIX + (temporaryQueue.getQueueName()));
+            MessageUtil.setJMSReplyTo(coreMessage, org.apache.activemq.artemis.jms.client.ActiveMQDestination.TEMP_QUEUE_QUALIFED_PREFIX + temporaryQueue.getQueueName());
          } else if (replyTo instanceof TemporaryTopic temporaryTopic) {
-            MessageUtil.setJMSReplyTo(coreMessage, org.apache.activemq.artemis.jms.client.ActiveMQDestination.TEMP_TOPIC_QUALIFED_PREFIX + (temporaryTopic.getTopicName()));
+            MessageUtil.setJMSReplyTo(coreMessage, org.apache.activemq.artemis.jms.client.ActiveMQDestination.TEMP_TOPIC_QUALIFED_PREFIX + temporaryTopic.getTopicName());
          } else if (replyTo instanceof Queue queue) {
-            MessageUtil.setJMSReplyTo(coreMessage, org.apache.activemq.artemis.jms.client.ActiveMQDestination.QUEUE_QUALIFIED_PREFIX + (queue.getQueueName()));
+            MessageUtil.setJMSReplyTo(coreMessage, org.apache.activemq.artemis.jms.client.ActiveMQDestination.QUEUE_QUALIFIED_PREFIX + queue.getQueueName());
          } else if (replyTo instanceof Topic topic) {
-            MessageUtil.setJMSReplyTo(coreMessage, org.apache.activemq.artemis.jms.client.ActiveMQDestination.TOPIC_QUALIFIED_PREFIX + (topic.getTopicName()));
+            MessageUtil.setJMSReplyTo(coreMessage, org.apache.activemq.artemis.jms.client.ActiveMQDestination.TOPIC_QUALIFIED_PREFIX + topic.getTopicName());
          } else {
             // it should not happen
-            MessageUtil.setJMSReplyTo(coreMessage, org.apache.activemq.artemis.jms.client.ActiveMQDestination.QUEUE_QUALIFIED_PREFIX + (((Queue) replyTo).getQueueName()));
+            MessageUtil.setJMSReplyTo(coreMessage, org.apache.activemq.artemis.jms.client.ActiveMQDestination.QUEUE_QUALIFIED_PREFIX + ((Queue) replyTo).getQueueName());
          }
       }
 

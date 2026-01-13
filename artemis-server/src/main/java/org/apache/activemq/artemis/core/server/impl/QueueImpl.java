@@ -4032,7 +4032,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
       double collisionAvoidanceFactor = addressSettings.getRedeliveryCollisionAvoidanceFactor();
 
       int tmpDeliveryCount = deliveryCount > 0 ? deliveryCount - 1 : 0;
-      long delay = (long) (redeliveryDelay * (Math.pow(redeliveryMultiplier, tmpDeliveryCount)));
+      long delay = (long) (redeliveryDelay * Math.pow(redeliveryMultiplier, tmpDeliveryCount));
       if (collisionAvoidanceFactor > 0) {
          Random random = ThreadLocalRandom.current();
          double variance = (random.nextBoolean() ? collisionAvoidanceFactor : -collisionAvoidanceFactor) * random.nextDouble();

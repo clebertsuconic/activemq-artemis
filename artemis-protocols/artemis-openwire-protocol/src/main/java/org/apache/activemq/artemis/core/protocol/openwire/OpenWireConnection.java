@@ -646,7 +646,7 @@ public class OpenWireConnection extends AbstractRemotingConnection implements Se
             result.setConnectionContext(context);
             //todo implement reconnect https://issues.apache.org/jira/browse/ARTEMIS-194
             //todo: this used to check for  && this.acceptorUsed.isAuditNetworkProducers()
-            if (context.isReconnect() || (context.isNetworkConnection())) {
+            if (context.isReconnect() || context.isNetworkConnection()) {
                // once implemented ARTEMIS-194, we need to set the storedSequenceID here somehow
                // We have different semantics on Artemis Journal, but we could adapt something for this
                // TBD during the implementation of ARTEMIS-194
@@ -1942,7 +1942,7 @@ public class OpenWireConnection extends AbstractRemotingConnection implements Se
             message.append("OUT >> ");
          }
 
-         message.append((Objects.requireNonNullElse(command, "NULL")));
+         message.append(Objects.requireNonNullElse(command, "NULL"));
 
          logger.trace(message.toString());
       }
