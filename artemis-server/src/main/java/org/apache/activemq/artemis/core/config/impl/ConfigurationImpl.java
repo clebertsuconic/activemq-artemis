@@ -88,6 +88,7 @@ import org.apache.activemq.artemis.core.config.DivertConfiguration;
 import org.apache.activemq.artemis.core.config.FederationConfiguration;
 import org.apache.activemq.artemis.core.config.HAPolicyConfiguration;
 import org.apache.activemq.artemis.core.config.JaasAppConfiguration;
+import org.apache.activemq.artemis.core.config.LeaderManagerConfiguration;
 import org.apache.activemq.artemis.core.config.MetricsConfiguration;
 import org.apache.activemq.artemis.core.config.StoreConfiguration;
 import org.apache.activemq.artemis.core.config.WildcardConfiguration;
@@ -226,6 +227,8 @@ public class ConfigurationImpl extends javax.security.auth.login.Configuration i
    protected int idCacheSize = ActiveMQDefaultConfiguration.getDefaultIdCacheSize();
 
    private boolean persistIDCache = ActiveMQDefaultConfiguration.isDefaultPersistIdCache();
+
+   private Set<LeaderManagerConfiguration> leadManagerConfigurations = new HashSet<>();
 
    private List<String> incomingInterceptorClassNames = new ArrayList<>();
 
@@ -1533,6 +1536,7 @@ public class ConfigurationImpl extends javax.security.auth.login.Configuration i
 
    @Override
    public ConfigurationImpl addAcceptorConfiguration(final TransportConfiguration infos) {
+      new Exception("Adding").printStackTrace();
       acceptorConfigs.add(infos);
       return this;
    }
@@ -3507,6 +3511,16 @@ public class ConfigurationImpl extends javax.security.auth.login.Configuration i
       logger.debug("Setting mirrorIgnorePageTransactions={}", ignorePageTransactions);
       this.mirrorPageTransaction = ignorePageTransactions;
       return this;
+   }
+
+   @Override
+   public Set<LeaderManagerConfiguration> getLeadManagerConfigurations() {
+      return leadManagerConfigurations;
+   }
+
+   @Override
+   public void addLeadManagerConfiguration(LeaderManagerConfiguration configuration) {
+      leadManagerConfigurations.add(configuration);
    }
 
    // extend property utils with ability to auto-fill and locate from collections

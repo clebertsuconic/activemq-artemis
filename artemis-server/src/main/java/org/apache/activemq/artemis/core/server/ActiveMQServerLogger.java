@@ -1518,4 +1518,16 @@ public interface ActiveMQServerLogger {
 
    @LogMessage(id = 224153, value = "Unable to find page {} on Address {} while reloading ACKNOWLEDGE_CURSOR, deleting record {}.", level = LogMessage.Level.INFO)
    void cannotFindPageFileDuringPageAckReload(long pageNr, Object address, long id);
+
+   @LogMessage(id = 224154, value = "Invalid type configured on LeaderManager {}, type {} does not exist", level = LogMessage.Level.WARN)
+   void invalidTypeLeaderManager(String name, String type);
+
+   @LogMessage(id = 224155, value = "LeaderManager {} not found on acceptor {}", level = LogMessage.Level.WARN)
+   void leaderManagerNotFoundOnAcceptor(String leadName, String acceptorName);
+
+   @LogMessage(id = 224156, value = "LeaderManager {} starting with type={} and lockID={} with checkPeriod={} milliseconds", level = LogMessage.Level.INFO)
+   void leaderManagerStarting(String leadName, String type, String lockID, int checkPeriod);
+
+   @LogMessage(id = 224157, value = "At least one of the components failed to start under the leaderManager {}. A retry will be executed", level = LogMessage.Level.INFO)
+   void retryLeadManager(String leadName);
 }

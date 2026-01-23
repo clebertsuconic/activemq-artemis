@@ -551,6 +551,8 @@
             </xsd:complexType>
          </xsd:element>
 
+         <xsd:element ref="leader-managers" maxOccurs="1" minOccurs="0"/>
+
          <xsd:element ref="bridges" maxOccurs="1" minOccurs="0"/>
 
          <xsd:element ref="federations" maxOccurs="1" minOccurs="0"/>
@@ -3224,6 +3226,77 @@
       </xsd:complexType>
    </xsd:element>
 
+
+   <xsd:complexType name="leader-managerType">
+      <xsd:all>
+         <xsd:element name="lock-id" type="xsd:string" maxOccurs="1" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The lockID the implementation will use to reach the lock provider.
+                  This is different from the leader-manager name, but if lock-id is omitted, we will use name of the leader-manager as a value.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="type" type="xsd:string" maxOccurs="1" minOccurs="1">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The type of lock being used to control the leader. Options: file, ZK.
+                  Notice this is a pluggable functionality so a provider may introduce additional options.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="check-period" type="xsd:integer" maxOccurs="1" minOccurs="0" default="5000">
+            <xsd:annotation>
+               <xsd:documentation>
+                  A period used to verify if the lock still valid and renew it if needed.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="properties" maxOccurs="1" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  A list of options for the distributed-primitive-manager
+               </xsd:documentation>
+            </xsd:annotation>
+            <xsd:complexType>
+               <xsd:sequence>
+                  <xsd:element name="property" type="propertyType" minOccurs="1" maxOccurs="unbounded">
+                     <xsd:annotation>
+                        <xsd:documentation>
+                           A key-value pair option for the distributed-primitive-manager
+                        </xsd:documentation>
+                     </xsd:annotation>
+                  </xsd:element>
+               </xsd:sequence>
+            </xsd:complexType>
+         </xsd:element>
+      </xsd:all>
+
+      <xsd:attribute name="name" type="xsd:ID" use="required">
+         <xsd:annotation>
+            <xsd:documentation>
+               unique name for the lead manager
+            </xsd:documentation>
+         </xsd:annotation>
+      </xsd:attribute>
+
+   </xsd:complexType>
+
+   <xsd:element name="leader-managers">
+      <xsd:annotation>
+         <xsd:documentation>
+            a list of leader managers
+         </xsd:documentation>
+      </xsd:annotation>
+      <xsd:complexType>
+         <xsd:sequence>
+            <xsd:element name="leader-manager" type="leader-managerType" maxOccurs="unbounded" minOccurs="0"/>
+         </xsd:sequence>
+         <xsd:attributeGroup ref="xml:specialAttrs"/>
+      </xsd:complexType>
+   </xsd:element>
+
+
    <xsd:complexType name="distributed-primitive-manager">
       <xsd:all>
          <xsd:element name="class-name" type="xsd:string" maxOccurs="1" minOccurs="0">
@@ -4900,6 +4973,8 @@
       <xsd:simpleContent>
          <xsd:extension base="xsd:string">
             <xsd:attribute name="name" type="xsd:string">
+            </xsd:attribute>
+            <xsd:attribute name="leader-manager" type="xsd:string">
             </xsd:attribute>
          </xsd:extension>
       </xsd:simpleContent>

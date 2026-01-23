@@ -29,8 +29,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.beans.PropertyDescriptor;
+import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.PrintWriter;
 import java.io.StringReader;
@@ -62,6 +64,7 @@ import org.apache.activemq.artemis.api.core.TransportConfiguration;
 import org.apache.activemq.artemis.core.config.Configuration;
 import org.apache.activemq.artemis.core.config.ConfigurationUtils;
 import org.apache.activemq.artemis.core.config.HAPolicyConfiguration;
+import org.apache.activemq.artemis.core.config.LeaderManagerConfiguration;
 import org.apache.activemq.artemis.core.config.ScaleDownConfiguration;
 import org.apache.activemq.artemis.core.config.amqpBrokerConnectivity.AMQPBridgeAddressPolicyElement;
 import org.apache.activemq.artemis.core.config.amqpBrokerConnectivity.AMQPBridgeBrokerConnectionElement;
@@ -92,6 +95,7 @@ import org.apache.activemq.artemis.core.paging.PagingStore;
 import org.apache.activemq.artemis.core.paging.PagingStoreFactory;
 import org.apache.activemq.artemis.core.paging.impl.PagingStoreImpl;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
+import org.apache.activemq.artemis.core.remoting.impl.netty.TransportConstants;
 import org.apache.activemq.artemis.core.security.Role;
 import org.apache.activemq.artemis.core.server.ComponentConfigurationRoutingType;
 import org.apache.activemq.artemis.core.server.cluster.impl.MessageLoadBalancingType;
@@ -3042,6 +3046,104 @@ public class ConfigurationImplTest extends AbstractConfigurationTestBase {
       configuration.addAcceptorConfiguration("test", "tcp://0.0.0.0:61616?useKQueue");
       File fileOutput = new File(getTestDirfile(), "broker.properties");
       assertDoesNotThrow(() -> configuration.exportAsProperties(fileOutput));
+   }
+
+   @Test
+   public void testExportPropertiesFromLeaderManager() throws Exception {
+      final ConfigurationImpl configuration = new ConfigurationImpl();
+      HashMap<String, String> values = new HashMap<>();
+      for (int i = 0; i < 10; i++) {
+         values.put("k" + i, "v" + i);
+      }
+
+      LeaderManagerConfiguration leaderConfiguration = new LeaderManagerConfiguration(values).setName("hello").setCheckPeriod(123).setLeadType("mytype").setLockId("lock-id");
+      configuration.addLeadManagerConfiguration(leaderConfiguration);
+
+      Map<String, Object> nettyConfig = new HashMap<>();
+      nettyConfig.put(TransportConstants.HOST_PROP_NAME, "localhost");
+      nettyConfig.put(TransportConstants.PORT_PROP_NAME, 8888);
+      TransportConfiguration transportConfiguration = new TransportConfiguration("netty", nettyConfig).setLeaderManager("hello");
+      transportConfiguration.setName("netty");
+
+      configuration.addAcceptorConfiguration(transportConfiguration);
+
+      File fileOutput = new File(getTestDirfile(), "broker.properties");
+      assertDoesNotThrow(() -> {
+         configuration.exportAsProperties(fileOutput);
+      });
+   }
+
+   /**
+    * Verifies the leader manager configuration parsing and export process:
+    * <ul>
+    * <li>Creates a configuration from broker properties</li>
+    * <li>Validates the configuration output</li>
+    * <li>Exports the configuration back to a new {@link java.util.Properties}</li>
+    * <li>Verifies that the new output contains all initially specified properties</li>
+    * </ul>
+    */
+   @Test
+   public void testParseLeaderManager() throws Exception {
+      Properties properties = new Properties();
+
+      properties.put("leadManagerConfigurations.hello.checkPeriod", "123");
+      properties.put("leadManagerConfigurations.hello.lockId", "lock-id");
+      properties.put("leadManagerConfigurations.hello.name", "hello");
+      properties.put("leadManagerConfigurations.hello.leadType", "someLead");
+      for (int i = 0; i < 10; i++) {
+         properties.put("leadManagerConfigurations.hello.properties.k" + i, "v" + i);
+      }
+
+      properties.put("acceptorConfigurations.netty.factoryClassName", "netty");
+      properties.put("acceptorConfigurations.netty.leaderManager", "hello");
+      properties.put("acceptorConfigurations.netty.name", "netty");
+      properties.put("acceptorConfigurations.netty.params.port", "8888");
+      properties.put("acceptorConfigurations.netty.params.host", "localhost");
+
+      ConfigurationImpl configuration = new ConfigurationImpl();
+      configuration.parsePrefixedProperties(properties, null);
+
+      assertEquals(1, configuration.getAcceptorConfigurations().size());
+      TransportConfiguration acceptorConfig = null;
+      for (TransportConfiguration t :configuration.getAcceptorConfigurations()) {
+         acceptorConfig = t;
+      }
+      // I am not going to validate all the parameters from netty since this is already tested elsewhere
+      assertEquals("hello", acceptorConfig.getLeaderManager());
+      assertEquals("netty", acceptorConfig.getFactoryClassName());
+
+      assertEquals(1, configuration.getLeadManagerConfigurations().size());
+
+      LeaderManagerConfiguration leaderManagerConfiguration = null;
+
+      for (LeaderManagerConfiguration t : configuration.getLeadManagerConfigurations()) {
+         leaderManagerConfiguration = t;
+      }
+      Map<String, String> leadProperties = leaderManagerConfiguration.getProperties();
+      for (int i = 0; i < 10; i++) {
+         assertEquals("v" + i, leadProperties.get("k" + i));
+      }
+
+      assertEquals(123, leaderManagerConfiguration.getCheckPeriod());
+      assertEquals("lock-id", leaderManagerConfiguration.getLockId());
+      assertEquals("hello", leaderManagerConfiguration.getName());
+      assertEquals("someLead", leaderManagerConfiguration.getLeadType());
+
+      File outputProperty = new File(getTestDirfile(), "broker.properties");
+      configuration.exportAsProperties(outputProperty);
+
+      Properties brokerProperties = new Properties();
+
+      try (FileInputStream is = new FileInputStream(outputProperty)) {
+         BufferedInputStream bis = new BufferedInputStream(is);
+         brokerProperties.load(bis);
+      }
+
+      properties.forEach((k, v) -> {
+         logger.debug("Validating {} = {}", k, v);
+         assertEquals(v, brokerProperties.get(k));
+      });
+
    }
 
    /**
