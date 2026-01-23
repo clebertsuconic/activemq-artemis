@@ -164,10 +164,10 @@ public class CuratorDistributedLockTest extends DistributedLockTest {
          final DistributedLockManager manager = createManagedDistributeManager();
          manager.start();
          final DistributedLock lock = manager.getDistributedLock("a");
-         assertFalse(lock.isHeldByCaller());
+         assertFalse(lock.isLockValid());
          assertTrue(lock.tryLock());
          testingServer.close();
-         lock.isHeldByCaller();
+         lock.isLockValid();
       });
    }
 
@@ -177,14 +177,14 @@ public class CuratorDistributedLockTest extends DistributedLockTest {
          manager.start();
          final DistributedLock lock = manager.getDistributedLock("a");
          assertTrue(lock.tryLock());
-         assertTrue(lock.isHeldByCaller());
+         assertTrue(lock.isLockValid());
          final CountDownLatch notAvailable = new CountDownLatch(1);
          final DistributedLock.UnavailableLockListener listener = notAvailable::countDown;
          lock.addListener(listener);
          assertEquals(1, notAvailable.getCount());
          testingServer.close();
          assertTrue(notAvailable.await(30, TimeUnit.SECONDS));
-         lock.isHeldByCaller();
+         lock.isLockValid();
       });
    }
 
@@ -195,7 +195,7 @@ public class CuratorDistributedLockTest extends DistributedLockTest {
       manager.start();
       final DistributedLock lock = manager.getDistributedLock("a");
       assertTrue(lock.tryLock());
-      assertTrue(lock.isHeldByCaller());
+      assertTrue(lock.isLockValid());
       final CountDownLatch notAvailable = new CountDownLatch(1);
       final DistributedLock.UnavailableLockListener listener = notAvailable::countDown;
       lock.addListener(listener);
@@ -241,7 +241,7 @@ public class CuratorDistributedLockTest extends DistributedLockTest {
       DistributedLock lock = manager.getDistributedLock("a");
       final boolean held;
       try {
-         held = lock.isHeldByCaller();
+         held = lock.isLockValid();
       } catch (UnavailableStateException expected) {
          return;
       }

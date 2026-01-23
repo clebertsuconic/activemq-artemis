@@ -14,18 +14,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.activemq.artemis.quorum.zookeeper;
+
+package org.apache.activemq.artemis.lockmanager;
 
 import java.util.Map;
+import java.util.Set;
 
-import org.apache.activemq.artemis.lockmanager.zookeeper.CuratorDistributedLockManager;
+public interface DistributedLockManagerFactory {
+   DistributedLockManager build(Map<String, String> properties);
 
-/**
- * This is for backwards compatibility
- */
-@Deprecated(forRemoval = true)
-public class CuratorDistributedPrimitiveManager extends CuratorDistributedLockManager {
-   public CuratorDistributedPrimitiveManager(Map<String, String> config) {
-      super(config);
+   String getName();
+
+   String getImplName();
+
+   default Map<String, String> validateParameters(Map<String, String> config) {
+      config.forEach((parameterName, ignore) -> validateParameter(parameterName));
+      return config;
+   }
+
+   Set<String> getValidParametersList();
+
+   default void validateParameter(String parameterName) {
+      Set<String> validList = getValidParametersList();
+      if (!validList.contains(parameterName)) {
+         throw new IllegalArgumentException("Invalid parameter '" + parameterName + "'. Accepted parameters: " + String.join(", ", validList));
+      }
    }
 }

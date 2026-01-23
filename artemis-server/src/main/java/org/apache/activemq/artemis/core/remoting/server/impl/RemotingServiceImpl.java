@@ -71,6 +71,7 @@ import org.apache.activemq.artemis.core.server.ActiveMQServerLogger;
 import org.apache.activemq.artemis.core.server.ServiceRegistry;
 import org.apache.activemq.artemis.core.server.cluster.ClusterConnection;
 import org.apache.activemq.artemis.core.server.cluster.ClusterManager;
+import org.apache.activemq.artemis.core.server.leader.LeaderManager;
 import org.apache.activemq.artemis.core.server.management.ManagementService;
 import org.apache.activemq.artemis.core.server.reload.ReloadManager;
 import org.apache.activemq.artemis.logs.AuditLogger;
@@ -284,6 +285,14 @@ public class RemotingServiceImpl implements RemotingService, ServerConnectionLif
          }
 
          acceptor = factory.createAcceptor(info.getName(), clusterConnection, info.getParams(), new DelegatingBufferHandler(), this, threadPool, scheduledThreadPool, selectedProtocols, server.getThreadGroupName("remoting-" + info.getName()), server.getMetricsManager());
+         if (info.getLeaderManager() != null) {
+            LeaderManager leaderManager = server.getLeaderManager(info.getLeaderManager());
+            if (leaderManager == null) {
+               ActiveMQServerLogger.LOGGER.leaderManagerNotFoundOnAcceptor(info.getLeaderManager(), acceptor.getName());
+            } else {
+               acceptor.setLeaderManager(leaderManager);
+            }
+         }
 
          if (defaultInvmSecurityPrincipal != null && acceptor.isUnsecurable()) {
             acceptor.setDefaultActiveMQPrincipal(defaultInvmSecurityPrincipal);

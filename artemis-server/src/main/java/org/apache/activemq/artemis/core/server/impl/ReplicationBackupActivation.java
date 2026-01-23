@@ -261,7 +261,7 @@ public final class ReplicationBackupActivation extends Activation implements Dis
          // before primaryLock.addListener: just throwing an exception won't stop the broker.
          final boolean stillPrimary;
          try {
-            stillPrimary = primaryLock.isHeldByCaller();
+            stillPrimary = primaryLock.isLockValid();
          } catch (UnavailableStateException e) {
             logger.warn(e.getMessage(), e);
             primaryActivation.onUnavailableLockEvent();

@@ -24,7 +24,7 @@ public interface DistributedLock extends AutoCloseable {
 
    String getLockId();
 
-   boolean isHeldByCaller() throws UnavailableStateException;
+   boolean isLockValid() throws UnavailableStateException;
 
    boolean tryLock() throws UnavailableStateException, InterruptedException;
 

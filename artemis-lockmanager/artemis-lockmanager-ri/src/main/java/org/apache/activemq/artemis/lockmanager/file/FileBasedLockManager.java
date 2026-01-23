@@ -41,11 +41,7 @@ public class FileBasedLockManager implements DistributedLockManager {
    private final Map<String, FileDistributedLock> locks;
    private boolean started;
 
-   public FileBasedLockManager(Map<String, String> args) {
-      this(new File(args.get("locks-folder")));
-   }
-
-   public FileBasedLockManager(File locksFolder) {
+   FileBasedLockManager(File locksFolder) {
       Objects.requireNonNull(locksFolder);
       if (!locksFolder.exists()) {
          throw new IllegalStateException(locksFolder + " is supposed to already exists");

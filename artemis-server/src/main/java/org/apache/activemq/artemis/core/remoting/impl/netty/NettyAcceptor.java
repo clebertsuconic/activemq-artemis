@@ -85,6 +85,7 @@ import org.apache.activemq.artemis.core.server.ActiveMQComponent;
 import org.apache.activemq.artemis.core.server.ActiveMQMessageBundle;
 import org.apache.activemq.artemis.core.server.ActiveMQServerLogger;
 import org.apache.activemq.artemis.core.server.cluster.ClusterConnection;
+import org.apache.activemq.artemis.core.server.leader.LeaderManager;
 import org.apache.activemq.artemis.core.server.management.Notification;
 import org.apache.activemq.artemis.core.server.management.NotificationService;
 import org.apache.activemq.artemis.core.server.metrics.MetricsManager;
@@ -124,6 +125,8 @@ public class NettyAcceptor extends AbstractAcceptor {
          ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.DISABLED);
       }
    }
+
+   LeaderManager leaderManager;
 
    //just for debug
    private final String protocolsString;
@@ -441,6 +444,17 @@ public class NettyAcceptor extends AbstractAcceptor {
       }
    }
 
+   @Override
+   public LeaderManager getLeaderManager() {
+      return leaderManager;
+   }
+
+   @Override
+   public NettyAcceptor setLeaderManager(LeaderManager leaderManager) {
+      this.leaderManager = leaderManager;
+      return this;
+   }
+
    public int getTcpReceiveBufferSize() {
       return tcpReceiveBufferSize;
    }
@@ -451,6 +465,15 @@ public class NettyAcceptor extends AbstractAcceptor {
 
    @Override
    public synchronized void start() throws Exception {
+      if (leaderManager == null) {
+         internalStart();
+      } else {
+         leaderManager.addLeadAcquired(this::internalStart);
+         leaderManager.addLeadReleased(this::internalStop);
+      }
+   }
+
+   private void internalStart() throws Exception {
       if (channelClazz != null) {
          // Already started
          return;
@@ -770,6 +793,14 @@ public class NettyAcceptor extends AbstractAcceptor {
 
    @Override
    public void stop() throws Exception {
+      if (leaderManager != null) {
+         leaderManager.stop();
+      } else {
+         internalStop();
+      }
+   }
+
+   private void internalStop() throws Exception {
       CountDownLatch latch = new CountDownLatch(1);
       asyncStop(latch::countDown);
       latch.await();

@@ -21,3 +21,4 @@
 ./stop-mysql.sh
 ./stop-oracle.sh
 ./stop-postgres.sh
+./stop-zookeeper.sh

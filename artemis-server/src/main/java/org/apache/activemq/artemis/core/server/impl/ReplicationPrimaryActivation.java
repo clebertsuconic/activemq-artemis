@@ -149,7 +149,7 @@ public class ReplicationPrimaryActivation extends PrimaryActivation implements D
 
          // This control is placed here because initialisePart2 is going to load the journal that
          // could pause the JVM for enough time to lose lock ownership
-         if (!primaryLock.isHeldByCaller()) {
+         if (!primaryLock.isLockValid()) {
             throw new IllegalStateException("This broker isn't active anymore, probably due to application pauses eg GC, OS etc: failing now");
          }
 

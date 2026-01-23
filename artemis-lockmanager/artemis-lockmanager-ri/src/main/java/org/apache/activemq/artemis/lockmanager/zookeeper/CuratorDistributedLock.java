@@ -75,7 +75,7 @@ final class CuratorDistributedLock extends CuratorDistributedPrimitive implement
    }
 
    @Override
-   public boolean isHeldByCaller() throws UnavailableStateException {
+   public boolean isLockValid() throws UnavailableStateException {
       return run(() -> {
          checkUnavailable();
          if (lease == null) {

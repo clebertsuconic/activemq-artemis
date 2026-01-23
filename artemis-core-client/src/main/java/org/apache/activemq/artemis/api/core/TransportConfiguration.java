@@ -51,6 +51,8 @@ public class TransportConfiguration implements Serializable {
 
    private String name;
 
+   private String leaderManager;
+
    private String factoryClassName = "null";
 
    private Map<String, Object> params;
@@ -411,6 +413,15 @@ public class TransportConfiguration implements Serializable {
             params.put(key, val);
          }
       }
+   }
+
+   public String getLeaderManager() {
+      return leaderManager;
+   }
+
+   public TransportConfiguration setLeaderManager(String leaderManager) {
+      this.leaderManager = leaderManager;
+      return this;
    }
 
    private static String replaceWildcardChars(final String str) {

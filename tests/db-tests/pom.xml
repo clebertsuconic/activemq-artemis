@@ -32,7 +32,7 @@
       <db-extra-args>-Dderby.load=${derby.load} -Dpostgres.load=${postgres.load} -Dpostgres.uri=${postgres.uri}
          -Dpostgres.class=${postgres.class} -Dmssql.load=${mssql.load} -Dmssql.uri=${mssql.uri}
          -Dmssql.class=${mssql.class} -Dmysql.load=${mysql.load} -Dmysql.uri=${mysql.uri} -Dmysql.class=${mysql.class}
-         -Ddb2.load=${db2.load} -Ddb2.class=${db2.class} -Ddb2.uri=${db2.uri} -Doracle.load=${oracle.load}
+         -Ddb2.load=${db2.load} -Ddb2.class=${db2.class} -Ddb2.uri=${db2.uri} -Doracle.load=${oracle.load} -DZK.load=${ZK.load}
          -Doracle.uri=${oracle.uri} -Doracle.class=${oracle.class}
       </db-extra-args>
       <artemis-distribution-lib-dir>
@@ -52,6 +52,8 @@
       <postgres.load>false</postgres.load>
       <postgres.uri>jdbc:postgresql://localhost:5432/artemis?user=artemis&amp;#38;password=artemis</postgres.uri>
       <postgres.class>org.postgresql.Driver</postgres.class>
+
+      <ZK.load>false</ZK.load>
 
       <oracle.load>false</oracle.load>
       <oracle.uri>jdbc:oracle:thin:system/artemis@localhost:1521:FREE</oracle.uri>
@@ -490,6 +492,15 @@
             <skipDBTests>false</skipDBTests>
          </properties>
       </profile>
+
+      <profile>
+         <id>DB-ZK-tests</id>
+         <properties>
+            <ZK.load>true</ZK.load>
+            <skipDBTests>false</skipDBTests>
+         </properties>
+      </profile>
+
    </profiles>
 
 </project>

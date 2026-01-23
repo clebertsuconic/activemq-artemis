@@ -138,8 +138,8 @@ public abstract class DistributedLockTest {
       assertTrue(manager.getDistributedLock("b").tryLock());
       manager.stop();
       manager.start();
-      assertFalse(manager.getDistributedLock("a").isHeldByCaller());
-      assertFalse(manager.getDistributedLock("b").isHeldByCaller());
+      assertFalse(manager.getDistributedLock("a").isLockValid());
+      assertFalse(manager.getDistributedLock("b").isLockValid());
    }
 
    @Test
@@ -147,11 +147,11 @@ public abstract class DistributedLockTest {
       DistributedLockManager manager = createManagedDistributeManager();
       manager.start();
       DistributedLock lock = manager.getDistributedLock("a");
-      assertFalse(lock.isHeldByCaller());
+      assertFalse(lock.isLockValid());
       assertTrue(lock.tryLock());
-      assertTrue(lock.isHeldByCaller());
+      assertTrue(lock.isLockValid());
       lock.unlock();
-      assertFalse(lock.isHeldByCaller());
+      assertFalse(lock.isLockValid());
    }
 
    @Test
@@ -172,8 +172,8 @@ public abstract class DistributedLockTest {
       ownerManager.start();
       observerManager.start();
       assertTrue(ownerManager.getDistributedLock("a").tryLock());
-      assertTrue(ownerManager.getDistributedLock("a").isHeldByCaller());
-      assertFalse(observerManager.getDistributedLock("a").isHeldByCaller());
+      assertTrue(ownerManager.getDistributedLock("a").isLockValid());
+      assertFalse(observerManager.getDistributedLock("a").isLockValid());
    }
 
    @Test
@@ -184,8 +184,8 @@ public abstract class DistributedLockTest {
       observerManager.start();
       assertTrue(ownerManager.getDistributedLock("a").tryLock());
       ownerManager.getDistributedLock("a").unlock();
-      assertFalse(observerManager.getDistributedLock("a").isHeldByCaller());
-      assertFalse(ownerManager.getDistributedLock("a").isHeldByCaller());
+      assertFalse(observerManager.getDistributedLock("a").isLockValid());
+      assertFalse(ownerManager.getDistributedLock("a").isLockValid());
       assertTrue(observerManager.getDistributedLock("a").tryLock());
    }
 
@@ -207,8 +207,8 @@ public abstract class DistributedLockTest {
       notOwnerManager.start();
       assertTrue(ownerManager.getDistributedLock("a").tryLock());
       notOwnerManager.getDistributedLock("a").unlock();
-      assertFalse(notOwnerManager.getDistributedLock("a").isHeldByCaller());
-      assertTrue(ownerManager.getDistributedLock("a").isHeldByCaller());
+      assertFalse(notOwnerManager.getDistributedLock("a").isLockValid());
+      assertTrue(ownerManager.getDistributedLock("a").isLockValid());
    }
 
    @Test
@@ -298,7 +298,7 @@ public abstract class DistributedLockTest {
       assertTrue(manager.getDistributedLock(id).tryLock());
       assertEquals(0, manager.getMutableLong(id).get());
       manager.getMutableLong(id).set(1);
-      assertTrue(manager.getDistributedLock(id).isHeldByCaller());
+      assertTrue(manager.getDistributedLock(id).isLockValid());
       assertEquals(1, manager.getMutableLong(id).get());
    }
 

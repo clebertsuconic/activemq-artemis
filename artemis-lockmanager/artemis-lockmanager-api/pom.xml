@@ -36,6 +36,25 @@
          <groupId>org.apache.artemis</groupId>
          <artifactId>artemis-commons</artifactId>
       </dependency>
+
+      <!-- tests -->
+      <dependency>
+         <groupId>org.junit.jupiter</groupId>
+         <artifactId>junit-jupiter-api</artifactId>
+         <scope>test</scope>
+      </dependency>
+      <dependency>
+         <groupId>org.junit.jupiter</groupId>
+         <artifactId>junit-jupiter-engine</artifactId>
+         <scope>test</scope>
+      </dependency>
+      <dependency>
+         <groupId>org.apache.artemis</groupId>
+         <artifactId>artemis-unit-test-support</artifactId>
+         <version>${project.version}</version>
+         <scope>test</scope>
+      </dependency>
+
    </dependencies>
 
 </project>

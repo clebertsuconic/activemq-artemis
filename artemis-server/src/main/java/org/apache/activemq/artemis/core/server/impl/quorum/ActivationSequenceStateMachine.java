@@ -274,7 +274,7 @@ public final class ActivationSequenceStateMachine {
          throw new IllegalArgumentException("nodeActivationSequence must be >= 0");
       }
       final DistributedLock primaryLock = distributedManager.getDistributedLock(lockAndLongId);
-      if (!primaryLock.isHeldByCaller()) {
+      if (!primaryLock.isLockValid()) {
          final String message = String.format("Server [%s] primary lock for NodeID = %s not held. Activation sequence cannot be safely changed",
                                               serverDescription, lockAndLongId);
          logger.info(message);
