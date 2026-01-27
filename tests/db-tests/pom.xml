@@ -32,7 +32,7 @@
       <db-extra-args>-Dderby.load=${derby.load} -Dpostgres.load=${postgres.load} -Dpostgres.uri=${postgres.uri}
          -Dpostgres.class=${postgres.class} -Dmssql.load=${mssql.load} -Dmssql.uri=${mssql.uri}
          -Dmssql.class=${mssql.class} -Dmysql.load=${mysql.load} -Dmysql.uri=${mysql.uri} -Dmysql.class=${mysql.class}
-         -Ddb2.load=${db2.load} -Ddb2.class=${db2.class} -Ddb2.uri=${db2.uri} -Doracle.load=${oracle.load} -DZK.load=${ZK.load}
+         -Ddb2.load=${db2.load} -Ddb2.class=${db2.class} -Ddb2.uri=${db2.uri} -Doracle.load=${oracle.load} -Detcd.load=${etcd.load} -DZK.load=${ZK.load}
          -Doracle.uri=${oracle.uri} -Doracle.class=${oracle.class}
       </db-extra-args>
       <artemis-distribution-lib-dir>
@@ -53,6 +53,7 @@
       <postgres.uri>jdbc:postgresql://localhost:5432/artemis?user=artemis&amp;#38;password=artemis</postgres.uri>
       <postgres.class>org.postgresql.Driver</postgres.class>
 
+      <etcd.load>false</etcd.load>
       <ZK.load>false</ZK.load>
 
       <oracle.load>false</oracle.load>
@@ -81,6 +82,12 @@
       <dependency>
          <groupId>org.apache.artemis</groupId>
          <artifactId>artemis-server</artifactId>
+         <scope>test</scope>
+      </dependency>
+      <dependency>
+         <groupId>org.apache.artemis</groupId>
+         <artifactId>artemis-lockmanager-etcd</artifactId>
+         <version>${project.version}</version>
          <scope>test</scope>
       </dependency>
       <dependency>
@@ -501,6 +508,13 @@
          </properties>
       </profile>
 
+      <profile>
+         <id>DB-etcd-tests</id>
+         <properties>
+            <etcd.load>true</etcd.load>
+            <skipDBTests>false</skipDBTests>
+         </properties>
+      </profile>
    </profiles>
 
 </project>

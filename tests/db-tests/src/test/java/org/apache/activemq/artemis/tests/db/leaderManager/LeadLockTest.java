@@ -51,13 +51,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * This test needs external dependencies. It follows the same pattern described at {@link DualMirrorSingleAcceptorRunningTest}.
+ * This test needs to have ZK and etcd provided before it is started. It follows the same pattern described at {@link DualMirrorSingleAcceptorRunningTest}.
  * please read the documentation from that test for more detail on how to run this test.
  */
 public class LeadLockTest extends ActiveMQTestBase {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
+   private static final String ETCD_ENDPOINTS = "http://localhost:2379";
    public static final String ZK_ENDPOINTS = "localhost:2181";
    private static final long KEEP_ALIVE_INTERVAL_MS = 200;
    private static final int NUM_THREADS = 10;
@@ -84,6 +85,12 @@ public class LeadLockTest extends ActiveMQTestBase {
    public void tearDown() {
       scheduledExecutor.shutdownNow();
       executorService.shutdownNow();
+   }
+
+   @EnabledIfSystemProperty(named = "etcd.load", matches = "true")
+   @Test
+   public void testWithETCD() throws Exception {
+      internalTest(i -> getETCDLeaders(i));
    }
 
    @Test
@@ -272,6 +279,12 @@ public class LeadLockTest extends ActiveMQTestBase {
       HashMap<String, String> parameters = new HashMap<>();
       parameters.put("locks-folder", file.getAbsolutePath());
       return getLeaders(numberOfLeaders, "file", parameters);
+   }
+
+   private List<LeaderManager> getETCDLeaders(int numberOfLeaders) {
+      HashMap<String, String> parameters = new HashMap<>();
+      parameters.put("connect-string", ETCD_ENDPOINTS);
+      return getLeaders(numberOfLeaders, "etcd", parameters);
    }
 
    private List<LeaderManager> getZKLeaders(int numberOfLeaders) {

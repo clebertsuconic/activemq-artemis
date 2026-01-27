@@ -46,14 +46,15 @@ import org.slf4j.LoggerFactory;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
- * This test is dependent on zookeeper being provided before the tests start.
+ * This test is dependent on etcd and zookeeper being provided before the tests start.
  *
- * To run this test against zookeeper you must enable the profile DB-ZK-tests
+ * To run this test against etcd or zookeeper you must enable the profiles DB-ZK-tests or DB-etcd-tests
  * <ol>
- * <li>Start the ZK server using the script located at {@code tests/db-tests/scripts/start-ZK.sh}</li>
+ * <li>Start the etcd server using the script located at {@code tests/db-tests/scripts/start-etcd.sh}</li>
+ * <li>Start the zookeeper server using the script located at {@code tests/db-tests/scripts/start-zookeeper.sh}</li>
  * <li>Activate the DB-etc-tests and DB-ZK-tests Maven profiles:
  * <pre>
- * mvn test tests -P DB-ZK-tests
+ * mvn test -P DB-etc-tests -P DB-ZK-tests
  * </pre>
  * </li>
  * </ol>
@@ -61,6 +62,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 public class DualMirrorSingleAcceptorRunningTest extends DBTestBase {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
+
+   public static final String SERVER_NAME_WITH_ETCD_A = "brokerConnect/mirrorSingleAcceptor/etcd/A";
+   public static final String SERVER_NAME_WITH_ETCD_B = "brokerConnect/mirrorSingleAcceptor/etcd/B";
 
    public static final String SERVER_NAME_WITH_ZK_A = "brokerConnect/mirrorSingleAcceptor/ZK/A";
    public static final String SERVER_NAME_WITH_ZK_B = "brokerConnect/mirrorSingleAcceptor/ZK/B";
@@ -87,6 +91,13 @@ public class DualMirrorSingleAcceptorRunningTest extends DBTestBase {
                           "./src/main/resources/servers/mirrorSingleAcceptor/file/A",
                           "./src/main/resources/servers/mirrorSingleAcceptor/file/B",
                           s -> customizeFileServer(s, fileLock));
+      }
+
+      {
+         createServerPair(SERVER_NAME_WITH_ETCD_A, SERVER_NAME_WITH_ETCD_B,
+                          "./src/main/resources/servers/mirrorSingleAcceptor/etcd/A",
+                          "./src/main/resources/servers/mirrorSingleAcceptor/etcd/B",
+                          null);
       }
 
       {
@@ -135,11 +146,18 @@ public class DualMirrorSingleAcceptorRunningTest extends DBTestBase {
 
    @BeforeEach
    public void prepareServers() throws Exception {
+      cleanupData(SERVER_NAME_WITH_ETCD_A);
+      cleanupData(SERVER_NAME_WITH_ETCD_B);
       cleanupData(SERVER_NAME_WITH_FILE_A);
       cleanupData(SERVER_NAME_WITH_FILE_B);
-
       cleanupData(SERVER_NAME_WITH_ZK_A);
       cleanupData(SERVER_NAME_WITH_ZK_B);
+   }
+
+   @EnabledIfSystemProperty(named = "etcd.load", matches = "true")
+   @Test
+   public void testAlternatingETCD() throws Throwable {
+      testAlternating(SERVER_NAME_WITH_ETCD_A, SERVER_NAME_WITH_ETCD_B);
    }
 
    @EnabledIfSystemProperty(named = "ZK.load", matches = "true")

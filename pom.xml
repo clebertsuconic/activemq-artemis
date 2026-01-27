@@ -124,6 +124,7 @@
       <hdrhistogram.version>2.2.2</hdrhistogram.version>
       <curator.version>5.9.0</curator.version>
       <zookeeper.version>3.9.4</zookeeper.version>
+      <etcd.version>0.8.5</etcd.version>
       <woodstox.version>4.4.1</woodstox.version>
       <pem-keystore.version>3.0.0</pem-keystore.version>
 

@@ -3240,7 +3240,7 @@
          <xsd:element name="type" type="xsd:string" maxOccurs="1" minOccurs="1">
             <xsd:annotation>
                <xsd:documentation>
-                  The type of lock being used to control the leader. Options: file, ZK.
+                  The type of lock being used to control the leader. Options: etcd, file, ZK.
                   Notice this is a pluggable functionality so a provider may introduce additional options.
                </xsd:documentation>
             </xsd:annotation>
