@@ -1,0 +1,32 @@
+= Leadership Manager
+:idprefix:
+:idseparator: -
+:docinfo: shared
+
+The Leadership Manager provides distributed leader election capabilities using a pluggable distributed lock mechanism.
+This allows multiple broker instances to coordinate the activation of specific configuration elements, ensuring that only one broker instance (the leader) activates a particular element at any given time.
+
+When a broker acquires leadership through a distributed lock, the associated configuration elements are activated on that broker.
+If the lock is lost or released, those elements are deactivated.
+This coordination mechanism is useful in scenarios where you want to ensure that certain broker operations, such as accepting client connections, occur on only one broker instance within a cluster to avoid conflicts or unnecessary resource consumption.
+
+In the current version, the Leadership Manager can be applied to control the startup and shutdown of xref:acceptors[acceptors].
+When an acceptor is associated with a leader manager, it will only start accepting connections when the broker successfully acquires the leadership lock.
+If leadership is lost, the acceptor automatically stops accepting new connections.
+
+The same pattern used on acceptors now may eventually be applied to other configuration elements. Please raise a JIRA if you have an idea on other use cases where this pattern may be applied.
+
+== Configuration
+
+The leadership management is configured with the following XML elements.
+
+
+[,xml]
+----
+<ha-policy>
+   <shared-store>
+      <primary/>
+   </shared-store>
+</ha-policy>
+----
+
