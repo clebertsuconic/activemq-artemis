@@ -18,7 +18,6 @@ package org.apache.activemq.artemis.core.config;
 
 import java.io.File;
 import java.net.URL;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -1368,10 +1367,6 @@ public interface Configuration {
    void registerBrokerPlugin(ActiveMQServerBasePlugin plugin);
 
    void unRegisterBrokerPlugin(ActiveMQServerBasePlugin plugin);
-
-   Collection<LockCoordinatorConfiguration> getLockCoordinatorConfigurations();
-
-   void addLockCoordinatorConfiguration(LockCoordinatorConfiguration configuration);
 
    List<ActiveMQServerBasePlugin> getBrokerPlugins();
 

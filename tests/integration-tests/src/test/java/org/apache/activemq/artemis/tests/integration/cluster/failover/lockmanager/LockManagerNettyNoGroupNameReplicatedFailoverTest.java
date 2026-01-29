@@ -38,7 +38,6 @@ import org.apache.activemq.artemis.dto.BindingDTO;
 import org.apache.activemq.artemis.dto.WebServerDTO;
 import org.apache.activemq.artemis.lockmanager.MutableLong;
 import org.apache.activemq.artemis.lockmanager.file.FileBasedLockManager;
-import org.apache.activemq.artemis.lockmanager.file.FileBasedLockManagerFactory;
 import org.apache.activemq.artemis.tests.integration.cluster.failover.FailoverTest;
 import org.apache.activemq.artemis.tests.integration.cluster.util.TestableServer;
 import org.apache.activemq.artemis.tests.util.Wait;
@@ -227,8 +226,7 @@ public class LockManagerNettyNoGroupNameReplicatedFailoverTest extends FailoverT
       nodeManager.start();
       long localActivation = nodeManager.readNodeActivationSequence();
       // file based
-      FileBasedLockManagerFactory factory = new FileBasedLockManagerFactory();
-      FileBasedLockManager fileBasedPrimitiveManager = (FileBasedLockManager) factory.build(DistributedLockManagerConfiguration.getProperties());
+      FileBasedLockManager fileBasedPrimitiveManager = new FileBasedLockManager(DistributedLockManagerConfiguration.getProperties());
       fileBasedPrimitiveManager.start();
       try {
          MutableLong mutableLong = fileBasedPrimitiveManager.getMutableLong(nodeManager.getNodeId().toString());

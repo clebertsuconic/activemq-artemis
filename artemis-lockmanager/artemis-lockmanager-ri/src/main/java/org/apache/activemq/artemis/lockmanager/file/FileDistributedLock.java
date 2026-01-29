@@ -65,7 +65,7 @@ final class FileDistributedLock implements DistributedLock {
    }
 
    @Override
-   public synchronized boolean tryLock() {
+   public boolean tryLock() {
       checkNotClosed();
       final FileLock fileLock = this.fileLock;
       if (fileLock != null) {
@@ -88,7 +88,7 @@ final class FileDistributedLock implements DistributedLock {
    }
 
    @Override
-   public synchronized void unlock() {
+   public void unlock() {
       checkNotClosed();
       final FileLock fileLock = this.fileLock;
       if (fileLock != null) {
