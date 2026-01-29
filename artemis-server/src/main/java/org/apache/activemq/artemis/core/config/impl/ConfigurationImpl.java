@@ -1108,12 +1108,9 @@ public class ConfigurationImpl extends javax.security.auth.login.Configuration i
                stream = stream.filter((Map.Entry<?, ?> entry)-> filterOn.isAssignableFrom(entry.getClass()));
             }
             stream.forEach(entry -> {
-               if (entry.getValue() != null) {
-                  // nested by name
-                  nested.push(String.valueOf(entry.getKey()));
-                  export(beanUtils, nested, bufferedWriter, entry.getValue());
-                  nested.pop();
-               }
+               nested.push(String.valueOf(entry.getKey()));
+               export(beanUtils, nested, bufferedWriter, entry.getValue());
+               nested.pop();
             });
          }
       } else if (isComplexConfigObject(value)) {
@@ -1172,8 +1169,8 @@ public class ConfigurationImpl extends javax.security.auth.login.Configuration i
             }
          });
       } else {
-         // string form works ok otherwise
-         exportKeyValue(nested, bufferedWriter, String.valueOf(value));
+         // string form works ok otherwise, however we want an empty string for null to match properties syntax
+         exportKeyValue(nested, bufferedWriter, value == null ? "" : String.valueOf(value));
       }
    }
 
@@ -1193,6 +1190,9 @@ public class ConfigurationImpl extends javax.security.auth.login.Configuration i
    }
 
    private boolean isComplexConfigObject(Object value) {
+      if (value == null) {
+         return false;
+      }
       return !(value instanceof SimpleString || value instanceof Enum<?>) && value.getClass().getPackage().getName().contains("artemis");
    }
 
