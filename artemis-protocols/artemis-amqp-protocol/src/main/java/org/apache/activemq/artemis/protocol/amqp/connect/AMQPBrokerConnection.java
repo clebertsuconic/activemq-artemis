@@ -619,8 +619,75 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
       }
    }
 
-   private static void uninstallMirrorController(AMQPMirrorBrokerConnectionElement replicaConfig, ActiveMQServer server) {
-      // TODO implement this as part of https://issues.apache.org/jira/browse/ARTEMIS-2965
+   private void uninstallMirrorController(AMQPMirrorBrokerConnectionElement replicaConfig, ActiveMQServer server) throws Exception {
+      MirrorController currentMirrorController = server.getMirrorController();
+
+      if (currentMirrorController == null) {
+         logger.debug("No mirror controller installed, nothing to uninstall");
+         return;
+      }
+
+      // Handle single AMQPMirrorControllerSource
+      if (currentMirrorController instanceof AMQPMirrorControllerSource source) {
+         if (source.getBrokerConnection() == this) {
+            logger.debug("Uninstalling single mirror controller for {}", getName());
+            server.installMirrorController(null);
+            cleanupMirrorQueue(replicaConfig, server);
+            this.mirrorControllerSource = null;
+         } else {
+            logger.debug("Single mirror controller exists but belongs to different connection, not uninstalling");
+         }
+         return;
+      }
+
+      // Handle AMQPMirrorControllerAggregation
+      if (currentMirrorController instanceof AMQPMirrorControllerAggregation aggregation) {
+         AMQPMirrorControllerSource toRemove = null;
+
+         // Find our partition
+         for (AMQPMirrorControllerSource source : aggregation.getPartitions()) {
+            if (source.getBrokerConnection() == this) {
+               toRemove = source;
+               break;
+            }
+         }
+
+         if (toRemove != null) {
+            logger.debug("Removing partition from aggregation for {}", getName());
+            aggregation.removeParition(toRemove);
+
+            // If aggregation is now empty, remove it completely
+            if (aggregation.getPartitions().isEmpty()) {
+               logger.debug("Aggregation is empty, removing mirror controller completely");
+               server.installMirrorController(null);
+            }
+
+            cleanupMirrorQueue(replicaConfig, server);
+            this.mirrorControllerSource = null;
+         } else {
+            logger.debug("No partition found in aggregation for this connection");
+         }
+      }
+   }
+
+   private void cleanupMirrorQueue(AMQPMirrorBrokerConnectionElement replicaConfig, ActiveMQServer server) throws Exception {
+      SimpleString snfAddress = getMirrorSNF(replicaConfig);
+      Queue mirrorQueue = server.locateQueue(snfAddress);
+
+      if (mirrorQueue != null) {
+         logger.debug("Cleaning up mirror queue {}", snfAddress);
+         mirrorQueue.setMirrorController(false);
+
+         // Destroy the queue if it's non-durable (temporary)
+         if (!replicaConfig.isDurable()) {
+            try {
+               server.destroyQueue(snfAddress, null, true);
+               logger.debug("Destroyed non-durable mirror queue {}", snfAddress);
+            } catch (Exception e) {
+               logger.warn("Error destroying mirror queue {}: {}", snfAddress, e.getMessage(), e);
+            }
+         }
+      }
    }
 
    private Queue installMirrorController(AMQPMirrorBrokerConnectionElement replicaConfig, ActiveMQServer server) throws Exception {

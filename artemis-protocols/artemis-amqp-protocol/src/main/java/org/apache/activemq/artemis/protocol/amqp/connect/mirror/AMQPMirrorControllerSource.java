@@ -154,10 +154,12 @@ public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> im
 
    @Override
    public void start() throws Exception {
+      started = true;
    }
 
    @Override
    public void stop() throws Exception {
+      started = false;
    }
 
    @Override
