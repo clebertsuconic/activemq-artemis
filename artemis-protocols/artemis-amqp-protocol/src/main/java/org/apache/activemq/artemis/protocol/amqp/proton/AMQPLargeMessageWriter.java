@@ -173,6 +173,10 @@ public class AMQPLargeMessageWriter implements MessageWriter {
          logger.trace("AMQP Large Message Writer was closed before queued write attempt was executed");
          return;
       }
+      if (protonSender.getSession().getConnection().getTransport().isClosed()) {
+         logger.info("WHAAATT?????????", new Exception("WHAT"));
+      }
+
 
       // This is discounting some bytes due to Transfer payload
       final int frameSize = protonSender.getSession().getConnection().getTransport().getOutboundFrameSizeLimit() - 50 - (delivery.getTag() != null ? delivery.getTag().length : 0);
