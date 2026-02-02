@@ -836,18 +836,19 @@ public class AMQPConnectionContext extends ProtonInitializable implements EventH
 
    @Override
    public void onRemoteClose(Connection connection) {
-      handler.requireHandler();
-      connection.close();
-      connection.free();
+      runLater(() -> {
+         connection.close();
+         connection.free();
 
-      for (AMQPSessionContext protonSession : sessions.values()) {
-         protonSession.close();
-      }
-      sessions.clear();
+         for (AMQPSessionContext protonSession : sessions.values()) {
+            protonSession.close();
+         }
+         sessions.clear();
 
-      // We must force write the channel before we actually destroy the connection
-      handler.flushBytes();
-      destroy();
+         // We must force write the channel before we actually destroy the connection
+         handler.flushBytes();
+         destroy();
+      });
    }
 
    @Override

@@ -175,6 +175,7 @@ public class AMQPLargeMessageWriter implements MessageWriter {
       }
       if (protonSender.getSession().getConnection().getTransport().isClosed()) {
          logger.info("WHAAATT?????????", new Exception("WHAT"));
+         return;
       }
 
 

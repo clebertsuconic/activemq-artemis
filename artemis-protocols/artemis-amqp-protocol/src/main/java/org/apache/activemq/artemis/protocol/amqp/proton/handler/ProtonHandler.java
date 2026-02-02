@@ -360,6 +360,7 @@ public class ProtonHandler extends ProtonInitializable implements SaslListener {
 
    public void runNow(Runnable runnable) {
       if (workerExecutor.inEventLoop()) {
+         logger.info("runNow not using the executor...");
          runnable.run();
       } else {
          workerExecutor.execute(runnable);
