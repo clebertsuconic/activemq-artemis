@@ -25,6 +25,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
@@ -1427,6 +1428,15 @@ public class ConfigurationImplTest extends ServerTestBase {
       Assert.assertEquals("secureexample", configuration.getFederationConfigurations().get(0).getCredentials().getPassword());
    }
 
+   @Test
+   public void testParseDownstreamAuthorization() throws Exception {
+      Properties properties = new Properties();
+      properties.put("federationDownstreamAuthorization", "a,b,c,d,e");
+      ConfigurationImpl configuration = new ConfigurationImpl();
+      configuration.parsePrefixedProperties(properties, null);
+      assertEquals(5, configuration.getFederationDownstreamAuthorization().size());
+      assertEquals(List.of("a", "b", "c", "d", "e"), configuration.getFederationDownstreamAuthorization());
+   }
 
    @Test
    public void testAMQPBrokerConnectionMix() throws Throwable {

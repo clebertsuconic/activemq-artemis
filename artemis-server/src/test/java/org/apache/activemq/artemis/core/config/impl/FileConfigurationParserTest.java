@@ -802,4 +802,18 @@ public class FileConfigurationParserTest extends ServerTestBase {
       "</address-settings>" + "\n";
 
    private static String lastPart = "</core>";
+
+   @Test
+   public void testParseFederationDownstreamAuthorization() throws Exception {
+      String middlePart = "<federations downstream-authorization=\"a, b,c\"/>";
+      String configStr = firstPart + middlePart + lastPart;
+
+      final FileConfigurationParser parser = new FileConfigurationParser();
+      final ByteArrayInputStream input = new ByteArrayInputStream(configStr.getBytes(StandardCharsets.UTF_8));
+
+      final Configuration configuration = parser.parseMainConfig(input);
+      assertTrue(configuration.getFederationDownstreamAuthorization().contains("a"));
+      assertTrue(configuration.getFederationDownstreamAuthorization().contains("b"));
+      assertTrue(configuration.getFederationDownstreamAuthorization().contains("c"));
+   }
 }

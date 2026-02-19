@@ -1544,4 +1544,10 @@ public interface Configuration {
    Configuration setMirrorAckManagerWarnUnacked(boolean warnUnacked);
 
    boolean isMirrorAckManagerWarnUnacked();
+
+   List<String> getFederationDownstreamAuthorization();
+
+   void setFederationDownstreamAuthorization(List<String> roles);
+
+   Configuration addFederationDownstreamAuthorization(String role);
 }

@@ -219,6 +219,8 @@ public class ConfigurationImpl implements Configuration, Serializable {
 
    protected List<FederationConfiguration> federationConfigurations = new ArrayList<>();
 
+   protected List<String> downstreamAuthorization = new ArrayList<>();
+
    @Deprecated
    // this can eventually be replaced with List<QueueConfiguration>, but to keep existing semantics it must stay as is for now
    private List<CoreQueueConfiguration> coreQueueConfigurations = new ArrayList<>();
@@ -3438,6 +3440,22 @@ public class ConfigurationImpl implements Configuration, Serializable {
    public Configuration setMirrorPageTransaction(boolean ignorePageTransactions) {
       logger.debug("Setting mirrorIgnorePageTransactions={}", ignorePageTransactions);
       this.mirrorPageTransaction = ignorePageTransactions;
+      return this;
+   }
+
+   @Override
+   public List<String> getFederationDownstreamAuthorization() {
+      return downstreamAuthorization;
+   }
+
+   @Override
+   public void setFederationDownstreamAuthorization(List<String> roles) {
+      this.downstreamAuthorization = roles;
+   }
+
+   @Override
+   public Configuration addFederationDownstreamAuthorization(String role) {
+      downstreamAuthorization.add(role);
       return this;
    }
 
