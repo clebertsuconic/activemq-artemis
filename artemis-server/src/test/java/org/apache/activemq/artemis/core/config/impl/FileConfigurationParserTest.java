@@ -1037,4 +1037,18 @@ public class FileConfigurationParserTest extends ServerTestBase {
       assertEquals("#", match.getAddressMatch());
       assertEquals("myQueue", match.getQueueMatch());
    }
+
+   @Test
+   public void testParseFederationDownstreamAuthorization() throws Exception {
+      String middlePart = "<federations downstream-authorization=\"a, b,c\"/>";
+      String configStr = FIRST_PART + middlePart + LAST_PART;
+
+      final FileConfigurationParser parser = new FileConfigurationParser();
+      final ByteArrayInputStream input = new ByteArrayInputStream(configStr.getBytes(StandardCharsets.UTF_8));
+
+      final Configuration configuration = parser.parseMainConfig(input);
+      assertTrue(configuration.getFederationDownstreamAuthorization().contains("a"));
+      assertTrue(configuration.getFederationDownstreamAuthorization().contains("b"));
+      assertTrue(configuration.getFederationDownstreamAuthorization().contains("c"));
+   }
 }

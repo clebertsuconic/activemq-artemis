@@ -1527,4 +1527,10 @@ public interface Configuration {
    boolean isMirrorAckManagerWarnUnacked();
 
    void exportAsProperties(File to) throws Exception;
+
+   List<String> getFederationDownstreamAuthorization();
+
+   void setFederationDownstreamAuthorization(List<String> roles);
+
+   Configuration addFederationDownstreamAuthorization(String role);
 }
