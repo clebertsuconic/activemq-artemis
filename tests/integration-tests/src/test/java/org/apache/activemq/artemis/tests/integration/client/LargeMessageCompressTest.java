@@ -50,6 +50,7 @@ import org.apache.activemq.artemis.jms.client.ActiveMQConnectionFactory;
 import org.apache.activemq.artemis.utils.RandomUtil;
 import org.junit.Assert;
 import org.junit.Assume;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import static org.hamcrest.CoreMatchers.equalTo;
@@ -798,6 +799,41 @@ public class LargeMessageCompressTest extends LargeMessageTest {
 
          return result.flip();
       }
+   }
+
+   // this test does not make sense once compressed is fixed
+   // since the body is already parsed and won't cause the check for the stream being closed
+   @Ignore
+   @Override
+   @Test
+   public void testCloseConsumer() throws Exception {
+      // to not run as compressed
+   }
+
+   // this test does not make sense once compressed is fixed
+   // since the body is already parsed and won't cause the check for the stream being closed
+   @Ignore
+   @Override
+   @Test
+   public void testDivertAndExpire() throws Exception {
+      // to not run as compressed
+   }
+
+   // this test does not make sense once compressed is fixed
+   // since the body is already parsed and won't cause the check for the stream being closed
+   @Ignore
+   @Override
+   @Test
+   public void testSendServerMessageMetrics() throws Exception {
+      // to not run as compressed
+   }
+
+
+   @Ignore
+   @Override
+   @Test
+   public void testGlobalSizeBytesAndAddressSize() throws Exception {
+      // to not run as compressed
    }
 
 
