@@ -172,11 +172,6 @@ public final class ClientLargeMessageImpl extends ClientMessageImpl implements C
       }
    }
 
-   @Override
-   public boolean isOriginallyRegular() {
-      return largeMessageController.isOriginallyRegular();
-   }
-
    public void retrieveExistingData(ClientMessageInternal clMessage) {
       this.internalSetMessageID(clMessage.getMessageID());
       this.address = clMessage.getAddressSimpleString();

@@ -576,7 +576,7 @@ public final class ClientConsumerImpl implements ClientConsumerInternal {
       }
 
       if (message.getBooleanProperty(Message.HDR_LARGE_COMPRESSED)) {
-         handleCompressedMessageSentAsRegular(message);
+         handleCompressedMessage(message);
       } else {
          handleRegularMessage(message);
       }
@@ -621,7 +621,7 @@ public final class ClientConsumerImpl implements ClientConsumerInternal {
     * Say that you sent a 1G message full of spaces. That could be just bellow 100K compressed but you wouldn't have
     * enough memory to decompress it
     */
-   private void handleCompressedMessageSentAsRegular(final ClientMessageInternal clMessage) throws Exception {
+   private void handleCompressedMessage(final ClientMessageInternal clMessage) throws Exception {
       ClientLargeMessageImpl largeMessage = new ClientLargeMessageImpl();
       largeMessage.retrieveExistingData(clMessage);
 
@@ -637,7 +637,7 @@ public final class ClientConsumerImpl implements ClientConsumerInternal {
       long callTimeout = locator.getCallTimeout();
 
       currentLargeMessageController = new LargeMessageControllerImpl(this, largeMessage.getLargeMessageSize(), callTimeout, largeMessageCache);
-      currentLargeMessageController.setOriginallyRegular(true);
+      currentLargeMessageController.setLocal(true);
 
       //sets the packet
       ActiveMQBuffer qbuff = clMessage.toCore().getBodyBuffer();
@@ -645,12 +645,8 @@ public final class ClientConsumerImpl implements ClientConsumerInternal {
       final byte[] body = new byte[bytesToRead];
       qbuff.readBytes(body);
       largeMessage.setLargeMessageController(new CompressedLargeMessageControllerImpl(currentLargeMessageController));
-      // this is refeeding the packet after decompressed, hence the flow control must be 0
-      currentLargeMessageController.addPacket(body, 0, false);
+      currentLargeMessageController.addPacket(body, body.length, false);
       largeMessage.putBooleanProperty(Message.HDR_LARGE_COMPRESSED, false);
-      //make sure the message is decompressed before it is handled
-      largeMessage.checkCompletion();
-      currentLargeMessageController = null;
 
       handleRegularMessage(largeMessage);
    }
@@ -1068,7 +1064,7 @@ public final class ClientConsumerImpl implements ClientConsumerInternal {
       // Chunk messages will execute the flow control while receiving the chunks
       if (message.getFlowControlSize() != 0) {
          // on large messages we should discount 1 on the first packets as we need continuity until the last packet
-         flowControl(message.getFlowControlSize(), !message.isLargeMessage() || message.isOriginallyRegular());
+         flowControl(message.getFlowControlSize(), !message.isLargeMessage());
       }
    }
 
