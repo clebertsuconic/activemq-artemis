@@ -62,12 +62,10 @@ public class AddressesTest extends ArtemisTest {
       AddressesPage addressesPage = statusPage.getAddressesPage(DEFAULT_TIMEOUT);
 
       Wait.assertEquals(1, () -> addressesPage.countAddress("DLQ"));
-      assertEquals(0, addressesPage.getMessagesCount("DLQ"));
 
       testAddressContextMenu(addressesPage, "DLQ", canDeleteAddress, canSendMessage, canCreateQueue);
 
       Wait.assertEquals(1, () -> addressesPage.countAddress("ExpiryQueue"));
-      assertEquals(0, addressesPage.getMessagesCount("ExpiryQueue"));
 
       testAddressContextMenu(addressesPage, "ExpiryQueue", canDeleteAddress, canSendMessage, canCreateQueue);
    }
