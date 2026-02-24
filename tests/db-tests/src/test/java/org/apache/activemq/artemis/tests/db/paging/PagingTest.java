@@ -157,14 +157,13 @@ public class PagingTest extends ParameterDBTestBase {
 
    @Parameters(name = "db={0}")
    public static Collection<Object[]> parameters() {
-      List<Object[]> databases = new ArrayList<>();
-      databases.add(new Object[] {Database.JOURNAL, true});
-      databases.add(new Object[] {Database.JOURNAL, false});
+      List<Database> databases = new ArrayList<>();
+      databases.add(Database.JOURNAL);
       List<Database> selectedList = Database.selectedList();
       if (selectedList != null && !selectedList.isEmpty()) {
-         selectedList.forEach(d -> databases.add(new Object[]{d, false}));
+         selectedList.forEach(d -> databases.add(d));
       }
-      return databases;
+      return convertParameters(databases);
    }
 
    @Override
