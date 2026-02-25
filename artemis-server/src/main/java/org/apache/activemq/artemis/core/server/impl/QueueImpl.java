@@ -2025,7 +2025,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
 
    @Override
    public int deleteMatchingReferences(final int flushLimit, final Filter filter1, AckReason ackReason) throws Exception {
-      return iterQueue("deleteMatchingReferences", flushLimit, filter1, createDeleteMatchingAction(ackReason));
+      return iterQueue(flushLimit, filter1, createDeleteMatchingAction(ackReason));
    }
 
    QueueIterateAction createDeleteMatchingAction(AckReason ackReason) {
@@ -2043,8 +2043,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
     * This is a generic method for any method interacting on the Queue to move or delete messages Instead of duplicate
     * the feature we created an abstract class where you pass the logic for each message.
     */
-   private int iterQueue(final String operationName,
-                         final int flushLimit,
+   private int iterQueue(final int flushLimit,
                          final Filter filter1,
                          QueueIterateAction messageAction) throws Exception {
       int count = 0;
@@ -2120,19 +2119,11 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
                if (messageAction.match(reference)) {
                   if (!messageAction.actMessage(tx, reference)) {
                      addTail(reference, false);
-                     if (!needsDepage()) {
-                        logger.info("The operation {} cannot read any more messages from paging. The operation will be interrupted now", operationName);
-                        break;
-                     }
                   }
                   txCount++;
                   count++;
                } else {
                   addTail(reference, false);
-                  if (!needsDepage()) {
-                     logger.info("The operation {} cannot read any more messages from paging. The operation will be interrupted now", operationName);
-                     break;
-                  }
                }
 
                if (txCount > 0 && txCount % flushLimit == 0) {
@@ -2450,7 +2441,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
    @Override
    public boolean sendMessageToDeadLetterAddress(final long messageID) throws Exception {
 
-      return iterQueue("sendMessageToDeadLetterAddress", DEFAULT_FLUSH_LIMIT, null, new QueueIterateAction(messageID) {
+      return iterQueue(DEFAULT_FLUSH_LIMIT, null, new QueueIterateAction(messageID) {
 
          @Override
          public boolean actMessage(Transaction tx, MessageReference ref) throws Exception {
@@ -2466,7 +2457,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
    @Override
    public int sendMessagesToDeadLetterAddress(Filter filter) throws Exception {
 
-      return iterQueue("sendMessagesToDeadLetterAddress", DEFAULT_FLUSH_LIMIT, filter, new QueueIterateAction() {
+      return iterQueue(DEFAULT_FLUSH_LIMIT, filter, new QueueIterateAction() {
 
          @Override
          public boolean actMessage(Transaction tx, MessageReference ref) throws Exception {
@@ -2485,7 +2476,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
                                 final Binding binding,
                                 final boolean rejectDuplicate) throws Exception {
 
-      return iterQueue("moveReference", DEFAULT_FLUSH_LIMIT, null, new QueueIterateAction(messageID) {
+      return iterQueue(DEFAULT_FLUSH_LIMIT, null, new QueueIterateAction(messageID) {
 
          @Override
          public boolean actMessage(Transaction tx, MessageReference ref) throws Exception {
@@ -2522,7 +2513,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
       final Integer expectedHits = messageCount > 0 ? messageCount : null;
       final DuplicateIDCache targetDuplicateCache = postOffice.getDuplicateIDCache(toAddress);
 
-      return iterQueue("moveReferences", flushLimit, filter, new QueueIterateAction(expectedHits) {
+      return iterQueue(flushLimit, filter, new QueueIterateAction(expectedHits) {
          @Override
          public boolean actMessage(Transaction tx, MessageReference ref) throws Exception {
             boolean ignored = false;
@@ -2550,7 +2541,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
    }
 
    public int moveReferencesBetweenSnFQueues(final SimpleString queueSuffix) throws Exception {
-      return iterQueue("moveReferencesBetweenSnFQueues", DEFAULT_FLUSH_LIMIT, null, new QueueIterateAction() {
+      return iterQueue(DEFAULT_FLUSH_LIMIT, null, new QueueIterateAction() {
          @Override
          public boolean actMessage(Transaction tx, MessageReference ref) throws Exception {
             return moveBetweenSnFQueues(queueSuffix, tx, ref, null);
@@ -2563,7 +2554,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
                                 final SimpleString toQueue,
                                 final Binding binding) throws Exception {
 
-      return iterQueue("copyReference", DEFAULT_FLUSH_LIMIT, null, new QueueIterateAction(messageID) {
+      return iterQueue(DEFAULT_FLUSH_LIMIT, null, new QueueIterateAction(messageID) {
 
          @Override
          public boolean actMessage(Transaction tx, MessageReference ref) throws Exception {
@@ -2576,7 +2567,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
    }
 
    public int rerouteMessages(final SimpleString queueName, final Filter filter) throws Exception {
-      return iterQueue("rerouteMessages", DEFAULT_FLUSH_LIMIT, filter, new QueueIterateAction() {
+      return iterQueue(DEFAULT_FLUSH_LIMIT, filter, new QueueIterateAction() {
          @Override
          public boolean actMessage(Transaction tx, MessageReference ref) throws Exception {
             RoutingContext routingContext = new RoutingContextImpl(tx);
@@ -2601,7 +2592,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
 
       final HashMap<String, Long> queues = new HashMap<>();
 
-      return iterQueue("retryMessages", DEFAULT_FLUSH_LIMIT, filter, new QueueIterateAction(expectedHits) {
+      return iterQueue(DEFAULT_FLUSH_LIMIT, filter, new QueueIterateAction(expectedHits) {
 
          @Override
          public boolean actMessage(Transaction tx, MessageReference ref) throws Exception {
@@ -2646,7 +2637,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
    @Override
    public boolean changeReferencePriority(final long messageID, final byte newPriority) throws Exception {
 
-      return iterQueue("changeReferencePriority", DEFAULT_FLUSH_LIMIT, null, new QueueIterateAction(messageID) {
+      return iterQueue(DEFAULT_FLUSH_LIMIT, null, new QueueIterateAction(messageID) {
 
          @Override
          public boolean actMessage(Transaction tx, MessageReference ref) throws Exception {
@@ -2661,7 +2652,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
    @Override
    public int changeReferencesPriority(final Filter filter, final byte newPriority) throws Exception {
 
-      return iterQueue("changeReferencesPriority", DEFAULT_FLUSH_LIMIT, filter, new QueueIterateAction() {
+      return iterQueue(DEFAULT_FLUSH_LIMIT, filter, new QueueIterateAction() {
 
          @Override
          public boolean actMessage(Transaction tx, MessageReference ref) throws Exception {
