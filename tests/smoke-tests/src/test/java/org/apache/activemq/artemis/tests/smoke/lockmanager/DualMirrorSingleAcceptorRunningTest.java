@@ -33,7 +33,6 @@ import java.util.Properties;
 import java.util.function.Consumer;
 
 import org.apache.activemq.artemis.api.core.management.SimpleManagement;
-import org.apache.activemq.artemis.cli.commands.Connect;
 import org.apache.activemq.artemis.cli.commands.helper.HelperCreate;
 import org.apache.activemq.artemis.tests.smoke.common.SmokeTestBase;
 import org.apache.activemq.artemis.tests.util.CFUtil;
