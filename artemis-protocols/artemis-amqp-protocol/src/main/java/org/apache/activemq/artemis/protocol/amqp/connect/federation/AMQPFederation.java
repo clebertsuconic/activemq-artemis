@@ -108,6 +108,10 @@ public abstract class AMQPFederation implements Federation {
       }
    }
 
+   public void pause() throws Exception {
+      shutdown();
+   }
+
    /**
     * {@return the {@link WildcardConfiguration} that is in use by this server federation}
     */

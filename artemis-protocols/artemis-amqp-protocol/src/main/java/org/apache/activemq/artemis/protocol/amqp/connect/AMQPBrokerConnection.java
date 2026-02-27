@@ -62,6 +62,7 @@ import org.apache.activemq.artemis.core.server.Consumer;
 import org.apache.activemq.artemis.core.server.MessageReference;
 import org.apache.activemq.artemis.core.server.Queue;
 import org.apache.activemq.artemis.core.server.impl.AddressInfo;
+import org.apache.activemq.artemis.core.server.lock.LockCoordinator;
 import org.apache.activemq.artemis.core.server.mirror.MirrorController;
 import org.apache.activemq.artemis.core.server.plugin.ActiveMQServerQueuePlugin;
 import org.apache.activemq.artemis.protocol.amqp.broker.AMQPMessage;
@@ -161,6 +162,17 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
    private final Set<Queue> senders = new HashSet<>();
    private final Set<Queue> receivers = new HashSet<>();
    private final Map<String, Predicate<Link>> linkClosedInterceptors = new ConcurrentHashMap<>();
+   private LockCoordinator lockCoordinator;
+
+   @Override
+   public LockCoordinator getLockCoordinator() {
+      return lockCoordinator;
+   }
+
+   public AMQPBrokerConnection setLockCoordinator(LockCoordinator lockCoordinator) {
+      this.lockCoordinator = lockCoordinator;
+      return this;
+   }
 
    final Executor connectExecutor;
    final ScheduledExecutorService scheduledExecutorService;
@@ -251,7 +263,19 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
    }
 
    @Override
-   public synchronized void start() throws Exception {
+   public void start() throws Exception {
+      if (lockCoordinator != null) {
+         lockCoordinator.onLockAcquired(this::internalStart);
+         lockCoordinator.onLockReleased(this::pause);
+      } else {
+         this.internalStart();
+      }
+   }
+
+   private void internalStart() throws Exception {
+      if (started) {
+         resume();
+      }
       if (!started) {
          started = true;
          server.getConfiguration().registerBrokerPlugin(this);
@@ -358,6 +382,34 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
          server.getManagementService().unregisterBrokerConnection(getName());
       }
    }
+
+   @Override
+   public void pause() throws Exception {
+      if (mirrorControllerSource != null) {
+         mirrorControllerSource.pause();
+      }
+      if (bridgeManagers != null) {
+         bridgeManagers.pause();
+      }
+      if (brokerFederation != null) {
+         brokerFederation.pause();
+      }
+   }
+
+
+   @Override
+   public void resume() throws Exception {
+      if (mirrorControllerSource != null) {
+         mirrorControllerSource.resume();
+      }
+      if (bridgeManagers != null) {
+         bridgeManagers.resume();
+      }
+      if (brokerFederation != null) {
+         brokerFederation.resume();
+      }
+   }
+
 
    public ActiveMQServer getServer() {
       return server;

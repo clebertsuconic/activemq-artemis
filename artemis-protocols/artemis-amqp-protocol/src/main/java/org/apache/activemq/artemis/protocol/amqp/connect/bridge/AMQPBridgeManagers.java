@@ -57,6 +57,12 @@ public class AMQPBridgeManagers {
       bridgeManagers.clear();
    }
 
+   public void pause() {
+   }
+
+   public void resume() {
+   }
+
    /**
     * Starts each bridge manager registered in the managers collection.
     *

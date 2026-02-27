@@ -138,6 +138,12 @@ public class AMQPFederationSource extends AMQPFederation {
       return connection;
    }
 
+   public void pause() {
+   }
+
+   public void resume() {
+   }
+
    @Override
    public synchronized AMQPFederationConfiguration getConfiguration() {
       if (!connected) {
