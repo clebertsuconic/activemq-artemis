@@ -359,6 +359,7 @@ public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> im
    @Override
    public void sendMessage(Transaction tx, Message message, RoutingContext context) {
       if (!active) {
+         logger.info("Send message ignored for {}, message={}", tx, message);
          return;
       }
       SimpleString address = context.getAddress(message);
@@ -377,6 +378,8 @@ public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> im
          logger.trace("sendMessage::server {} is discarding send to address {}, address doesn't match filter", server, address);
          return;
       }
+
+      logger.info("Sending message {}", message);
 
       try {
          context.setReusable(false);
