@@ -247,16 +247,18 @@ public class DuplicateDetectionTest extends ActiveMQTestBase {
       ClientMessage receivedMessage = consumer.receive(1000);
       assertEquals(0, receivedMessage.getObjectProperty(propKey));
 
+      SimpleString dupID = RandomUtil.randomUUIDSimpleString();
       message = createMessage(session, 1);
-      SimpleString dupID = SimpleString.of("1q2w3e4r5t6y7u8i9o0p");
       message.putBytesProperty(Message.HDR_BRIDGE_DUPLICATE_ID, dupID.getData());
       producer.send(message);
       receivedMessage = consumer.receive(1000);
       assertEquals(1, receivedMessage.getObjectProperty(propKey));
 
+      // The second send is setting a new legal duplicateID. The sending should happen regardless of the IDCacheSize.
+      // However, without the fix provided on ARTEMIS-5915, it would fail.
+      dupID = RandomUtil.randomUUIDSimpleString();
       message = createMessage(session, 2);
-      SimpleString dupID1 = SimpleString.of("1q2w3e4r5t6y7u8i9o0p");
-      message.putBytesProperty(Message.HDR_BRIDGE_DUPLICATE_ID, dupID1.getData());
+      message.putBytesProperty(Message.HDR_BRIDGE_DUPLICATE_ID, dupID.getData());
       producer.send(message);
       receivedMessage = consumer.receive(1000);
       assertEquals(2, receivedMessage.getObjectProperty(propKey));
