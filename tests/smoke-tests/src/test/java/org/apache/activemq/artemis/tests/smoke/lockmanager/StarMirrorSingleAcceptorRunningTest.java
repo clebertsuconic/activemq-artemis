@@ -161,6 +161,8 @@ public class StarMirrorSingleAcceptorRunningTest extends SmokeTestBase {
       processC = startServer(nameServerC, 0, -1);
       ConnectionFactory cfX = CFUtil.createConnectionFactory("amqp", "tcp://localhost:61616");
 
+      validateStar(cfX);
+
       for (int i = 0; i < ALTERNATING_TEST_ITERATIONS; i++) {
          String activeServer = (i % 3 == 0) ? "A" : (i % 3 == 1) ? "B" : "C";
          logger.info("Iteration {}: Server {} active", i, activeServer);
@@ -202,6 +204,27 @@ public class StarMirrorSingleAcceptorRunningTest extends SmokeTestBase {
       assertMessageCount("tcp://localhost:61000", "myQueue", EXPECTED_FINAL_MESSAGE_COUNT);
       assertMessageCount("tcp://localhost:61001", "myQueue", EXPECTED_FINAL_MESSAGE_COUNT);
       assertMessageCount("tcp://localhost:61002", "myQueue", EXPECTED_FINAL_MESSAGE_COUNT);
+
+      receiveMessages(cfX, EXPECTED_FINAL_MESSAGE_COUNT);
+      assertMessageCount("tcp://localhost:61000", "myQueue", 0);
+      assertMessageCount("tcp://localhost:61001", "myQueue", 0);
+      assertMessageCount("tcp://localhost:61002", "myQueue", 0);
+
+      validateStar(cfX);
+   }
+
+   private void validateStar(ConnectionFactory cfX) throws Exception {
+      // validate the star combination
+      sendMessages(cfX, 10_000);
+      assertMessageCount("tcp://localhost:61000", "myQueue", 10_000);
+      assertMessageCount("tcp://localhost:61001", "myQueue", 10_000);
+      assertMessageCount("tcp://localhost:61002", "myQueue", 10_000);
+
+      // validate the star combination
+      receiveMessages(cfX, 10_000);
+      assertMessageCount("tcp://localhost:61000", "myQueue", 0);
+      assertMessageCount("tcp://localhost:61001", "myQueue", 0);
+      assertMessageCount("tcp://localhost:61002", "myQueue", 0);
    }
 
    private static void sendMessages(ConnectionFactory cfX, int nmessages) throws JMSException {

@@ -265,8 +265,10 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
    @Override
    public void start() throws Exception {
       if (lockCoordinator != null) {
-         lockCoordinator.onLockAcquired(this::internalStart);
-         lockCoordinator.onLockReleased(this::pause);
+         // this needs to be started before the acceptor, hence a lower priority on start
+         lockCoordinator.onLockAcquired(this::internalStart, 5);
+         // this needs to be paused after the acceptor is stopped, hence a higher priority on pause
+         lockCoordinator.onLockReleased(this::pause, 20);
       } else {
          this.internalStart();
       }
