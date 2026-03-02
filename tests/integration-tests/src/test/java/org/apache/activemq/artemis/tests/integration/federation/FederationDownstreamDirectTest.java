@@ -60,6 +60,7 @@ public class FederationDownstreamDirectTest extends ActiveMQTestBase {
    private static final String unauthorizedRole = "unauthorizedRole";
 
    @Before
+   @Override
    public void setUp() throws Exception {
       super.setUp();
       Configuration config = createDefaultNettyConfig().setSecurityEnabled(true);
