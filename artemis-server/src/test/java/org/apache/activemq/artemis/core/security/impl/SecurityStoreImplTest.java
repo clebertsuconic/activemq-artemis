@@ -225,7 +225,7 @@ public class SecurityStoreImplTest {
       SecurityStoreImpl securityStore = new SecurityStoreImpl(new HierarchicalObjectRepository<>(), securityManager, 999, true, "", null, null, 0, 0);
       try (AssertionLoggerHandler handler = new AssertionLoggerHandler()) {
          securityStore.createAuthenticationCacheKey(user, RandomUtil.randomUUIDString(), null);
-         assertFalse(handler.findText("AMQ224159"));
+         assertFalse(handler.findText("AMQ224163"));
       }
    }
 }
