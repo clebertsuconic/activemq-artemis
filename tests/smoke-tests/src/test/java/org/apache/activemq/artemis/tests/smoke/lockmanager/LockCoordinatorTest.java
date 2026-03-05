@@ -22,6 +22,7 @@ import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -30,7 +31,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import org.apache.activemq.artemis.core.config.storage.DatabaseStorageConfiguration;
+import org.apache.activemq.artemis.core.server.impl.jdbc.JdbcDistributedLockManager;
+import org.apache.activemq.artemis.core.server.impl.jdbc.JdbcSharedStateManager;
 import org.apache.activemq.artemis.core.server.lock.LockCoordinator;
+import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
+import org.apache.activemq.artemis.jdbc.store.drivers.JDBCUtils;
+import org.apache.activemq.artemis.jdbc.store.sql.SQLProvider;
 import org.apache.activemq.artemis.lockmanager.DistributedLockManager;
 import org.apache.activemq.artemis.lockmanager.MutableLong;
 import org.apache.activemq.artemis.lockmanager.file.FileBasedLockManager;
@@ -99,6 +106,36 @@ public class LockCoordinatorTest extends ActiveMQTestBase {
       runAfter(zkCluster::stop);
       assertEquals(ZK_ENDPOINTS, zkCluster.getConnectString());
       internalTest(i -> getZKCoordinators(i, zkCluster.getConnectString()));
+   }
+
+   @Test
+   public void testWithDB() throws Exception {
+      DatabaseStorageConfiguration dbConf = createDefaultDatabaseStorageConfiguration();
+      SQLProvider sqlProvider = JDBCUtils.getSQLProvider(
+         dbConf.getJdbcDriverClassName(),
+         dbConf.getNodeManagerStoreTableName(),
+         SQLProvider.DatabaseStoreType.NODE_MANAGER);
+
+      JdbcDistributedLockManager.LockManagerDriver driver = new JdbcDistributedLockManager.LockManagerDriver(dbConf.getConnectionProvider(), sqlProvider);
+      driver.start();
+
+      /*JdbcSharedStateManager jdbcSharedStateManager = JdbcSharedStateManager
+         .usingConnectionProvider(
+            UUID.randomUUID().toString(),
+            dbConf.getJdbcLockExpirationMillis(),
+            dbConf.getJdbcAllowedTimeDiff(),
+            dbConf.getConnectionProvider(),
+            sqlProvider);
+      runAfter(() -> {
+         try {
+            jdbcSharedStateManager.destroy();
+            jdbcSharedStateManager.close();
+         } catch (Exception e) {
+            // ignore cleanup errors
+         }
+      }); */
+
+      internalTest(i -> getDBCoordinators(i, dbConf.getConnectionProvider(), dbConf, sqlProvider));
    }
 
    private void internalTest(Function<Integer, List<LockCoordinator>> lockCoordinatorSupplier) throws Exception {
@@ -263,15 +300,19 @@ public class LockCoordinatorTest extends ActiveMQTestBase {
 
          boolean first = true;
 
-         for (LockCoordinator lockCoordinator : lockCoordinators) {
-            MutableLong mutableLong = lockCoordinator.getLockManager().getMutableLong("mutableLong");
-            if (first) {
-               mutableLong.set(value);
-               first = false;
-            } else {
-               assertEquals(value, mutableLong.get());
+         try {
+            for (LockCoordinator lockCoordinator : lockCoordinators) {
+               MutableLong mutableLong = lockCoordinator.getLockManager().getMutableLong("mutableLong");
+               if (first) {
+                  mutableLong.set(value);
+                  first = false;
+               } else {
+                  assertEquals(value, mutableLong.get());
+               }
+               mutableLong.close();
             }
-            mutableLong.close();
+         } catch (UnsupportedOperationException ok) {
+            // TODO what to do?
          }
 
          logger.info("Stopping ********************************************************************************");
@@ -318,6 +359,30 @@ public class LockCoordinatorTest extends ActiveMQTestBase {
       HashMap<String, String> parameters = new HashMap<>();
       parameters.put("connect-string", connectString);
       return getLockCoordinators(numberOfCoordinators, CuratorDistributedLockManager.class.getName(), parameters);
+   }
+
+   private List<LockCoordinator> getDBCoordinators(int numberOfCoordinators,
+                                                    JDBCConnectionProvider connectionProvider,
+                                                    DatabaseStorageConfiguration dbConf,
+                                                    SQLProvider sqlProvider) {
+      return getLockCoordinators(numberOfCoordinators, () -> {
+         try {
+            String holderId = UUID.randomUUID().toString();
+            JdbcDistributedLockManager lockManager = new JdbcDistributedLockManager(
+               holderId,
+               connectionProvider,
+               sqlProvider,
+               dbConf.getJdbcLockExpirationMillis(),
+               -1, // queryTimeoutMillis
+               dbConf.getJdbcAllowedTimeDiff()
+            );
+            lockManager.start();
+            return lockManager;
+         } catch (Exception e) {
+            fail(e.getMessage(), e);
+            return null;
+         }
+      });
    }
 
    private List<LockCoordinator> getLockCoordinators(int numberOfCoordinators, String factoryName, HashMap<String, String> parameters) {

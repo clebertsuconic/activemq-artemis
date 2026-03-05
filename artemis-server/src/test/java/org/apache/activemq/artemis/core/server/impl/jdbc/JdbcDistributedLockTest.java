@@ -41,6 +41,7 @@ import org.apache.activemq.artemis.core.config.storage.DatabaseStorageConfigurat
 import org.apache.activemq.artemis.core.server.NodeManager.LockListener;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCUtils;
 import org.apache.activemq.artemis.jdbc.store.sql.SQLProvider;
+import org.apache.activemq.artemis.lockmanager.DistributedLock;
 import org.apache.activemq.artemis.logs.AssertionLoggerHandler;
 import org.apache.activemq.artemis.tests.extensions.parameterized.Parameter;
 import org.apache.activemq.artemis.tests.extensions.parameterized.ParameterizedTestExtension;
@@ -55,7 +56,7 @@ import org.junit.jupiter.api.TestTemplate;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(ParameterizedTestExtension.class)
-public class JdbcLeaseLockTest extends ServerTestBase {
+public class JdbcDistributedLockTest extends ServerTestBase {
 
    private JdbcSharedStateManager jdbcSharedStateManager;
    private DatabaseStorageConfiguration dbConf;
@@ -73,11 +74,11 @@ public class JdbcLeaseLockTest extends ServerTestBase {
    public boolean withExistingTable;
 
 
-   private LeaseLock lock() {
+   private DistributedLock lock() {
       return lock(dbConf.getJdbcLockExpirationMillis());
    }
 
-   private LeaseLock lock(long acquireMillis) {
+   private DistributedLock lock(long acquireMillis) {
       try {
          return JdbcSharedStateManager
             .createPrimaryLock(
@@ -91,7 +92,7 @@ public class JdbcLeaseLockTest extends ServerTestBase {
       }
    }
 
-   private LeaseLock lock(long acquireMillis, long queryTimeoutMillis) {
+   private DistributedLock lock(long acquireMillis, long queryTimeoutMillis) {
       try {
          return JdbcSharedStateManager
             .createPrimaryLock(
@@ -139,8 +140,8 @@ public class JdbcLeaseLockTest extends ServerTestBase {
    }
 
    @TestTemplate
-   public void shouldAcquireLock() {
-      final LeaseLock lock = lock();
+   public void shouldAcquireLock() throws Exception {
+      final DistributedLock lock = lock();
       final boolean acquired = lock.tryAcquire();
       assertTrue(acquired, "Must acquire the lock!");
       try {
@@ -151,12 +152,12 @@ public class JdbcLeaseLockTest extends ServerTestBase {
    }
 
    @TestTemplate
-   public void shouldNotAcquireLockWhenAlreadyHeldByOthers() {
-      final LeaseLock lock = lock();
+   public void shouldNotAcquireLockWhenAlreadyHeldByOthers() throws Exception  {
+      final DistributedLock lock = lock();
       assertTrue(lock.tryAcquire(), "Must acquire the lock");
       try {
          assertTrue(lock.isHeldByCaller(), "Lock held by the caller");
-         final LeaseLock failingLock = lock();
+         final DistributedLock failingLock = lock();
          assertFalse(failingLock.tryAcquire(), "lock already held by other");
          assertFalse(failingLock.isHeldByCaller(), "lock already held by other");
          assertTrue(failingLock.isHeld(), "lock already held by other");
@@ -167,7 +168,7 @@ public class JdbcLeaseLockTest extends ServerTestBase {
 
    @TestTemplate
    public void shouldNotAcquireLockTwice() {
-      final LeaseLock lock = lock();
+      final DistributedLock lock = lock();
       assertTrue(lock.tryAcquire(), "Must acquire the lock");
       try {
          assertFalse(lock.tryAcquire(), "lock already acquired");
@@ -183,16 +184,16 @@ public class JdbcLeaseLockTest extends ServerTestBase {
       final int writesPerProducer = 10;
       final long idleMillis = 1000;
       final long millisToAcquireLock = writesPerProducer * (producers - 1) * idleMillis;
-      final LeaseLock.Pauser pauser = LeaseLock.Pauser.sleep(idleMillis, TimeUnit.MILLISECONDS);
+      final DistributedLock.Pauser pauser = DistributedLock.Pauser.sleep(idleMillis, TimeUnit.MILLISECONDS);
       final CountDownLatch finished = new CountDownLatch(producers);
-      final LeaseLock[] locks = new LeaseLock[producers];
+      final DistributedLock[] locks = new DistributedLock[producers];
       final AtomicInteger lockIndex = new AtomicInteger(0);
       final Runnable producerTask = () -> {
-         final LeaseLock lock = locks[lockIndex.getAndIncrement()];
+         final DistributedLock lock = locks[lockIndex.getAndIncrement()];
          try {
             for (int i = 0; i < writesPerProducer; i++) {
-               final LeaseLock.AcquireResult acquireResult = lock.tryAcquire(millisToAcquireLock, pauser, () -> true);
-               if (acquireResult != LeaseLock.AcquireResult.Done) {
+               final DistributedLock.AcquireResult acquireResult = lock.tryAcquire(millisToAcquireLock, pauser, () -> true);
+               if (acquireResult != DistributedLock.AcquireResult.Done) {
                   throw new IllegalStateException(acquireResult + " from " + Thread.currentThread());
                }
                //avoid the atomic getAndIncrement operation on purpose
@@ -215,8 +216,8 @@ public class JdbcLeaseLockTest extends ServerTestBase {
    }
 
    @TestTemplate
-   public void shouldAcquireExpiredLock() throws InterruptedException {
-      final LeaseLock lock = lock(10);
+   public void shouldAcquireExpiredLock() throws Exception {
+      final DistributedLock lock = lock(10);
       assertTrue(lock.tryAcquire(), "lock is not owned by anyone");
       try {
          Thread.sleep(lock.expirationMillis() * 2);
@@ -229,14 +230,14 @@ public class JdbcLeaseLockTest extends ServerTestBase {
    }
 
    @TestTemplate
-   public void shouldOtherAcquireExpiredLock() throws InterruptedException {
-      final LeaseLock lock = lock(10);
+   public void shouldOtherAcquireExpiredLock() throws Exception {
+      final DistributedLock lock = lock(10);
       assertTrue(lock.tryAcquire(), "lock is not owned by anyone");
       try {
          Thread.sleep(lock.expirationMillis() * 2);
          assertFalse(lock.isHeldByCaller(), "lock is already expired");
          assertFalse(lock.isHeld(), "lock is already expired");
-         final LeaseLock otherLock = lock(10);
+         final DistributedLock otherLock = lock(10);
          try {
             assertTrue(otherLock.tryAcquire(), "lock is already expired");
          } finally {
@@ -249,7 +250,7 @@ public class JdbcLeaseLockTest extends ServerTestBase {
 
    @TestTemplate
    public void shouldRenewAcquiredLock() throws InterruptedException {
-      final LeaseLock lock = lock(TimeUnit.SECONDS.toMillis(10));
+      final DistributedLock lock = lock(TimeUnit.SECONDS.toMillis(10));
       assertTrue(lock.tryAcquire(), "lock is not owned by anyone");
       try {
          assertTrue(lock.renew(), "lock is owned");
@@ -259,8 +260,8 @@ public class JdbcLeaseLockTest extends ServerTestBase {
    }
 
    @TestTemplate
-   public void shouldNotRenewReleasedLock() throws InterruptedException {
-      final LeaseLock lock = lock(TimeUnit.SECONDS.toMillis(10));
+   public void shouldNotRenewReleasedLock() throws Exception {
+      final DistributedLock lock = lock(TimeUnit.SECONDS.toMillis(10));
       assertTrue(lock.tryAcquire(), "lock is not owned by anyone");
       lock.release();
       assertFalse(lock.isHeldByCaller(), "lock is already released");
@@ -269,8 +270,8 @@ public class JdbcLeaseLockTest extends ServerTestBase {
    }
 
    @TestTemplate
-   public void shouldRenewExpiredLockNotAcquiredByOthers() throws InterruptedException {
-      final LeaseLock lock = lock(500);
+   public void shouldRenewExpiredLockNotAcquiredByOthers() throws Exception {
+      final DistributedLock lock = lock(500);
       assertTrue(lock.tryAcquire(), "lock is not owned by anyone");
       try {
          Thread.sleep(lock.expirationMillis() * 2);
@@ -283,14 +284,14 @@ public class JdbcLeaseLockTest extends ServerTestBase {
    }
 
    @TestTemplate
-   public void shouldNotRenewLockAcquiredByOthers() throws InterruptedException {
-      final LeaseLock lock = lock(10);
+   public void shouldNotRenewLockAcquiredByOthers() throws Exception {
+      final DistributedLock lock = lock(10);
       assertTrue(lock.tryAcquire(), "lock is not owned by anyone");
       try {
          Thread.sleep(lock.expirationMillis() * 2);
          assertFalse(lock.isHeldByCaller(), "lock is already expired");
          assertFalse(lock.isHeld(), "lock is already expired");
-         final LeaseLock otherLock = lock(TimeUnit.SECONDS.toMillis(10));
+         final DistributedLock otherLock = lock(TimeUnit.SECONDS.toMillis(10));
          assertTrue(otherLock.tryAcquire(), "lock is already expired");
          try {
             assertFalse(lock.renew(), "lock is owned by others");
@@ -358,9 +359,9 @@ public class JdbcLeaseLockTest extends ServerTestBase {
 
    @TestTemplate
    public void shouldJdbcAndSystemTimeToBeAligned() throws InterruptedException {
-      final LeaseLock lock = lock(TimeUnit.SECONDS.toMillis(10), TimeUnit.SECONDS.toMillis(10));
-      assumeTrue(lock instanceof JdbcLeaseLock, lock + " is not an instance of JdbcLeaseLock");
-      final JdbcLeaseLock jdbcLock = JdbcLeaseLock.class.cast(lock);
+      final DistributedLock lock = lock(TimeUnit.SECONDS.toMillis(10), TimeUnit.SECONDS.toMillis(10));
+      assumeTrue(lock instanceof JdbcDistributedLock, lock + " is not an instance of JdbcLeaseLock");
+      final JdbcDistributedLock jdbcLock = JdbcDistributedLock.class.cast(lock);
       final long utcSystemTime = System.currentTimeMillis();
       TimeUnit.SECONDS.sleep(1);
       final long utcJdbcTime = jdbcLock.dbCurrentTimeMillis();
@@ -412,11 +413,11 @@ public class JdbcLeaseLockTest extends ServerTestBase {
 
       AtomicInteger diff = new AtomicInteger(0);
 
-      JdbcLeaseLock hackLock = new JdbcLeaseLock("SomeID", jdbcSharedStateManager.getJdbcConnectionProvider(), sqlProvider.tryAcquirePrimaryLockSQL(),
-                                                 sqlProvider.tryReleasePrimaryLockSQL(), sqlProvider.renewPrimaryLockSQL(),
-                                                 sqlProvider.isPrimaryLockedSQL(), sqlProvider.currentTimestampSQL(),
-                                                 sqlProvider.currentTimestampTimeZoneId(), -1, 1000,
-                                                 "PRIMARY", 1000) {
+      JdbcDistributedLock hackLock = new JdbcDistributedLock("SomeID", jdbcSharedStateManager.getJdbcConnectionProvider(), sqlProvider.tryAcquirePrimaryLockSQL(),
+                                                             sqlProvider.tryReleasePrimaryLockSQL(), sqlProvider.renewPrimaryLockSQL(),
+                                                             sqlProvider.isPrimaryLockedSQL(), sqlProvider.currentTimestampSQL(),
+                                                             sqlProvider.currentTimestampTimeZoneId(), -1, 1000,
+                                                             "PRIMARY", 1000) {
          @Override
          protected long fetchDatabaseTime(Connection connection) throws SQLException {
             return System.currentTimeMillis() + diff.get();

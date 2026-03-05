@@ -18,6 +18,7 @@ package org.apache.activemq.artemis.core.server.impl.jdbc;
 
 import java.util.function.Supplier;
 
+import org.apache.activemq.artemis.lockmanager.DistributedLock;
 import org.apache.activemq.artemis.utils.UUID;
 
 /**
@@ -30,9 +31,9 @@ interface SharedStateManager extends AutoCloseable {
       ACTIVE, PAUSED, FAILING_BACK, NOT_STARTED, FIRST_TIME_START
    }
 
-   LeaseLock primaryLock();
+   DistributedLock primaryLock();
 
-   LeaseLock backupLock();
+   DistributedLock backupLock();
 
    UUID readNodeId();
 

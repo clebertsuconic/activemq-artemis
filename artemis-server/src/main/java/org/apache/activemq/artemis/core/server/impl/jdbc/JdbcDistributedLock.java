@@ -23,19 +23,22 @@ import java.sql.SQLException;
 import java.util.Calendar;
 import java.util.Objects;
 import java.util.TimeZone;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 
 import org.apache.activemq.artemis.core.server.ActiveMQServerLogger;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
+import org.apache.activemq.artemis.lockmanager.DistributedLock;
+import org.apache.activemq.artemis.lockmanager.UnavailableStateException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.lang.invoke.MethodHandles;
 
 /**
- * JDBC implementation of a {@link LeaseLock} with a {@code String} defined {@link #holderId()}.
+ * JDBC implementation of a {@link DistributedLock} with a {@code String} defined {@link #holderId()}.
  */
-class JdbcLeaseLock implements LeaseLock {
+public class JdbcDistributedLock implements DistributedLock {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
    private static final int MAX_HOLDER_ID_LENGTH = 128;
@@ -53,23 +56,25 @@ class JdbcLeaseLock implements LeaseLock {
    private final String lockName;
    private long localExpirationTime;
    private long allowedTimeDiff;
+   private final CopyOnWriteArrayList<UnavailableLockListener> listeners;
+   private volatile boolean closed;
 
    /**
     * The lock will be responsible (ie {@link #close()}) of all the {@link PreparedStatement}s used by it, but not of
     * the {@link Connection}, whose life cycle will be managed externally.
     */
-   JdbcLeaseLock(String holderId,
-                 JDBCConnectionProvider connectionProvider,
-                 String tryAcquireLock,
-                 String tryReleaseLock,
-                 String renewLock,
-                 String isLocked,
-                 String currentDateTime,
-                 String currentDateTimeTimeZoneId,
-                 long expirationMIllis,
-                 long queryTimeoutMillis,
-                 String lockName,
-                 long allowedTimeDiff) {
+   public JdbcDistributedLock(String holderId,
+                              JDBCConnectionProvider connectionProvider,
+                              String tryAcquireLock,
+                              String tryReleaseLock,
+                              String renewLock,
+                              String isLocked,
+                              String currentDateTime,
+                              String currentDateTimeTimeZoneId,
+                              long expirationMIllis,
+                              long queryTimeoutMillis,
+                              String lockName,
+                              long allowedTimeDiff) {
       if (holderId.length() > MAX_HOLDER_ID_LENGTH) {
          throw new IllegalArgumentException("holderId length must be <=" + MAX_HOLDER_ID_LENGTH);
       }
@@ -86,6 +91,8 @@ class JdbcLeaseLock implements LeaseLock {
       this.connectionProvider = connectionProvider;
       this.lockName = lockName;
       this.localExpirationTime = -1;
+      this.listeners = new CopyOnWriteArrayList<>();
+      this.closed = false;
       int expectedTimeout = -1;
       if (queryTimeoutMillis >= 0) {
          expectedTimeout = (int) TimeUnit.MILLISECONDS.toSeconds(queryTimeoutMillis);
@@ -368,15 +375,88 @@ class JdbcLeaseLock implements LeaseLock {
    }
 
    @Override
-   public void close() throws SQLException {
-      if (this.maybeAcquired) {
-         release();
+   public void close() {
+      if (closed) {
+         return;
       }
+      closed = true;
+      if (this.maybeAcquired) {
+         try {
+            release();
+         } catch (Exception e) {
+            logger.warn("Error releasing lock on close", e);
+         }
+      }
+      listeners.clear();
    }
 
    @Override
    protected void finalize() throws Throwable {
       close();
+   }
+
+   // DistributedLock interface implementation
+
+   private void checkNotClosed() throws UnavailableStateException {
+      if (closed) {
+         throw new IllegalStateException("Lock is closed");
+      }
+   }
+
+   private void notifyUnavailableListeners() {
+      for (UnavailableLockListener listener : listeners) {
+         try {
+            listener.onUnavailableLockEvent();
+         } catch (Throwable t) {
+            logger.warn("Error notifying unavailable lock listener", t);
+         }
+      }
+   }
+
+   @Override
+   public String getLockId() {
+      return lockName;
+   }
+
+   @Override
+   public boolean tryLock() throws UnavailableStateException, InterruptedException {
+      checkNotClosed();
+      if (Thread.interrupted()) {
+         throw new InterruptedException();
+      }
+      try {
+         return tryAcquire();
+      } catch (IllegalStateException e) {
+         logger.error("Error trying to acquire lock [{}]", lockName, e);
+         notifyUnavailableListeners();
+         throw new UnavailableStateException(e);
+      }
+   }
+
+   @Override
+   public void unlock() throws UnavailableStateException {
+      checkNotClosed();
+      try {
+         release();
+      } catch (IllegalStateException e) {
+         logger.error("Error releasing lock [{}]", lockName, e);
+         notifyUnavailableListeners();
+         throw new UnavailableStateException(e);
+      }
+   }
+
+   @Override
+   public void addListener(UnavailableLockListener listener) {
+      if (listener != null) {
+         listeners.add(listener);
+      }
+   }
+
+   @Override
+   public void removeListener(UnavailableLockListener listener) {
+      if (listener != null) {
+         listeners.remove(listener);
+      }
    }
 
 }

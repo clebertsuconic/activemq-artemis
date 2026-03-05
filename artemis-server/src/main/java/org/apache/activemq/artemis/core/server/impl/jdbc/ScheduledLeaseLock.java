@@ -20,10 +20,11 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import org.apache.activemq.artemis.core.server.ActiveMQComponent;
 import org.apache.activemq.artemis.core.server.NodeManager.LockListener;
+import org.apache.activemq.artemis.lockmanager.DistributedLock;
 import org.apache.activemq.artemis.utils.actors.ArtemisExecutor;
 
 /**
- * {@link LeaseLock} holder that allows to schedule a {@link LeaseLock#renew} task with a fixed
+ * {@link DistributedLock} holder that allows to schedule a {@link DistributedLock#renew} task with a fixed
  * {@link #renewPeriodMillis()} delay.
  */
 interface ScheduledLeaseLock extends ActiveMQComponent {
@@ -34,7 +35,7 @@ interface ScheduledLeaseLock extends ActiveMQComponent {
    @Override
    void stop();
 
-   LeaseLock lock();
+   DistributedLock lock();
 
    long renewPeriodMillis();
 
@@ -43,7 +44,7 @@ interface ScheduledLeaseLock extends ActiveMQComponent {
    static ScheduledLeaseLock of(ScheduledExecutorService scheduledExecutorService,
                                 ArtemisExecutor executor,
                                 String lockName,
-                                LeaseLock lock,
+                                DistributedLock lock,
                                 long renewPeriodMillis,
                                 LockListener lockListener) {
       return new ActiveMQScheduledLeaseLock(scheduledExecutorService, executor, lockName, lock, renewPeriodMillis, lockListener);

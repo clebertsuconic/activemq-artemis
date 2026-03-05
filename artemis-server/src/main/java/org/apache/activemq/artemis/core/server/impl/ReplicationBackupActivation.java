@@ -262,7 +262,7 @@ public final class ReplicationBackupActivation extends Activation implements Dis
          final boolean stillPrimary;
          try {
             stillPrimary = primaryLock.isHeldByCaller();
-         } catch (UnavailableStateException e) {
+         } catch (IllegalStateException e) {
             logger.warn(e.getMessage(), e);
             primaryActivation.onUnavailableLockEvent();
             throw new ActiveMQIllegalStateException("This server cannot check its role as a primary: activation is failed");

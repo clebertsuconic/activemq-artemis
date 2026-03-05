@@ -30,6 +30,8 @@ import org.apache.activemq.artemis.core.server.impl.CleaningActivateCallback;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 import org.apache.activemq.artemis.jdbc.store.sql.PropertySQLProvider;
 import org.apache.activemq.artemis.jdbc.store.sql.SQLProvider;
+import org.apache.activemq.artemis.lockmanager.DistributedLock;
+import org.apache.activemq.artemis.lockmanager.UnavailableStateException;
 import org.apache.activemq.artemis.utils.ExecutorFactory;
 import org.apache.activemq.artemis.utils.UUID;
 import org.apache.activemq.artemis.utils.UUIDGenerator;
@@ -37,7 +39,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.lang.invoke.MethodHandles;
 
-import static org.apache.activemq.artemis.core.server.impl.jdbc.LeaseLock.AcquireResult.Timeout;
+import static org.apache.activemq.artemis.lockmanager.DistributedLock.AcquireResult.Timeout;
 
 /**
  * JDBC implementation of {@link NodeManager}.
@@ -55,7 +57,7 @@ public final class JdbcNodeManager extends NodeManager {
    private ScheduledLeaseLock scheduledBackupLock;
    private final long lockAcquisitionTimeoutMillis;
    private volatile boolean interrupted = false;
-   private final LeaseLock.Pauser pauser;
+   private final DistributedLock.Pauser pauser;
 
    public static JdbcNodeManager with(DatabaseStorageConfiguration configuration,
                                       ScheduledExecutorService scheduledExecutorService,
@@ -130,7 +132,7 @@ public final class JdbcNodeManager extends NodeManager {
                            ExecutorFactory executorFactory) {
       super(false);
       this.lockAcquisitionTimeoutMillis = lockAcquisitionTimeoutMillis;
-      this.pauser = LeaseLock.Pauser.sleep(Math.min(lockRenewPeriodMillis, MAX_PAUSE_MILLIS), TimeUnit.MILLISECONDS);
+      this.pauser = DistributedLock.Pauser.sleep(Math.min(lockRenewPeriodMillis, MAX_PAUSE_MILLIS), TimeUnit.MILLISECONDS);
       this.sharedStateManagerFactory = sharedStateManagerFactory;
       this.scheduledPrimaryLockFactory = () -> ScheduledLeaseLock.of(
          scheduledExecutorService,
@@ -233,7 +235,7 @@ public final class JdbcNodeManager extends NodeManager {
       try {
          //is anyone holding the primary lock?
          return this.scheduledPrimaryLock.lock().isHeld();
-      } catch (IllegalStateException e) {
+      } catch (UnavailableStateException e) {
          throw new NodeManagerException(e);
       } finally {
          logger.debug("EXIT isBackupActive");
@@ -270,10 +272,10 @@ public final class JdbcNodeManager extends NodeManager {
    /**
     * Try to acquire a lock
     */
-   private void lock(LeaseLock lock) throws ActiveMQLockAcquisitionTimeoutException, InterruptedException {
+   private void lock(DistributedLock lock) throws ActiveMQLockAcquisitionTimeoutException, InterruptedException {
       final long lockAcquisitionTimeoutNanos = lockAcquisitionTimeoutMillis >= 0 ?
          TimeUnit.MILLISECONDS.toNanos(lockAcquisitionTimeoutMillis) : -1;
-      LeaseLock.AcquireResult acquireResult = null;
+      DistributedLock.AcquireResult acquireResult = null;
       final long start = System.nanoTime();
       while (acquireResult == null) {
          checkStarted();

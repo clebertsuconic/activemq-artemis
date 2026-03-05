@@ -21,6 +21,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.activemq.artemis.core.server.ActiveMQScheduledComponent;
 import org.apache.activemq.artemis.core.server.NodeManager.LockListener;
+import org.apache.activemq.artemis.lockmanager.DistributedLock;
 import org.apache.activemq.artemis.utils.actors.ArtemisExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,14 +29,14 @@ import java.lang.invoke.MethodHandles;
 
 /**
  * Default implementation of a {@link ScheduledLeaseLock}: see
- * {@link ScheduledLeaseLock#of(ScheduledExecutorService, ArtemisExecutor, String, LeaseLock, long, LockListener)}.
+ * {@link ScheduledLeaseLock#of(ScheduledExecutorService, ArtemisExecutor, String, DistributedLock, long, LockListener)}.
  */
 final class ActiveMQScheduledLeaseLock extends ActiveMQScheduledComponent implements ScheduledLeaseLock {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
    private final String lockName;
-   private final LeaseLock lock;
+   private final DistributedLock lock;
    private long lastLockRenewStart;
    private final long renewPeriodMillis;
    private final LockListener lockListener;
@@ -43,7 +44,7 @@ final class ActiveMQScheduledLeaseLock extends ActiveMQScheduledComponent implem
    ActiveMQScheduledLeaseLock(ScheduledExecutorService scheduledExecutorService,
                               ArtemisExecutor executor,
                               String lockName,
-                              LeaseLock lock,
+                              DistributedLock lock,
                               long renewPeriodMillis,
                               LockListener lockListener) {
       super(scheduledExecutorService, executor, 0, renewPeriodMillis, TimeUnit.MILLISECONDS, false);
@@ -69,7 +70,7 @@ final class ActiveMQScheduledLeaseLock extends ActiveMQScheduledComponent implem
    }
 
    @Override
-   public LeaseLock lock() {
+   public DistributedLock lock() {
       return lock;
    }
 

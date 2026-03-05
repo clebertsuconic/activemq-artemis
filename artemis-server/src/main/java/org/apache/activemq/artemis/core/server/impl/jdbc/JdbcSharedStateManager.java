@@ -25,6 +25,7 @@ import java.util.function.Supplier;
 import org.apache.activemq.artemis.jdbc.store.drivers.AbstractJDBCDriver;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 import org.apache.activemq.artemis.jdbc.store.sql.SQLProvider;
+import org.apache.activemq.artemis.lockmanager.DistributedLock;
 import org.apache.activemq.artemis.utils.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,7 +35,7 @@ import java.lang.invoke.MethodHandles;
  * JDBC implementation of a {@link SharedStateManager}.
  */
 @SuppressWarnings("SynchronizeOnNonFinalField")
-final class JdbcSharedStateManager extends AbstractJDBCDriver implements SharedStateManager {
+public final class JdbcSharedStateManager extends AbstractJDBCDriver implements SharedStateManager {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
    private static final int MAX_SETUP_ATTEMPTS = 20;
@@ -42,8 +43,8 @@ final class JdbcSharedStateManager extends AbstractJDBCDriver implements SharedS
    private final long lockExpirationMillis;
    private final long queryTimeoutMillis;
    private final long allowedTimeDiff;
-   private JdbcLeaseLock primaryLock;
-   private JdbcLeaseLock backupLock;
+   private JdbcDistributedLock primaryLock;
+   private JdbcDistributedLock backupLock;
    private String readNodeId;
    private String writeNodeId;
    private String initializeNodeId;
@@ -86,38 +87,38 @@ final class JdbcSharedStateManager extends AbstractJDBCDriver implements SharedS
       }
    }
 
-   static JdbcLeaseLock createPrimaryLock(String holderId,
-                                          JDBCConnectionProvider connectionProvider,
-                                          SQLProvider sqlProvider,
-                                          long expirationMillis,
-                                          long allowedTimeDiff) {
+   static JdbcDistributedLock createPrimaryLock(String holderId,
+                                                JDBCConnectionProvider connectionProvider,
+                                                SQLProvider sqlProvider,
+                                                long expirationMillis,
+                                                long allowedTimeDiff) {
       return createPrimaryLock(holderId, connectionProvider, sqlProvider, expirationMillis, -1, allowedTimeDiff);
    }
 
-   static JdbcLeaseLock createPrimaryLock(String holderId,
-                                          JDBCConnectionProvider connectionProvider,
-                                          SQLProvider sqlProvider,
-                                          long expirationMillis,
-                                          long queryTimeoutMillis,
-                                          long allowedTimeDiff) {
-      return new JdbcLeaseLock(holderId, connectionProvider, sqlProvider.tryAcquirePrimaryLockSQL(),
-                               sqlProvider.tryReleasePrimaryLockSQL(), sqlProvider.renewPrimaryLockSQL(),
-                               sqlProvider.isPrimaryLockedSQL(), sqlProvider.currentTimestampSQL(),
-                               sqlProvider.currentTimestampTimeZoneId(), expirationMillis, queryTimeoutMillis,
-                               "PRIMARY", allowedTimeDiff);
+   static JdbcDistributedLock createPrimaryLock(String holderId,
+                                                JDBCConnectionProvider connectionProvider,
+                                                SQLProvider sqlProvider,
+                                                long expirationMillis,
+                                                long queryTimeoutMillis,
+                                                long allowedTimeDiff) {
+      return new JdbcDistributedLock(holderId, connectionProvider, sqlProvider.tryAcquirePrimaryLockSQL(),
+                                     sqlProvider.tryReleasePrimaryLockSQL(), sqlProvider.renewPrimaryLockSQL(),
+                                     sqlProvider.isPrimaryLockedSQL(), sqlProvider.currentTimestampSQL(),
+                                     sqlProvider.currentTimestampTimeZoneId(), expirationMillis, queryTimeoutMillis,
+                                     "PRIMARY", allowedTimeDiff);
    }
 
-   static JdbcLeaseLock createBackupLock(String holderId,
-                                         JDBCConnectionProvider connectionProvider,
-                                         SQLProvider sqlProvider,
-                                         long expirationMillis,
-                                         long queryTimeoutMillis,
-                                         long allowedTimeDiff) {
-      return new JdbcLeaseLock(holderId, connectionProvider, sqlProvider.tryAcquireBackupLockSQL(),
-                               sqlProvider.tryReleaseBackupLockSQL(), sqlProvider.renewBackupLockSQL(),
-                               sqlProvider.isBackupLockedSQL(), sqlProvider.currentTimestampSQL(),
-                               sqlProvider.currentTimestampTimeZoneId(), expirationMillis, queryTimeoutMillis,
-                               "BACKUP", allowedTimeDiff);
+   static JdbcDistributedLock createBackupLock(String holderId,
+                                               JDBCConnectionProvider connectionProvider,
+                                               SQLProvider sqlProvider,
+                                               long expirationMillis,
+                                               long queryTimeoutMillis,
+                                               long allowedTimeDiff) {
+      return new JdbcDistributedLock(holderId, connectionProvider, sqlProvider.tryAcquireBackupLockSQL(),
+                                     sqlProvider.tryReleaseBackupLockSQL(), sqlProvider.renewBackupLockSQL(),
+                                     sqlProvider.isBackupLockedSQL(), sqlProvider.currentTimestampSQL(),
+                                     sqlProvider.currentTimestampTimeZoneId(), expirationMillis, queryTimeoutMillis,
+                                     "BACKUP", allowedTimeDiff);
    }
 
    @Override
@@ -139,12 +140,12 @@ final class JdbcSharedStateManager extends AbstractJDBCDriver implements SharedS
    }
 
    @Override
-   public LeaseLock primaryLock() {
+   public DistributedLock primaryLock() {
       return this.primaryLock;
    }
 
    @Override
-   public LeaseLock backupLock() {
+   public DistributedLock backupLock() {
       return this.backupLock;
    }
 
