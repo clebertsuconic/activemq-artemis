@@ -16,7 +16,45 @@
  */
 package org.apache.activemq.artemis.tests.db.common;
 
+import org.apache.activemq.artemis.core.config.storage.DatabaseStorageConfiguration;
 import org.apache.activemq.artemis.utils.RealServerTestBase;
 
 public class DBTestBase extends RealServerTestBase {
+
+
+   protected DatabaseStorageConfiguration createDBConfig(Database database) {
+      DatabaseStorageConfiguration dbStorageConfiguration = new DatabaseStorageConfiguration();
+      String connectionURI = database.getJdbcURI();
+      dbStorageConfiguration.setJdbcDriverClassName(database.getDriverClass());
+      dbStorageConfiguration.setJdbcConnectionUrl(connectionURI);
+      dbStorageConfiguration.setBindingsTableName("BINDINGS");
+      dbStorageConfiguration.setMessageTableName("MESSAGES");
+      dbStorageConfiguration.setLargeMessageTableName("LARGE_MESSAGES");
+      dbStorageConfiguration.setPageStoreTableName("PAGE_STORE");
+      dbStorageConfiguration.setJdbcPassword(getJDBCPassword());
+      dbStorageConfiguration.setJdbcUser(getJDBCUser());
+      dbStorageConfiguration.setJdbcLockAcquisitionTimeoutMillis(getJdbcLockAcquisitionTimeoutMillis());
+      dbStorageConfiguration.setJdbcLockExpirationMillis(getJdbcLockExpirationMillis());
+      dbStorageConfiguration.setJdbcLockRenewPeriodMillis(getJdbcLockRenewPeriodMillis());
+      dbStorageConfiguration.setJdbcNetworkTimeout(-1);
+      dbStorageConfiguration.setJdbcAllowedTimeDiff(250L);
+      return dbStorageConfiguration;
+   }
+
+
+   // Register the database on driver and prepares the classLoader to be used
+   protected void registerDB(Database database) throws Exception {
+      ClassLoader dbClassLoader = database.getDBClassLoader();
+      if (dbClassLoader != null) {
+         ClassLoader tccl = Thread.currentThread().getContextClassLoader();
+         Thread.currentThread().setContextClassLoader(dbClassLoader);
+         final Thread currentThread = Thread.currentThread();
+         runAfter((() -> {
+            currentThread.setContextClassLoader(tccl);
+         }));
+         database.registerDriver();
+      }
+   }
+
+
 }

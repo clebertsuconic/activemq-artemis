@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.activemq.artemis.tests.smoke.lockmanager;
+package org.apache.activemq.artemis.tests.db.lockmanager;
 
 import javax.jms.Connection;
 import javax.jms.ConnectionFactory;
@@ -32,7 +32,7 @@ import java.util.function.Consumer;
 
 import org.apache.activemq.artemis.api.core.management.SimpleManagement;
 import org.apache.activemq.artemis.cli.commands.helper.HelperCreate;
-import org.apache.activemq.artemis.tests.smoke.common.SmokeTestBase;
+import org.apache.activemq.artemis.tests.db.common.DBTestBase;
 import org.apache.activemq.artemis.tests.util.CFUtil;
 import org.apache.activemq.artemis.utils.FileUtil;
 import org.apache.activemq.artemis.utils.Wait;
@@ -44,7 +44,7 @@ import org.slf4j.LoggerFactory;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.fail;
 
-public class StarMirrorSingleAcceptorRunningTest extends SmokeTestBase {
+public class StarMirrorSingleAcceptorRunningTest extends DBTestBase {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 

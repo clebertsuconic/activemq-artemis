@@ -90,18 +90,8 @@ public abstract class ParameterDBTestBase extends DBTestBase {
 
    // Register the database on driver and prepares the classLoader to be used
    private void registerDB() throws Exception {
-      ClassLoader dbClassLoader = database.getDBClassLoader();
-      if (dbClassLoader != null) {
-         ClassLoader tccl = Thread.currentThread().getContextClassLoader();
-         Thread.currentThread().setContextClassLoader(dbClassLoader);
-         final Thread currentThread = Thread.currentThread();
-         runAfter((() -> {
-            currentThread.setContextClassLoader(tccl);
-         }));
-         database.registerDriver();
-      }
+      registerDB(database);
    }
-
 
    protected static List<Object[]> convertParameters(List<Database> dbList) {
       List<Object[]> parameters = new ArrayList<>();
@@ -205,22 +195,7 @@ public abstract class ParameterDBTestBase extends DBTestBase {
 
    @Override
    protected DatabaseStorageConfiguration createDefaultDatabaseStorageConfiguration() {
-      DatabaseStorageConfiguration dbStorageConfiguration = new DatabaseStorageConfiguration();
-      String connectionURI = getTestJDBCConnectionUrl();
-      dbStorageConfiguration.setJdbcDriverClassName(database.getDriverClass());
-      dbStorageConfiguration.setJdbcConnectionUrl(connectionURI);
-      dbStorageConfiguration.setBindingsTableName("BINDINGS");
-      dbStorageConfiguration.setMessageTableName("MESSAGES");
-      dbStorageConfiguration.setLargeMessageTableName("LARGE_MESSAGES");
-      dbStorageConfiguration.setPageStoreTableName("PAGE_STORE");
-      dbStorageConfiguration.setJdbcPassword(getJDBCPassword());
-      dbStorageConfiguration.setJdbcUser(getJDBCUser());
-      dbStorageConfiguration.setJdbcLockAcquisitionTimeoutMillis(getJdbcLockAcquisitionTimeoutMillis());
-      dbStorageConfiguration.setJdbcLockExpirationMillis(getJdbcLockExpirationMillis());
-      dbStorageConfiguration.setJdbcLockRenewPeriodMillis(getJdbcLockRenewPeriodMillis());
-      dbStorageConfiguration.setJdbcNetworkTimeout(-1);
-      dbStorageConfiguration.setJdbcAllowedTimeDiff(250L);
-      return dbStorageConfiguration;
+      return createDBConfig(database);
    }
 
 

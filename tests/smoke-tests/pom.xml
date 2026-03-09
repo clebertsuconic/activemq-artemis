@@ -192,39 +192,6 @@
          <scope>test</scope>
       </dependency>
 
-      <!-- quorum tests -->
-      <dependency>
-         <groupId>org.apache.curator</groupId>
-         <artifactId>curator-recipes</artifactId>
-         <scope>test</scope>
-      </dependency>
-      <dependency>
-         <groupId>org.apache.curator</groupId>
-         <artifactId>curator-client</artifactId>
-         <scope>test</scope>
-      </dependency>
-      <dependency>
-         <groupId>org.apache.curator</groupId>
-         <artifactId>curator-framework</artifactId>
-         <scope>test</scope>
-      </dependency>
-      <dependency>
-         <groupId>org.apache.curator</groupId>
-         <artifactId>curator-test</artifactId>
-         <version>${curator.version}</version>
-         <scope>test</scope>
-      </dependency>
-      <dependency>
-         <groupId>org.apache.zookeeper</groupId>
-         <artifactId>zookeeper</artifactId>
-         <scope>test</scope>
-      </dependency>
-      <dependency>
-         <groupId>org.apache.zookeeper</groupId>
-         <artifactId>zookeeper-jute</artifactId>
-         <scope>test</scope>
-      </dependency>
-
       <!-- The johnzon-core and json-api contents are repackaged in -commons,
            However maven can still need them during tests, which run against
            the original -commons classes when built+run in the same reactor,

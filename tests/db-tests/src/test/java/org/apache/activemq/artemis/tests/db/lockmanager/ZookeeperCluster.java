@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.activemq.artemis.tests.smoke.lockmanager;
+package org.apache.activemq.artemis.tests.db.lockmanager;
 
 import java.io.File;
 import java.io.IOException;

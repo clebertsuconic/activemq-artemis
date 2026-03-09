@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.activemq.artemis.tests.smoke.lockmanager;
+package org.apache.activemq.artemis.tests.db.lockmanager;
 
 import javax.management.remote.JMXServiceURL;
 import java.io.File;
@@ -27,10 +27,10 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.activemq.artemis.api.config.ActiveMQDefaultConfiguration;
 import org.apache.activemq.artemis.api.core.management.ObjectNameBuilder;
+import org.apache.activemq.artemis.tests.db.common.DBTestBase;
 import org.apache.activemq.artemis.tests.extensions.parameterized.Parameter;
 import org.apache.activemq.artemis.tests.extensions.parameterized.ParameterizedTestExtension;
 import org.apache.activemq.artemis.tests.extensions.parameterized.Parameters;
-import org.apache.activemq.artemis.tests.smoke.common.SmokeTestBase;
 import org.apache.activemq.artemis.tests.util.Jmx;
 import org.apache.activemq.artemis.util.ServerUtil;
 import org.apache.activemq.artemis.utils.Wait;
@@ -60,7 +60,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ExtendWith(ParameterizedTestExtension.class)
-public abstract class LockManagerSinglePairTest extends SmokeTestBase {
+public abstract class LockManagerSinglePairTest extends DBTestBase {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
@@ -117,12 +117,12 @@ public abstract class LockManagerSinglePairTest extends SmokeTestBase {
          this.name = name;
       }
 
-      public Process startServer(SmokeTestBase env, int millisTimeout) throws Exception {
+      public Process startServer(DBTestBase env, int millisTimeout) throws Exception {
          return env.startServer(dataFolder, portID, millisTimeout);
       }
 
       public void cleanupData() {
-         SmokeTestBase.cleanupData(dataFolder);
+         DBTestBase.cleanupData(dataFolder);
       }
 
       public Optional<Boolean> isReplicaSync() throws Exception {

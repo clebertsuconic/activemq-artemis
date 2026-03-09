@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.activemq.artemis.tests.smoke.lockmanager;
+package org.apache.activemq.artemis.tests.db.lockmanager;
 
 import java.io.File;
 import java.io.IOException;
@@ -42,6 +42,8 @@ import org.apache.activemq.artemis.lockmanager.DistributedLockManager;
 import org.apache.activemq.artemis.lockmanager.MutableLong;
 import org.apache.activemq.artemis.lockmanager.file.FileBasedLockManager;
 import org.apache.activemq.artemis.lockmanager.zookeeper.CuratorDistributedLockManager;
+import org.apache.activemq.artemis.tests.db.common.DBTestBase;
+import org.apache.activemq.artemis.tests.db.common.Database;
 import org.apache.activemq.artemis.tests.util.ActiveMQTestBase;
 import org.apache.activemq.artemis.utils.RandomUtil;
 import org.apache.activemq.artemis.utils.Wait;
@@ -61,7 +63,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  * This test needs external dependencies. It follows the same pattern described at {@link DualMirrorSingleAcceptorRunningTest}.
  * please read the documentation from that test for more detail on how to run this test.
  */
-public class LockCoordinatorTest extends ActiveMQTestBase {
+public class LockCoordinatorTest extends DBTestBase {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
@@ -110,14 +112,29 @@ public class LockCoordinatorTest extends ActiveMQTestBase {
 
    @Test
    public void testWithDB() throws Exception {
-      DatabaseStorageConfiguration dbConf = createDefaultDatabaseStorageConfiguration();
-      SQLProvider sqlProvider = JDBCUtils.getSQLProvider(
-         dbConf.getJdbcDriverClassName(),
-         dbConf.getNodeManagerStoreTableName(),
-         SQLProvider.DatabaseStoreType.NODE_MANAGER);
 
-      JdbcDistributedLockManager.LockManagerDriver driver = new JdbcDistributedLockManager.LockManagerDriver(dbConf.getConnectionProvider(), sqlProvider);
-      driver.start();
+      List<Database> databases = Database.selectedList();
+
+
+      for (Database db : databases) {
+         registerDB(db);
+         //db.registerDriver();
+
+
+         DatabaseStorageConfiguration dbConf = createDBConfig(db);
+
+         SQLProvider sqlProvider = JDBCUtils.getSQLProvider(
+            dbConf.getJdbcDriverClassName(),
+            dbConf.getNodeManagerStoreTableName(),
+            SQLProvider.DatabaseStoreType.NODE_MANAGER);
+
+         JdbcDistributedLockManager.LockManagerDriver driver = new JdbcDistributedLockManager.LockManagerDriver(dbConf.getConnectionProvider(), sqlProvider);
+         driver.start();
+
+         internalTest(i -> getDBCoordinators(i, dbConf.getConnectionProvider(), dbConf, sqlProvider));
+
+
+         logger.info("Database :: {}", db);
 
       /*JdbcSharedStateManager jdbcSharedStateManager = JdbcSharedStateManager
          .usingConnectionProvider(
@@ -135,7 +152,7 @@ public class LockCoordinatorTest extends ActiveMQTestBase {
          }
       }); */
 
-      internalTest(i -> getDBCoordinators(i, dbConf.getConnectionProvider(), dbConf, sqlProvider));
+      }
    }
 
    private void internalTest(Function<Integer, List<LockCoordinator>> lockCoordinatorSupplier) throws Exception {
