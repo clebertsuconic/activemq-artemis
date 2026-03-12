@@ -69,12 +69,12 @@ public class InputAbstract extends ActionAbstract {
 
       @Override
       public String readLine(String prompt) {
-         return reader.readLine(prompt);
+         return reader.readLine(prompt + "\n");
       }
 
       @Override
       public String readPassword(String prompt) {
-         return reader.readLine(prompt, '*');
+         return reader.readLine(prompt + "\n", '*');
       }
    }
 
