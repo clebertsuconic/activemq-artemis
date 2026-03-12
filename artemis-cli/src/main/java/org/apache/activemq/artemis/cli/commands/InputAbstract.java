@@ -21,6 +21,7 @@ import java.io.InputStream;
 import java.io.PrintStream;
 import java.util.Scanner;
 
+import org.apache.activemq.artemis.cli.Terminal;
 import org.jline.reader.LineReader;
 import picocli.CommandLine.Option;
 
@@ -69,12 +70,12 @@ public class InputAbstract extends ActionAbstract {
 
       @Override
       public String readLine(String prompt) {
-         return reader.readLine(prompt + "\n");
+         return reader.readLine(Terminal.YELLOW_UNICODE + prompt + ":" + Terminal.CLEAR_UNICODE);
       }
 
       @Override
       public String readPassword(String prompt) {
-         return reader.readLine(prompt + "\n", '*');
+         return reader.readLine(Terminal.YELLOW_UNICODE + prompt + ":" + Terminal.CLEAR_UNICODE, '*');
       }
    }
 
@@ -181,7 +182,7 @@ public class InputAbstract extends ActionAbstract {
       getActionContext().out.println();
       do {
          getActionContext().out.println(propertyName + ": is mandatory with this configuration:");
-         inputStr = lineReader.readPassword(prompt + "\n");
+         inputStr = lineReader.readPassword(prompt);
 
          // could be null if the user input something weird like Ctrl-d
          if (inputStr == null) {
