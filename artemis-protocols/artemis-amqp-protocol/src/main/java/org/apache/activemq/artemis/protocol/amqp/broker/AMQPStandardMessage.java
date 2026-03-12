@@ -50,6 +50,7 @@ import org.apache.qpid.proton.codec.WritableBuffer;
 // see https://docs.oasis-open.org/amqp/core/v1.0/os/amqp-core-messaging-v1.0-os.html#section-message-format
 public class AMQPStandardMessage extends AMQPMessage {
 
+   private static final int AMQP_OFFSET = 1024;
 
    public static AMQPStandardMessage createMessage(long messageID,
                                                    long messageFormat,
@@ -192,13 +193,7 @@ public class AMQPStandardMessage extends AMQPMessage {
    @Override
    public synchronized int getMemoryEstimate() {
       if (memoryEstimate == -1) {
-         if (isPaged) {
-            // When the message is paged, we don't take the unmarshalled application properties because it could be
-            // updated at different places. We just keep the estimate simple when paging.
-            memoryEstimate = memoryOffset + (data != null ? data.capacity() : 0);
-         } else {
-            memoryEstimate = memoryOffset + (data != null ? data.capacity() + unmarshalledApplicationPropertiesMemoryEstimateFromData(data) : 0);
-         }
+         memoryEstimate = AMQP_OFFSET + memoryOffset + (data != null ? data.capacity() + unmarshalledApplicationPropertiesMemoryEstimateFromData(data) : 0);
          originalEstimate = memoryEstimate;
       }
 
