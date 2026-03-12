@@ -255,7 +255,7 @@
          <xsd:element name="jmx-notification-enabled" type="xsd:boolean" default="true" maxOccurs="1" minOccurs="0">
             <xsd:annotation>
                <xsd:documentation>
-                  whether management notifications are mirrored as JMX notifications
+                  whether management notifications are reproduced as JMX notifications
                </xsd:documentation>
             </xsd:annotation>
          </xsd:element>

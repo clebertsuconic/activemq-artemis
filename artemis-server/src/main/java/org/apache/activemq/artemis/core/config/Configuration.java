@@ -285,13 +285,13 @@ public interface Configuration {
    Configuration setJMXManagementEnabled(boolean enabled);
 
    /**
-    * {@return whether management notifications are mirrored as JMX notifications; default is {@link
+    * {@return whether management notifications are reproduced as JMX notifications; default is {@link
     * ActiveMQDefaultConfiguration#DEFAULT_JMX_NOTIFICATION_ENABLED}}
     */
    boolean isJMXNotificationEnabled();
 
    /**
-    * Sets whether management notifications are mirrored as JMX notifications; default is
+    * Sets whether management notifications are reproduced as JMX notifications; default is
     * {@link ActiveMQDefaultConfiguration#DEFAULT_JMX_NOTIFICATION_ENABLED}}
     */
    Configuration setJMXNotificationEnabled(boolean enabled);
