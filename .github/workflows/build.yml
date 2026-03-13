@@ -167,7 +167,7 @@ jobs:
       - name: Additional Cache Priming
         run: |
           cd artemis
-          mvn -s .github/maven-settings.xml clean verify -Prelease -Denforcer.skip -pl "artemis-unit-test-support,org.apache.activemq:artemis-junit-5"
+          mvn -s .github/maven-settings.xml clean verify -Prelease -Denforcer.skip -pl "artemis-unit-test-support,org.apache.artemis:artemis-junit-5"
 
       - name: Clean Up Before Caching
         run: |
