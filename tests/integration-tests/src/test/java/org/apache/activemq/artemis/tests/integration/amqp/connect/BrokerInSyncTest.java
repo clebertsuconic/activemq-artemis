@@ -32,6 +32,7 @@ import javax.jms.Queue;
 import javax.jms.Session;
 import javax.jms.TemporaryQueue;
 import javax.jms.TextMessage;
+import javax.jms.Topic;
 import java.io.PrintStream;
 import java.net.URI;
 import java.util.Enumeration;
@@ -265,18 +266,89 @@ public class BrokerInSyncTest extends AmqpClientTestSupport {
          session1.commit();
       }
 
-      try {
-         connection1.close();
-      } catch (Exception ignored) {
-      }
-
-      try {
-         connection2.close();
-      } catch (Exception ignored) {
-      }
+      connection1.close();
+      connection2.close();
 
       Wait.assertEquals(0L, queueOnServer1::getMessageCount, 5000, 100);
       Wait.assertEquals(0L, queueOnServer2::getMessageCount, 5000, 100);
+
+      server_2.stop();
+      server.stop();
+   }
+
+   @Test
+   public void testNoTemporaryQueues() throws Exception {
+      final String snfOnServer1Name = "$ACTIVEMQ_ARTEMIS_MIRROR_connectTowardsServer2";
+
+      server.getConfiguration().setAddressQueueScanPeriod(100);
+      server.setIdentity("Server1");
+      {
+         AMQPBrokerConnectConfiguration amqpConnection = new AMQPBrokerConnectConfiguration("connectTowardsServer2", "tcp://localhost:" + AMQP_PORT_2).setReconnectAttempts(300).setRetryInterval(100);
+         amqpConnection.addElement(new AMQPMirrorBrokerConnectionElement().setDurable(true));
+         server.getConfiguration().addAMQPConnection(amqpConnection);
+      }
+      server.start();
+
+      server_2 = createServer(AMQP_PORT_2, false);
+      server_2.setIdentity("Server2");
+
+      {
+         AMQPBrokerConnectConfiguration amqpConnection = new AMQPBrokerConnectConfiguration("connectTowardsServer1", "tcp://localhost:" + AMQP_PORT).setReconnectAttempts(300).setRetryInterval(100);
+         amqpConnection.addElement(new AMQPMirrorBrokerConnectionElement().setDurable(true));
+         server_2.getConfiguration().addAMQPConnection(amqpConnection);
+      }
+      server_2.start();
+
+
+      Wait.waitFor(() -> server.locateQueue(snfOnServer1Name) != null);
+      org.apache.activemq.artemis.core.server.Queue snfOnServer1 = server.locateQueue(snfOnServer1Name);
+
+      ConnectionFactory factoryServer1 = CFUtil.createConnectionFactory("AMQP", "tcp://localhost:" + AMQP_PORT);
+
+      String temporarytopicName;
+
+      try (Connection connectionServer1 = factoryServer1.createConnection()) {
+         Session session = connectionServer1.createSession(true, Session.SESSION_TRANSACTED);
+         Topic temporaryTopic = session.createTemporaryTopic();
+
+         MessageConsumer consumer = session.createSharedConsumer(temporaryTopic, "mySub");
+
+         temporarytopicName = temporaryTopic.getTopicName();
+
+         connectionServer1.start();
+
+         MessageProducer producer = session.createProducer(temporaryTopic);
+         producer.send(session.createTextMessage());
+         session.commit();
+
+         assertNotNull(consumer.receive(5000));
+
+         session.commit();
+
+         Wait.assertEquals(0L, snfOnServer1::getMessageCount, 5000, 100);
+
+         // stopping the server to validate things are not accumulating
+         server_2.stop();
+
+         for (int i = 0; i < 100; i++) {
+            // sends should not make into the SNF either
+            producer.send(session.createTextMessage());
+         }
+         session.commit();
+         // no temporary sends
+         Wait.assertEquals(0L, snfOnServer1::getMessageCount, 5000, 100);
+
+         for (int i = 0; i < 100; i++) {
+            assertNotNull(consumer.receive(5000));
+         }
+         session.commit();
+
+         // no temporary acks
+         Wait.assertEquals(0L, snfOnServer1::getMessageCount, 5000, 100);
+      }
+
+      Wait.assertTrue(() -> server.getAddressInfo(SimpleString.of(temporarytopicName)) == null, 5000, 100);
+      Wait.assertEquals(0L, snfOnServer1::getMessageCount, 5000, 100);
 
       server_2.stop();
       server.stop();
