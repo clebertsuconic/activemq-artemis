@@ -52,7 +52,9 @@ public class TransientQueueManagerImpl extends ReferenceCounterUtil implements T
    }
 
    public TransientQueueManagerImpl(ActiveMQServer server, SimpleString queueName) {
-      super(server.getExecutorFactory().getExecutor());
+      /* We cannot use a separate executor to delete transient queues as that would
+      *  introduce races on the ServerSessionImpl::TempQueueCleaner. */
+      super();
 
       this.server = server;
 

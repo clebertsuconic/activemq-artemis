@@ -37,6 +37,7 @@ import org.apache.activemq.artemis.Closeable;
 import org.apache.activemq.artemis.api.config.ActiveMQDefaultConfiguration;
 import org.apache.activemq.artemis.api.core.ActiveMQAddressDoesNotExistException;
 import org.apache.activemq.artemis.api.core.ActiveMQAddressExistsException;
+import org.apache.activemq.artemis.api.core.ActiveMQAddressHasBindingsException;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.ActiveMQIOErrorException;
 import org.apache.activemq.artemis.api.core.ActiveMQIllegalStateException;
@@ -814,7 +815,7 @@ public class ServerSessionImpl extends CriticalComponentImpl implements ServerSe
       // not mean it will get deleted automatically when the session is closed. It is up to the user to delete the
       // resource when finished with it
 
-      TempResourceCleanerUpper cleaner = new TempResourceCleanerUpper(server, name);
+      TempResourceCleanerUpper cleaner = new TempResourceCleanerUpper(server, name, sessionExecutor, context);
       if (remotingConnection instanceof TempResourceObserver observer) {
          cleaner.setObserver(observer);
       }
@@ -1161,7 +1162,11 @@ public class ServerSessionImpl extends CriticalComponentImpl implements ServerSe
       return securityDomain;
    }
 
-   public static class TempResourceCleanerUpper implements CloseListener, FailureListener {
+   public static class TempResourceCleanerUpper implements CloseListener, FailureListener, IOCallback {
+
+      final Executor sessionExecutor;
+
+      final OperationContext operationContext;
 
       private final SimpleString resourceName;
 
@@ -1169,9 +1174,11 @@ public class ServerSessionImpl extends CriticalComponentImpl implements ServerSe
 
       private TempResourceObserver observer;
 
-      public TempResourceCleanerUpper(final ActiveMQServer server, final SimpleString resourceName) {
+      public TempResourceCleanerUpper(final ActiveMQServer server, final SimpleString resourceName, final Executor sessionExecutor, OperationContext context) {
          this.server = server;
          this.resourceName = resourceName;
+         this.sessionExecutor = sessionExecutor;
+         this.operationContext = context;
       }
 
       public void setObserver(TempResourceObserver observer) {
@@ -1179,6 +1186,18 @@ public class ServerSessionImpl extends CriticalComponentImpl implements ServerSe
       }
 
       private void run() {
+         sessionExecutor.execute(() -> {
+            operationContext.executeOnCompletion(TempResourceCleanerUpper.this);
+         });
+      }
+
+
+      @Override
+      public void onError(int errorCode, String errorMessage) {
+      }
+
+      @Override
+      public void done() {
          try {
             logger.debug("deleting temporary resource {}", resourceName);
             try {
@@ -1197,11 +1216,13 @@ public class ServerSessionImpl extends CriticalComponentImpl implements ServerSe
             try {
                AddressInfo a = server.getAddressInfo(resourceName);
                if (a != null && a.isTemporary()) {
-                  server.removeAddressInfo(resourceName, null);
+                  server.removeAddressInfo(resourceName, null, false);
                   if (observer != null) {
                      observer.tempAddressDeleted(resourceName);
                   }
                }
+            } catch (ActiveMQAddressHasBindingsException e) {
+               logger.warn(e.getMessage(), e);
             } catch (ActiveMQException e) {
                // that's fine.. it can happen due to resource already been deleted
                logger.debug(e.getMessage(), e);

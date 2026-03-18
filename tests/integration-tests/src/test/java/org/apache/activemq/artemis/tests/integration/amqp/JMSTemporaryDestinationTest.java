@@ -30,7 +30,9 @@ import javax.jms.Session;
 import javax.jms.TemporaryQueue;
 import javax.jms.TemporaryTopic;
 import javax.jms.TextMessage;
+import javax.jms.Topic;
 
+import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.server.Queue;
 import org.apache.activemq.artemis.core.server.impl.AddressInfo;
 import org.apache.activemq.artemis.tests.util.Wait;
@@ -137,4 +139,30 @@ public class JMSTemporaryDestinationTest extends JMSClientTestSupport {
          connection.close();
       }
    }
+
+   @Test
+   public void testAttackDeleteTopicOnClose() throws Exception {
+      // you need to attack open / close many times to reproduce the race I was after when the test was written
+      for (int attack = 0; attack < 100; attack++) {
+         String temporarytopicName;
+
+         try (Connection connection = createConnection()) {
+            Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+            Topic temporaryTopic = session.createTemporaryTopic();
+
+            MessageProducer producer = session.createProducer(temporaryTopic);
+
+            MessageConsumer consumer = session.createSharedConsumer(temporaryTopic, "mySub");
+            connection.start();
+
+            temporarytopicName = temporaryTopic.getTopicName();
+
+            producer.send(session.createMessage());
+            assertNotNull(consumer.receive(5000));
+         }
+
+         Wait.assertTrue(() -> server.getAddressInfo(SimpleString.of(temporarytopicName)) == null, 5000, 100);
+      }
+   }
+
 }
