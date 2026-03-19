@@ -450,7 +450,6 @@ public class OpenWireProtocolManager  extends AbstractProtocolManager<Command, O
    }
 
    public void fireAdvisory(AMQConnectionContext context, ActiveMQTopic topic, Command copy) throws Exception {
-      // aki
       this.fireAdvisory(context, topic, copy, null, null);
    }
 

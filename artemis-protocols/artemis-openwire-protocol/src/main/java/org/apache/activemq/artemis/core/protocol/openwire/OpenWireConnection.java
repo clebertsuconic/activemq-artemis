@@ -1061,14 +1061,11 @@ public class OpenWireConnection extends AbstractRemotingConnection implements Se
          DestinationInfo advInfo = new DestinationInfo(context.getConnectionId(), DestinationInfo.REMOVE_OPERATION_TYPE, dest);
 
          ActiveMQTopic topic = AdvisorySupport.getDestinationAdvisoryTopic(dest);
-         // we need to use a different executor for this
-         executor.execute(() -> {
-            try {
-               protocolManager.fireAdvisory(context, topic, advInfo);
-            } catch (Exception e) {
-               logger.warn("Failed to fire advisory on {}", topic, e);
-            }
-         });
+         try {
+            protocolManager.fireAdvisory(context, topic, advInfo);
+         } catch (Exception e) {
+            logger.warn("Failed to fire advisory on {}", topic, e);
+         }
       }
    }
 

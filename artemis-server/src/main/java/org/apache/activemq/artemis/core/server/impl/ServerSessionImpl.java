@@ -815,7 +815,7 @@ public class ServerSessionImpl extends CriticalComponentImpl implements ServerSe
       // not mean it will get deleted automatically when the session is closed. It is up to the user to delete the
       // resource when finished with it
 
-      TempResourceCleanerUpper cleaner = new TempResourceCleanerUpper(server, name, sessionExecutor, context);
+      TempResourceCleanerUpper cleaner = new TempResourceCleanerUpper(server, name);
       if (remotingConnection instanceof TempResourceObserver observer) {
          cleaner.setObserver(observer);
       }
@@ -1162,11 +1162,7 @@ public class ServerSessionImpl extends CriticalComponentImpl implements ServerSe
       return securityDomain;
    }
 
-   public static class TempResourceCleanerUpper implements CloseListener, FailureListener, IOCallback {
-
-      final Executor sessionExecutor;
-
-      final OperationContext operationContext;
+   public static class TempResourceCleanerUpper implements CloseListener, FailureListener {
 
       private final SimpleString resourceName;
 
@@ -1174,11 +1170,9 @@ public class ServerSessionImpl extends CriticalComponentImpl implements ServerSe
 
       private TempResourceObserver observer;
 
-      public TempResourceCleanerUpper(final ActiveMQServer server, final SimpleString resourceName, final Executor sessionExecutor, OperationContext context) {
+      public TempResourceCleanerUpper(final ActiveMQServer server, final SimpleString resourceName) {
          this.server = server;
          this.resourceName = resourceName;
-         this.sessionExecutor = sessionExecutor;
-         this.operationContext = context;
       }
 
       public void setObserver(TempResourceObserver observer) {
@@ -1186,18 +1180,10 @@ public class ServerSessionImpl extends CriticalComponentImpl implements ServerSe
       }
 
       private void run() {
-         sessionExecutor.execute(() -> {
-            operationContext.executeOnCompletion(TempResourceCleanerUpper.this);
-         });
+         server.getTransientQueueExecutor().execute(this::done);
       }
 
-
-      @Override
-      public void onError(int errorCode, String errorMessage) {
-      }
-
-      @Override
-      public void done() {
+      private void done() {
          try {
             logger.debug("deleting temporary resource {}", resourceName);
             try {
