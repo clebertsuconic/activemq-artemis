@@ -1180,6 +1180,7 @@ public class ServerSessionImpl extends CriticalComponentImpl implements ServerSe
       }
 
       private void run() {
+         // this needs to use the same executor as TransientQueueManagerImpl
          server.getTransientQueueExecutor().execute(this::done);
       }
 

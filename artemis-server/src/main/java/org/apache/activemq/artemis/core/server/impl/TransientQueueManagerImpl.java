@@ -52,6 +52,7 @@ public class TransientQueueManagerImpl extends ReferenceCounterUtil implements T
    }
 
    public TransientQueueManagerImpl(ActiveMQServer server, SimpleString queueName) {
+      // We have to use the same executor between here and ServerSessionImpl::TempResourceCleanerUpper
       super(server.getTransientQueueExecutor());
 
       this.server = server;
