@@ -32,9 +32,7 @@ import javax.jms.Session;
 import javax.jms.TemporaryQueue;
 import javax.jms.TemporaryTopic;
 import javax.jms.TextMessage;
-import javax.jms.Topic;
 
-import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.server.Queue;
 import org.apache.activemq.artemis.core.server.impl.AddressInfo;
 import org.apache.activemq.artemis.tests.util.Wait;
@@ -142,32 +140,6 @@ public class JMSTemporaryDestinationTest extends JMSClientTestSupport {
       }
    }
 
-   // TODO: Remove this after tests
-   @Test
-   public void testAttackDeleteTopicOnClose() throws Exception {
-      // you need to attack open / close many times to reproduce the race I was after when the test was written
-      for (int attack = 0; attack < 100; attack++) {
-         String temporarytopicName;
-
-         try (Connection connection = createConnection()) {
-            Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
-            Topic temporaryTopic = session.createTemporaryTopic();
-
-            MessageProducer producer = session.createProducer(temporaryTopic);
-
-            MessageConsumer consumer = session.createSharedConsumer(temporaryTopic, "mySub");
-            connection.start();
-
-            temporarytopicName = temporaryTopic.getTopicName();
-
-            producer.send(session.createMessage());
-            assertNotNull(consumer.receive(5000));
-         }
-
-         Wait.assertTrue(() -> server.getAddressInfo(SimpleString.of(temporarytopicName)) == null, 5000, 100);
-      }
-   }
-
    @Test
    @Timeout(20)
    public void testTemporaryTopicDeletedOnConnectionClosed() throws Exception {
@@ -193,10 +165,10 @@ public class JMSTemporaryDestinationTest extends JMSClientTestSupport {
    }
 
    private void doTestTemporaryDestinationIsDeletedOnConnectionClosed(boolean topic, boolean closeConsumer) throws Exception {
+      final String addressName;
       try (Connection connection = createConnection()) {
          final Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
          final Destination destination;
-         final String addressName;
 
          if (topic) {
             destination = session.createTemporaryTopic();
@@ -214,6 +186,8 @@ public class JMSTemporaryDestinationTest extends JMSClientTestSupport {
             addressName = ((TemporaryQueue) destination).getQueueName();
          }
 
+         logger.info("Address being used is {}", addressName);
+
          final MessageConsumer consumer = session.createConsumer(destination);
 
          final AddressInfo addressView = getProxyToAddress(addressName);
@@ -225,10 +199,8 @@ public class JMSTemporaryDestinationTest extends JMSClientTestSupport {
             consumer.close();
          }
 
-         connection.close();
-
-         Wait.assertNull(() -> getProxyToAddress(addressName), TimeUnit.SECONDS.toMillis(5), TimeUnit.MILLISECONDS.toMillis(50));
       }
+      Wait.assertNull(() -> getProxyToAddress(addressName), TimeUnit.SECONDS.toMillis(5), TimeUnit.MILLISECONDS.toMillis(50));
    }
 
 

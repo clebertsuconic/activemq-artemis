@@ -24,7 +24,6 @@ import org.apache.activemq.artemis.api.core.ActiveMQAddressFullException;
 import org.apache.activemq.artemis.api.core.ActiveMQAddressHasBindingsException;
 import org.apache.activemq.artemis.api.core.ActiveMQClusterSecurityException;
 import org.apache.activemq.artemis.api.core.ActiveMQConnectionTimedOutException;
-import org.apache.activemq.artemis.api.core.ActiveMQDeleteAddressException;
 import org.apache.activemq.artemis.api.core.ActiveMQDisconnectedException;
 import org.apache.activemq.artemis.api.core.ActiveMQDivertDoesNotExistException;
 import org.apache.activemq.artemis.api.core.ActiveMQDuplicateMetaDataException;
