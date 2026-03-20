@@ -28,6 +28,8 @@ import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.ActiveMQIllegalStateException;
 import org.apache.activemq.artemis.api.core.Pair;
 import org.apache.activemq.artemis.api.core.TransportConfiguration;
+import org.apache.activemq.artemis.core.memory.GlobalMemoryManager;
+import org.apache.activemq.artemis.core.paging.PagingManager;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.protocol.core.Channel;
 import org.apache.activemq.artemis.core.protocol.core.ChannelHandler;
@@ -241,7 +243,9 @@ public class ReplicationPrimaryActivation extends PrimaryActivation implements D
                           final TransportConfiguration backupTransport) {
       try {
          final String nodeID = activeMQServer.getNodeID().toString();
-         activeMQServer.getStorageManager().startReplication(replicationManager, activeMQServer.getPagingManager(), nodeID, isFailBackRequest && policy.isAllowAutoFailBack(), policy.getInitialReplicationSyncTimeout());
+         GlobalMemoryManager globalMemoryManager = activeMQServer.getGlobalMemoryManager();
+         PagingManager pagingManager = ((PagingManager)globalMemoryManager);
+         activeMQServer.getStorageManager().startReplication(replicationManager, pagingManager, nodeID, isFailBackRequest && policy.isAllowAutoFailBack(), policy.getInitialReplicationSyncTimeout());
 
          clusterConnection.nodeAnnounced(System.currentTimeMillis(), nodeID, policy.getGroupName(), policy.getScaleDownGroupName(), new Pair<>(null, backupTransport), true);
 

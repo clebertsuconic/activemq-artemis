@@ -71,8 +71,8 @@ public class PagingSizeWildcardTest extends ActiveMQTestBase {
          sessW.commit();
          sessA.commit();
 
-         for (SimpleString psName : server.getPagingManager().getStoreNames()) {
-            assertTrue(server.getPagingManager().getPageStore(psName).getAddressSize() >= 0, "non negative size: " + psName);
+         for (SimpleString psName : getPagingManager(server).getStoreNames()) {
+            assertTrue(getPagingManager(server).getPageStore(psName).getAddressSize() >= 0, "non negative size: " + psName);
          }
          conn.close();
 
@@ -116,8 +116,8 @@ public class PagingSizeWildcardTest extends ActiveMQTestBase {
          sessW.commit();
          sessA.commit();
 
-         for (SimpleString psName : server.getPagingManager().getStoreNames()) {
-            assertTrue(server.getPagingManager().getPageStore(psName).getAddressSize() >= 0, "non negative size: " + psName);
+         for (SimpleString psName : getPagingManager(server).getStoreNames()) {
+            assertTrue(getPagingManager(server).getPageStore(psName).getAddressSize() >= 0, "non negative size: " + psName);
          }
          conn.close();
 

@@ -144,7 +144,7 @@ public class GlobalDiskFullTest extends AmqpClientTestSupport {
             }
          });
 
-         PagingManagerImpl pagingManager = (PagingManagerImpl) server.getPagingManager();
+         PagingManagerImpl pagingManager = (PagingManagerImpl) getPagingManager(server);
          Wait.assertTrue(() -> pagingManager.getBlockedSet().size() > 0, 5000);
 
          assertFalse(sentWithName.await(100, TimeUnit.MILLISECONDS), "Thread sender should be blocked");

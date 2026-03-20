@@ -525,8 +525,8 @@ public class ConsumerTest extends ActiveMQTestBase {
                assertEquals(1, message.getIntProperty("mycount"));
                assertEquals(bufferLargeContent, message.getText());
 
-               Wait.waitFor(() -> server.getPagingManager().getGlobalSize() == 0, 5000, 100);
-               assertEquals(0, server.getPagingManager().getGlobalSize());
+               Wait.waitFor(() -> getPagingManager(server).getGlobalSize() == 0, 5000, 100);
+               assertEquals(0, getPagingManager(server).getGlobalSize());
             }
          }
       }
@@ -655,10 +655,10 @@ public class ConsumerTest extends ActiveMQTestBase {
 
          assertNull(consumer.receiveNoWait());
 
-         Wait.waitFor(() -> server.getPagingManager().getGlobalSize() == 0, 5000, 100);
+         Wait.waitFor(() -> getPagingManager(server).getGlobalSize() == 0, 5000, 100);
 
 
-         assertEquals(0, server.getPagingManager().getGlobalSize());
+         assertEquals(0, getPagingManager(server).getGlobalSize());
 
       } finally {
          connection.close();

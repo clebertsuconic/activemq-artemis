@@ -23,9 +23,9 @@ import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.api.core.QueueConfiguration;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.filter.Filter;
-import org.apache.activemq.artemis.core.paging.PagingManager;
-import org.apache.activemq.artemis.core.paging.PagingStore;
-import org.apache.activemq.artemis.core.paging.cursor.PageSubscription;
+import org.apache.activemq.artemis.core.memory.AddressMemoryManager;
+import org.apache.activemq.artemis.core.memory.GlobalMemoryManager;
+import org.apache.activemq.artemis.core.memory.QueueMemoryManager;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.postoffice.PostOffice;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
@@ -75,14 +75,14 @@ public class QueueFactoryImpl implements QueueFactory {
    }
 
    @Override
-   public Queue createQueueWith(final QueueConfiguration config, PagingManager pagingManager, Filter filter) {
+   public Queue createQueueWith(final QueueConfiguration config, GlobalMemoryManager globalMemoryManager, Filter filter) {
       validateState(config);
       final Queue queue;
-      PageSubscription pageSubscription = getPageSubscription(config, pagingManager, filter);
+      QueueMemoryManager queueMemoryManager = getPageSubscription(config, globalMemoryManager, filter);
       if (lastValueKey(config) != null) {
-         queue = new LastValueQueue(config.setLastValueKey(lastValueKey(config)), filter, pageSubscription != null ? pageSubscription.getPagingStore() : null, pageSubscription, scheduledExecutor, postOffice, storageManager, addressSettingsRepository, executorFactory.getExecutor(), server, this);
+         queue = new LastValueQueue(config.setLastValueKey(lastValueKey(config)), filter, queueMemoryManager != null ? queueMemoryManager.getAddressMemoryManager() : null, queueMemoryManager, scheduledExecutor, postOffice, storageManager, addressSettingsRepository, executorFactory.getExecutor(), server, this);
       } else {
-         queue = new QueueImpl(config, filter, pageSubscription != null ? pageSubscription.getPagingStore() : null, pageSubscription, scheduledExecutor, postOffice, storageManager, addressSettingsRepository, executorFactory.getExecutor(), server, this);
+         queue = new QueueImpl(config, filter, queueMemoryManager != null ? queueMemoryManager.getAddressMemoryManager() : null, queueMemoryManager, scheduledExecutor, postOffice, storageManager, addressSettingsRepository, executorFactory.getExecutor(), server, this);
       }
       server.getCriticalAnalyzer().add(queue);
       return queue;
@@ -93,27 +93,28 @@ public class QueueFactoryImpl implements QueueFactory {
       server.getCriticalAnalyzer().remove(queue);
    }
 
-   public static PageSubscription getPageSubscription(QueueConfiguration queueConfiguration, PagingManager pagingManager, Filter filter) {
-      PageSubscription pageSubscription;
+   public static QueueMemoryManager getPageSubscription(QueueConfiguration queueConfiguration, GlobalMemoryManager globalMemoryManager, Filter filter) {
+      QueueMemoryManager queueMemoryManager;
 
       try {
-         PagingStore pageStore = pagingManager.getPageStore(queueConfiguration.getAddress());
-         if (pageStore != null) {
-            pageSubscription = pageStore.getCursorProvider().createSubscription(queueConfiguration.getId(), filter, queueConfiguration.isDurable());
+         AddressMemoryManager addressMemoryManager = globalMemoryManager.getMemoryAddressManager(queueConfiguration.getAddress());
+         if (addressMemoryManager != null) {
+            queueMemoryManager = addressMemoryManager.getQueueMemoryManager(queueConfiguration.getName(), queueConfiguration.getId(), filter, queueConfiguration.isDurable());
          } else {
-            pageSubscription = null;
+            queueMemoryManager = null;
          }
       } catch (Exception e) {
+         logger.warn(e.getMessage(), e);
          throw new IllegalStateException(e);
       }
 
-      return pageSubscription;
+      return queueMemoryManager;
    }
 
    private static SimpleString lastValueKey(final QueueConfiguration config) {
       if (config.getLastValueKey() != null && !config.getLastValueKey().isEmpty()) {
          return config.getLastValueKey();
-      } else if (config.isLastValue()) {
+      } else if (config.isLastValue() != null && config.isLastValue().booleanValue()) {
          return Message.HDR_LAST_VALUE_NAME;
       } else {
          return null;

@@ -71,8 +71,8 @@ public class PageTransactionCleanupTest extends ActiveMQTestBase {
       Queue queue1 = server.createQueue(QueueConfiguration.of("test1").setRoutingType(RoutingType.ANYCAST));
       Queue queue2 = server.createQueue(QueueConfiguration.of("test2").setRoutingType(RoutingType.ANYCAST));
 
-      queue1.getPagingStore().startPaging();
-      queue2.getPagingStore().startPaging();
+      getPagingStore(queue1).startPaging();
+      getPagingStore(queue2).startPaging();
 
       ConnectionFactory factory = CFUtil.createConnectionFactory("CORE", "tcp://localhost:61616");
 
@@ -89,7 +89,7 @@ public class PageTransactionCleanupTest extends ActiveMQTestBase {
          }
       }
 
-      PagingStoreImpl store = (PagingStoreImpl) queue1.getPagingStore();
+      PagingStoreImpl store = (PagingStoreImpl) getPagingStore(queue1);
       File folder = store.getFolder();
 
       server.stop();

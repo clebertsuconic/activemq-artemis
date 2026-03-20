@@ -98,7 +98,7 @@ public class PreserveOnRestartTest extends ActiveMQTestBase {
       }
 
       Wait.assertEquals(0, serverQueue::getMessageCount);
-      Wait.assertFalse(serverQueue.getPagingStore()::isPaging);
+      Wait.assertFalse(getPagingStore(serverQueue)::isPaging);
 
       server.stop();
       server.start();

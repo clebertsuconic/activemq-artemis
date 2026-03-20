@@ -188,7 +188,7 @@ public class PagingFailoverTest extends FailoverTestBase {
 
       Wait.assertFalse(() -> {
          queue.expireReferences();
-         return queue.getPageSubscription().isPaging();
+         return getPagingStore(queue).isPaging();
       });
 
    }

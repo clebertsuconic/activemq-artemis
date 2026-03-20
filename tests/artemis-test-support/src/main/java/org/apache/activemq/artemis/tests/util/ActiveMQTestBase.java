@@ -106,7 +106,9 @@ import org.apache.activemq.artemis.core.journal.impl.JournalFile;
 import org.apache.activemq.artemis.core.journal.impl.JournalImpl;
 import org.apache.activemq.artemis.core.journal.impl.JournalReaderCallback;
 import org.apache.activemq.artemis.core.message.impl.CoreMessage;
+import org.apache.activemq.artemis.core.paging.PagingManager;
 import org.apache.activemq.artemis.core.paging.PagingStore;
+import org.apache.activemq.artemis.core.paging.cursor.PageSubscription;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContextImpl;
 import org.apache.activemq.artemis.core.postoffice.Binding;
@@ -1027,12 +1029,42 @@ public abstract class ActiveMQTestBase extends ArtemisTestCase {
       }
    }
 
+   protected PagingManager getPagingManager(ActiveMQServer server) {
+      if (server.getGlobalMemoryManager() instanceof PagingManager) {
+         return ((PagingManager) server.getGlobalMemoryManager());
+      } else {
+         return null;
+      }
+
+   }
+
+   protected PageSubscription getPagingSubscription(Queue queue) {
+      if (queue.getAddressMemoryManager() instanceof PagingStore) {
+         return ((PageSubscription)queue.getQueueMemoryManager());
+      } else {
+         return null;
+      }
+   }
+
+   protected PagingStore getPagingStore(Queue queue) {
+      if (queue.getAddressMemoryManager() instanceof PagingStore) {
+         return ((PagingStore)queue.getAddressMemoryManager());
+      } else {
+         return null;
+      }
+   }
+
    protected void waitForNotPaging(Queue queue) throws InterruptedException {
-      waitForNotPaging(queue.getPagingStore());
+      PagingStore store = getPagingStore(queue);
+      if (store != null) {
+         waitForNotPaging(store);
+      }
    }
 
    protected void waitForNotPaging(PagingStore store) throws InterruptedException {
-      Wait.assertFalse("Store is still paging", store::isPaging, 20_000);
+      if (store != null) {
+         Wait.assertFalse("Store is still paging", store::isPaging, 20_000);
+      }
    }
 
    protected static Topology waitForTopology(final ActiveMQServer server, final int nodes) throws Exception {
@@ -2177,7 +2209,7 @@ public abstract class ActiveMQTestBase extends ArtemisTestCase {
 
    protected int getMessageCount(final Queue queue) {
       try {
-         Wait.waitFor(() -> queue.getPageSubscription().isCounterPending() == false);
+         Wait.waitFor(() -> getPagingSubscription(queue).isCounterPending() == false);
       } catch (Exception ignored) {
       }
       queue.flushExecutor();

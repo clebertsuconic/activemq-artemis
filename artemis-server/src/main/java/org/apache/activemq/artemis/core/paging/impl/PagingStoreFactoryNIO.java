@@ -163,7 +163,9 @@ public class PagingStoreFactoryNIO implements PagingStoreFactory {
 
    @Override
    public synchronized PagingStore newStore(final SimpleString address, final AddressSettings settings) {
-      return new PagingStoreImpl(address, scheduledExecutor, syncTimeout, pagingManager, storageManager, null, this, address, settings, executorFactory.getExecutor().setFair(true), syncNonTransactional, purgePageFolders);
+      PagingStoreImpl store = new PagingStoreImpl(address, scheduledExecutor, syncTimeout, pagingManager, storageManager, null, this, address, settings, executorFactory.getExecutor().setFair(true), syncNonTransactional, purgePageFolders);
+      store.setGlobalMemoryManager(pagingManager);
+      return store;
    }
 
    @Override

@@ -31,8 +31,9 @@ import org.apache.activemq.artemis.api.core.RoutingType;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.api.core.client.ActiveMQClient;
 import org.apache.activemq.artemis.core.io.IOCallback;
+import org.apache.activemq.artemis.core.memory.AddressMemoryManager;
+import org.apache.activemq.artemis.core.memory.GlobalMemoryManager;
 import org.apache.activemq.artemis.core.paging.PagingManager;
-import org.apache.activemq.artemis.core.paging.PagingStore;
 import org.apache.activemq.artemis.core.persistence.CoreMessageObjectPools;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
@@ -554,7 +555,7 @@ public class AMQPSessionCallback implements SessionCallback {
       OperationContext oldcontext = recoverContext();
 
       try {
-         PagingStore store = manager.getServer().getPagingManager().getPageStore(selectedAddress);
+         AddressMemoryManager store = manager.getServer().getGlobalMemoryManager().getMemoryAddressManager(selectedAddress);
          if (store != null && store.isRejectingMessages()) {
             // We drop pre-settled messages (and abort any associated Tx)
             String amqpAddress = delivery.getLink().getTarget().getAddress();
@@ -685,19 +686,23 @@ public class AMQPSessionCallback implements SessionCallback {
       try {
 
          if (address == null) {
-            PagingManager pagingManager = manager.getServer().getPagingManager();
+            GlobalMemoryManager globalMemoryManager = manager.getServer().getGlobalMemoryManager();
             if (manager != null && manager.getServer() != null &&
                 manager.getServer().getAddressSettingsRepository() != null &&
                 manager.getServer().getAddressSettingsRepository().getMatch("#").getAddressFullMessagePolicy().equals(AddressFullMessagePolicy.PAGE)) {
                // If it's paging, we only check for disk full
-               pagingManager.checkStorage(runnable);
+               if (globalMemoryManager instanceof PagingManager) {
+                  ((PagingManager)globalMemoryManager).checkStorage(runnable);
+               }
             } else {
-               pagingManager.checkMemory(runnable);
+               if (globalMemoryManager instanceof PagingManager) {
+                  ((PagingManager)globalMemoryManager).checkMemory(runnable);
+               }
             }
          } else {
-            final PagingStore store = manager.getServer().getPagingManager().getPageStore(address);
-            if (store != null) {
-               store.checkMemory(runnable, blockedRunnables::add);
+            AddressMemoryManager addressMemoryManager = manager.getServer().getGlobalMemoryManager().getMemoryAddressManager(address);
+            if (addressMemoryManager != null) {
+               addressMemoryManager.checkMemory(runnable, blockedRunnables::add);
             } else {
                runnable.run();
             }

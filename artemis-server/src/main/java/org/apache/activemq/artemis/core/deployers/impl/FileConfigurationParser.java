@@ -838,6 +838,7 @@ public final class FileConfigurationParser extends XMLConfigurationUtil {
          config.setJournalBufferTimeout_NIO(journalBufferTimeout);
          config.setJournalBufferSize_NIO(journalBufferSize);
          config.setJournalMaxIO_NIO(journalMaxIO);
+         logger.info("journalTimeoutNIO::{}", config.getJournalBufferTimeout_NIO());
       }
 
       config.setJournalFileOpenTimeout(getInteger(e, "journal-file-open-timeout", ActiveMQDefaultConfiguration.getDefaultJournalFileOpenTimeout(), GT_ZERO));
@@ -2077,6 +2078,14 @@ public final class FileConfigurationParser extends XMLConfigurationUtil {
 
    private DatabaseStorageConfiguration createDatabaseStoreConfig(Element storeNode, Configuration mainConfig) throws Exception {
       DatabaseStorageConfiguration conf = new DatabaseStorageConfiguration();
+
+      // Check if this is a new-database configuration
+      boolean newDatabase = getBoolean(storeNode, "new-database", false);
+      if (newDatabase) {
+         conf.setStoreType(org.apache.activemq.artemis.core.config.StoreConfiguration.StoreType.NEW_DATABASE);
+         mainConfig.setNewDatabase(true);
+      }
+
       conf.setBindingsTableName(getString(storeNode, "bindings-table-name", conf.getBindingsTableName(), NO_CHECK));
       conf.setMessageTableName(getString(storeNode, "message-table-name", conf.getMessageTableName(), NO_CHECK));
       conf.setLargeMessageTableName(getString(storeNode, "large-message-table-name", conf.getLargeMessageTableName(), NO_CHECK));

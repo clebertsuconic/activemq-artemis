@@ -102,7 +102,7 @@ public class AmqpReplayFromRetentionTest extends AmqpTestSupport {
       final org.apache.activemq.artemis.core.server.Queue queue2View = server.locateQueue(queueName2);
 
       if (paging) {
-         queue1View.getPagingStore().startPaging();
+         getPagingStore(queue1View).startPaging();
       }
 
       final String message1Prefix = "message-1:";
@@ -178,7 +178,7 @@ public class AmqpReplayFromRetentionTest extends AmqpTestSupport {
       final org.apache.activemq.artemis.core.server.Queue queue2View = server.locateQueue(queueName2);
 
       if (paging) {
-         queue1View.getPagingStore().startPaging();
+         getPagingStore(queue1View).startPaging();
       }
 
       final String message1Prefix = "message-1:";
@@ -255,7 +255,7 @@ public class AmqpReplayFromRetentionTest extends AmqpTestSupport {
       final org.apache.activemq.artemis.core.server.Queue queue2View = server.locateQueue(queueName2);
 
       if (paging) {
-         queue1View.getPagingStore().startPaging();
+         getPagingStore(queue1View).startPaging();
       }
 
       final String message1Prefix = "message-1:";
@@ -326,7 +326,7 @@ public class AmqpReplayFromRetentionTest extends AmqpTestSupport {
       final org.apache.activemq.artemis.core.server.Queue queue2View = server.locateQueue(queueName2);
 
       if (paging) {
-         queue1View.getPagingStore().startPaging();
+         getPagingStore(queue1View).startPaging();
       }
 
       final String message1Prefix = "message-1:";
@@ -397,7 +397,7 @@ public class AmqpReplayFromRetentionTest extends AmqpTestSupport {
       final org.apache.activemq.artemis.core.server.Queue queue2View = server.locateQueue(queueName2);
 
       if (paging) {
-         queue1View.getPagingStore().startPaging();
+         getPagingStore(queue1View).startPaging();
       }
 
       final String message1Prefix = "message-1:";
@@ -469,7 +469,7 @@ public class AmqpReplayFromRetentionTest extends AmqpTestSupport {
       final org.apache.activemq.artemis.core.server.Queue queue2View = server.locateQueue(queueName2);
 
       if (paging) {
-         queue1View.getPagingStore().startPaging();
+         getPagingStore(queue1View).startPaging();
       }
 
       final String message1Prefix = "message-1:";
@@ -550,7 +550,7 @@ public class AmqpReplayFromRetentionTest extends AmqpTestSupport {
       final org.apache.activemq.artemis.core.server.Queue queue2View = server.locateQueue(queueName2);
 
       if (paging) {
-         queue1View.getPagingStore().startPaging();
+         getPagingStore(queue1View).startPaging();
       }
 
       final String message1Prefix = "message-1:";
@@ -621,7 +621,7 @@ public class AmqpReplayFromRetentionTest extends AmqpTestSupport {
       final org.apache.activemq.artemis.core.server.Queue queue2View = server.locateQueue(queueName2);
 
       if (paging) {
-         queue1View.getPagingStore().startPaging();
+         getPagingStore(queue1View).startPaging();
       }
 
       final String message1Prefix = "message-1:";

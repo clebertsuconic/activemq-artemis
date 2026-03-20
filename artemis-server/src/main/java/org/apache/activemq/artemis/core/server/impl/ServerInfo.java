@@ -21,6 +21,7 @@ import java.lang.management.ThreadMXBean;
 import java.util.Date;
 
 import org.apache.activemq.artemis.api.core.SimpleString;
+import org.apache.activemq.artemis.core.memory.GlobalMemoryManager;
 import org.apache.activemq.artemis.core.paging.PagingManager;
 import org.apache.activemq.artemis.core.paging.PagingStore;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
@@ -30,11 +31,11 @@ public class ServerInfo {
 
    private final ActiveMQServer server;
 
-   private final PagingManager pagingManager;
+   private final GlobalMemoryManager globalMemoryManager;
 
-   public ServerInfo(final ActiveMQServer server, final PagingManager pagingManager) {
+   public ServerInfo(final ActiveMQServer server, final GlobalMemoryManager globalMemoryManager) {
       this.server = server;
-      this.pagingManager = pagingManager;
+      this.globalMemoryManager = globalMemoryManager;
    }
 
 
@@ -62,15 +63,20 @@ public class ServerInfo {
    private String appendPagingInfos() {
       StringBuilder info = new StringBuilder();
 
-      for (SimpleString storeName : pagingManager.getStoreNames()) {
-         PagingStore pageStore;
-         try {
-            pageStore = pagingManager.getPageStore(storeName);
-            info.append(String.format("\t%s: %s%n", storeName, SizeFormatterUtil.sizeof(pageStore.getPageSizeBytes() * pageStore.getNumberOfPages())));
-         } catch (Exception e) {
-            info.append(String.format("\t%s: %s%n", storeName, e.getMessage()));
+      if (globalMemoryManager instanceof PagingManager) {
+         PagingManager pagingManager = ((PagingManager)globalMemoryManager);
+         for (SimpleString storeName : pagingManager.getStoreNames()) {
+            PagingStore pageStore;
+            try {
+               pageStore = pagingManager.getPageStore(storeName);
+               info.append(String.format("\t%s: %s%n", storeName, SizeFormatterUtil.sizeof(pageStore.getPageSizeBytes() * pageStore.getNumberOfPages())));
+            } catch (Exception e) {
+               info.append(String.format("\t%s: %s%n", storeName, e.getMessage()));
+            }
          }
+         return info.toString();
+      } else {
+         return "";
       }
-      return info.toString();
    }
 }

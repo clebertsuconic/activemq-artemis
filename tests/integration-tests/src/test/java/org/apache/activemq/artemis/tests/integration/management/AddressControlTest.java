@@ -357,7 +357,7 @@ public class AddressControlTest extends ManagementTestBase {
 
       assertEquals(2, addressControl.getNumberOfPages(), "# of pages is 2");
 
-      assertEquals(serverQueue.getPageSubscription().getPagingStore().getAddressSize(), addressControl.getAddressSize());
+      assertEquals(getPagingStore(serverQueue).getAddressSize(), addressControl.getAddressSize());
 
       assertEquals(maxReadBytes, addressControl.getMaxPageReadBytes());
       assertEquals(maxReadMessages, addressControl.getMaxPageReadMessages());
@@ -383,14 +383,14 @@ public class AddressControlTest extends ManagementTestBase {
       AddressControl addressControl = createManagementControl(address);
 
       Queue queue = server.locateQueue(address);
-      queue.getPagingStore().startPaging();
+      getPagingStore(queue).startPaging();
 
       assertTrue(addressControl.isPaging());
 
       addressControl.schedulePageCleanup();
 
       Wait.assertFalse(addressControl::isPaging, 2000, 10);
-      Wait.assertFalse(queue.getPagingStore()::isPaging);
+      Wait.assertFalse(getPagingStore(queue)::isPaging);
    }
 
    @Test

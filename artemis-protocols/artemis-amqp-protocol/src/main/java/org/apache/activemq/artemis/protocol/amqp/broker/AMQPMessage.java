@@ -42,9 +42,9 @@ import org.apache.activemq.artemis.api.core.JsonUtil;
 import org.apache.activemq.artemis.api.core.RefCountMessage;
 import org.apache.activemq.artemis.api.core.RoutingType;
 import org.apache.activemq.artemis.api.core.SimpleString;
+import org.apache.activemq.artemis.core.memory.AddressMemoryManager;
 import org.apache.activemq.artemis.core.message.openmbean.CompositeDataConstants;
 import org.apache.activemq.artemis.core.message.openmbean.MessageOpenTypeFactory;
-import org.apache.activemq.artemis.core.paging.PagingStore;
 import org.apache.activemq.artemis.core.persistence.CoreMessageObjectPools;
 import org.apache.activemq.artemis.core.persistence.Persister;
 import org.apache.activemq.artemis.core.server.MessageReference;
@@ -568,7 +568,7 @@ public abstract class AMQPMessage extends RefCountMessage implements org.apache.
             // we also only do the update if the message was previously routed
             // so if a debug method or an interceptor changed the size before routing we would get a different size
             if (!isPaged && routed) {
-               ((PagingStore) owner).addSize(addition, false);
+               ((AddressMemoryManager) owner).addSize(addition, false, true);
                final int updatedEstimate = memoryEstimate + addition;
                memoryEstimate = updatedEstimate;
             }

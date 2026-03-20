@@ -21,33 +21,28 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
-import org.apache.activemq.artemis.jdbc.store.sql.SQLProvider;
 
 @SuppressWarnings("SynchronizeOnNonFinalField")
 public final class Db2SequentialFileDriver extends JDBCSequentialFileFactoryDriver {
 
    private String replaceLargeObject;
 
-   public Db2SequentialFileDriver() {
-      super();
-   }
-
-   public Db2SequentialFileDriver(JDBCConnectionProvider connectionProvider, SQLProvider provider) {
-      super(connectionProvider, provider);
+   public Db2SequentialFileDriver(JDBCConnectionProvider connectionProvider, String tableName) {
+      super(connectionProvider, tableName);
    }
 
    @Override
    protected void prepareStatements() {
-      this.deleteFile = sqlProvider.getDeleteFileSQL();
-      this.createFile = sqlProvider.getInsertFileSQL();
+      this.deleteFile = sqlProvider.getDeleteFileSQL(tableName);
+      this.createFile = sqlProvider.getInsertFileSQL(tableName);
       this.createFileColumnNames = new String[]{"ID"};
-      this.selectFileByFileName = sqlProvider.getSelectFileByFileName();
-      this.copyFileRecord = sqlProvider.getCopyFileRecordByIdSQL();
-      this.renameFile = sqlProvider.getUpdateFileNameByIdSQL();
-      this.readLargeObject = sqlProvider.getReadLargeObjectSQL();
-      this.replaceLargeObject = sqlProvider.getReplaceLargeObjectSQL();
-      this.appendToLargeObject = sqlProvider.getAppendToLargeObjectSQL();
-      this.selectFileNamesByExtension = sqlProvider.getSelectFileNamesByExtensionSQL();
+      this.selectFileByFileName = sqlProvider.getSelectFileByFileName(tableName);
+      this.copyFileRecord = sqlProvider.getCopyFileRecordByIdSQL(tableName);
+      this.renameFile = sqlProvider.getUpdateFileNameByIdSQL(tableName);
+      this.readLargeObject = sqlProvider.getReadLargeObjectSQL(tableName);
+      this.replaceLargeObject = sqlProvider.getReplaceLargeObjectSQL(tableName);
+      this.appendToLargeObject = sqlProvider.getAppendToLargeObjectSQL(tableName);
+      this.selectFileNamesByExtension = sqlProvider.getSelectFileNamesByExtensionSQL(tableName);
    }
 
    @Override

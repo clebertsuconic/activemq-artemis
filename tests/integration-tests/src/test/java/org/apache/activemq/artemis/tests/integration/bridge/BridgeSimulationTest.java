@@ -85,7 +85,7 @@ public class BridgeSimulationTest extends ActiveMQTestBase {
 
          ClientProducer prod = session.createProducer(address);
 
-         PagingStoreImpl pagingStore = (PagingStoreImpl) queue.getPagingStore();
+         PagingStoreImpl pagingStore = (PagingStoreImpl) getPagingStore(queue);
 
          CountDownLatch allowRunning = new CountDownLatch(1);
          CountDownLatch enteredSync = new CountDownLatch(1);

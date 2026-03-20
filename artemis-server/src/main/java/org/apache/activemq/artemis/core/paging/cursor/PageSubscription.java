@@ -18,13 +18,15 @@ package org.apache.activemq.artemis.core.paging.cursor;
 
 import java.util.function.Consumer;
 
+import org.apache.activemq.artemis.core.memory.QueueMemoryManager;
 import org.apache.activemq.artemis.core.paging.PagedMessage;
 import org.apache.activemq.artemis.core.paging.PagingStore;
+import org.apache.activemq.artemis.core.server.MessageReference;
 import org.apache.activemq.artemis.core.paging.impl.Page;
 import org.apache.activemq.artemis.core.server.Queue;
 import org.apache.activemq.artemis.core.transaction.Transaction;
 
-public interface PageSubscription {
+public interface PageSubscription extends QueueMemoryManager {
 
    // Cursor query operations --------------------------------------
 
@@ -43,36 +45,21 @@ public interface PageSubscription {
    /**
     * This is a callback to inform the PageSubscription that something was routed, so the empty flag can be cleared
     */
-   void notEmpty();
-
    void bookmark(PagePosition position) throws Exception;
 
    PageSubscriptionCounter getCounter();
 
-   long getMessageCount();
 
    boolean isCounterPending();
-
-   long getPersistentSize();
 
    long getId();
 
    boolean isPersistent();
 
-   /**
-    * Used as a delegate method to {@link PagingStore#isPaging()}
-    */
-   boolean isPaging();
-
-   boolean isStorePaging();
-
    PageIterator iterator();
 
    PageIterator iterator(boolean browsing);
 
-
-      // To be called when the cursor is closed for good. Most likely when the queue is deleted
-   void destroy() throws Exception;
 
    void scheduleCleanupCheck();
 
@@ -143,8 +130,6 @@ public interface PageSubscription {
     */
    PagedMessage queryMessage(PagePosition pos);
 
-   void setQueue(Queue queue);
-
    Queue getQueue();
 
    void onDeletePage(Page deletedPage) throws Exception;
@@ -152,4 +137,39 @@ public interface PageSubscription {
    void removePendingDelivery(PagedMessage pagedMessage);
 
    ConsumedPage locatePageInfo(long pageNr);
+
+   // ============ QueueMemoryManager methods ============
+
+   @Override
+   default boolean supportsDirectDelivery() {
+      return true;
+   }
+
+   @Override
+   default PageIterator pageIterator(boolean browsing) {
+      return iterator(browsing);
+   }
+
+   @Override
+   default boolean contains(MessageReference reference) throws Exception {
+      if (reference.isPaged()) {
+         return contains((PagedReference) reference);
+      }
+      return false;
+   }
+
+   @Override
+   default void pageAckTx(Transaction tx, PagedReference ref) throws Exception {
+      ackTx(tx, ref);
+   }
+
+   @Override
+   default void pageAck(PagedReference ref) throws Exception {
+      ack(ref);
+   }
+
+   @Override
+   default PageSubscriptionCounter getPageCounter() {
+      return getCounter();
+   }
 }

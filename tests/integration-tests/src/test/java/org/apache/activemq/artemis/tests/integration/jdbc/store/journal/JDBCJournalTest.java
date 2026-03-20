@@ -32,9 +32,7 @@ import org.apache.activemq.artemis.core.config.storage.DatabaseStorageConfigurat
 import org.apache.activemq.artemis.core.journal.IOCompletion;
 import org.apache.activemq.artemis.core.journal.PreparedTransactionInfo;
 import org.apache.activemq.artemis.core.journal.RecordInfo;
-import org.apache.activemq.artemis.jdbc.store.drivers.JDBCUtils;
 import org.apache.activemq.artemis.jdbc.store.journal.JDBCJournalImpl;
-import org.apache.activemq.artemis.jdbc.store.sql.SQLProvider;
 import org.apache.activemq.artemis.tests.extensions.parameterized.Parameter;
 import org.apache.activemq.artemis.tests.extensions.parameterized.ParameterizedTestExtension;
 import org.apache.activemq.artemis.tests.extensions.parameterized.Parameters;
@@ -57,7 +55,7 @@ public class JDBCJournalTest extends ActiveMQTestBase {
 
    private ExecutorService executorService;
 
-   private SQLProvider sqlProvider;
+   private String tableName;
 
    private DatabaseStorageConfiguration dbConf;
 
@@ -107,13 +105,10 @@ public class JDBCJournalTest extends ActiveMQTestBase {
          dbConf.setJdbcUser(getJDBCUser());
          dbConf.setJdbcPassword(getJDBCPassword());
       }
-      sqlProvider = JDBCUtils.getSQLProvider(
-         dbConf.getJdbcDriverClassName(),
-         dbConf.getMessageTableName(),
-         SQLProvider.DatabaseStoreType.MESSAGE_JOURNAL);
+      this.tableName = dbConf.getMessageTableName();
       scheduledExecutorService = new ScheduledThreadPoolExecutor(5);
       executorService = Executors.newSingleThreadExecutor();
-      journal = new JDBCJournalImpl(dbConf.getConnectionProvider(), sqlProvider, scheduledExecutorService, executorService, (code, message, file) -> {
+      journal = new JDBCJournalImpl(dbConf.getConnectionProvider(), tableName, scheduledExecutorService, executorService, (code, message, file) -> {
 
       }, 5);
       journal.start();
@@ -133,7 +128,7 @@ public class JDBCJournalTest extends ActiveMQTestBase {
       assertTrue(journal.isStarted());
       assertEquals(0, journal.getNumberOfRecords());
       final JDBCJournalImpl secondJournal = new JDBCJournalImpl(dbConf.getConnectionProvider(),
-                                                                          sqlProvider, scheduledExecutorService,
+                                                                          tableName, scheduledExecutorService,
                                                                           executorService, (code, message, file) -> {
          fail(message);
       }, 5);

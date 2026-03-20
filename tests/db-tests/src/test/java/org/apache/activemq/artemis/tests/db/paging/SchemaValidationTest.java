@@ -58,7 +58,7 @@ public class SchemaValidationTest extends ParameterDBTestBase {
          server.start();
 
          //due to a failed initialisation of the paging manager, it must be null
-         assertNull(server.getPagingManager());
+         assertNull(getPagingManager(server));
 
          server.stop();
 

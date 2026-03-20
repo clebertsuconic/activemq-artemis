@@ -68,7 +68,7 @@ public class QueueImplTest {
          return new PagedReferenceImpl(new PagedMessageImpl(
             Mockito.mock(Message.class), new long[]{0}), pageSubscription);
       }).when(pageIterator).next();
-      Mockito.doReturn(pageIterator).when(pageSubscription).iterator();
+      Mockito.doReturn(pageIterator).when(pageSubscription).pageIterator(Mockito.anyBoolean());
 
       //Mock storageManager.
       Mockito.doAnswer(invocationOnMock -> {

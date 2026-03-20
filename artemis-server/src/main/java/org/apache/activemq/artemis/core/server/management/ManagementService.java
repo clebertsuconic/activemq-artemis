@@ -44,8 +44,8 @@ import org.apache.activemq.artemis.api.core.management.ResourceNames;
 import org.apache.activemq.artemis.core.config.ClusterConnectionConfiguration;
 import org.apache.activemq.artemis.core.config.Configuration;
 import org.apache.activemq.artemis.core.management.impl.ActiveMQServerControlImpl;
+import org.apache.activemq.artemis.core.memory.GlobalMemoryManager;
 import org.apache.activemq.artemis.core.messagecounter.MessageCounterManager;
-import org.apache.activemq.artemis.core.paging.PagingManager;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.postoffice.PostOffice;
 import org.apache.activemq.artemis.core.remoting.server.RemotingService;
@@ -135,7 +135,7 @@ public interface ManagementService extends NotificationService, ActiveMQComponen
                                             ActiveMQServer messagingServer,
                                             QueueFactory queueFactory,
                                             ScheduledExecutorService scheduledThreadPool,
-                                            PagingManager pagingManager,
+                                            GlobalMemoryManager pagingManager,
                                             boolean backup) throws Exception;
 
    void unregisterServer() throws Exception;

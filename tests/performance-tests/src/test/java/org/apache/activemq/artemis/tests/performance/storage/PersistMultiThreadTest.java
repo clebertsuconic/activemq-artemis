@@ -30,6 +30,7 @@ import java.util.function.Function;
 import org.apache.activemq.artemis.api.config.ActiveMQDefaultConfiguration;
 import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.api.core.SimpleString;
+import org.apache.activemq.artemis.core.memory.GlobalMemoryManager;
 import org.apache.activemq.artemis.core.message.impl.CoreMessage;
 import org.apache.activemq.artemis.core.paging.PagingManager;
 import org.apache.activemq.artemis.core.paging.PagingStore;
@@ -46,6 +47,7 @@ import org.apache.activemq.artemis.core.settings.impl.AddressFullMessagePolicy;
 import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
 import org.apache.activemq.artemis.core.settings.impl.PageFullMessagePolicy;
 import org.apache.activemq.artemis.core.transaction.Transaction;
+import org.apache.activemq.artemis.core.transaction.impl.TransactionImpl;
 import org.apache.activemq.artemis.tests.util.ActiveMQTestBase;
 import org.apache.activemq.artemis.utils.actors.ArtemisExecutor;
 import org.apache.activemq.artemis.utils.runnables.AtomicRunnable;
@@ -154,17 +156,17 @@ public class PersistMultiThreadTest extends ActiveMQTestBase {
             start.await();
 
             long id = storage.generateID();
-            long txID = storage.generateID();
+            TransactionImpl tx = new TransactionImpl(storage);
 
             // each thread will store a single message that will never be deleted, trying to force compacting to happen
-            storeMessage(txID, id);
-            storage.commit(txID);
+            storeMessage(tx, id);
+            storage.commit(tx);
 
             OperationContext ctx = storage.getContext();
 
             for (int i = 0; i < numberOfMessages; i++) {
 
-               txID = storage.generateID();
+               tx = new TransactionImpl(storage);
 
                long[] messageID = new long[10];
 
@@ -173,10 +175,10 @@ public class PersistMultiThreadTest extends ActiveMQTestBase {
 
                   messageID[msgI] = id;
 
-                  storeMessage(txID, id);
+                  storeMessage(tx, id);
                }
 
-               storage.commit(txID);
+               storage.commit(tx);
                ctx.waitCompletion();
 
                for (long deleteID : messageID) {
@@ -192,14 +194,14 @@ public class PersistMultiThreadTest extends ActiveMQTestBase {
 
       }
 
-      private void storeMessage(long txID, long id) throws Exception {
+      private void storeMessage(Transaction tx, long id) throws Exception {
          Message message = new CoreMessage(id, 10 * 1024);
 
          message.getBodyBuffer().writeBytes(new byte[104]);
          message.putStringProperty("hello", "" + id);
 
-         storage.storeMessageTransactional(txID, message);
-         storage.storeReferenceTransactional(txID, 1, id);
+         storage.storeMessageTransactional(tx, message);
+         storage.storeReferenceTransactional(tx, 1, id);
 
          message.refDown();
       }
@@ -250,6 +252,11 @@ public class PersistMultiThreadTest extends ActiveMQTestBase {
    }
 
    class FakePagingStore implements PagingStore {
+
+      @Override
+      public GlobalMemoryManager getGlobalMemoryManager() {
+         return null;
+      }
 
       @Override
       public PageFullMessagePolicy getPageFullMessagePolicy() {

@@ -153,7 +153,7 @@ public class ValidateAddressSizeTest extends BasicOpenWireTest {
       // aligning everybody after consumers are created
       startFlag.await(10, TimeUnit.SECONDS);
 
-      PagingStoreImpl store = (PagingStoreImpl) server.getPagingManager().getPageStore(SimpleString.of(topicName));
+      PagingStoreImpl store = (PagingStoreImpl) getPagingManager(server).getPageStore(SimpleString.of(topicName));
       assertNotNull(store);
 
       if (changeWithPlugin) {

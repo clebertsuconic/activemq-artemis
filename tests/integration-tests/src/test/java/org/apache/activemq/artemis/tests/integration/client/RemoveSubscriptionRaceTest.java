@@ -174,7 +174,7 @@ public class RemoveSubscriptionRaceTest extends ActiveMQTestBase {
 
       Wait.assertEquals(0, this::countAddMessage, 5000, 100);
 
-      Wait.assertEquals(0L, queue.getPagingStore()::getAddressSize, 2000, 100);
+      Wait.assertEquals(0L, getPagingStore(queue)::getAddressSize, 2000, 100);
 
       assertEquals(0, errors.get());
    }

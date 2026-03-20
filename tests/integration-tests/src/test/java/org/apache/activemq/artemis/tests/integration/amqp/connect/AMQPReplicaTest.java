@@ -733,13 +733,13 @@ public class AMQPReplicaTest extends AmqpClientTestSupport {
          Queue queueOnServer1 = locateQueue(server, getQueueName());
 
          if (pagingTarget) {
-            queueOnServer1.getPagingStore().startPaging();
+            getPagingStore(queueOnServer1).startPaging();
          }
       }
 
       if (pagingSource) {
          Queue queueOnServer2 = server_2.locateQueue(getQueueName());
-         queueOnServer2.getPagingStore().startPaging();
+         getPagingStore(queueOnServer2).startPaging();
       }
 
       assertFalse(loggerHandler.findText("AMQ222214"));
@@ -760,7 +760,7 @@ public class AMQPReplicaTest extends AmqpClientTestSupport {
          Wait.assertTrue(server::isActive);
          queueOnServer1 = locateQueue(server, getQueueName());
          if (pagingTarget) {
-            queueOnServer1.getPagingStore().startPaging();
+            getPagingStore(queueOnServer1).startPaging();
          }
       } else {
          queueOnServer1 = locateQueue(server, getQueueName());
@@ -786,7 +786,7 @@ public class AMQPReplicaTest extends AmqpClientTestSupport {
       assertSame(snfreplica, server_2.locateQueue(replica.getMirrorSNF()));
 
       if (pagingTarget) {
-         assertTrue(queueOnServer1.getPagingStore().isPaging());
+         assertTrue(getPagingStore(queueOnServer1).isPaging());
       }
 
       if (acks) {
@@ -911,12 +911,12 @@ public class AMQPReplicaTest extends AmqpClientTestSupport {
       Queue queue_server_3 = locateQueue(server_3, getQueueName());
 
       if (pagingSource) {
-         queue_server_2.getPagingStore().startPaging();
+         getPagingStore(queue_server_2).startPaging();
       }
 
       if (pagingTarget) {
-         queue_server_1.getPagingStore().startPaging();
-         queue_server_3.getPagingStore().startPaging();
+         getPagingStore(queue_server_1).startPaging();
+         getPagingStore(queue_server_3).startPaging();
       }
 
       for (int i = 0; i < NUMBER_OF_MESSAGES; i++) {
@@ -946,16 +946,16 @@ public class AMQPReplicaTest extends AmqpClientTestSupport {
       Queue replica1Queue = server_2.locateQueue(replica1.getMirrorSNF());
       Queue replica2Queue = server_2.locateQueue(replica2.getMirrorSNF());
 
-      Wait.assertEquals(0L, replica2Queue.getPagingStore()::getAddressSize, 1000, 100);
-      Wait.assertEquals(0L, replica1Queue.getPagingStore()::getAddressSize, 1000, 100);
+      Wait.assertEquals(0L, getPagingStore(replica2Queue)::getAddressSize, 1000, 100);
+      Wait.assertEquals(0L, getPagingStore(replica1Queue)::getAddressSize, 1000, 100);
 
       if (pagingTarget) {
-         assertTrue(queue_server_1.getPagingStore().isPaging());
-         assertTrue(queue_server_3.getPagingStore().isPaging());
+         assertTrue(getPagingStore(queue_server_1).isPaging());
+         assertTrue(getPagingStore(queue_server_3).isPaging());
       }
 
       if (pagingSource) {
-         assertTrue(queue_server_2.getPagingStore().isPaging());
+         assertTrue(getPagingStore(queue_server_2).isPaging());
       }
 
       consumeMessages(largeMessage, 0, NUMBER_OF_MESSAGES / 2 - 1, AMQP_PORT_2, false);
@@ -1229,11 +1229,11 @@ public class AMQPReplicaTest extends AmqpClientTestSupport {
       assertNotNull(subs1Server2);
 
       if (pagingTarget) {
-         subs0Server1.getPagingStore().startPaging();
+         getPagingStore(subs0Server1).startPaging();
       }
 
       if (pagingSource) {
-         subs0Server2.getPagingStore().startPaging();
+         getPagingStore(subs0Server2).startPaging();
       }
 
       for (int i = 0; i < NUMBER_OF_MESSAGES; i++) {
@@ -1243,7 +1243,7 @@ public class AMQPReplicaTest extends AmqpClientTestSupport {
       }
 
       if (pagingTarget) {
-         subs0Server1.getPagingStore().startPaging();
+         getPagingStore(subs0Server1).startPaging();
       }
 
       Queue snfreplica = server_2.locateQueue(replica.getMirrorSNF());
@@ -1268,8 +1268,8 @@ public class AMQPReplicaTest extends AmqpClientTestSupport {
       assertSame(snfreplica, server_2.locateQueue(replica.getMirrorSNF()));
 
       if (pagingTarget) {
-         assertTrue(subs0Server1.getPagingStore().isPaging());
-         assertTrue(subs1Server1.getPagingStore().isPaging());
+         assertTrue(getPagingStore(subs0Server1).isPaging());
+         assertTrue(getPagingStore(subs1Server1).isPaging());
       }
 
       ExecutorService executorService = Executors.newFixedThreadPool(2);
@@ -1440,14 +1440,14 @@ public class AMQPReplicaTest extends AmqpClientTestSupport {
       Queue snfreplica = server_2.locateQueue(replica.getMirrorSNF());
       assertNotNull(snfreplica);
 
-      logger.info("Size on queueOnServer2:: {}", queueOnServer2.getPagingStore().getAddressSize());
-      logger.info("Size on SNF:: {}", snfreplica.getPagingStore().getAddressSize());
+      logger.info("Size on queueOnServer2:: {}", getPagingStore(queueOnServer2).getAddressSize());
+      logger.info("Size on SNF:: {}", getPagingStore(snfreplica).getAddressSize());
 
-      Wait.assertTrue(() -> queueOnServer2.getPagingStore().getAddressSize() == snfreplica.getPagingStore().getAddressSize(), 5000);
-      Wait.assertTrue(() -> queueOnServer2.getPagingStore().getAddressElements() == snfreplica.getPagingStore().getAddressElements(), 5000);
+      Wait.assertTrue(() -> getPagingStore(queueOnServer2).getAddressSize() == getPagingStore(snfreplica).getAddressSize(), 5000);
+      Wait.assertTrue(() -> getPagingStore(queueOnServer2).getAddressElements() == getPagingStore(snfreplica).getAddressElements(), 5000);
 
-      logger.info("Size on queueOnServer2:: {}, elements={}", queueOnServer2.getPagingStore().getAddressSize(), queueOnServer2.getPagingStore().getAddressElements());
-      logger.info("Size on SNF:: {}, elements={}", snfreplica.getPagingStore().getAddressSize(), snfreplica.getPagingStore().getAddressElements());
+      logger.info("Size on queueOnServer2:: {}, elements={}", getPagingStore(queueOnServer2).getAddressSize(), getPagingStore(queueOnServer2).getAddressElements());
+      logger.info("Size on SNF:: {}, elements={}", getPagingStore(snfreplica).getAddressSize(), getPagingStore(snfreplica).getAddressElements());
 
       server.start();
       Wait.assertTrue(server::isStarted);
@@ -1455,8 +1455,8 @@ public class AMQPReplicaTest extends AmqpClientTestSupport {
       Queue queueOnServer1 = locateQueue(server, getQueueName());
       assertFalse(loggerHandler.findText("AMQ222214"));
 
-      Wait.assertEquals(0L, snfreplica.getPagingStore()::getAddressElements);
-      Wait.assertEquals(0L, snfreplica.getPagingStore()::getAddressSize);
+      Wait.assertEquals(0L, getPagingStore(snfreplica)::getAddressElements);
+      Wait.assertEquals(0L, getPagingStore(snfreplica)::getAddressSize);
 
       Wait.assertEquals(NUMBER_OF_MESSAGES, queueOnServer1::getMessageCount, 2000);
       Wait.assertEquals(NUMBER_OF_MESSAGES, queueOnServer1::getMessageCount);
@@ -1527,13 +1527,13 @@ public class AMQPReplicaTest extends AmqpClientTestSupport {
 
    void validSizeStore(int expectedMessages, SimpleString name) throws Exception {
       {
-         PagingStoreImpl store = (PagingStoreImpl) server_2.getPagingManager().getPageStore(name);
+         PagingStoreImpl store = (PagingStoreImpl) getPagingManager(server_2).getPageStore(name);
          assertNotNull(store);
          Wait.assertEquals((long)expectedMessages, () -> store.getAddressElements(), 5000, 100);
       }
 
       {
-         PagingStoreImpl store = (PagingStoreImpl) server.getPagingManager().getPageStore(name);
+         PagingStoreImpl store = (PagingStoreImpl) getPagingManager(server).getPageStore(name);
          assertNotNull(store);
          Wait.assertEquals((long)expectedMessages, () -> store.getAddressElements(), 5000, 100);
       }

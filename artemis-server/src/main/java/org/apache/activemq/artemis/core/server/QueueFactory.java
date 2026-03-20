@@ -18,7 +18,7 @@ package org.apache.activemq.artemis.core.server;
 
 import org.apache.activemq.artemis.api.core.QueueConfiguration;
 import org.apache.activemq.artemis.core.filter.Filter;
-import org.apache.activemq.artemis.core.paging.PagingManager;
+import org.apache.activemq.artemis.core.memory.GlobalMemoryManager;
 import org.apache.activemq.artemis.core.postoffice.PostOffice;
 
 /**
@@ -29,7 +29,7 @@ import org.apache.activemq.artemis.core.postoffice.PostOffice;
  */
 public interface QueueFactory {
 
-   Queue createQueueWith(QueueConfiguration config, PagingManager pagingManager, Filter filter) throws Exception;
+   Queue createQueueWith(QueueConfiguration config, GlobalMemoryManager globalMemoryManager, Filter filter) throws Exception;
 
    /**
     * This is required for delete-all-reference to work correctly with paging

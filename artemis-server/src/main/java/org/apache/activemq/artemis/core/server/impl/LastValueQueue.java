@@ -26,8 +26,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import org.apache.activemq.artemis.api.core.QueueConfiguration;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.filter.Filter;
-import org.apache.activemq.artemis.core.paging.PagingStore;
-import org.apache.activemq.artemis.core.paging.cursor.PageSubscription;
+import org.apache.activemq.artemis.core.memory.AddressMemoryManager;
+import org.apache.activemq.artemis.core.memory.QueueMemoryManager;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.postoffice.PostOffice;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
@@ -56,8 +56,8 @@ public class LastValueQueue extends QueueImpl {
 
    public LastValueQueue(final QueueConfiguration queueConfiguration,
                          final Filter filter,
-                         final PagingStore pagingStore,
-                         final PageSubscription pageSubscription,
+                         final AddressMemoryManager addressMemoryManager,
+                         final QueueMemoryManager queueMemoryManager,
                          final ScheduledExecutorService scheduledExecutor,
                          final PostOffice postOffice,
                          final StorageManager storageManager,
@@ -65,7 +65,7 @@ public class LastValueQueue extends QueueImpl {
                          final ArtemisExecutor executor,
                          final ActiveMQServer server,
                          final QueueFactory factory) {
-      super(queueConfiguration, filter, pagingStore, pageSubscription, scheduledExecutor, postOffice, storageManager, addressSettingsRepository, executor, server, factory);
+      super(queueConfiguration, filter, addressMemoryManager, queueMemoryManager, scheduledExecutor, postOffice, storageManager, addressSettingsRepository, executor, server, factory);
    }
 
    @Override

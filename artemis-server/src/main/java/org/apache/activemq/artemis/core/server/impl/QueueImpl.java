@@ -61,7 +61,9 @@ import org.apache.activemq.artemis.core.PriorityAware;
 import org.apache.activemq.artemis.core.filter.Filter;
 import org.apache.activemq.artemis.core.filter.impl.FilterImpl;
 import org.apache.activemq.artemis.core.io.IOCallback;
-import org.apache.activemq.artemis.core.paging.PagingStore;
+import org.apache.activemq.artemis.core.memory.AddressMemoryManager;
+import org.apache.activemq.artemis.core.memory.QueueMemoryManager;
+import org.apache.activemq.artemis.core.memory.database.NewDatabaseQueueMemoryManager;
 import org.apache.activemq.artemis.core.paging.cursor.PageIterator;
 import org.apache.activemq.artemis.core.paging.cursor.PagePosition;
 import org.apache.activemq.artemis.core.paging.cursor.PageSubscription;
@@ -167,7 +169,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
 
    private final PostOffice postOffice;
 
-   private volatile boolean queueDestroyed = false;
+   protected volatile boolean queueDestroyed = false;
 
    // Variable to control if we should print a flow controlled message or not. Once it was flow controlled, we will stop
    // warning until it's cleared once again
@@ -185,9 +187,9 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
    // before.
    private volatile boolean pageDelivered = false;
 
-   private final PagingStore pagingStore;
+   private final AddressMemoryManager addressMemoryManager;
 
-   protected final PageSubscription pageSubscription;
+   protected final QueueMemoryManager queueMemoryManager;
 
    private final ReferenceCounter refCountForConsumers;
 
@@ -335,6 +337,13 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
       this.swept = swept;
    }
 
+   @Override
+   public void destroy() throws Exception {
+      if (queueMemoryManager != null) {
+         queueMemoryManager.destroy();
+      }
+   }
+
    /**
     * This is to avoid multi-thread races on calculating direct delivery, to guarantee ordering will be always be
     * correct
@@ -377,8 +386,8 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
 
    public QueueImpl(final QueueConfiguration queueConfiguration,
                     final Filter filter,
-                    final PagingStore pagingStore,
-                    final PageSubscription pageSubscription,
+                    final AddressMemoryManager addressMemoryManager,
+                    final QueueMemoryManager queueMemoryManager,
                     final ScheduledExecutorService scheduledExecutor,
                     final PostOffice postOffice,
                     final StorageManager storageManager,
@@ -387,6 +396,12 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
                     final ActiveMQServer server,
                     final QueueFactory factory) {
       super(server.getCriticalAnalyzer(), CRITICAL_PATHS);
+
+      if (queueMemoryManager != null) {
+         this.directDeliver = queueMemoryManager.supportsDirectDelivery();
+      } else {
+         this.directDeliver = false;
+      }
 
       this.createdTimestamp = System.currentTimeMillis();
 
@@ -406,9 +421,9 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
          throw new RuntimeException(e);
       }
 
-      this.pagingStore = pagingStore;
+      this.addressMemoryManager = addressMemoryManager;
 
-      this.pageSubscription = pageSubscription;
+      this.queueMemoryManager = queueMemoryManager;
 
       this.groups = groupMap(this.queueConfiguration.getGroupBuckets());
 
@@ -438,8 +453,9 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
          this.cachedAddressSettings = new AddressSettings();
       }
 
-      if (pageSubscription != null) {
-         pageSubscription.setQueue(this);
+      if (queueMemoryManager != null && queueMemoryManager instanceof PageSubscription) {
+         queueMemoryManager.setQueue(this);
+         PageSubscription pageSubscription = toSubscription(queueMemoryManager);
          this.pageIterator = pageSubscription.iterator();
       } else {
          this.pageIterator = null;
@@ -459,6 +475,14 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
       this.intermediateMessageReferences = new MpscUnboundedArrayQueue<>(initialQueueBufferSize);
 
       verifyDisabledConfiguration();
+   }
+
+   private static PageSubscription toSubscription(QueueMemoryManager queueMemoryManager) {
+      if (queueMemoryManager != null && queueMemoryManager instanceof PageSubscription) {
+         return (PageSubscription) queueMemoryManager;
+      } else {
+         return null;
+      }
    }
 
    private void verifyDisabledConfiguration() {
@@ -764,49 +788,54 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
    @Override
    public void refUp(MessageReference messageReference) {
       int count = messageReference.getMessage().refUp();
-      PagingStore owner = (PagingStore) messageReference.getMessage().getOwner();
+      AddressMemoryManager owner = (AddressMemoryManager) messageReference.getMessage().getOwner();
       if (count == 1) {
          if (owner != null) {
-            owner.addSize(messageReference.getMessageMemoryEstimate(), false);
+            owner.addSize(messageReference.getMessageMemoryEstimate(), false, true);
             messageReference.getMessage().routed();
          }
       }
-      if (pagingStore != null) {
-         if (isMirrorController() && owner != null && pagingStore != owner) {
+      if (addressMemoryManager != null) {
+         if (isMirrorController() && owner != null && addressMemoryManager != owner) {
             // When using mirror in this situation, it means the address belong to another queue
             // it's acting as if the message is being copied
-            pagingStore.addSize(messageReference.getMessage().getOriginalEstimate(), false, false);
+            addressMemoryManager.addSize(messageReference.getMessage().getOriginalEstimate(), false, false);
          }
 
-         pagingStore.refUp(messageReference.getMessage(), count);
+         addressMemoryManager.refUp(messageReference.getMessage(), count);
       }
    }
 
    @Override
    public void refDown(MessageReference messageReference) {
       int count = messageReference.getMessage().refDown();
-      PagingStore owner = (PagingStore) messageReference.getMessage().getOwner();
+      AddressMemoryManager owner = (AddressMemoryManager) messageReference.getMessage().getOwner();
       if (count == 0 && owner != null) {
-         owner.addSize(-messageReference.getMessageMemoryEstimate(), false);
+         owner.addSize(-messageReference.getMessageMemoryEstimate(), false, true);
       }
-      if (pagingStore != null) {
-         if (isMirrorController() && owner != null && pagingStore != owner) {
+      if (addressMemoryManager != null) {
+         if (isMirrorController() && owner != null && addressMemoryManager != owner) {
             // When using mirror in this situation, it means the address belong to another queue
             // it's acting as if the message is being copied
-            pagingStore.addSize(-messageReference.getMessage().getOriginalEstimate(), false, false);
+            addressMemoryManager.addSize(-messageReference.getMessage().getOriginalEstimate(), false, false);
          }
-         pagingStore.refDown(messageReference.getMessage(), count);
+         addressMemoryManager.refDown(messageReference.getMessage(), count);
       }
    }
 
    @Override
-   public PagingStore getPagingStore() {
-      return pagingStore;
+   public AddressMemoryManager getAddressMemoryManager() {
+      return addressMemoryManager;
+   }
+
+   @Deprecated
+   public PageSubscription getPageSubscription() {
+      return (PageSubscription)queueMemoryManager;
    }
 
    @Override
-   public PageSubscription getPageSubscription() {
-      return pageSubscription;
+   public QueueMemoryManager getQueueMemoryManager() {
+      return queueMemoryManager;
    }
 
    @Override
@@ -1025,8 +1054,8 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
 
                if (deliveriesInTransit.getCount() == 0 && getExecutor().isFlushed() &&
                   intermediateMessageReferences.isEmpty() && messageReferences.isEmpty() &&
-                  pageIterator != null && !pageIterator.hasNext() &&
-                  pageSubscription != null && !pageSubscription.isStorePaging()) {
+                  (canSwitchToDirectDeliver()) &&
+                  queueMemoryManager != null && !queueMemoryManager.isStorePaging()) {
                   // We must block on the executor to ensure any async deliveries have completed or we might get out of order
                   // deliveries
                   // Go into direct delivery mode
@@ -1054,6 +1083,10 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
          // Delivery async will both poll for intermediate reference and deliver to clients
          deliverAsync();
       }
+   }
+
+   protected boolean canSwitchToDirectDeliver() {
+      return pageIterator != null && !pageIterator.hasNext();
    }
 
    protected boolean scheduleIfPossible(MessageReference ref) {
@@ -1088,6 +1121,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
 
    @Override
    public void forceDelivery() {
+      PageSubscription pageSubscription = toSubscription(queueMemoryManager);
       if (pageSubscription != null && pageSubscription.isStorePaging()) {
          logger.trace("Force delivery scheduling depage");
          scheduleDepage(false);
@@ -1124,9 +1158,9 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
 
    @Override
    public ArtemisExecutor getExecutor() {
-      if (pageSubscription != null && pageSubscription.isStorePaging()) {
+      if (addressMemoryManager != null && addressMemoryManager.isStorePaging()) {
          // When in page mode, we don't want to have concurrent IO on the same PageStore
-         return pageSubscription.getPagingStore().getExecutor();
+         return addressMemoryManager.getExecutor();
       } else {
          return executor;
       }
@@ -1206,7 +1240,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
             }
 
             if (consumers.isEmpty()) {
-               this.supportsDirectDeliver = consumer.supportsDirectDelivery();
+               this.supportsDirectDeliver = consumer.supportsDirectDelivery() && (queueMemoryManager == null || queueMemoryManager.supportsDirectDelivery());
             } else {
                if (!consumer.supportsDirectDelivery()) {
                   this.supportsDirectDeliver = false;
@@ -1532,13 +1566,13 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
 
    @Override
    public long getMessageCount() {
-      if (pageSubscription != null) {
+      if (queueMemoryManager != null) {
          // messageReferences will have depaged messages which we need to discount from the counter as they are
          // counted on the pageSubscription as well
-         long returnValue = (long) pendingMetrics.getNonPagedMessageCount() + scheduledDeliveryHandler.getNonPagedScheduledCount() + deliveringMetrics.getNonPagedMessageCount() + pageSubscription.getMessageCount();
+         long returnValue = (long) pendingMetrics.getNonPagedMessageCount() + scheduledDeliveryHandler.getNonPagedScheduledCount() + deliveringMetrics.getNonPagedMessageCount() + queueMemoryManager.getMessageCount();
          if (logger.isDebugEnabled()) {
             logger.debug("Queue={}/{} returning getMessageCount \n\treturning {}. \n\tpendingMetrics.getMessageCount() = {}, \n\tgetScheduledCount() = {}, \n\tpageSubscription.getMessageCount()={}, \n\tpageSubscription.getCounter().getValue()={}",
-                         queueConfiguration.getName(), queueConfiguration.getId(), returnValue, pendingMetrics.getMessageCount(), scheduledDeliveryHandler.getNonPagedScheduledCount(), pageSubscription.getMessageCount(), pageSubscription.getCounter().getValue());
+                         queueConfiguration.getName(), queueConfiguration.getId(), returnValue, pendingMetrics.getMessageCount(), scheduledDeliveryHandler.getNonPagedScheduledCount(), queueMemoryManager.getMessageCount(), queueMemoryManager.getPageCounter().getValue());
          }
          return returnValue;
       } else {
@@ -1548,10 +1582,10 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
 
    @Override
    public long getPersistentSize() {
-      if (pageSubscription != null) {
+      if (queueMemoryManager != null) {
          // messageReferences will have depaged messages which we need to discount from the counter as they are
          // counted on the pageSubscription as well
-         return pendingMetrics.getNonPagedPersistentSize() + scheduledDeliveryHandler.getNonPagedScheduledSize() + deliveringMetrics.getNonPagedPersistentSize() + pageSubscription.getPersistentSize();
+         return pendingMetrics.getNonPagedPersistentSize() + scheduledDeliveryHandler.getNonPagedScheduledSize() + deliveringMetrics.getNonPagedPersistentSize() + queueMemoryManager.getPersistentSize();
       } else {
          return pendingMetrics.getPersistentSize() + getScheduledSize() + getDeliveringSize();
       }
@@ -1560,8 +1594,8 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
    @Override
    public long getDurableMessageCount() {
       if (isDurable()) {
-         if (pageSubscription != null) {
-            return (long) pendingMetrics.getNonPagedDurableMessageCount() + scheduledDeliveryHandler.getNonPagedDurableScheduledCount() + deliveringMetrics.getNonPagedDurableMessageCount() + pageSubscription.getMessageCount();
+         if (queueMemoryManager != null) {
+            return (long) pendingMetrics.getNonPagedDurableMessageCount() + scheduledDeliveryHandler.getNonPagedDurableScheduledCount() + deliveringMetrics.getNonPagedDurableMessageCount() + queueMemoryManager.getMessageCount();
          } else {
             return (long) pendingMetrics.getDurableMessageCount() + getDurableScheduledCount() + getDurableDeliveringCount();
          }
@@ -1572,8 +1606,8 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
    @Override
    public long getDurablePersistentSize() {
       if (isDurable()) {
-         if (pageSubscription != null) {
-            return pendingMetrics.getDurablePersistentSize() + scheduledDeliveryHandler.getNonPagedDurableScheduledSize() + deliveringMetrics.getNonPagedDurablePersistentSize() + pageSubscription.getPersistentSize();
+         if (queueMemoryManager != null) {
+            return pendingMetrics.getDurablePersistentSize() + scheduledDeliveryHandler.getNonPagedDurableScheduledSize() + deliveringMetrics.getNonPagedDurablePersistentSize() + queueMemoryManager.getPersistentSize();
          } else {
             return pendingMetrics.getDurablePersistentSize() + getDurableScheduledSize() + getDurableDeliveringSize();
          }
@@ -1704,10 +1738,10 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
       } else {
          if (ref.isPaged()) {
             if (transactional) {
-               pageSubscription.ackTx(tx, (PagedReference) ref);
+               queueMemoryManager.pageAckTx(tx, (PagedReference) ref);
                refsOperation.addAck(ref);
             } else {
-               pageSubscription.ack((PagedReference) ref);
+               queueMemoryManager.pageAck((PagedReference) ref);
                postAcknowledge(ref, reason, delivering);
             }
          } else {
@@ -1717,7 +1751,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
 
             if (durableRef) {
                if (transactional) {
-                  storageManager.storeAcknowledgeTransactional(tx.getID(), queueConfiguration.getId(), message.getMessageID());
+                  storageManager.storeAcknowledgeTransactional(tx, queueConfiguration.getId(), message.getMessageID());
                   tx.setContainsPersistent();
                } else {
                   storageManager.storeAcknowledge(queueConfiguration.getId(), message.getMessageID());
@@ -1979,8 +2013,8 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
 
    @Override
    public long getMessagesAdded() {
-      if (pageSubscription != null) {
-         return messagesAdded.get() + pageSubscription.getCounter().getValueAdded();
+      if (queueMemoryManager != null) {
+         return messagesAdded.get() + queueMemoryManager.getPageCounter().getValueAdded();
       } else {
          return messagesAdded.get();
       }
@@ -2137,7 +2171,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
          if (pageIterator != null) {
             PageIterator theIterator;
             if (separatePageIterator) {
-               theIterator = pageSubscription.iterator();
+               theIterator = toSubscription(queueMemoryManager).iterator();
             } else {
                theIterator = pageIterator;
             }
@@ -2196,7 +2230,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
             tx.commit();
          }
 
-         if (filter != null && !queueDestroyed && pageSubscription != null) {
+         if (filter != null && !queueDestroyed && toSubscription(queueMemoryManager) != null) {
             scheduleDepage(false);
          }
 
@@ -2212,13 +2246,15 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
 
    @Override
    public void destroyPaging() throws Exception {
-      // it could be null on embedded or certain unit tests
-      if (pageSubscription != null) {
+      if (queueMemoryManager != null) {
          if (logger.isTraceEnabled()) {
             logger.trace("Destroying paging for {}", queueConfiguration.getName(), new Exception("trace"));
          }
-         pageSubscription.destroy();
-         pageSubscription.cleanupEntries(true);
+         queueMemoryManager.destroy();
+         PageSubscription pageSubscription = toSubscription(queueMemoryManager);
+         if (pageSubscription != null) {
+            pageSubscription.cleanupEntries(true);
+         }
       }
    }
 
@@ -2269,7 +2305,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
          }
 
          if (isDurable()) {
-            storageManager.deleteQueueBinding(tx.getID(), getID());
+            storageManager.deleteQueueBinding(tx, getID());
             tx.setContainsPersistent();
          }
 
@@ -2472,8 +2508,8 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
          }
 
          // If empty we need to schedule depaging to make sure we would depage expired messages as well
-         if ((!hasElements || expired) && pageIterator != null && pageIterator.tryNext() != PageIterator.NextResult.noElements) {
-            scheduleDepage(true);
+         if ((!hasElements || expired)) {
+            checkDepage();
          }
       }
    }
@@ -3140,11 +3176,12 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
       refRemoved(ref);
    }
 
-   private void checkDepage() {
+   protected void checkDepage() {
       if (queueDestroyed) {
          return;
       }
-      if (pageIterator != null && pageSubscription.isStorePaging()) {
+      PageSubscription pageSubscription = toSubscription(queueMemoryManager);
+      if (pageIterator != null && pageSubscription != null && pageSubscription.isStorePaging()) {
          if (logger.isDebugEnabled()) {
             logger.debug("CheckDepage on queue name {}, id={}", queueConfiguration.getName(), queueConfiguration.getId());
          }
@@ -3163,16 +3200,17 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
     * This is a check on page sizing.
     */
    private boolean needsDepage() {
-      final int maxReadMessages = pageSubscription.getPagingStore().getMaxPageReadMessages();
-      final int maxReadBytes = pageSubscription.getPagingStore().getMaxPageReadBytes();
-      final int prefetchMessages = pageSubscription.getPagingStore().getPrefetchPageMessages();
-      final int prefetchBytes = pageSubscription.getPagingStore().getPrefetchPageBytes();
+      //PageSubscription pageSubscription = queueMemoryManager != null ? queueMemoryManager.getSubscription() : null;
+      final int maxReadMessages = addressMemoryManager.getMaxReadMessages();
+      final int maxReadBytes = addressMemoryManager.getMaxReadBytes();
+      final int prefetchMessages = addressMemoryManager.getPrefetchMessages();
+      final int prefetchBytes = addressMemoryManager.getPrefetchBytes();
 
       if (maxReadMessages <= 0 && maxReadBytes <= 0 && prefetchMessages <= 0 && prefetchBytes <= 0) {
          // if all values are disabled, we will protect the broker using an older semantic
          // where we don't look for deliveringMetrics..
          // this would give users a chance to switch to older protection mode.
-         return queueMemorySize.getSize() < pageSubscription.getPagingStore().getMaxSize() &&
+         return queueMemorySize.getSize() < addressMemoryManager.getMaxSize() &&
             intermediateMessageReferences.size() + messageReferences.size() < MAX_DEPAGE_NUM;
       } else {
 
@@ -3273,11 +3311,16 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
          logger.trace("Scheduling depage for queue {}", queueConfiguration.getName());
 
          depagePending = true;
-         pageSubscription.getPagingStore().execute(() -> depage(scheduleExpiry));
+         PageSubscription pageSubscription = toSubscription(queueMemoryManager);
+         if (pageSubscription != null) {
+            pageSubscription.getPagingStore().execute(() -> depage(scheduleExpiry));
+         }
       }
    }
 
    private void depage(final boolean scheduleExpiry) {
+      PageSubscription pageSubscription = toSubscription(queueMemoryManager);
+      assert pageSubscription != null;
       depagePending = false;
 
       if (!depageLock.tryLock()) {
@@ -4250,7 +4293,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
    }
 
    /**
-    * This will determine the actions that could be done while iterate the queue through iterQueue
+    * This will determine the actions that could be done while iterate the queue through iterQueueSwitch
     */
    abstract class QueueIterateAction {
 
@@ -4357,8 +4400,8 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
       LinkedListIterator<MessageReference> messagesIterator = null;
 
       private LinkedListIterator<PagedReference> getPagingIterator() {
-         if (pagingIterator == null && pageSubscription != null) {
-            pagingIterator = pageSubscription.iterator(true);
+         if (pagingIterator == null && queueMemoryManager != null) {
+            pagingIterator = queueMemoryManager.pageIterator(true);
          }
          return pagingIterator;
       }

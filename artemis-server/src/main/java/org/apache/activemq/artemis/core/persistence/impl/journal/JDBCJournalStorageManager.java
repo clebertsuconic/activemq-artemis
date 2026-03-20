@@ -32,8 +32,6 @@ import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 import org.apache.activemq.artemis.jdbc.store.file.JDBCSequentialFileFactory;
 import org.apache.activemq.artemis.jdbc.store.journal.JDBCJournalImpl;
-import org.apache.activemq.artemis.jdbc.store.sql.PropertySQLProvider;
-import org.apache.activemq.artemis.jdbc.store.sql.SQLProvider;
 import org.apache.activemq.artemis.utils.ArtemisCloseable;
 import org.apache.activemq.artemis.utils.ExecutorFactory;
 import org.apache.activemq.artemis.utils.critical.CriticalAnalyzer;
@@ -69,25 +67,21 @@ public class JDBCJournalStorageManager extends JournalStorageManager {
          final JDBCJournalImpl bindingsJournal;
          final JDBCJournalImpl messageJournal;
          final JDBCSequentialFileFactory largeMessagesFactory;
-         SQLProvider.Factory sqlProviderFactory = dbConf.getSqlProviderFactory();
-         if (sqlProviderFactory == null) {
-            sqlProviderFactory = new PropertySQLProvider.Factory(connectionProvider);
-         }
          bindingsJournal = new JDBCJournalImpl(
                  connectionProvider,
-                 sqlProviderFactory.create(dbConf.getBindingsTableName(), SQLProvider.DatabaseStoreType.BINDINGS_JOURNAL),
+                 dbConf.getBindingsTableName(),
                  scheduledExecutorService,
                  executorFactory.getExecutor(),
                  criticalErrorListener, dbConf.getJdbcJournalSyncPeriodMillis());
          messageJournal = new JDBCJournalImpl(
                  connectionProvider,
-                 sqlProviderFactory.create(dbConf.getMessageTableName(), SQLProvider.DatabaseStoreType.MESSAGE_JOURNAL),
+                 dbConf.getMessageTableName(),
                  scheduledExecutorService, executorFactory.getExecutor(),
                  criticalErrorListener,
                  dbConf.getJdbcJournalSyncPeriodMillis());
          largeMessagesFactory = new JDBCSequentialFileFactory(
                  connectionProvider,
-                 sqlProviderFactory.create(dbConf.getLargeMessageTableName(), SQLProvider.DatabaseStoreType.LARGE_MESSAGE),
+                 dbConf.getLargeMessageTableName(),
                  executorFactory.getExecutor(),
                  scheduledExecutorService,
                  dbConf.getJdbcJournalSyncPeriodMillis(),

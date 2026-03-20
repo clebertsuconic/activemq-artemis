@@ -75,7 +75,7 @@ public class ReplayTest extends ActiveMQTestBase {
 
       if (paging) {
          org.apache.activemq.artemis.core.server.Queue serverQueue = server.locateQueue("t1");
-         serverQueue.getPagingStore().startPaging();
+         getPagingStore(serverQueue).startPaging();
       }
 
       ConnectionFactory cf = CFUtil.createConnectionFactory(protocol, "tcp://localhost:61616");

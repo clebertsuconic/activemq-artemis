@@ -67,8 +67,8 @@ public class PagingReceiveTest extends ActiveMQTestBase {
       Queue queue = server.locateQueue(ADDRESS);
       assertEquals(numMsgs, queue.getMessagesAdded());
       receiveAllMessages();
-      queue.getPageSubscription().scheduleCleanupCheck();
-      Wait.assertEquals(0, ((PageSubscriptionImpl)queue.getPageSubscription()).getScheduledCleanupCount()::get);
+      getPagingSubscription(queue).scheduleCleanupCheck();
+      Wait.assertEquals(0, ((PageSubscriptionImpl)getPagingSubscription(queue)).getScheduledCleanupCount()::get);
       assertEquals(numMsgs, queue.getMessagesAdded());
    }
 
@@ -90,7 +90,7 @@ public class PagingReceiveTest extends ActiveMQTestBase {
       }
 
       //before committing the pendingTx should be positive.
-      PagingStore store = server.getPagingManager().getPageStore(ADDRESS);
+      PagingStore store = getPagingManager(server).getPageStore(ADDRESS);
       long qid = server.locateQueue(ADDRESS).getID();
       PageSubscription pageSub = store.getCursorProvider().getSubscription(qid);
       long pageNr = store.getCurrentWritingPage();
@@ -111,10 +111,10 @@ public class PagingReceiveTest extends ActiveMQTestBase {
 
       server.addAddressInfo(new AddressInfo(ADDRESS, RoutingType.ANYCAST));
       Queue queue = server.createQueue(QueueConfiguration.of(ADDRESS).setRoutingType(RoutingType.ANYCAST));
-      queue.getPageSubscription().getPagingStore().startPaging();
+      getPagingStore(queue).startPaging();
 
       for (int i = 0; i < 10; i++) {
-         queue.getPageSubscription().getPagingStore().forceAnotherPage(true);
+         getPagingStore(queue).forceAnotherPage(true);
       }
 
       locator.setBlockOnNonDurableSend(false).setBlockOnAcknowledge(false);

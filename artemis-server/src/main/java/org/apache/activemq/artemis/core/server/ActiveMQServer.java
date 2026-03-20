@@ -40,7 +40,7 @@ import org.apache.activemq.artemis.core.config.amqpBrokerConnectivity.AMQPFedera
 import org.apache.activemq.artemis.core.io.IOCriticalErrorListener;
 import org.apache.activemq.artemis.core.journal.RecordInfo;
 import org.apache.activemq.artemis.core.management.impl.ActiveMQServerControlImpl;
-import org.apache.activemq.artemis.core.paging.PagingManager;
+import org.apache.activemq.artemis.core.memory.GlobalMemoryManager;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.postoffice.PostOffice;
@@ -162,14 +162,13 @@ public interface ActiveMQServer extends ServiceComponent {
 
    StorageManager getStorageManager();
 
+   GlobalMemoryManager getGlobalMemoryManager();
    /**
     * The executor responsible to remove temporary destinations.
     * */
    Executor getTransientQueueExecutor();
 
-   PagingManager getPagingManager();
-
-   PagingManager createPagingManager() throws Exception;
+   GlobalMemoryManager createMemoryManager() throws Exception;
 
    ManagementService getManagementService();
 

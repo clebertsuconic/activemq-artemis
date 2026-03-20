@@ -85,14 +85,14 @@ public class ReplicatedPagedFailoverTest extends ReplicatedFailoverTest {
 
       Queue queue = primaryServer.getServer().locateQueue(FailoverTest.ADDRESS);
 
-      queue.getPageSubscription().getPagingStore().startPaging();
+      getPagingStore(queue).startPaging();
       assertNotNull(queue);
 
       for (int i = 0; i < numMessages; i++) {
          // some are durable, some are not!
          producer.send(createMessage(session, i, i % 2 == 0));
          if (i > 0 && i % messagesPerPage == 0) {
-            queue.getPageSubscription().getPagingStore().forceAnotherPage(true);
+            getPagingStore(queue).forceAnotherPage(true);
          }
       }
 
@@ -105,7 +105,7 @@ public class ReplicatedPagedFailoverTest extends ReplicatedFailoverTest {
          }
       }
 
-      PagingStore store = queue.getPageSubscription().getPagingStore();
+      PagingStore store = getPagingStore(queue);
 
       // tampering with the system's file
       if (tamperMode == 1) {
@@ -130,7 +130,7 @@ public class ReplicatedPagedFailoverTest extends ReplicatedFailoverTest {
          }
       }
 
-      Wait.assertFalse(queue.getPageSubscription().getPagingStore()::isPaging);
+      Wait.assertFalse(getPagingStore(queue)::isPaging);
    }
 
    @Test
@@ -150,7 +150,7 @@ public class ReplicatedPagedFailoverTest extends ReplicatedFailoverTest {
 
             logger.info("Repeat #{}", runNumber);
 
-            assertTrue(queue.getPageSubscription().getPagingStore().startPaging());
+            assertTrue(getPagingStore(queue).startPaging());
             assertNotNull(queue);
 
             for (int i = 0; i < numMessages; i++) {
@@ -172,7 +172,7 @@ public class ReplicatedPagedFailoverTest extends ReplicatedFailoverTest {
             }
             session.commit();
 
-            Wait.assertFalse(queue.getPageSubscription().getPagingStore()::isPaging, 5000, 100);
+            Wait.assertFalse(getPagingStore(queue)::isPaging, 5000, 100);
          }
       }
    }

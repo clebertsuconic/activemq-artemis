@@ -31,7 +31,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.activemq.artemis.api.core.TransportConfiguration;
-import org.apache.activemq.artemis.core.paging.impl.PagingManagerImpl;
 import org.apache.activemq.artemis.core.remoting.impl.netty.TransportConstants;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
 import org.apache.activemq.artemis.core.settings.impl.AddressFullMessagePolicy;
@@ -116,8 +115,8 @@ public class AnonymousProducerPageTest extends ActiveMQTestBase {
       final int MSG_COUNT = 3_000;
 
       // sending size to explode max size
-      server.getPagingManager().addSize((int) ((PagingManagerImpl) server.getPagingManager()).getMaxSize());
-      server.getPagingManager().addSize(100_000);
+      getPagingManager(server).addSize((int) getPagingManager(server).getMaxSize());
+      getPagingManager(server).addSize(100_000);
 
       server.getAddressSettingsRepository().addMatch("blockedQueue", new AddressSettings().setAddressFullMessagePolicy(AddressFullMessagePolicy.BLOCK));
 

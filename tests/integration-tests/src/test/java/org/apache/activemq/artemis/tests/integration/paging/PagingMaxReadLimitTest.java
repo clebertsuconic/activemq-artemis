@@ -88,7 +88,7 @@ public class PagingMaxReadLimitTest extends ActiveMQTestBase {
          }
          session.commit();
 
-         assertTrue(serverQueue.getPagingStore().isPaging());
+         assertTrue(getPagingStore(serverQueue).isPaging());
       }
 
       AssertionLoggerHandler loggerHandler = new AssertionLoggerHandler();

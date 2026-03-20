@@ -155,7 +155,7 @@ public class OpenWireLargeMessageTest extends BasicOpenWireTest {
                   BytesMessage message = session.createBytesMessage();
                   message.writeBytes(bytes);
 
-                  final PagingStore pageStore = server.getPagingManager().getPageStore(lmDropAddress);
+                  final PagingStore pageStore = getPagingManager(server).getPageStore(lmDropAddress);
                   while (!pageStore.isPaging()) {
                      producer.send(message);
                   }

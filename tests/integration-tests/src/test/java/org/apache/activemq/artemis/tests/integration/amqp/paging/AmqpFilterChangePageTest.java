@@ -66,7 +66,7 @@ public class AmqpFilterChangePageTest extends ActiveMQTestBase {
 
       Queue queue = server.locateQueue("Q1");
 
-      queue.getPagingStore().startPaging();
+      getPagingStore(queue).startPaging();
 
       for (int i = 0; i < NUMBER_OF_MESSAGES; i++) {
          TextMessage message = session.createTextMessage("hello " + i);
@@ -74,12 +74,12 @@ public class AmqpFilterChangePageTest extends ActiveMQTestBase {
          producer.send(message);
          if (i % 100 == 0 && i > 0) {
             session.commit();
-            queue.getPagingStore().forceAnotherPage(true);
+            getPagingStore(queue).forceAnotherPage(true);
          }
       }
       session.commit();
 
-      PageSubscriptionImpl subscription = (PageSubscriptionImpl) queue.getPageSubscription();
+      PageSubscriptionImpl subscription = (PageSubscriptionImpl) getPagingSubscription(queue);
       Field subscriptionField = PageSubscriptionImpl.class.getDeclaredField("filter");
       subscriptionField.setAccessible(true);
 

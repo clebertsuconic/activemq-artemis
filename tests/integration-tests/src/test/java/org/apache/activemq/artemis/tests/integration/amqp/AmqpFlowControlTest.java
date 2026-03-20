@@ -139,7 +139,7 @@ public class AmqpFlowControlTest extends JMSClientTestSupport {
          // This should be -1. A single message is buffered in the client, and 0 credit has been allocated.
          assertEquals(-1, sender.getSender().getCredit());
 
-         long addressSize = server.getPagingManager().getPageStore(SimpleString.of(getQueueName())).getAddressSize();
+         long addressSize = server.getGlobalMemoryManager().getMemoryAddressManager(SimpleString.of(getQueueName())).getAddressSize();
          assertTrue(addressSize >= MAX_SIZE_BYTES && addressSize <= MAX_SIZE_BYTES_REJECT_THRESHOLD);
       } finally {
          connection.close();
@@ -165,7 +165,7 @@ public class AmqpFlowControlTest extends JMSClientTestSupport {
       assertInstanceOf(ResourceAllocationException.class, e);
       assertTrue(e.getMessage().contains("resource-limit-exceeded"));
 
-      long addressSize = server.getPagingManager().getPageStore(SimpleString.of(getQueueName())).getAddressSize();
+      long addressSize = server.getGlobalMemoryManager().getMemoryAddressManager(SimpleString.of(getQueueName())).getAddressSize();
       assertTrue(addressSize >= MAX_SIZE_BYTES_REJECT_THRESHOLD);
    }
 

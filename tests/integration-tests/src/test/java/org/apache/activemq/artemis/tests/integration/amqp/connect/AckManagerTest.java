@@ -133,7 +133,7 @@ public class AckManagerTest extends ActiveMQTestBase {
       Queue c2s2 = server1.locateQueue("c2.s2");
       assertNotNull(c2s2);
 
-      PagingStore store = server1.getPagingManager().getPageStore(TOPIC_NAME);
+      PagingStore store = getPagingManager(server1).getPageStore(TOPIC_NAME);
       store.startPaging();
 
       try (Connection connection = connectionFactory.createConnection()) {
@@ -386,7 +386,7 @@ public class AckManagerTest extends ActiveMQTestBase {
       final Queue c1s1 = server1.locateQueue(c1s1Name);
       assertNotNull(c1s1);
 
-      PagingStore store = server1.getPagingManager().getPageStore(TOPIC_NAME);
+      PagingStore store = getPagingManager(server1).getPageStore(TOPIC_NAME);
       store.startPaging();
 
       try (Connection connection = connectionFactory.createConnection()) {
@@ -478,7 +478,7 @@ public class AckManagerTest extends ActiveMQTestBase {
          for (int i = 0; i < 100; i++) {
             if (i == 50) {
                session.commit();
-               testQueue.getPagingStore().startPaging();
+               getPagingStore(testQueue).startPaging();
             }
             producer.send(session.createTextMessage("hello there " + i));
          }

@@ -116,11 +116,7 @@ public class PagingStoreFactoryDatabase implements PagingStoreFactory {
          if (pageStoreTableNamePrefix.length() > 10) {
             throw new IllegalStateException("The maximum name size for the page store table prefix is 10 characters: THE PAGING STORE CAN'T START");
          }
-         SQLProvider.Factory sqlProviderFactory = dbConf.getSqlProviderFactory();
-         if (sqlProviderFactory == null) {
-            sqlProviderFactory = new PropertySQLProvider.Factory(dbConf.getConnectionProvider());
-         }
-         pagingFactoryFileFactory = new JDBCSequentialFileFactory(dbConf.getConnectionProvider(), sqlProviderFactory.create(pageStoreTableNamePrefix, SQLProvider.DatabaseStoreType.PAGE), executorFactory.getExecutor(), scheduledExecutor, dbConf.getJdbcJournalSyncPeriodMillis(), criticalErrorListener);
+         pagingFactoryFileFactory = new JDBCSequentialFileFactory(dbConf.getConnectionProvider(), pageStoreTableNamePrefix, executorFactory.getExecutor(), scheduledExecutor, dbConf.getJdbcJournalSyncPeriodMillis(), criticalErrorListener);
          pagingFactoryFileFactory.start();
          started = true;
       }
@@ -148,8 +144,9 @@ public class PagingStoreFactoryDatabase implements PagingStoreFactory {
 
    @Override
    public synchronized PagingStore newStore(final SimpleString address, final AddressSettings settings) {
-
-      return new PagingStoreImpl(address, scheduledExecutor, syncTimeout, pagingManager, storageManager, null, this, address, settings, executorFactory.getExecutor().setFair(true), syncNonTransactional);
+      PagingStoreImpl store = new PagingStoreImpl(address, scheduledExecutor, syncTimeout, pagingManager, storageManager, null, this, address, settings, executorFactory.getExecutor().setFair(true), syncNonTransactional);
+      store.setGlobalMemoryManager(pagingManager);
+      return store;
    }
 
    @Override
@@ -248,15 +245,7 @@ public class PagingStoreFactoryDatabase implements PagingStoreFactory {
       }
       directoryList.close();
 
-      final SQLProvider sqlProvider;
-      final SQLProvider.Factory sqlProviderFactory;
-      if (dbConf.getSqlProviderFactory() != null) {
-         sqlProviderFactory = dbConf.getSqlProviderFactory();
-      } else {
-         sqlProviderFactory = new PropertySQLProvider.Factory(dbConf.getConnectionProvider());
-      }
-      sqlProvider = sqlProviderFactory.create(getTableNameForGUID(directoryName), SQLProvider.DatabaseStoreType.PAGE);
-      final JDBCSequentialFileFactory fileFactory = new JDBCSequentialFileFactory(dbConf.getConnectionProvider(), sqlProvider, executorFactory.getExecutor(), scheduledExecutor, dbConf.getJdbcJournalSyncPeriodMillis(), criticalErrorListener);
+      final JDBCSequentialFileFactory fileFactory = new JDBCSequentialFileFactory(dbConf.getConnectionProvider(), getTableNameForGUID(directoryName), executorFactory.getExecutor(), scheduledExecutor, dbConf.getJdbcJournalSyncPeriodMillis(), criticalErrorListener);
       factoryToTableName.put(fileFactory, directoryName);
       return fileFactory;
    }

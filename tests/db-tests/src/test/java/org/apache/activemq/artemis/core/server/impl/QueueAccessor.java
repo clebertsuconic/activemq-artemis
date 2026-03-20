@@ -17,11 +17,13 @@
 
 package org.apache.activemq.artemis.core.server.impl;
 
+import org.apache.activemq.artemis.core.paging.cursor.PageSubscription;
 import org.apache.activemq.artemis.core.paging.cursor.impl.PageSubscriptionImpl;
 import org.apache.activemq.artemis.core.server.Queue;
 
 public class QueueAccessor {
    public static PageSubscriptionImpl getSubscription(Queue queue) {
-      return (PageSubscriptionImpl) ((QueueImpl)queue).pageSubscription;
+      PageSubscription pagingQueueMemorymanager = (PageSubscription) queue.getQueueMemoryManager();
+      return (PageSubscriptionImpl) pagingQueueMemorymanager;
    }
 }

@@ -26,7 +26,7 @@ import org.apache.activemq.artemis.api.core.TransportConfiguration;
 import org.apache.activemq.artemis.api.core.client.TopologyMember;
 import org.apache.activemq.artemis.core.config.Configuration;
 import org.apache.activemq.artemis.core.io.IOCriticalErrorListener;
-import org.apache.activemq.artemis.core.paging.PagingManager;
+import org.apache.activemq.artemis.core.memory.GlobalMemoryManager;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.postoffice.PostOffice;
 import org.apache.activemq.artemis.core.protocol.core.Channel;
@@ -379,7 +379,7 @@ public final class SharedNothingBackupActivation extends Activation implements R
 
    @Override
    public JournalLoader createJournalLoader(PostOffice postOffice,
-                                            PagingManager pagingManager,
+                                            GlobalMemoryManager globalMemoryManager,
                                             StorageManager storageManager,
                                             QueueFactory queueFactory,
                                             NodeManager nodeManager,
@@ -388,9 +388,9 @@ public final class SharedNothingBackupActivation extends Activation implements R
                                             Configuration configuration,
                                             ActiveMQServer parentServer) throws ActiveMQException {
       if (replicaPolicy.getScaleDownPolicy() != null && replicaPolicy.getScaleDownPolicy().isEnabled()) {
-         return new BackupRecoveryJournalLoader(postOffice, pagingManager, storageManager, queueFactory, nodeManager, managementService, groupingHandler, configuration, parentServer, ScaleDownPolicy.getScaleDownConnector(replicaPolicy.getScaleDownPolicy(), activeMQServer), activeMQServer.getClusterManager().getClusterController());
+         return new BackupRecoveryJournalLoader(postOffice, globalMemoryManager, storageManager, queueFactory, nodeManager, managementService, groupingHandler, configuration, parentServer, ScaleDownPolicy.getScaleDownConnector(replicaPolicy.getScaleDownPolicy(), activeMQServer), activeMQServer.getClusterManager().getClusterController());
       } else {
-         return super.createJournalLoader(postOffice, pagingManager, storageManager, queueFactory, nodeManager, managementService, groupingHandler, configuration, parentServer);
+         return super.createJournalLoader(postOffice, globalMemoryManager, storageManager, queueFactory, nodeManager, managementService, groupingHandler, configuration, parentServer);
       }
    }
 

@@ -137,14 +137,14 @@ public class TemporaryQueueTest extends SingleServerTestBase {
       assertNotNull(message);
       message.acknowledge();
 
-      Wait.assertTrue(() -> Arrays.asList(server.getPagingManager().getStoreNames()).contains(address));
+      Wait.assertTrue(() -> Arrays.asList(getPagingManager(server).getStoreNames()).contains(address));
 
       consumer.close();
 
       session.deleteQueue(queue);
       session.close();
 
-      Wait.assertFalse(() -> Arrays.asList(server.getPagingManager().getStoreNames()).contains(address));
+      Wait.assertFalse(() -> Arrays.asList(getPagingManager(server).getStoreNames()).contains(address));
    }
 
    @Test

@@ -22,8 +22,8 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import org.apache.activemq.artemis.api.core.QueueConfiguration;
 import org.apache.activemq.artemis.core.filter.Filter;
-import org.apache.activemq.artemis.core.paging.PagingManager;
-import org.apache.activemq.artemis.core.paging.cursor.PageSubscription;
+import org.apache.activemq.artemis.core.memory.GlobalMemoryManager;
+import org.apache.activemq.artemis.core.memory.QueueMemoryManager;
 import org.apache.activemq.artemis.core.postoffice.PostOffice;
 import org.apache.activemq.artemis.core.server.Queue;
 import org.apache.activemq.artemis.core.server.QueueFactory;
@@ -41,9 +41,9 @@ public final class FakeQueueFactory implements QueueFactory {
    private PostOffice postOffice;
 
    @Override
-   public Queue createQueueWith(QueueConfiguration config, PagingManager pagingManager, Filter filter) throws Exception {
-      PageSubscription pageSubscription = pagingManager == null ? null : QueueFactoryImpl.getPageSubscription(config, pagingManager, filter);
-      return new QueueImpl(config, filter, pageSubscription != null ? pageSubscription.getPagingStore() : null, pageSubscription, scheduledExecutor, postOffice, null, null, ArtemisExecutor.delegate(executor), null, this);
+   public Queue createQueueWith(QueueConfiguration config, GlobalMemoryManager pagingManager, Filter filter) throws Exception {
+      QueueMemoryManager pageSubscription = pagingManager == null ? null : QueueFactoryImpl.getPageSubscription(config, pagingManager, filter);
+      return new QueueImpl(config, filter, pageSubscription != null ? pageSubscription.getAddressMemoryManager() : null, pageSubscription, scheduledExecutor, postOffice, null, null, ArtemisExecutor.delegate(executor), null, this);
    }
 
    @Override

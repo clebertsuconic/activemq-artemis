@@ -37,6 +37,9 @@ import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.io.SequentialFile;
 import org.apache.activemq.artemis.core.io.SequentialFileFactory;
+import org.apache.activemq.artemis.core.memory.AddressMemoryManager;
+import org.apache.activemq.artemis.core.memory.GlobalMemoryManager;
+import org.apache.activemq.artemis.core.memory.QueueMemoryManager;
 import org.apache.activemq.artemis.core.paging.PageTransactionInfo;
 import org.apache.activemq.artemis.core.paging.PagedMessage;
 import org.apache.activemq.artemis.core.paging.PagingManager;
@@ -76,7 +79,7 @@ import java.util.function.Supplier;
 /**
  * @see PagingStore
  */
-public class PagingStoreImpl implements PagingStore {
+public class PagingStoreImpl implements PagingStore, AddressMemoryManager {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
@@ -178,6 +181,8 @@ public class PagingStoreImpl implements PagingStore {
 
    private final ScheduledExecutorService scheduledExecutorService;
 
+   private GlobalMemoryManager globalMemoryManager;
+
    public PagingStoreImpl(final SimpleString address,
                           final ScheduledExecutorService scheduledExecutor,
                           final long syncTimeout,
@@ -258,6 +263,15 @@ public class PagingStoreImpl implements PagingStore {
    // for tests, used through an accessor
    protected void replacePagedTimedWriter(PageTimedWriter writer) {
       this.timedWriter = writer;
+   }
+
+   @Override
+   public GlobalMemoryManager getGlobalMemoryManager() {
+      return globalMemoryManager;
+   }
+
+   public void setGlobalMemoryManager(GlobalMemoryManager globalMemoryManager) {
+      this.globalMemoryManager = globalMemoryManager;
    }
 
    private void overSized() {
@@ -531,6 +545,11 @@ public class PagingStoreImpl implements PagingStore {
    }
 
    @Override
+   public SimpleString getName() {
+      return address;
+   }
+
+   @Override
    public long getAddressSize() {
       return size.getSize();
    }
@@ -538,6 +557,21 @@ public class PagingStoreImpl implements PagingStore {
    @Override
    public long getAddressElements() {
       return size.getElements();
+   }
+
+   @Override
+   public QueueMemoryManager getQueueMemoryManager(SimpleString queue, long queueID, org.apache.activemq.artemis.core.filter.Filter filter, boolean durable) throws Exception {
+      QueueMemoryManager memoryManager = cursorProvider.getSubscription(queueID);
+      if (memoryManager != null) {
+         return memoryManager;
+      } else {
+         return cursorProvider.createSubscription(queueID, filter, durable);
+      }
+   }
+
+   @Override
+   public QueueMemoryManager getQueueMemoryManager(long queueID) {
+      return cursorProvider.getSubscription(queueID);
    }
 
    @Override
@@ -567,6 +601,26 @@ public class PagingStoreImpl implements PagingStore {
 
    @Override
    public int getPrefetchPageMessages() {
+      return prefetchPageMessages;
+   }
+
+   @Override
+   public int getMaxReadBytes() {
+      return maxPageReadBytes;
+   }
+
+   @Override
+   public int getPrefetchBytes() {
+      return prefetchPageBytes;
+   }
+
+   @Override
+   public int getMaxReadMessages() {
+      return maxPageReadMessages;
+   }
+
+   @Override
+   public int getPrefetchMessages() {
       return prefetchPageMessages;
    }
 
@@ -1622,15 +1676,20 @@ public class PagingStoreImpl implements PagingStore {
       int i = 0;
 
       for (org.apache.activemq.artemis.core.server.Queue q : durableQueues) {
-         q.getPageSubscription().notEmpty();
+         q.getQueueMemoryManager().notEmpty();
          ids[i++] = q.getID();
       }
 
       for (org.apache.activemq.artemis.core.server.Queue q : nonDurableQueues) {
-         q.getPageSubscription().notEmpty();
+         q.getQueueMemoryManager().notEmpty();
          ids[i++] = q.getID();
       }
       return ids;
+   }
+
+   private PageSubscription getSubscription(org.apache.activemq.artemis.core.server.Queue q) {
+      // PageSubscription now implements QueueMemoryManager directly
+      return (PageSubscription)q.getQueueMemoryManager();
    }
 
    /**
@@ -1640,11 +1699,11 @@ public class PagingStoreImpl implements PagingStore {
       List<org.apache.activemq.artemis.core.server.Queue> durableQueues = ctx.getDurableQueues();
       List<org.apache.activemq.artemis.core.server.Queue> nonDurableQueues = ctx.getNonDurableQueues();
       for (org.apache.activemq.artemis.core.server.Queue q : durableQueues) {
-         q.getPageSubscription().getCounter().increment(tx, 1, size);
+         getSubscription(q).getCounter().increment(tx, 1, size);
       }
 
       for (org.apache.activemq.artemis.core.server.Queue q : nonDurableQueues) {
-         q.getPageSubscription().getCounter().increment(tx, 1, size);
+         getSubscription(q).getCounter().increment(tx, 1, size);
       }
 
    }

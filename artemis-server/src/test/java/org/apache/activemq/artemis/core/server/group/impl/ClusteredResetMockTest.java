@@ -49,8 +49,8 @@ import org.apache.activemq.artemis.api.core.management.RemoteBrokerConnectionCon
 import org.apache.activemq.artemis.core.config.ClusterConnectionConfiguration;
 import org.apache.activemq.artemis.core.config.Configuration;
 import org.apache.activemq.artemis.core.management.impl.ActiveMQServerControlImpl;
+import org.apache.activemq.artemis.core.memory.GlobalMemoryManager;
 import org.apache.activemq.artemis.core.messagecounter.MessageCounterManager;
-import org.apache.activemq.artemis.core.paging.PagingManager;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.postoffice.PostOffice;
 import org.apache.activemq.artemis.core.remoting.server.RemotingService;
@@ -235,7 +235,7 @@ public class ClusteredResetMockTest extends ServerTestBase {
                                                       ActiveMQServer messagingServer,
                                                       QueueFactory queueFactory,
                                                       ScheduledExecutorService scheduledThreadPool,
-                                                      PagingManager pagingManager,
+                                                      GlobalMemoryManager globalMemoryManager,
                                                       boolean backup) throws Exception {
          return null;
       }

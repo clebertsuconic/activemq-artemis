@@ -31,7 +31,7 @@ import org.apache.activemq.artemis.api.core.QueueConfiguration;
 import org.apache.activemq.artemis.api.core.RoutingType;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.io.IOCallback;
-import org.apache.activemq.artemis.core.paging.PagingStore;
+import org.apache.activemq.artemis.core.memory.AddressMemoryManager;
 import org.apache.activemq.artemis.core.persistence.CoreMessageObjectPools;
 import org.apache.activemq.artemis.core.protocol.openwire.OpenWireConnection;
 import org.apache.activemq.artemis.core.protocol.openwire.OpenWireMessageConverter;
@@ -420,13 +420,14 @@ public class AMQSession implements SessionCallback {
          } else {
             coreMsg.setRoutingType(RoutingType.MULTICAST);
          }
-         final PagingStore store = server.getPagingManager().getPageStore(address);
+
+         final AddressMemoryManager addressMemoryManager = server.getGlobalMemoryManager().getMemoryAddressManager(address);
 
          if (shouldBlockProducer) {
-            sendShouldBlockProducer(producerInfo, messageSend, sendProducerAck, store, dest, count, coreMsg, address);
+            sendShouldBlockProducer(producerInfo, messageSend, sendProducerAck, addressMemoryManager, dest, count, coreMsg, address);
          } else {
-            if (store != null) {
-               if (!store.checkMemory(true, this::restoreAutoRead, this::blockConnection, this.blockedRunnables::add)) {
+            if (addressMemoryManager != null) {
+               if (!addressMemoryManager.checkMemory(true, this::restoreAutoRead, this::blockConnection, this.blockedRunnables::add)) {
                   restoreAutoRead();
                   throw new ResourceAllocationException("Queue is full " + address);
                }
@@ -449,7 +450,7 @@ public class AMQSession implements SessionCallback {
    private void sendShouldBlockProducer(final ProducerInfo producerInfo,
                                         final Message messageSend,
                                         final boolean sendProducerAck,
-                                        final PagingStore store,
+                                        final AddressMemoryManager store,
                                         final ActiveMQDestination dest,
                                         final AtomicInteger count,
                                         final org.apache.activemq.artemis.api.core.Message coreMsg,

@@ -223,7 +223,7 @@ public class JMXManagementTest extends JMSClientTestSupport {
          sender.send(message);
          session.commit();
 
-         PagingStore targetPagingStore = server.getPagingManager().getPageStore(SimpleString.of(getQueueName()));
+         PagingStore targetPagingStore = getPagingManager(server).getPageStore(SimpleString.of(getQueueName()));
          assertNotNull(targetPagingStore);
 
          assertTrue(targetPagingStore.getAddressSize() > 0);

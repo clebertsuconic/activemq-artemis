@@ -46,8 +46,6 @@ import org.apache.activemq.artemis.core.io.IOCallback;
 import org.apache.activemq.artemis.core.io.SequentialFile;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCDataSourceUtils;
-import org.apache.activemq.artemis.jdbc.store.drivers.JDBCUtils;
-import org.apache.activemq.artemis.jdbc.store.sql.SQLProvider;
 import org.apache.activemq.artemis.tests.extensions.parameterized.ParameterizedTestExtension;
 import org.apache.activemq.artemis.tests.extensions.parameterized.Parameter;
 import org.apache.activemq.artemis.tests.extensions.parameterized.Parameters;
@@ -98,7 +96,7 @@ public class JDBCSequentialFileFactoryTest extends ArtemisTestCase {
       dataSourceProperties.put("driverClassName", className);
       String tableName = "FILES";
       String jdbcDatasourceClass = ActiveMQDefaultConfiguration.getDefaultDataSourceClassName();
-      factory = new JDBCSequentialFileFactory(new JDBCConnectionProvider(JDBCDataSourceUtils.getDataSource(jdbcDatasourceClass, dataSourceProperties)), JDBCUtils.getSQLProvider(dataSourceProperties, tableName, SQLProvider.DatabaseStoreType.PAGE), executor, scheduledExecutorService, 100, (code, message, file) -> {
+      factory = new JDBCSequentialFileFactory(new JDBCConnectionProvider(JDBCDataSourceUtils.getDataSource(jdbcDatasourceClass, dataSourceProperties)), tableName, executor, scheduledExecutorService, 100, (code, message, file) -> {
       });
       factory.start();
    }

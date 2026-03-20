@@ -118,7 +118,7 @@ public class FilteredPagingLeakTest extends AbstractLeakTest {
 
       final Queue serverQueueA = server.locateQueue("A");
 
-      PagingStore pagingStore = serverQueueA.getPagingStore();
+      PagingStore pagingStore = getPagingStore(serverQueueA);
       pagingStore.startPaging();
 
       try (Connection connection = cf.createConnection()) {
@@ -156,7 +156,7 @@ public class FilteredPagingLeakTest extends AbstractLeakTest {
          session.commit();
       }
 
-      Future<Boolean> future = serverQueueA.getPagingStore().getCursorProvider().scheduleCleanup();
+      Future<Boolean> future = getPagingStore(serverQueueA).getCursorProvider().scheduleCleanup();
       future.get();
 
       Object[] pageCursorInfos = checkLeak.getAllObjects(PageSubscriptionImpl.PageCursorInfo.class);
@@ -190,6 +190,6 @@ public class FilteredPagingLeakTest extends AbstractLeakTest {
          session.commit();
       }
 
-      Wait.assertFalse(serverQueueA.getPagingStore()::isPaging);
+      Wait.assertFalse(getPagingStore(serverQueueA)::isPaging);
    }
 }

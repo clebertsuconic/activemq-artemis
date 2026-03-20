@@ -22,11 +22,11 @@ import org.slf4j.LoggerFactory;
 import java.lang.invoke.MethodHandles;
 
 /**
- * A memory usage watcher.
+ * A heap usage watcher.
  * <p>
  * This class will run a thread monitoring memory usage and log warnings in case we are low on memory.
  */
-public class MemoryManager implements ActiveMQComponent {
+public class HeapManager implements ActiveMQComponent {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
@@ -42,7 +42,7 @@ public class MemoryManager implements ActiveMQComponent {
 
    private volatile boolean low;
 
-   public MemoryManager(final int memoryWarningThreshold, final long measureInterval) {
+   public HeapManager(final int memoryWarningThreshold, final long measureInterval) {
       runtime = Runtime.getRuntime();
 
       this.measureInterval = measureInterval;

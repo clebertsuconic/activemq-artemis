@@ -261,7 +261,7 @@ public class ProtonServerReceiverContext extends ProtonAbstractReceiver {
    private void validateAddressOnAnonymousLink(Message message) throws Exception {
       SimpleString newAddress = message.getAddressSimpleString();
       if (newAddress != null && !newAddress.equals(lastAddress)) {
-         AddressFullMessagePolicy currentPolicy = sessionSPI.getProtocolManager().getServer().getPagingManager().getPageStore(newAddress).getAddressFullMessagePolicy();
+         AddressFullMessagePolicy currentPolicy = sessionSPI.getProtocolManager().getServer().getGlobalMemoryManager().getMemoryAddressManager(newAddress).getAddressFullMessagePolicy();
          if (lastAddressPolicy != null && lastAddressPolicy != currentPolicy) {
             if (!addressAlreadyClashed) {
                addressAlreadyClashed = true; // print the warning only once

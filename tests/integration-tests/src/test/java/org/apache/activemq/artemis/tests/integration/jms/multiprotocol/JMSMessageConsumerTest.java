@@ -485,7 +485,7 @@ public class JMSMessageConsumerTest extends MultiprotocolJMSClientTestSupport {
    public void testConvertedAndPaging() throws Exception {
       final int MESSAGE_COUNT = 1;
       server.createQueue(QueueConfiguration.of(getQueueName()).setRoutingType(RoutingType.ANYCAST));
-      PagingStore store = server.getPagingManager().getPageStore(SimpleString.of(getQueueName()));
+      PagingStore store = getPagingManager(server).getPageStore(SimpleString.of(getQueueName()));
       store.startPaging();
       try (Connection senderConnection = createConnection(); Connection consumerConnection = createCoreConnection()) {
          Session consumerSession = consumerConnection.createSession(true, Session.SESSION_TRANSACTED);

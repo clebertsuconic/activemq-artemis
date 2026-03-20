@@ -2862,7 +2862,7 @@ public class LargeMessageTest extends LargeMessageTestBase {
 
       session.createQueue(QueueConfiguration.of(ADDRESS));
 
-      PagingStore store = server.getPagingManager().getPageStore(ADDRESS);
+      PagingStore store = getPagingManager(server).getPageStore(ADDRESS);
 
       if (isPage) {
          store.startPaging();
@@ -2877,11 +2877,11 @@ public class LargeMessageTest extends LargeMessageTestBase {
       session.commit();
 
       if (isPage) {
-         assertEquals(0, server.getPagingManager().getPageStore(ADDRESS).getAddressSize());
-         assertEquals(0, server.getPagingManager().getGlobalSize());
+         assertEquals(0, getPagingManager(server).getPageStore(ADDRESS).getAddressSize());
+         assertEquals(0, getPagingManager(server).getGlobalSize());
       } else {
-         assertNotEquals(0, server.getPagingManager().getPageStore(ADDRESS).getAddressSize());
-         assertNotEquals(0, server.getPagingManager().getGlobalSize());
+         assertNotEquals(0, getPagingManager(server).getPageStore(ADDRESS).getAddressSize());
+         assertNotEquals(0, getPagingManager(server).getGlobalSize());
       }
 
       session.start();
@@ -2896,9 +2896,9 @@ public class LargeMessageTest extends LargeMessageTestBase {
 
       session.commit();
 
-      Wait.assertEquals(0, server.getPagingManager().getPageStore(ADDRESS)::getAddressSize);
+      Wait.assertEquals(0, getPagingManager(server).getPageStore(ADDRESS)::getAddressSize);
 
-      Wait.assertEquals(0, server.getPagingManager()::getGlobalSize);
+      Wait.assertEquals(0, getPagingManager(server)::getGlobalSize);
 
       session.close();
 

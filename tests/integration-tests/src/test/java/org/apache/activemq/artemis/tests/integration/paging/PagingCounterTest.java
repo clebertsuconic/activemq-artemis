@@ -39,6 +39,8 @@ import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.api.core.client.ClientSession;
 import org.apache.activemq.artemis.api.core.client.ClientSessionFactory;
 import org.apache.activemq.artemis.api.core.client.ServerLocator;
+import org.apache.activemq.artemis.core.memory.GlobalMemoryManager;
+import org.apache.activemq.artemis.core.paging.PagingManager;
 import org.apache.activemq.artemis.core.paging.cursor.PageSubscription;
 import org.apache.activemq.artemis.core.paging.cursor.PageSubscriptionCounter;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
@@ -309,7 +311,7 @@ public class PagingCounterTest extends ActiveMQTestBase {
          assertEquals(2100, counter.getValue());
          assertEquals(2100 * 1000, counter.getPersistentSize());
 
-         server.getPagingManager().rebuildCounters(null);
+         ((PagingManager)server.getGlobalMemoryManager()).rebuildCounters(null);
 
          // it should be zero after rebuild, since no actual messages were sent
          Wait.assertEquals(0, counter::getValue);
@@ -434,7 +436,7 @@ public class PagingCounterTest extends ActiveMQTestBase {
       Wait.assertEquals(11_000, counterAfterRestart::getPersistentSize);
       counterAfterRestart.finishRebuild();
 
-      server.getPagingManager().rebuildCounters(null);
+      ((PagingManager)server.getGlobalMemoryManager()).rebuildCounters(null);
 
       Wait.assertEquals(0, counterAfterRestart::getValue);
       Wait.assertEquals(0, counterAfterRestart::getPersistentSize);
@@ -442,7 +444,10 @@ public class PagingCounterTest extends ActiveMQTestBase {
    }
 
    private PageSubscriptionCounter locateCounter(Queue queue) throws Exception {
-      PageSubscription subscription = server.getPagingManager().getPageStore(SimpleString.of("A1")).getCursorProvider().getSubscription(queue.getID());
+      GlobalMemoryManager globalMemoryManager = server.getGlobalMemoryManager();
+      PagingManager pagingManager = ((PagingManager)globalMemoryManager);
+
+      PageSubscription subscription = pagingManager.getPageStore(SimpleString.of("A1")).getCursorProvider().getSubscription(queue.getID());
 
       PageSubscriptionCounter counter = subscription.getCounter();
       return counter;
@@ -495,7 +500,7 @@ public class PagingCounterTest extends ActiveMQTestBase {
    public void testSendNoRebuild() throws Exception {
       Queue queue = server.createQueue(QueueConfiguration.of(SimpleString.of("A1")).setRoutingType(RoutingType.ANYCAST));
 
-      queue.getPagingStore().startPaging();
+      getPagingSubscription(queue).getPagingStore().startPaging();
 
       PageSubscriptionCounter counter = locateCounter(queue);
 

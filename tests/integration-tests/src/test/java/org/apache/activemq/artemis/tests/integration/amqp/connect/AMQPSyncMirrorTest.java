@@ -540,7 +540,7 @@ public class AMQPSyncMirrorTest extends AmqpClientTestSupport {
       Queue snf = server.locateQueue("$ACTIVEMQ_ARTEMIS_MIRROR_mirror");
       assertNotNull(snf);
       // Mirror is configured to block, we cannot allow anything other than block
-      assertEquals(AddressFullMessagePolicy.BLOCK, snf.getPagingStore().getAddressFullMessagePolicy());
+      assertEquals(AddressFullMessagePolicy.BLOCK, getPagingStore(snf).getAddressFullMessagePolicy());
 
       server.addAddressInfo(new AddressInfo(getQueueName()).addRoutingType(RoutingType.ANYCAST).setAutoCreated(false));
       server.createQueue(QueueConfiguration.of(getQueueName()).setRoutingType(RoutingType.ANYCAST).setAddress(getQueueName()).setAutoCreated(false));

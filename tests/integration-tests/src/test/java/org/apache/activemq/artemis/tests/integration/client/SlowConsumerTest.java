@@ -96,7 +96,7 @@ public class SlowConsumerTest extends ActiveMQTestBase {
 
       server.getAddressSettingsRepository().addMatch(QUEUE.toString(), addressSettings);
 
-      server.createQueue(QueueConfiguration.of(QUEUE).setRoutingType(RoutingType.ANYCAST)).getPageSubscription().getPagingStore().startPaging();
+      getPagingStore(server.createQueue(QueueConfiguration.of(QUEUE).setRoutingType(RoutingType.ANYCAST))).startPaging();
 
       locator = createFactory(isNetty);
    }
@@ -537,10 +537,10 @@ public class SlowConsumerTest extends ActiveMQTestBase {
 
       Queue queue = server.locateQueue(QUEUE);
 
-      queue.getPagingStore().startPaging();
+      getPagingStore(queue).startPaging();
 
 
-      assertTrue(queue.getPagingStore().isPaging());
+      assertTrue(getPagingStore(queue).isPaging());
 
       for (int i = 0; i < messages; i++) {
          producer.send(session.createMessage(true));

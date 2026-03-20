@@ -40,6 +40,7 @@ import org.apache.activemq.artemis.core.io.IOCriticalErrorListener;
 import org.apache.activemq.artemis.core.journal.RecordInfo;
 import org.apache.activemq.artemis.core.journal.collections.JournalHashMap;
 import org.apache.activemq.artemis.core.journal.collections.JournalHashMapProvider;
+import org.apache.activemq.artemis.core.paging.PagingManager;
 import org.apache.activemq.artemis.core.paging.PagingStore;
 import org.apache.activemq.artemis.core.paging.cursor.PageSubscription;
 import org.apache.activemq.artemis.core.paging.cursor.PagedReference;
@@ -253,6 +254,10 @@ public class AckManager implements ActiveMQComponent {
       return complete.get();
    }
 
+   private PagingManager getPagingManager(ActiveMQServer server) {
+      return (PagingManager) server.getGlobalMemoryManager();
+   }
+
    // to be used with the same executor as the PagingStore executor
    public void retryAddress(SimpleString address, LongObjectHashMap<JournalHashMap<AckRetry, AckRetry, Queue>> acksToRetry) {
 
@@ -271,7 +276,7 @@ public class AckManager implements ActiveMQComponent {
          if (checkRetriesAndPaging(acksToRetry, snapshotCount)) {
             logger.trace("scanning paging for {}", address);
 
-            PagingStore store = server.getPagingManager().getPageStore(address);
+            PagingStore store = getPagingManager(server).getPageStore(address);
             for (long pageId = store.getFirstPage(); pageId <= store.getCurrentWritingPage(); pageId++) {
                if (isSnapshotComplete(snapshotCount)) {
                   logger.debug("AckManager Page Scanning complete (done) on address {}", address);
@@ -384,6 +389,16 @@ public class AckManager implements ActiveMQComponent {
       }
    }
 
+   private PagingStore getPagingStore(Queue queue) {
+      PagingStore addressMemoryManager = (PagingStore) queue.getAddressMemoryManager();
+      return addressMemoryManager;
+   }
+
+   private PageSubscription getPagingSubscription(Queue queue) {
+      PageSubscription queueMemoryManager = (PageSubscription) queue.getQueueMemoryManager();
+      return queueMemoryManager;
+   }
+
    private void retryPage(LongObjectHashMap<AtomicInteger> snapshotCount,
                           LongObjectHashMap<JournalHashMap<AckRetry, AckRetry, Queue>> queuesToRetry,
                           SimpleString address,
@@ -412,9 +427,9 @@ public class AckManager implements ActiveMQComponent {
                   Queue queue = retries.getContext();
 
                   if (queue != null) {
-                     PageSubscription subscription = queue.getPageSubscription();
+                     PageSubscription subscription = getPagingSubscription(queue);
                      if (!subscription.isAcked(pagedMessage)) {
-                        PagedReference reference = retries.getContext().getPagingStore().getCursorProvider().newReference(pagedMessage, subscription);
+                        PagedReference reference = getPagingStore(retries.getContext()).getCursorProvider().newReference(pagedMessage, subscription);
                         try {
                            subscription.ackTx(transaction, reference, false);
                            subscription.getQueue().postAcknowledge(reference, ackRetry.getReason(), false);
@@ -594,7 +609,7 @@ public class AckManager implements ActiveMQComponent {
                // to make it more likely to hit the ack retry on each queue
                entry.getValue().values().forEach(this::deliveryAsync);
 
-               PagingStore pagingStore = server.getPagingManager().getPageStore(entry.getKey());
+               PagingStore pagingStore = getPagingManager(server).getPageStore(entry.getKey());
                pagingStore.execute(() -> {
                   AckManager.this.retryAddress(entry.getKey(), entry.getValue());
                   nextStep();

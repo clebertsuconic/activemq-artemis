@@ -207,7 +207,8 @@ public class NettyBridgeReconnectTest extends BridgeTestBase {
       server1.getPostOffice().getAllBindings().filter(b -> b instanceof LocalQueueBinding).forEach((b) -> {
          queuesTested.incrementAndGet();
          try {
-            Wait.assertEquals(0, ((LocalQueueBinding) b).getQueue().getPagingStore()::getAddressSize);
+            org.apache.activemq.artemis.core.server.Queue localBQueue = ((LocalQueueBinding) b).getQueue();
+            Wait.assertEquals(0, getPagingStore(localBQueue)::getAddressSize);
          } catch (Exception e) {
             fail(e.getMessage());
          }
@@ -240,7 +241,8 @@ public class NettyBridgeReconnectTest extends BridgeTestBase {
       server0.getPostOffice().getAllBindings().filter(b -> b instanceof LocalQueueBinding).forEach((b) -> {
          queuesTested.incrementAndGet();
          try {
-            Wait.assertEquals(0, ((LocalQueueBinding) b).getQueue().getPagingStore()::getAddressSize);
+            org.apache.activemq.artemis.core.server.Queue bindingQueue = ((LocalQueueBinding) b).getQueue();
+            Wait.assertEquals(0, getPagingStore(bindingQueue)::getAddressSize);
          } catch (Exception e) {
             fail(e.getMessage());
          }

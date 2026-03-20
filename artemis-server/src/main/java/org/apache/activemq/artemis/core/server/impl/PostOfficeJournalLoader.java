@@ -35,6 +35,7 @@ import org.apache.activemq.artemis.core.filter.Filter;
 import org.apache.activemq.artemis.core.filter.FilterUtils;
 import org.apache.activemq.artemis.core.filter.impl.FilterImpl;
 import org.apache.activemq.artemis.core.journal.Journal;
+import org.apache.activemq.artemis.core.memory.GlobalMemoryManager;
 import org.apache.activemq.artemis.core.paging.PagedMessage;
 import org.apache.activemq.artemis.core.paging.PagingManager;
 import org.apache.activemq.artemis.core.paging.PagingStore;
@@ -48,6 +49,7 @@ import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.PageCountPending;
 import org.apache.activemq.artemis.core.persistence.impl.journal.AddMessageRecord;
 import org.apache.activemq.artemis.core.persistence.impl.journal.codec.QueueStatusEncoding;
+import org.apache.activemq.artemis.core.persistence.impl.newdatabase.dbdata.MessageReferenceData;
 import org.apache.activemq.artemis.core.postoffice.Binding;
 import org.apache.activemq.artemis.core.postoffice.DuplicateIDCache;
 import org.apache.activemq.artemis.core.postoffice.PostOffice;
@@ -72,7 +74,7 @@ public class PostOfficeJournalLoader implements JournalLoader {
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
    protected final PostOffice postOffice;
-   protected final PagingManager pagingManager;
+   protected final GlobalMemoryManager globalMemoryManager;
    private final StorageManager storageManager;
    private final QueueFactory queueFactory;
    protected final NodeManager nodeManager;
@@ -82,7 +84,7 @@ public class PostOfficeJournalLoader implements JournalLoader {
    private Map<Long, Queue> queues;
 
    public PostOfficeJournalLoader(PostOffice postOffice,
-                                  PagingManager pagingManager,
+                                  GlobalMemoryManager globalMemoryManager,
                                   StorageManager storageManager,
                                   QueueFactory queueFactory,
                                   NodeManager nodeManager,
@@ -91,7 +93,7 @@ public class PostOfficeJournalLoader implements JournalLoader {
                                   Configuration configuration) {
 
       this.postOffice = postOffice;
-      this.pagingManager = pagingManager;
+      this.globalMemoryManager = globalMemoryManager;
       this.storageManager = storageManager;
       this.queueFactory = queueFactory;
       this.nodeManager = nodeManager;
@@ -102,7 +104,7 @@ public class PostOfficeJournalLoader implements JournalLoader {
    }
 
    public PostOfficeJournalLoader(PostOffice postOffice,
-                                  PagingManager pagingManager,
+                                  GlobalMemoryManager globalMemoryManager,
                                   StorageManager storageManager,
                                   QueueFactory queueFactory,
                                   NodeManager nodeManager,
@@ -111,7 +113,7 @@ public class PostOfficeJournalLoader implements JournalLoader {
                                   Configuration configuration,
                                   Map<Long, Queue> queues) {
 
-      this(postOffice, pagingManager, storageManager, queueFactory, nodeManager, managementService, groupingHandler, configuration);
+      this(postOffice, globalMemoryManager, storageManager, queueFactory, nodeManager, managementService, groupingHandler, configuration);
       this.queues = queues;
    }
 
@@ -127,7 +129,7 @@ public class PostOfficeJournalLoader implements JournalLoader {
          if (postOffice.getBinding(queueConfig.getName()) != null) {
 
             if (FilterUtils.isTopicIdentification(filter)) {
-               final long tx = storageManager.generateID();
+               final Transaction tx = new TransactionImpl(storageManager);
                storageManager.deleteQueueBinding(tx, queueConfig.getId());
                storageManager.commitBindings(tx);
                continue;
@@ -141,7 +143,7 @@ public class PostOfficeJournalLoader implements JournalLoader {
          final Queue queue = queueFactory.createQueueWith(QueueConfiguration.of(queueConfig)
                                                              .setDurable(true)
                                                              .setTemporary(false),
-                                                          pagingManager,
+                                                          globalMemoryManager,
                                                           filter);
 
 
@@ -176,6 +178,20 @@ public class PostOfficeJournalLoader implements JournalLoader {
          }
          postOffice.reloadAddressInfo(addressInfo);
       }
+   }
+
+   // for the new JDBC loader
+   @Override
+   public void handleJDBCAdd(Message message, MessageReferenceData referenceData) throws Exception {
+      Queue queue = this.queues.get(referenceData.queueID);
+      if (queue == null) {
+         ActiveMQServerLogger.LOGGER.journalCannotFindQueueForMessage(referenceData.queueID);
+         return;
+      }
+
+      MessageReference queueReference = postOffice.reload(message, queue, null);
+      // TODO-important: Implement this
+      //queueReference.setDeliveryCount(referenceData.getDeliveryCount());
    }
 
    @Override
@@ -338,6 +354,12 @@ public class PostOfficeJournalLoader implements JournalLoader {
       // Address -> PageID -> QueueID -> List<PageCountPending>
       // The following loop will sort the records according to the hierarchy we need
 
+
+      if (!(globalMemoryManager instanceof PagingManager)) {
+         return;
+      }
+      PagingManager pagingManager = ((PagingManager)globalMemoryManager);
+
       Transaction txRecoverCounter = new TransactionImpl(storageManager);
 
       Map<SimpleString, Map<Long, Map<Long, List<PageCountPending>>>> perAddressMap = generateMapsOnPendingCount(queues, pendingNonTXPageCounter, txRecoverCounter);
@@ -394,7 +416,7 @@ public class PostOfficeJournalLoader implements JournalLoader {
                      if (logger.isDebugEnabled()) {
                         logger.debug("Deleting pg tempCount {}", record.getID());
                      }
-                     storageManager.deletePendingPageCounter(txRecoverCounter.getID(), record.getID());
+                     storageManager.deletePendingPageCounter(txRecoverCounter, record.getID());
                   }
 
                   PageSubscriptionCounter counter = store.getCursorProvider().getSubscription(entry.getKey()).getCounter();
@@ -417,7 +439,7 @@ public class PostOfficeJournalLoader implements JournalLoader {
                      if (logger.isDebugEnabled()) {
                         logger.debug("Removing pending page counter {}", record.getID());
                      }
-                     storageManager.deletePendingPageCounter(txRecoverCounter.getID(), record.getID());
+                     storageManager.deletePendingPageCounter(txRecoverCounter, record.getID());
                      txRecoverCounter.setContainsPersistent();
                   }
                }
@@ -453,7 +475,7 @@ public class PostOfficeJournalLoader implements JournalLoader {
             }
 
             // this means the queue doesn't exist any longer, we will remove it from the storage
-            storageManager.deletePendingPageCounter(txRecoverCounter.getID(), pgCount.getID());
+            storageManager.deletePendingPageCounter(txRecoverCounter, pgCount.getID());
             txRecoverCounter.setContainsPersistent();
             continue;
          }

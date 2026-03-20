@@ -104,7 +104,7 @@ public class BackupSyncJournalTest extends FailoverTestBase {
          sendMessages(session, producer, n_msgs);
       }
       Queue queue = primaryServer.getServer().locateQueue(ADDRESS);
-      PagingStore store = queue.getPageSubscription().getPagingStore();
+      PagingStore store = getPagingStore(queue);
 
       // in case of paging I must close the current page otherwise we will get a pending counter
       // what would make the verification on similar journal to fail after the recovery
@@ -138,7 +138,7 @@ public class BackupSyncJournalTest extends FailoverTestBase {
       }
 
       int size = messageJournal.getFileSize();
-      PagingStore ps = primaryServer.getServer().getPagingManager().getPageStore(ADDRESS);
+      PagingStore ps = getPagingManager(primaryServer.getServer()).getPageStore(ADDRESS);
       if (ps.getPageSizeBytes() == PAGE_SIZE) {
          assertTrue(ps.isStarted(), "isStarted");
          assertFalse(ps.startPaging(), "start paging should return false, because we expect paging to be running");

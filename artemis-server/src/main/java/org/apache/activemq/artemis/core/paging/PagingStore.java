@@ -25,6 +25,10 @@ import java.util.function.Function;
 import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.api.core.RefCountMessageListener;
 import org.apache.activemq.artemis.api.core.SimpleString;
+import org.apache.activemq.artemis.core.filter.Filter;
+import org.apache.activemq.artemis.core.memory.AddressMemoryManager;
+import org.apache.activemq.artemis.core.memory.GlobalMemoryManager;
+import org.apache.activemq.artemis.core.memory.QueueMemoryManager;
 import org.apache.activemq.artemis.core.paging.cursor.PageCursorProvider;
 import org.apache.activemq.artemis.core.paging.cursor.PageSubscription;
 import org.apache.activemq.artemis.core.paging.impl.Page;
@@ -47,7 +51,7 @@ import org.apache.activemq.artemis.utils.runnables.AtomicRunnable;
  *
  * @see PagingManager
  */
-public interface PagingStore extends ActiveMQComponent, RefCountMessageListener {
+public interface PagingStore extends ActiveMQComponent, RefCountMessageListener, AddressMemoryManager {
 
    SimpleString getAddress();
 
@@ -66,6 +70,7 @@ public interface PagingStore extends ActiveMQComponent, RefCountMessageListener 
       return getFolder().getName();
    }
 
+   @Override
    AddressFullMessagePolicy getAddressFullMessagePolicy();
 
    default PagingStore enforceAddressFullMessagePolicy(AddressFullMessagePolicy enforcedAddressFullMessagePolicy) {
@@ -91,10 +96,13 @@ public interface PagingStore extends ActiveMQComponent, RefCountMessageListener 
 
    int getPageSizeBytes();
 
+   @Override
    long getAddressSize();
 
-   long getAddressElements();
+   @Override
+   void durableDown(Message message, int durableCount);
 
+   @Override
    long getMaxSize();
 
    int getMaxPageReadBytes();
@@ -119,6 +127,7 @@ public interface PagingStore extends ActiveMQComponent, RefCountMessageListener 
    /**
     *  isPaging might return true for example if it's DROPPING.
     *  This will only return true if there are files on the page system */
+   @Override
    boolean isStorePaging();
 
    /**
@@ -199,6 +208,7 @@ public interface PagingStore extends ActiveMQComponent, RefCountMessageListener 
     *
     * @param sizeOnly if {@code false} we won't increment the number of messages. (add references for example)
     */
+   @Override
    void addSize(int size, boolean sizeOnly, boolean affectGlobal);
 
    default void addSize(int size, boolean sizeOnly) {
@@ -209,12 +219,15 @@ public interface PagingStore extends ActiveMQComponent, RefCountMessageListener 
       addSize(size, false, true);
    }
 
+   @Override
    boolean checkMemory(Runnable runnable, Consumer<AtomicRunnable> blockedCallback);
 
+   @Override
    boolean checkMemory(boolean runOnFailure, Runnable runnable, Runnable runWhenBlocking, Consumer<AtomicRunnable> blockedCallback);
 
    boolean isFull();
 
+   @Override
    boolean isRejectingMessages();
 
    /**
@@ -248,8 +261,10 @@ public interface PagingStore extends ActiveMQComponent, RefCountMessageListener 
     */
    void flushExecutors();
 
+   @Override
    void execute(Runnable runnable);
 
+   @Override
    ArtemisExecutor getExecutor();
 
    /**
@@ -269,11 +284,13 @@ public interface PagingStore extends ActiveMQComponent, RefCountMessageListener 
    /**
     * This method will disable cleanup of pages. No page will be deleted after this call.
     */
+   @Override
    void disableCleanup();
 
    /**
     * This method will re-enable cleanup of pages. Notice that it will also start cleanup threads.
     */
+   @Override
    void enableCleanup();
 
    void destroy() throws Exception;
@@ -295,5 +312,50 @@ public interface PagingStore extends ActiveMQComponent, RefCountMessageListener 
    }
 
    default void writeFlowControl(int credits) {
+   }
+
+   // ============ AddressMemoryManager methods ============
+
+   @Override
+   GlobalMemoryManager getGlobalMemoryManager();
+
+   @Override
+   default SimpleString getName() {
+      return getStoreName();
+   }
+
+   @Override
+   default QueueMemoryManager getQueueMemoryManager(SimpleString queueName, long queueID, Filter filter, boolean durable) throws Exception {
+      PageSubscription subscription = getCursorProvider().getSubscription(queueID);
+      if (subscription == null) {
+         subscription = getCursorProvider().createSubscription(queueID, filter, durable);
+      }
+      return subscription;
+   }
+
+   @Override
+   default QueueMemoryManager getQueueMemoryManager(long queueID) {
+      PageSubscription subscription = getCursorProvider().getSubscription(queueID);
+      return subscription;
+   }
+
+   @Override
+   default int getMaxReadMessages() {
+      return getMaxPageReadMessages();
+   }
+
+   @Override
+   default int getMaxReadBytes() {
+      return getMaxPageReadBytes();
+   }
+
+   @Override
+   default int getPrefetchMessages() {
+      return getPrefetchPageMessages();
+   }
+
+   @Override
+   default int getPrefetchBytes() {
+      return getPrefetchPageBytes();
    }
 }

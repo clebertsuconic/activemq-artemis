@@ -37,6 +37,8 @@ import java.util.function.BiConsumer;
 
 import io.netty.util.collection.LongObjectHashMap;
 import org.apache.activemq.artemis.api.core.SimpleString;
+import org.apache.activemq.artemis.core.memory.AddressMemoryManager;
+import org.apache.activemq.artemis.core.memory.GlobalMemoryManager;
 import org.apache.activemq.artemis.core.paging.PageTransactionInfo;
 import org.apache.activemq.artemis.core.paging.PagingManager;
 import org.apache.activemq.artemis.core.paging.PagingStore;
@@ -59,7 +61,7 @@ import org.slf4j.LoggerFactory;
 import static org.apache.activemq.artemis.core.server.files.FileStoreMonitor.FileStoreMonitorType;
 import static org.apache.activemq.artemis.core.server.files.FileStoreMonitor.FileStoreMonitorType.MaxDiskUsage;
 
-public final class PagingManagerImpl implements PagingManager {
+public final class PagingManagerImpl implements PagingManager, GlobalMemoryManager {
 
    private static final int PAGE_TX_CLEANUP_PRINT_LIMIT = 1000;
 
@@ -448,6 +450,11 @@ public final class PagingManagerImpl implements PagingManager {
       } catch (RuntimeException e) {
          throw (Exception) e.getCause();
       }
+   }
+
+   @Override
+   public AddressMemoryManager getMemoryAddressManager(SimpleString address) throws Exception {
+      return getPageStore(address);
    }
 
    @Override

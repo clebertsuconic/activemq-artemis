@@ -143,7 +143,7 @@ public class PageCounterRebuildTest extends ActiveMQTestBase {
          called.incrementAndGet();
 
          return null;
-      }).when(mockStorage).commit(Mockito.anyLong());
+      }).when(mockStorage).commit(Mockito.any(), Mockito.anyBoolean());
 
       PageSubscriptionCounterImplAccessor.reset(nonPersistentPagingCounter);
 
@@ -169,7 +169,7 @@ public class PageCounterRebuildTest extends ActiveMQTestBase {
       assertNotNull(serverQueue);
       assertNotNull(serverNonConsumedQueue);
 
-      serverQueue.getPagingStore().startPaging();
+      getPagingStore(serverQueue).startPaging();
 
       final int THREADS = 4;
       final int TX_SEND = 2000;
@@ -248,16 +248,16 @@ public class PageCounterRebuildTest extends ActiveMQTestBase {
       Wait.assertEquals(numberOfMessages - CONSUME_MESSAGES, serverQueue::getMessageCount);
       Wait.assertEquals(numberOfMessages, serverNonConsumedQueue::getMessageCount);
 
-      serverQueue.getPageSubscription().getCounter().markRebuilding();
-      serverNonConsumedQueue.getPageSubscription().getCounter().markRebuilding();
+      getPagingSubscription(serverQueue).getCounter().markRebuilding();
+      getPagingSubscription(serverNonConsumedQueue).getCounter().markRebuilding();
 
       // if though we are rebuilding, we are still returning based on the last recorded value until processing is finished
       assertEquals(8600, serverQueue.getMessageCount());
       assertEquals(8800, serverNonConsumedQueue.getMessageCount());
 
-      serverQueue.getPageSubscription().getCounter().finishRebuild();
+      getPagingSubscription(serverQueue).getCounter().finishRebuild();
 
-      serverNonConsumedQueue.getPageSubscription().getCounter().finishRebuild();
+      getPagingSubscription(serverNonConsumedQueue).getCounter().finishRebuild();
 
       assertEquals(0, serverQueue.getMessageCount()); // we artificially made it 0 by faking a rebuild
       assertEquals(0, serverNonConsumedQueue.getMessageCount()); // we artificially made it 0 by faking a rebuild

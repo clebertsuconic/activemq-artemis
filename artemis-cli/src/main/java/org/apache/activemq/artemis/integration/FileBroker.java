@@ -72,7 +72,7 @@ public class FileBroker implements Broker {
 
 
    private void createDirectories(FileConfiguration fileConfiguration) {
-      if (!fileConfiguration.isUsingDatabasePersistence()) {
+      if (!fileConfiguration.isUsingFileOverDB() && !fileConfiguration.isUsingNewDatabase()) {
          fileConfiguration.getPagingLocation().mkdirs();
          fileConfiguration.getJournalLocation().mkdirs();
          fileConfiguration.getBindingsLocation().mkdirs();

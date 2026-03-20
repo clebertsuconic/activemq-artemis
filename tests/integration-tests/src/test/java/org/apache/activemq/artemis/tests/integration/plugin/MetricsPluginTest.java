@@ -289,7 +289,7 @@ public class MetricsPluginTest extends ActiveMQTestBase {
       ClientMessage message = session.createMessage(true);
       message.getBodyBuffer().writeString(data);
       long messageCount = 0;
-      while (!server.getPagingManager().getPageStore(SimpleString.of(addressName)).isPaging()) {
+      while (!getPagingManager(server).getPageStore(SimpleString.of(addressName)).isPaging()) {
          producer.send(message);
          messageCount++;
       }

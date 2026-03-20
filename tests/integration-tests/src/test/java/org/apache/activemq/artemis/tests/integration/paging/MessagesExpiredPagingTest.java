@@ -188,7 +188,7 @@ public class MessagesExpiredPagingTest extends ActiveMQTestBase {
                   producer.setTimeToLive(10);
                   c.consumedDelta.set(0);
                }
-               queues[0].getPagingStore().forceAnotherPage(true);
+               getPagingStore(queues[0]).forceAnotherPage(true);
             }
             producer.send(session.createTextMessage("hello" + extraBody));
          }
@@ -196,7 +196,7 @@ public class MessagesExpiredPagingTest extends ActiveMQTestBase {
          producer.setTimeToLive(300);
          for (int i = 0; i < numberOfMessageSecondWave; i++) {
             if (i > 0 && i % pagingInterval == 0) {
-               queues[0].getPagingStore().forceAnotherPage(true);
+               getPagingStore(queues[0]).forceAnotherPage(true);
             }
             producer.send(session.createTextMessage("hello" + extraBody));
          }

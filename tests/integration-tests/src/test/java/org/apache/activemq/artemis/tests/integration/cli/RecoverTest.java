@@ -121,7 +121,7 @@ public class RecoverTest extends JMSTestBase {
       createQueue(true, "TestQueue");
       org.apache.activemq.artemis.core.server.Queue serverQueue = server.locateQueue("TestQueue");
       if (paging) {
-         serverQueue.getPagingStore().startPaging();
+         getPagingStore(serverQueue).startPaging();
       }
       ConnectionFactory factory = CFUtil.createConnectionFactory(protocol, "tcp://localhost:61616");
       Connection connection = factory.createConnection();
@@ -162,7 +162,7 @@ public class RecoverTest extends JMSTestBase {
       connection.close();
 
       // need to wait no paging, otherwise an eventual page cleanup would remove large message bodies from the recovery
-      Wait.assertFalse(serverQueue.getPagingStore()::isPaging);
+      Wait.assertFalse(getPagingStore(serverQueue)::isPaging);
 
       server.stop();
 

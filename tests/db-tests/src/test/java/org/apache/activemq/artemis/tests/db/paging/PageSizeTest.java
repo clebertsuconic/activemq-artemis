@@ -93,7 +93,7 @@ public class PageSizeTest extends ParameterDBTestBase {
          session.commit();
 
          Queue queue = server.locateQueue(addressName);
-         Wait.assertTrue(queue.getPagingStore()::isPaging, 1000, 100);
+         Wait.assertTrue(getPagingStore(queue)::isPaging, 1000, 100);
          long size = getMaxSizeBytesStored(queue);
          // organically all the pages should have less than 30K
          assertTrue(size <= dbstoreConfig.getMaxPageSizeBytes(), "size is " + size);
@@ -112,7 +112,7 @@ public class PageSizeTest extends ParameterDBTestBase {
 
 
    protected long getMaxSizeBytesStored(Queue queue) throws Exception {
-      String tableName = queue.getPagingStore().getFolderName();
+      String tableName = getPagingStore(queue).getFolderName();
 
       try (java.sql.Connection sqlConn = database.getConnection()) {
          String sql = switch (database) {

@@ -89,6 +89,7 @@ import org.apache.activemq.artemis.core.management.impl.view.predicate.QueueFilt
 import org.apache.activemq.artemis.core.management.impl.view.predicate.QueuePredicateFilterPart;
 import org.apache.activemq.artemis.core.messagecounter.MessageCounterManager;
 import org.apache.activemq.artemis.core.messagecounter.impl.MessageCounterManagerImpl;
+import org.apache.activemq.artemis.core.paging.PagingManager;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.persistence.config.PersistedAddressSettingJSON;
 import org.apache.activemq.artemis.core.persistence.config.PersistedConnector;
@@ -795,10 +796,10 @@ public class ActiveMQServerControlImpl extends AbstractControl implements Active
       clearIO();
       try {
          //this should not happen but if it does, return -1 to highlight it is not working
-         if (server.getPagingManager() == null) {
+         if (server.getGlobalMemoryManager() == null) {
             return -1L;
          }
-         return server.getPagingManager().getGlobalSize();
+         return server.getGlobalMemoryManager().getGlobalSize();
       } finally {
          blockOnIO();
       }
@@ -4671,8 +4672,10 @@ public class ActiveMQServerControlImpl extends AbstractControl implements Active
    public void rebuildPageCounters() throws Exception {
       // managementLock will guarantee there's only one management operation being called
       try (AutoCloseable lock = server.managementLock()) {
-         Future<Object> task = server.getPagingManager().rebuildCounters(null);
-         task.get();
+         if (server.getGlobalMemoryManager() instanceof PagingManager) {
+            Future<Object> task = ((PagingManager)server.getGlobalMemoryManager()).rebuildCounters(null);
+            task.get();
+         }
       }
    }
 

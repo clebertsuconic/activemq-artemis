@@ -61,7 +61,7 @@ import org.apache.activemq.artemis.core.journal.LoaderCallback;
 import org.apache.activemq.artemis.core.journal.PreparedTransactionInfo;
 import org.apache.activemq.artemis.core.journal.RecordInfo;
 import org.apache.activemq.artemis.core.journal.impl.JournalImpl;
-import org.apache.activemq.artemis.core.paging.PagingManager;
+import org.apache.activemq.artemis.core.memory.GlobalMemoryManager;
 import org.apache.activemq.artemis.core.paging.PagingStore;
 import org.apache.activemq.artemis.core.paging.impl.PagingManagerImpl;
 import org.apache.activemq.artemis.core.paging.impl.PagingStoreFactoryNIO;
@@ -238,7 +238,7 @@ public class SharedNothingReplicationFlowControlTest extends ActiveMQTestBase {
       ClientSession sess = csf.createSession();
       sess.createQueue(QueueConfiguration.of("flowcontrol").setRoutingType(RoutingType.ANYCAST));
 
-      PagingStore store = liveServer.getPagingManager().getPageStore(SimpleString.of("flowcontrol"));
+      PagingStore store = getPagingManager(liveServer).getPageStore(SimpleString.of("flowcontrol"));
       store.startPaging();
 
       ClientProducer prod = sess.createProducer("flowcontrol");
@@ -259,8 +259,8 @@ public class SharedNothingReplicationFlowControlTest extends ActiveMQTestBase {
 
       ActiveMQServer backupServer = new ActiveMQServerImpl(backupConfiguration, ManagementFactory.getPlatformMBeanServer(), new ActiveMQJAASSecurityManager(InVMLoginModule.class.getName(), new SecurityConfiguration())) {
          @Override
-         public PagingManager createPagingManager() throws Exception {
-            PagingManagerImpl manager = (PagingManagerImpl) super.createPagingManager();
+         public GlobalMemoryManager createMemoryManager() throws Exception {
+            PagingManagerImpl manager = (PagingManagerImpl) super.createMemoryManager();
             PagingStoreFactoryNIO originalPageStore = (PagingStoreFactoryNIO) manager.getPagingStoreFactory();
             manager.replacePageStoreFactory(new PageStoreFactoryTestable(originalPageStore));
             return manager;

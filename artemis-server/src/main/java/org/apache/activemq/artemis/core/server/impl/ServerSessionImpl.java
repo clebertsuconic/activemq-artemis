@@ -57,8 +57,9 @@ import org.apache.activemq.artemis.core.filter.Filter;
 import org.apache.activemq.artemis.core.filter.impl.FilterImpl;
 import org.apache.activemq.artemis.core.io.IOCallback;
 import org.apache.activemq.artemis.core.management.impl.view.ProducerField;
+import org.apache.activemq.artemis.core.memory.AddressMemoryManager;
+import org.apache.activemq.artemis.core.memory.GlobalMemoryManager;
 import org.apache.activemq.artemis.core.paging.PagingManager;
-import org.apache.activemq.artemis.core.paging.PagingStore;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.journal.LargeServerMessageImpl;
@@ -87,7 +88,6 @@ import org.apache.activemq.artemis.core.server.ServerConsumer;
 import org.apache.activemq.artemis.core.server.ServerProducer;
 import org.apache.activemq.artemis.core.server.ServerSession;
 import org.apache.activemq.artemis.core.server.TempResourceObserver;
-import org.apache.activemq.artemis.core.server.files.FileStoreMonitor;
 import org.apache.activemq.artemis.core.server.management.ManagementService;
 import org.apache.activemq.artemis.core.server.management.Notification;
 import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
@@ -103,7 +103,6 @@ import org.apache.activemq.artemis.json.JsonValue;
 import org.apache.activemq.artemis.logs.AuditLogger;
 import org.apache.activemq.artemis.spi.core.protocol.RemotingConnection;
 import org.apache.activemq.artemis.spi.core.protocol.SessionCallback;
-import org.apache.activemq.artemis.utils.ByteUtil;
 import org.apache.activemq.artemis.utils.CertificateUtil;
 import org.apache.activemq.artemis.utils.CompositeAddress;
 import org.apache.activemq.artemis.utils.JsonLoader;
@@ -162,7 +161,7 @@ public class ServerSessionImpl extends CriticalComponentImpl implements ServerSe
 
    protected boolean xa;
 
-   protected final PagingManager pagingManager;
+   protected final GlobalMemoryManager globalMemoryManager;
 
    protected final StorageManager storageManager;
 
@@ -263,7 +262,7 @@ public class ServerSessionImpl extends CriticalComponentImpl implements ServerSe
 
       this.securityStore = server.getSecurityStore();
 
-      this.pagingManager = server.getPagingManager();
+      this.globalMemoryManager = server.getGlobalMemoryManager();
 
       timeoutSeconds = resourceManager.getTimeoutSeconds();
       this.xa = xa;
@@ -2016,12 +2015,12 @@ public class ServerSessionImpl extends CriticalComponentImpl implements ServerSe
       final RoutingStatus result;
       try {
          // If the protocol doesn't support flow control, we have no choice other than fail the communication
-         if (!this.getRemotingConnection().isSupportsFlowControl() && pagingManager.isDiskFull()) {
-            long usableSpace = pagingManager.getDiskUsableSpace();
-            long totalSpace = pagingManager.getDiskTotalSpace();
-            ActiveMQIOErrorException exception = ActiveMQMessageBundle.BUNDLE.diskBeyondLimit(ByteUtil.getHumanReadableByteCount(usableSpace), ByteUtil.getHumanReadableByteCount(totalSpace), String.format("%.1f%%", FileStoreMonitor.calculateUsage(usableSpace, totalSpace) * 100));
-            this.getRemotingConnection().fail(exception);
-            throw exception;
+         if (globalMemoryManager instanceof PagingManager) {
+            if (!this.getRemotingConnection().isSupportsFlowControl() && ((PagingManager)globalMemoryManager).isDiskFull()) {
+               ActiveMQException exception = ((PagingManager)globalMemoryManager).diskFullException();
+               this.getRemotingConnection().fail(exception);
+               throw exception;
+            }
          }
 
          //large message may come from StompSession directly, in which
@@ -2109,11 +2108,11 @@ public class ServerSessionImpl extends CriticalComponentImpl implements ServerSe
    @Override
    public void requestProducerCredits(SimpleString address, final int credits) throws Exception {
       final SimpleString addr = removePrefix(address);
-      PagingStore store = server.getPagingManager().getPageStore(addr);
+      AddressMemoryManager addressMemoryManager = globalMemoryManager.getMemoryAddressManager(addr);
 
-      if (store == null) {
+      if (addressMemoryManager == null) {
          callback.sendProducerCreditsMessage(credits, address);
-      } else if (!store.checkMemory(new AtomicRunnable() {
+      } else if (!addressMemoryManager.checkMemory(new AtomicRunnable() {
          @Override
          public void atomicRun() {
             callback.sendProducerCreditsMessage(credits, address);

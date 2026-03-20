@@ -137,7 +137,7 @@ public class PageCleanupFolderTest extends ActiveMQTestBase {
             for (int i = 0; i < destinations; i++) {
                Queue queue = server.locateQueue("queue" + i);
                assertNotNull(queue);
-               Wait.assertFalse(queue.getPagingStore()::isPaging, 5000, 100);
+               Wait.assertFalse(getPagingStore(queue)::isPaging, 5000, 100);
             }
 
             // this is the code for purging a page folder

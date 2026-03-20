@@ -29,6 +29,8 @@ import java.util.Set;
 import org.apache.activemq.artemis.api.core.RoutingType;
 import org.apache.activemq.artemis.api.core.management.AddressControl;
 import org.apache.activemq.artemis.api.core.management.ResourceNames;
+import org.apache.activemq.artemis.core.memory.AddressMemoryManager;
+import org.apache.activemq.artemis.core.memory.GlobalMemoryManager;
 import org.apache.activemq.artemis.core.paging.PagingManager;
 import org.apache.activemq.artemis.core.paging.PagingStore;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
@@ -64,7 +66,7 @@ public class AddressControlImpl extends AbstractControl implements AddressContro
 
    private final ActiveMQServer server;
 
-   private final PagingManager pagingManager;
+   private final GlobalMemoryManager globalMemoryManager;
 
    private final HierarchicalRepository<Set<Role>> securityRepository;
 
@@ -75,7 +77,7 @@ public class AddressControlImpl extends AbstractControl implements AddressContro
 
    public AddressControlImpl(AddressInfo addressInfo,
                              final ActiveMQServer server,
-                             final PagingManager pagingManager,
+                             final GlobalMemoryManager globalMemoryManager,
                              final StorageManager storageManager,
                              final HierarchicalRepository<Set<Role>> securityRepository,
                              final SecurityStore securityStore,
@@ -83,7 +85,7 @@ public class AddressControlImpl extends AbstractControl implements AddressContro
       super(AddressControl.class, storageManager);
       this.server = server;
       this.addressInfo = addressInfo;
-      this.pagingManager = pagingManager;
+      this.globalMemoryManager = globalMemoryManager;
       this.securityRepository = securityRepository;
       this.securityStore = securityStore;
       this.managementService = managementService;
@@ -264,7 +266,16 @@ public class AddressControlImpl extends AbstractControl implements AddressContro
    }
 
    private PagingStore getPagingStore() throws Exception {
-      return pagingManager.getPageStore(addressInfo.getName());
+      if (globalMemoryManager instanceof PagingManager) {
+         PagingStore store = (PagingStore) globalMemoryManager.getMemoryAddressManager(addressInfo.getName());
+         return store;
+      } else {
+         return null;
+      }
+   }
+
+   private AddressMemoryManager getAddressMemoryManager() throws Exception {
+      return globalMemoryManager.getMemoryAddressManager(addressInfo.getName());
    }
 
    @Override
@@ -274,7 +285,7 @@ public class AddressControlImpl extends AbstractControl implements AddressContro
       }
       clearIO();
       try {
-         final PagingStore pagingStore = getPagingStore();
+         final AddressMemoryManager pagingStore = getAddressMemoryManager();
          if (pagingStore == null) {
             return 0;
          }

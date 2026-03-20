@@ -85,7 +85,7 @@ public class GlobalPagingTest extends ParameterDBTestBase {
          session.commit();
 
          Queue queue = server.locateQueue(addressName);
-         Wait.assertTrue(queue.getPagingStore()::isPaging, 1000, 100);
+         Wait.assertTrue(getPagingStore(queue)::isPaging, 1000, 100);
 
          connection.start();
 
@@ -96,7 +96,7 @@ public class GlobalPagingTest extends ParameterDBTestBase {
          }
          session.commit();
 
-         Wait.assertFalse(queue.getPagingStore()::isPaging, 1000, 100);
+         Wait.assertFalse(getPagingStore(queue)::isPaging, 1000, 100);
       }
 
    }
@@ -122,7 +122,7 @@ public class GlobalPagingTest extends ParameterDBTestBase {
          session.commit();
 
          Queue queue = server.locateQueue(addressName);
-         Wait.assertTrue(queue.getPagingStore()::isPaging, 1000, 100);
+         Wait.assertTrue(getPagingStore(queue)::isPaging, 1000, 100);
 
          connection.start();
 
@@ -133,7 +133,7 @@ public class GlobalPagingTest extends ParameterDBTestBase {
          }
          session.commit();
 
-         Wait.assertFalse(queue.getPagingStore()::isPaging, 1000, 100);
+         Wait.assertFalse(getPagingStore(queue)::isPaging, 1000, 100);
       }
 
    }
@@ -161,7 +161,7 @@ public class GlobalPagingTest extends ParameterDBTestBase {
          session.commit();
 
          Queue queue = server.locateQueue(addressName);
-         Wait.assertTrue(queue.getPagingStore()::isPaging, 1000, 100);
+         Wait.assertTrue(getPagingStore(queue)::isPaging, 1000, 100);
 
          connection.start();
 
@@ -172,7 +172,7 @@ public class GlobalPagingTest extends ParameterDBTestBase {
          }
          session.commit();
 
-         Wait.assertFalse(queue.getPagingStore()::isPaging, 1000, 100);
+         Wait.assertFalse(getPagingStore(queue)::isPaging, 1000, 100);
       }
 
    }
@@ -200,7 +200,7 @@ public class GlobalPagingTest extends ParameterDBTestBase {
          session.commit();
 
          Queue queue = server.locateQueue(addressName);
-         Wait.assertTrue(queue.getPagingStore()::isPaging, 1000, 100);
+         Wait.assertTrue(getPagingStore(queue)::isPaging, 1000, 100);
 
          connection.start();
 
@@ -211,7 +211,7 @@ public class GlobalPagingTest extends ParameterDBTestBase {
          }
          session.commit();
 
-         Wait.assertFalse(queue.getPagingStore()::isPaging, 1000, 100);
+         Wait.assertFalse(getPagingStore(queue)::isPaging, 1000, 100);
       }
 
    }

@@ -73,7 +73,7 @@ public class AmqpMaxReadPagingTest extends AmqpClientTestSupport {
 
       Queue queue = server.locateQueue(getQueueName());
       assertNotNull(queue);
-      queue.getPagingStore().startPaging();
+      getPagingStore(queue).startPaging();
 
       AmqpSender sender = session.createSender(getQueueName(), true);
 
@@ -92,7 +92,7 @@ public class AmqpMaxReadPagingTest extends AmqpClientTestSupport {
       if (receiver.getPrefetchSize() > 10) {
          logger.warn("Receiver has an unexpected size of {} elements on the client buffer", receiver.getPrefetchSize());
       }
-      PagingStore pagingStore = server.getPagingManager().getPageStore(SimpleString.of(getQueueName()));
+      PagingStore pagingStore = getPagingManager(server).getPageStore(SimpleString.of(getQueueName()));
       assertTrue(pagingStore.isPaging());
       assertTrue(receiver.getPrefetchSize() <= 10); // we should not have more than page-read messages
 

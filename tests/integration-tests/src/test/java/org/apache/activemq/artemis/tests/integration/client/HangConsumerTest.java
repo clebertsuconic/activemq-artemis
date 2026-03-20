@@ -48,9 +48,9 @@ import org.apache.activemq.artemis.core.io.SequentialFileFactory;
 import org.apache.activemq.artemis.core.io.nio.NIOSequentialFileFactory;
 import org.apache.activemq.artemis.core.journal.RecordInfo;
 import org.apache.activemq.artemis.core.journal.impl.JournalImpl;
-import org.apache.activemq.artemis.core.paging.PagingManager;
-import org.apache.activemq.artemis.core.paging.PagingStore;
-import org.apache.activemq.artemis.core.paging.cursor.PageSubscription;
+import org.apache.activemq.artemis.core.memory.AddressMemoryManager;
+import org.apache.activemq.artemis.core.memory.GlobalMemoryManager;
+import org.apache.activemq.artemis.core.memory.QueueMemoryManager;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.journal.JournalRecordIds;
@@ -68,6 +68,7 @@ import org.apache.activemq.artemis.core.server.impl.QueueImpl;
 import org.apache.activemq.artemis.core.server.impl.ServerSessionImpl;
 import org.apache.activemq.artemis.core.settings.HierarchicalRepository;
 import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
+import org.apache.activemq.artemis.core.transaction.impl.BindingsTransactionImpl;
 import org.apache.activemq.artemis.spi.core.protocol.RemotingConnection;
 import org.apache.activemq.artemis.spi.core.protocol.SessionCallback;
 import org.apache.activemq.artemis.spi.core.remoting.ReadyListener;
@@ -204,8 +205,8 @@ public class HangConsumerTest extends ActiveMQTestBase {
 
          MyQueueWithBlocking(final QueueConfiguration queueConfiguration,
                              final Filter filter,
-                             final PagingStore pagingStore,
-                             final PageSubscription pageSubscription,
+                             final AddressMemoryManager addressMemoryManager,
+                             final QueueMemoryManager pageSubscription,
                              final ScheduledExecutorService scheduledExecutor,
                              final PostOffice postOffice,
                              final StorageManager storageManager,
@@ -213,7 +214,7 @@ public class HangConsumerTest extends ActiveMQTestBase {
                              final ArtemisExecutor executor, final ActiveMQServer server) {
             super(queueConfiguration,
                   filter,
-                  pagingStore,
+                  addressMemoryManager,
                   pageSubscription,
                   scheduledExecutor,
                   postOffice,
@@ -252,9 +253,9 @@ public class HangConsumerTest extends ActiveMQTestBase {
          }
 
          @Override
-         public Queue createQueueWith(final QueueConfiguration config, PagingManager pagingManager, Filter filter) {
-            PageSubscription pageSubscription = getPageSubscription(config, pagingManager, filter);
-            queue = new MyQueueWithBlocking(config, filter, pageSubscription != null ? pageSubscription.getPagingStore() : null, pageSubscription, scheduledExecutor,
+         public Queue createQueueWith(final QueueConfiguration config, GlobalMemoryManager pagingManager, Filter filter) {
+            QueueMemoryManager pageSubscription = getPageSubscription(config, pagingManager, filter);
+            queue = new MyQueueWithBlocking(config, filter, pageSubscription != null ? pageSubscription.getAddressMemoryManager() : null, pageSubscription, scheduledExecutor,
                                             postOffice, storageManager, addressSettingsRepository,
                                             executorFactory.getExecutor(), server);
             return queue;
@@ -329,14 +330,14 @@ public class HangConsumerTest extends ActiveMQTestBase {
       session.commit();
 
       long queueID = server.getStorageManager().generateID();
-      long txID = server.getStorageManager().generateID();
+      BindingsTransactionImpl tx = new BindingsTransactionImpl(server.getStorageManager());
 
       // Forcing a situation where the server would unexpectedly create a duplicated queue. The server should still start normally
       LocalQueueBinding newBinding = new LocalQueueBinding(QUEUE,
                                                            new QueueImpl(QueueConfiguration.of(QUEUE).setRoutingType(RoutingType.ANYCAST).setId(queueID), null, null, null, null, null, null, null, null, server, null),
                                                            server.getNodeID());
-      server.getStorageManager().addQueueBinding(txID, newBinding);
-      server.getStorageManager().commitBindings(txID);
+      server.getStorageManager().addQueueBinding(tx, newBinding, null);
+      server.getStorageManager().commitBindings(tx);
 
       server.stop();
 

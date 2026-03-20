@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.apache.activemq.advisory.AdvisorySupport;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.api.core.management.AddressControl;
+import org.apache.activemq.artemis.core.memory.AddressMemoryManager;
 import org.apache.activemq.artemis.core.paging.PagingStore;
 import org.apache.activemq.artemis.core.settings.impl.AddressFullMessagePolicy;
 import org.apache.activemq.artemis.logs.AssertionLoggerHandler;
@@ -95,7 +96,7 @@ public class AdvisoryOpenWireTest extends BasicOpenWireTest {
             TemporaryTopic temporaryTopic = session.createTemporaryTopic();
             assertNotNull(temporaryTopic);
 
-            PagingStore store = server.getPagingManager().getPageStore(SimpleString.of("ActiveMQ.Advisory.TempTopic"));
+            AddressMemoryManager store = server.getGlobalMemoryManager().getMemoryAddressManager(SimpleString.of("ActiveMQ.Advisory.TempTopic"));
             assertNotNull(store);
             assertEquals(AddressFullMessagePolicy.DROP, store.getAddressFullMessagePolicy());
          }

@@ -18,7 +18,7 @@ package org.apache.activemq.artemis.core.server.impl;
 
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.core.config.Configuration;
-import org.apache.activemq.artemis.core.paging.PagingManager;
+import org.apache.activemq.artemis.core.memory.GlobalMemoryManager;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.postoffice.PostOffice;
 import org.apache.activemq.artemis.core.protocol.core.Channel;
@@ -93,7 +93,7 @@ public abstract class Activation implements Runnable {
     * create the Journal loader needed for this Activation.
     */
    public JournalLoader createJournalLoader(PostOffice postOffice,
-                                            PagingManager pagingManager,
+                                            GlobalMemoryManager globalMemoryManager,
                                             StorageManager storageManager,
                                             QueueFactory queueFactory,
                                             NodeManager nodeManager,
@@ -101,7 +101,7 @@ public abstract class Activation implements Runnable {
                                             GroupingHandler groupingHandler,
                                             Configuration configuration,
                                             ActiveMQServer parentServer) throws ActiveMQException {
-      return new PostOfficeJournalLoader(postOffice, pagingManager, storageManager, queueFactory, nodeManager, managementService, groupingHandler, configuration);
+      return new PostOfficeJournalLoader(postOffice, globalMemoryManager, storageManager, queueFactory, nodeManager, managementService, groupingHandler, configuration);
    }
 
    // todo, remove this, its only needed for JMSServerManagerImpl, it should be sought elsewhere

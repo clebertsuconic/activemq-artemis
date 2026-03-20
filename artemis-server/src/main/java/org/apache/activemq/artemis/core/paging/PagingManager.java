@@ -21,10 +21,15 @@ import java.util.Set;
 import java.util.concurrent.Future;
 import java.util.function.BiConsumer;
 
+import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.SimpleString;
+import org.apache.activemq.artemis.core.memory.AddressMemoryManager;
+import org.apache.activemq.artemis.core.memory.GlobalMemoryManager;
 import org.apache.activemq.artemis.core.server.ActiveMQComponent;
+import org.apache.activemq.artemis.core.server.ActiveMQMessageBundle;
 import org.apache.activemq.artemis.core.server.files.FileStoreMonitor;
 import org.apache.activemq.artemis.core.settings.HierarchicalRepositoryChangeListener;
+import org.apache.activemq.artemis.utils.ByteUtil;
 
 /**
  * <PRE>
@@ -41,7 +46,7 @@ import org.apache.activemq.artemis.core.settings.HierarchicalRepositoryChangeLis
  * +----------+
  * </PRE>
  */
-public interface PagingManager extends ActiveMQComponent, HierarchicalRepositoryChangeListener {
+public interface PagingManager extends ActiveMQComponent, HierarchicalRepositoryChangeListener, GlobalMemoryManager {
 
    /**
     * {@return the PageStore associated with the address; a new page store is created if necessary}
@@ -130,10 +135,12 @@ public interface PagingManager extends ActiveMQComponent, HierarchicalRepository
 
    long getDiskTotalSpace();
 
+   @Override
    default long getGlobalSize() {
       return 0;
    }
 
+   @Override
    default long getGlobalMessages() {
       return 0;
    }
@@ -172,6 +179,24 @@ public interface PagingManager extends ActiveMQComponent, HierarchicalRepository
 
    default boolean isRebuildingCounters() {
       return false;
+   }
+
+   // ============ GlobalMemoryManager methods ============
+
+   @Override
+   default AddressMemoryManager getMemoryAddressManager(SimpleString address) throws Exception {
+      return getPageStore(address);
+   }
+
+   @Override
+   default void removeAddress(SimpleString address) throws Exception {
+      deletePageStore(address);
+   }
+
+   default ActiveMQException diskFullException() {
+      long usableSpace = getDiskUsableSpace();
+      long totalSpace = getDiskTotalSpace();
+      return ActiveMQMessageBundle.BUNDLE.diskBeyondLimit(ByteUtil.getHumanReadableByteCount(usableSpace), ByteUtil.getHumanReadableByteCount(totalSpace), String.format("%.1f%%", FileStoreMonitor.calculateUsage(usableSpace, totalSpace) * 100));
    }
 
 }

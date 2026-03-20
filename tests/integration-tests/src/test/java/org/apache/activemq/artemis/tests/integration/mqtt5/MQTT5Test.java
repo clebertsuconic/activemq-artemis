@@ -386,7 +386,7 @@ public class MQTT5Test extends MQTT5TestSupport {
       try (AssertionLoggerHandler loggerHandler = new AssertionLoggerHandler()) {
          final String WILL_QUEUE = "will";
          server.createQueue(QueueConfiguration.of(WILL_QUEUE).setRoutingType(RoutingType.ANYCAST));
-         PagingManagerImplAccessor.setDiskFull((PagingManagerImpl) server.getPagingManager(), true);
+         PagingManagerImplAccessor.setDiskFull((PagingManagerImpl) getPagingManager(server), true);
          MqttClient client = createPahoClient("willGenerator");
          MqttConnectionOptions options = new MqttConnectionOptionsBuilder().will(WILL_QUEUE, new MqttMessage(RandomUtil.randomBytes())).build();
          client.connect(options);

@@ -91,13 +91,13 @@ public class TopicClusterPageStoreSizeTest extends JMSClusteredTestBase {
       waitForBindings(server2, TOPIC, false, 1, 1, 2000);
 
       if (forcePaging) {
-         for (SimpleString psName : server1.getPagingManager().getStoreNames()) {
+         for (SimpleString psName : getPagingManager(server1).getStoreNames()) {
             logger.info("server1: force paging on:{}", psName);
-            server1.getPagingManager().getPageStore(psName).startPaging();
+            getPagingManager(server1).getPageStore(psName).startPaging();
          }
-         for (SimpleString psName : server2.getPagingManager().getStoreNames()) {
+         for (SimpleString psName : getPagingManager(server2).getStoreNames()) {
             logger.info("server2: force paging on:{}", psName);
-            server2.getPagingManager().getPageStore(psName).startPaging();
+            getPagingManager(server2).getPageStore(psName).startPaging();
          }
       }
 
@@ -120,20 +120,20 @@ public class TopicClusterPageStoreSizeTest extends JMSClusteredTestBase {
       conn1.close();
       conn2.close();
 
-      for (SimpleString psName : server1.getPagingManager().getStoreNames()) {
-         Wait.assertTrue(() -> server1.getPagingManager().getPageStore(psName).getAddressSize() >= 0, 5000);
+      for (SimpleString psName : getPagingManager(server1).getStoreNames()) {
+         Wait.assertTrue(() -> getPagingManager(server1).getPageStore(psName).getAddressSize() >= 0, 5000);
       }
 
-      for (SimpleString psName : server2.getPagingManager().getStoreNames()) {
-         logger.info("server2: size of pages store: {} : {}", psName, server2.getPagingManager().getPageStore(psName).getAddressSize());
-         Wait.assertTrue(() -> server2.getPagingManager().getPageStore(psName).getAddressSize() >= 0, 5000);
+      for (SimpleString psName : getPagingManager(server2).getStoreNames()) {
+         logger.info("server2: size of pages store: {} : {}", psName, getPagingManager(server2).getPageStore(psName).getAddressSize());
+         Wait.assertTrue(() -> getPagingManager(server2).getPageStore(psName).getAddressSize() >= 0, 5000);
       }
 
       if (forcePaging) {
          // message in the store, should have getPagedSize or is there some such thing?
-         Wait.assertTrue(() -> server2.getPagingManager().getPageStore(SimpleString.of(TOPIC)).getNumberOfPages() > 0);
+         Wait.assertTrue(() -> getPagingManager(server2).getPageStore(SimpleString.of(TOPIC)).getNumberOfPages() > 0);
       } else {
-         Wait.assertTrue(() -> server2.getPagingManager().getPageStore(SimpleString.of(TOPIC)).getAddressSize() > 0);
+         Wait.assertTrue(() -> getPagingManager(server2).getPageStore(SimpleString.of(TOPIC)).getAddressSize() > 0);
       }
 
       // reconnect
@@ -162,8 +162,8 @@ public class TopicClusterPageStoreSizeTest extends JMSClusteredTestBase {
       prod1.send(topic1, session1.createTextMessage("someOtherMessage"));
 
       // stays on server 1
-      assertTrue(server1.getPagingManager().getPageStore(SimpleString.of(TOPIC)).getAddressSize() > 0, "some size on 1");
-      assertEquals(0, server2.getPagingManager().getPageStore(SimpleString.of(TOPIC)).getAddressSize(), "no size on 2");
+      assertTrue(getPagingManager(server1).getPageStore(SimpleString.of(TOPIC)).getAddressSize() > 0, "some size on 1");
+      assertEquals(0, getPagingManager(server2).getPageStore(SimpleString.of(TOPIC)).getAddressSize(), "no size on 2");
 
       // duplicate this sub on 2
       conn2 = cf2.createConnection();

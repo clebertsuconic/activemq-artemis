@@ -67,7 +67,7 @@ public class AmqpPurgeOnNoConsumersTest extends AmqpClientTestSupport {
       final AmqpReceiver receiver = session.createReceiver(queue);
 
       QueueImpl queueView = (QueueImpl)getProxyToQueue(queue);
-      assertEquals(0L, queueView.getPageSubscription().getPagingStore().getAddressSize());
+      assertEquals(0L, getPagingSubscription(queueView).getPagingStore().getAddressSize());
       assertEquals(0, queueView.getMessageCount());
 
       sendMessages(queue, 5, null, true);
@@ -92,7 +92,7 @@ public class AmqpPurgeOnNoConsumersTest extends AmqpClientTestSupport {
       }
 
       Wait.assertEquals(0, queueView::getMessageCount);
-      assertEquals(0L, queueView.getPageSubscription().getPagingStore().getAddressSize());
+      assertEquals(0L, getPagingSubscription(queueView).getPagingStore().getAddressSize());
 
       connection.close();
 
@@ -103,7 +103,7 @@ public class AmqpPurgeOnNoConsumersTest extends AmqpClientTestSupport {
       queueView = (QueueImpl)getProxyToQueue(queue);
 
       assertEquals(0, queueView.getMessageCount());
-      assertEquals(0L, queueView.getPageSubscription().getPagingStore().getAddressSize());
+      assertEquals(0L, getPagingSubscription(queueView).getPagingStore().getAddressSize());
    }
 
 
@@ -155,6 +155,6 @@ public class AmqpPurgeOnNoConsumersTest extends AmqpClientTestSupport {
       queueView = (QueueImpl)getProxyToQueue(queue);
 
       assertEquals(0, queueView.getMessageCount());
-      assertEquals(0L, queueView.getPageSubscription().getPagingStore().getAddressSize());
+      assertEquals(0L, getPagingSubscription(queueView).getPagingStore().getAddressSize());
    }
 }

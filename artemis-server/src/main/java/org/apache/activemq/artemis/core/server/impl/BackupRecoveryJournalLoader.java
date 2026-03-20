@@ -26,7 +26,7 @@ import org.apache.activemq.artemis.api.core.client.ServerLocator;
 import org.apache.activemq.artemis.core.client.impl.ServerLocatorInternal;
 import org.apache.activemq.artemis.core.config.Configuration;
 import org.apache.activemq.artemis.core.journal.Journal;
-import org.apache.activemq.artemis.core.paging.PagingManager;
+import org.apache.activemq.artemis.core.memory.GlobalMemoryManager;
 import org.apache.activemq.artemis.core.persistence.GroupingInfo;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.postoffice.PostOffice;
@@ -54,7 +54,7 @@ public class BackupRecoveryJournalLoader extends PostOfficeJournalLoader {
    private final Configuration configuration;
 
    public BackupRecoveryJournalLoader(PostOffice postOffice,
-                                      PagingManager pagingManager,
+                                      GlobalMemoryManager globalMemoryManager,
                                       StorageManager storageManager,
                                       QueueFactory queueFactory,
                                       NodeManager nodeManager,
@@ -65,7 +65,7 @@ public class BackupRecoveryJournalLoader extends PostOfficeJournalLoader {
                                       ServerLocatorInternal locator,
                                       ClusterController clusterController) {
 
-      super(postOffice, pagingManager, storageManager, queueFactory, nodeManager, managementService, groupingHandler, configuration);
+      super(postOffice, globalMemoryManager, storageManager, queueFactory, nodeManager, managementService, groupingHandler, configuration);
       this.parentServer = parentServer;
       this.locator = locator;
       this.clusterController = clusterController;
@@ -92,7 +92,7 @@ public class BackupRecoveryJournalLoader extends PostOfficeJournalLoader {
    public void postLoad(Journal messageJournal,
                         ResourceManager resourceManager,
                         Map<SimpleString, List<Pair<byte[], Long>>> duplicateIDMap) throws Exception {
-      ScaleDownHandler scaleDownHandler = new ScaleDownHandler(pagingManager, postOffice, nodeManager, clusterController, parentServer != null ? parentServer.getStorageManager() : storageManager, parentServer != null ? parentServer.getHAPolicy().getScaleDownCommitInterval() : -1);
+      ScaleDownHandler scaleDownHandler = new ScaleDownHandler(globalMemoryManager, postOffice, nodeManager, clusterController, parentServer != null ? parentServer.getStorageManager() : storageManager, parentServer != null ? parentServer.getHAPolicy().getScaleDownCommitInterval() : -1);
       locator.setProtocolManagerFactory(ActiveMQServerSideProtocolManagerFactory.getInstance(locator, storageManager));
 
       try (ClientSessionFactory sessionFactory = locator.createSessionFactory()) {

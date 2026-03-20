@@ -242,7 +242,7 @@ public class PagingSendTest extends ActiveMQTestBase {
       AtomicInteger errors = new AtomicInteger(0);
       CountDownLatch done = new CountDownLatch(1);
 
-      queue.getPagingStore().getExecutor().execute(() -> {
+      getPagingStore(queue).getExecutor().execute(() -> {
          try {
             checkBatchMessagesAreNotPagedTwice(queue);
             for (int i = 0; i < 10; i++) {
@@ -283,7 +283,7 @@ public class PagingSendTest extends ActiveMQTestBase {
 
       int numberOfMessages = 0;
       // ensure the server is paging
-      while (!server.getPagingManager().getPageStore(queueAddr).isPaging()) {
+      while (!getPagingManager(server).getPageStore(queueAddr).isPaging()) {
          sendMessageBatch(batchSize, session, queueAddr);
          numberOfMessages += batchSize;
 
@@ -331,7 +331,7 @@ public class PagingSendTest extends ActiveMQTestBase {
          // Give time Queue.deliverAsync to deliver messages
          assertTrue(waitForMessages(queue, totalMessages, 10000));
 
-         PagingStore queuePagingStore = queue.getPagingStore();
+         PagingStore queuePagingStore = getPagingStore(queue);
          assertTrue(queuePagingStore != null && queuePagingStore.isPaging());
 
          assertFalse(queuePagingStore.isPageFull());
@@ -412,7 +412,7 @@ public class PagingSendTest extends ActiveMQTestBase {
          Queue queue = server.locateQueue(queueAddr);
          assertTrue(waitForMessages(queue, totalMessages, 10000));
 
-         PagingStore queuePagingStore = queue.getPagingStore();
+         PagingStore queuePagingStore = getPagingStore(queue);
          assertTrue(queuePagingStore != null && queuePagingStore.isPageFull());
 
          // the messages reach the limit
@@ -435,7 +435,7 @@ public class PagingSendTest extends ActiveMQTestBase {
 
             queue = server.locateQueue(queueAddr);
 
-            queuePagingStore = queue.getPagingStore();
+            queuePagingStore = getPagingStore(queue);
             assertTrue(queuePagingStore != null && queuePagingStore.isPageFull());
 
             // but current pages still under limit
@@ -535,7 +535,7 @@ public class PagingSendTest extends ActiveMQTestBase {
          Queue queue = server.locateQueue(queueAddr);
          assertTrue(waitForMessages(queue, totalMessages, 10000));
 
-         PagingStore queuePagingStore = queue.getPagingStore();
+         PagingStore queuePagingStore = getPagingStore(queue);
          assertTrue(queuePagingStore != null && queuePagingStore.isPageFull());
 
          // the pages reach the limit
@@ -560,7 +560,7 @@ public class PagingSendTest extends ActiveMQTestBase {
 
             queue = server.locateQueue(queueAddr);
 
-            queuePagingStore = queue.getPagingStore();
+            queuePagingStore = getPagingStore(queue);
             assertNotNull(queuePagingStore);
             assertTrue(queuePagingStore.isPageFull());
 
@@ -644,7 +644,7 @@ public class PagingSendTest extends ActiveMQTestBase {
          Queue queue = server.locateQueue(queueAddr);
          assertTrue(waitForMessages(queue, totalMessages, 10000));
 
-         PagingStore queuePagingStore = queue.getPagingStore();
+         PagingStore queuePagingStore = getPagingStore(queue);
          assertNotNull(queuePagingStore);
          assertTrue(queuePagingStore.isPaging());
          assertFalse(queuePagingStore.isPageFull());
@@ -670,7 +670,7 @@ public class PagingSendTest extends ActiveMQTestBase {
 
             assertTrue(waitForMessages(queue, totalMessages, 10000));
 
-            queuePagingStore = queue.getPagingStore();
+            queuePagingStore = getPagingStore(queue);
             assertNotNull(queuePagingStore);
             assertTrue(queuePagingStore.isPaging() && queuePagingStore.isPageFull());
 

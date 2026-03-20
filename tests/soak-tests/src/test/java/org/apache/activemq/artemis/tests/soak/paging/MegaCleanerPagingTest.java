@@ -154,7 +154,7 @@ public class MegaCleanerPagingTest extends ActiveMQTestBase {
 
       org.apache.activemq.artemis.core.server.Queue serverQueue = server.locateQueue(queueName);
       assertNotNull(serverQueue);
-      serverQueue.getPagingStore().startPaging();
+      getPagingStore(serverQueue).startPaging();
 
       ConnectionFactory cf = CFUtil.createConnectionFactory("core", "tcp://localhost:61616?consumerWindowSize=0");
       assertEquals(0, ((ActiveMQConnectionFactory)cf).getServerLocator().getConsumerWindowSize());
@@ -170,7 +170,7 @@ public class MegaCleanerPagingTest extends ActiveMQTestBase {
       session.commit();
 
 
-      PagingStoreImpl store = (PagingStoreImpl) server.getPagingManager().getPageStore(SimpleString.of(queueName));
+      PagingStoreImpl store = (PagingStoreImpl) getPagingManager(server).getPageStore(SimpleString.of(queueName));
       store.disableCleanup();
 
       MessageConsumer consumer = session.createConsumer(queue);
@@ -218,7 +218,7 @@ public class MegaCleanerPagingTest extends ActiveMQTestBase {
 
       org.apache.activemq.artemis.core.server.Queue serverQueue = server.locateQueue(queueName);
       assertNotNull(serverQueue);
-      serverQueue.getPagingStore().startPaging();
+      getPagingStore(serverQueue).startPaging();
 
       ConnectionFactory cf = CFUtil.createConnectionFactory("core", "tcp://localhost:61616?consumerWindowSize=0");
       assertEquals(0, ((ActiveMQConnectionFactory)cf).getServerLocator().getConsumerWindowSize());
@@ -227,7 +227,7 @@ public class MegaCleanerPagingTest extends ActiveMQTestBase {
       session.commit();
 
 
-      PagingStoreImpl store = (PagingStoreImpl) server.getPagingManager().getPageStore(SimpleString.of(queueName));
+      PagingStoreImpl store = (PagingStoreImpl) getPagingManager(server).getPageStore(SimpleString.of(queueName));
       store.disableCleanup();
 
       MessageConsumer consumer = session.createConsumer(queue);
@@ -281,7 +281,7 @@ public class MegaCleanerPagingTest extends ActiveMQTestBase {
 
       org.apache.activemq.artemis.core.server.Queue serverQueue = server.locateQueue(queueName);
       assertNotNull(serverQueue);
-      serverQueue.getPagingStore().startPaging();
+      getPagingStore(serverQueue).startPaging();
 
       ConnectionFactory cf = CFUtil.createConnectionFactory("core", "tcp://localhost:61616?consumerWindowSize=0");
       assertEquals(0, ((ActiveMQConnectionFactory)cf).getServerLocator().getConsumerWindowSize());
@@ -317,7 +317,7 @@ public class MegaCleanerPagingTest extends ActiveMQTestBase {
       session.commit();
 
 
-      PagingStoreImpl store = (PagingStoreImpl) server.getPagingManager().getPageStore(SimpleString.of(queueName));
+      PagingStoreImpl store = (PagingStoreImpl) getPagingManager(server).getPageStore(SimpleString.of(queueName));
       store.disableCleanup();
 
       MessageConsumer consumer = session.createConsumer(queue);

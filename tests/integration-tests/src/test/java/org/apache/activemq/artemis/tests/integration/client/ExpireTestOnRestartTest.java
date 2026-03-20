@@ -140,7 +140,7 @@ public class ExpireTestOnRestartTest extends ActiveMQTestBase {
 
       locator.close();
 
-      Wait.assertFalse(queue.getPagingStore()::isPaging, 5000, 100);
+      Wait.assertFalse(getPagingStore(queue)::isPaging, 5000, 100);
    }
 
 }

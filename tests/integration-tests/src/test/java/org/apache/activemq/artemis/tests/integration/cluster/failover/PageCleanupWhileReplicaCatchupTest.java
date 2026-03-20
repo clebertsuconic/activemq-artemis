@@ -132,7 +132,7 @@ public class PageCleanupWhileReplicaCatchupTest extends FailoverTestBase {
       }
 
       for (Worker worker : workers) {
-         PagingStoreImpl storeImpl = (PagingStoreImpl)worker.queue.getPagingStore();
+         PagingStoreImpl storeImpl = (PagingStoreImpl)getPagingStore(worker.queue);
          Wait.assertFalse(storeImpl::isPaging, 5000, 100);
       }
    }
@@ -172,7 +172,7 @@ public class PageCleanupWhileReplicaCatchupTest extends FailoverTestBase {
                   javax.jms.Queue jmsQueue = session.createQueue(queueName);
                   MessageConsumer consumer = session.createConsumer(jmsQueue);
                   MessageProducer producer = session.createProducer(jmsQueue);
-                  queue.getPagingStore().startPaging();
+                  getPagingStore(queue).startPaging();
                   for (int i = 0; i < 10; i++) {
                      producer.send(session.createTextMessage("hello " + i));
                   }

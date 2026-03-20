@@ -42,10 +42,9 @@ import org.apache.activemq.artemis.api.core.client.ClientSessionFactory;
 import org.apache.activemq.artemis.api.core.management.ManagementHelper;
 import org.apache.activemq.artemis.api.core.management.ResourceNames;
 import org.apache.activemq.artemis.core.client.impl.ClientSessionFactoryInternal;
-import org.apache.activemq.artemis.core.paging.PagingManager;
-import org.apache.activemq.artemis.core.paging.PagingStore;
-import org.apache.activemq.artemis.core.paging.cursor.PageSubscription;
-import org.apache.activemq.artemis.core.paging.cursor.PagedReference;
+import org.apache.activemq.artemis.core.memory.AddressMemoryManager;
+import org.apache.activemq.artemis.core.memory.GlobalMemoryManager;
+import org.apache.activemq.artemis.core.memory.QueueMemoryManager;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.postoffice.Binding;
 import org.apache.activemq.artemis.core.postoffice.Bindings;
@@ -71,7 +70,7 @@ public class ScaleDownHandler {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
-   final PagingManager pagingManager;
+   final GlobalMemoryManager memoryManager;
    final PostOffice postOffice;
    private NodeManager nodeManager;
    private final ClusterController clusterController;
@@ -79,13 +78,13 @@ public class ScaleDownHandler {
    private final int commitInterval;
    private String targetNodeId;
 
-   public ScaleDownHandler(PagingManager pagingManager,
+   public ScaleDownHandler(GlobalMemoryManager memoryManager,
                            PostOffice postOffice,
                            NodeManager nodeManager,
                            ClusterController clusterController,
                            StorageManager storageManager,
                            int commitInterval) {
-      this.pagingManager = pagingManager;
+      this.memoryManager = memoryManager;
       this.postOffice = postOffice;
       this.nodeManager = nodeManager;
       this.clusterController = clusterController;
@@ -162,18 +161,18 @@ public class ScaleDownHandler {
 
       final HashMap<Queue, QueuesXRefInnerManager> controls = new HashMap<>();
 
-      PagingStore pageStore = pagingManager.getPageStore(address);
+      AddressMemoryManager addressMemoryManager = memoryManager.getMemoryAddressManager(address);
 
       Transaction tx = new TransactionImpl(storageManager);
 
-      if (pageStore != null) {
-         pageStore.disableCleanup();
+      if (addressMemoryManager != null) {
+         addressMemoryManager.disableCleanup();
       }
 
       try {
 
          for (Queue queue : queues) {
-            controls.put(queue, new QueuesXRefInnerManager(clientSession, queue, pageStore));
+            controls.put(queue, new QueuesXRefInnerManager(clientSession, queue, addressMemoryManager));
          }
 
          // compile a list of all the relevant queues and queue iterators for this address
@@ -245,9 +244,9 @@ public class ScaleDownHandler {
 
          return messageCount;
       } finally {
-         if (pageStore != null) {
-            pageStore.enableCleanup();
-            pageStore.getCursorProvider().scheduleCleanup();
+         if (addressMemoryManager != null) {
+            addressMemoryManager.enableCleanup();
+            addressMemoryManager.scheduleCleanup();
          }
       }
    }
@@ -540,7 +539,7 @@ public class ScaleDownHandler {
       private final Queue queue;
       private LinkedListIterator<MessageReference> memoryIterator;
       private MessageReference lastRef = null;
-      private final PagingStore store;
+      private final AddressMemoryManager store;
 
       /**
        * ClientSession used for looking up and creating queues
@@ -549,7 +548,7 @@ public class ScaleDownHandler {
 
       private long targetQueueID = -1;
 
-      QueuesXRefInnerManager(final ClientSession clientSession, final Queue queue, final PagingStore store) {
+      QueuesXRefInnerManager(final ClientSession clientSession, final Queue queue, final AddressMemoryManager store) {
          this.queue = queue;
          this.store = store;
          this.clientSession = clientSession;
@@ -579,8 +578,8 @@ public class ScaleDownHandler {
             if (store == null) {
                return false;
             }
-            PageSubscription subscription = store.getCursorProvider().getSubscription(queue.getID());
-            if (subscription.contains((PagedReference) reference)) {
+            QueueMemoryManager queueMemoryManager = store.getQueueMemoryManager(queue.getID());
+            if (queueMemoryManager != null && queueMemoryManager.contains(reference)) {
                return true;
             }
          } else {

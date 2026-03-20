@@ -158,12 +158,12 @@ public class NettyReplicatedFailoverTest extends NettyFailoverInVMTest {
          org.apache.activemq.artemis.core.server.Queue serverQueue = primaryServer.getServer().locateQueue(queueName);
          Assertions.assertNotNull(serverQueue);
 
-         serverQueue.getPagingStore().startPaging();
+         getPagingStore(serverQueue).startPaging();
 
          for (int i = 0; i < 50; i++) {
             producer.send(session.createTextMessage("hello"));
             session.commit();
-            serverQueue.getPagingStore().forceAnotherPage(true);
+            getPagingStore(serverQueue).forceAnotherPage(true);
          }
          backupServer.stop();
          backupServer.start();
@@ -178,7 +178,7 @@ public class NettyReplicatedFailoverTest extends NettyFailoverInVMTest {
          producer.send(session.createTextMessage("on currentPage"));
          session.commit();
 
-         PagingStore store = primaryServer.getServer().getPagingManager().getPageStore(SimpleString.of(queueName));
+         PagingStore store = getPagingManager(primaryServer.getServer()).getPageStore(SimpleString.of(queueName));
          Page currentPage = store.getCurrentPage();
          logger.info("Page {}", currentPage.getPageId());
 

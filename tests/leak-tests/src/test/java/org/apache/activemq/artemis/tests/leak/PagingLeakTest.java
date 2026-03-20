@@ -120,7 +120,7 @@ public class PagingLeakTest extends AbstractLeakTest {
       server.createQueue(QueueConfiguration.of(getName()).setAddress(getName()).setRoutingType(RoutingType.ANYCAST).setDurable(true));
 
       Queue serverQueue = server.locateQueue(getName());
-      serverQueue.getPagingStore().startPaging();
+      getPagingStore(serverQueue).startPaging();
 
       try (Connection connection = cf.createConnection()) {
          Session session = connection.createSession(true, Session.SESSION_TRANSACTED);
@@ -134,7 +134,7 @@ public class PagingLeakTest extends AbstractLeakTest {
             producer.send(message);
             if (i > 0 && i % COMMIT_INTERVAL == 0) {
                session.commit();
-               serverQueue.getPagingStore().forceAnotherPage(true);
+               getPagingStore(serverQueue).forceAnotherPage(true);
             }
          }
          session.commit();
@@ -147,7 +147,7 @@ public class PagingLeakTest extends AbstractLeakTest {
       // no acks done, no PagePosition recorded
       assertEquals(0, checkLeak.getAllObjects(PagePositionImpl.class).length);
 
-      serverQueue.getPagingStore().disableCleanup();
+      getPagingStore(serverQueue).disableCleanup();
 
       try (Connection connection = cf.createConnection()) {
          Session session = connection.createSession(true, Session.SESSION_TRANSACTED);
@@ -167,7 +167,7 @@ public class PagingLeakTest extends AbstractLeakTest {
       // We forced paged, there should be one PageCursorInfo per page since they are all acked
       Wait.assertEquals(MESSAGES / COMMIT_INTERVAL, () -> checkLeak.getAllObjects(PageSubscriptionImpl.PageCursorInfo.class).length, 5_0000, 500);
 
-      serverQueue.getPagingStore().enableCleanup();
+      getPagingStore(serverQueue).enableCleanup();
 
       // There should be only one holding the next page in place
       Wait.assertEquals(1, () -> checkLeak.getAllObjects(PagePositionImpl.class).length, 5_000, 500);
@@ -175,7 +175,7 @@ public class PagingLeakTest extends AbstractLeakTest {
       // Everything is acked, we should not have any pageTransactions
       Wait.assertEquals(0, () -> checkLeak.getAllObjects(PageTransactionInfoImpl.class).length, 5_0000, 500);
 
-      serverQueue.getPagingStore().startPaging();
+      getPagingStore(serverQueue).startPaging();
 
       try (Connection connection = cf.createConnection()) {
          Session session = connection.createSession(true, Session.SESSION_TRANSACTED);
@@ -189,7 +189,7 @@ public class PagingLeakTest extends AbstractLeakTest {
             producer.send(message);
             if (i > 0 && i % COMMIT_INTERVAL == 0) {
                session.commit();
-               serverQueue.getPagingStore().forceAnotherPage(true);
+               getPagingStore(serverQueue).forceAnotherPage(true);
             }
          }
          session.commit();

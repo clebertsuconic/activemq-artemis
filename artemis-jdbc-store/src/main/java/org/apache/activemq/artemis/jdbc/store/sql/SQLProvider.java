@@ -18,94 +18,109 @@ package org.apache.activemq.artemis.jdbc.store.sql;
 
 public interface SQLProvider {
 
-   enum DatabaseStoreType {
-      PAGE, MESSAGE_JOURNAL, BINDINGS_JOURNAL, LARGE_MESSAGE, NODE_MANAGER
-   }
+   PropertySQLProvider.Factory.SQLDialect getDialect();
 
    long getMaxBlobSize();
 
-   String[] getCreateJournalTableSQL();
+   String[] getCreateJournalTableSQL(String tableName);
 
-   String getInsertJournalRecordsSQL();
+   String[] getCreateParallelDBMessages(String tableName);
 
-   String getSelectJournalRecordsSQL();
+   String[] getCreateParallelDBReferences(String tableName);
 
-   String getDeleteJournalRecordsSQL();
+   String[] getCreateParallelDBAddress(String tableName);
 
-   String getDeleteJournalTxRecordsSQL();
+   String[] getCreateParallelDBQueue(String tableName);
 
-   String getTableName();
+   String getInsertJournalRecordsSQL(String tableName);
 
-   String[] getCreateFileTableSQL();
+   String getSelectJournalRecordsSQL(String tableName);
 
-   String getInsertFileSQL();
+   String getDeleteJournalRecordsSQL(String tableName);
 
-   String getSelectFileNamesByExtensionSQL();
+   String getDeleteJournalTxRecordsSQL(String tableName);
 
-   String getSelectFileByFileName();
+   String[] getCreateFileTableSQL(String tableName);
 
-   String getReplaceLargeObjectSQL();
+   String getInsertFileSQL(String tableName);
 
-   String getAppendToLargeObjectSQL();
+   String getSelectFileNamesByExtensionSQL(String tableName);
 
-   String getReadLargeObjectSQL();
+   String getSelectFileByFileName(String tableName);
 
-   String getDeleteFileSQL();
+   String getReplaceLargeObjectSQL(String tableName);
 
-   String getUpdateFileNameByIdSQL();
+   String getAppendToLargeObjectSQL(String tableName);
 
-   String getCopyFileRecordByIdSQL();
+   String getReadLargeObjectSQL(String tableName);
 
-   String getDropFileTableSQL();
+   String getDeleteFileSQL(String tableName);
 
-   String getCloneFileRecordByIdSQL();
+   String getUpdateFileNameByIdSQL(String tableName);
 
-   String getCountJournalRecordsSQL();
+   String getCopyFileRecordByIdSQL(String tableName);
 
-   boolean closeConnectionOnShutdown();
+   String getDropFileTableSQL(String tableName);
 
-   String createNodeManagerStoreTableSQL();
+   String getCloneFileRecordByIdSQL(String tableName);
 
-   String createStateSQL();
+   String getCountJournalRecordsSQL(String tableName);
 
-   String createNodeIdSQL();
+   boolean closeConnectionOnShutdown(String tableName);
 
-   String createPrimaryLockSQL();
+   String createNodeManagerStoreTableSQL(String tableName);
 
-   String createBackupLockSQL();
+   String createStateSQL(String tableName);
 
-   String tryAcquirePrimaryLockSQL();
+   String createNodeIdSQL(String tableName);
 
-   String tryAcquireBackupLockSQL();
+   String createPrimaryLockSQL(String tableName);
 
-   String tryReleasePrimaryLockSQL();
+   String createBackupLockSQL(String tableName);
 
-   String tryReleaseBackupLockSQL();
+   String tryAcquirePrimaryLockSQL(String tableName);
 
-   String isPrimaryLockedSQL();
+   String tryAcquireBackupLockSQL(String tableName);
 
-   String isBackupLockedSQL();
+   String tryReleasePrimaryLockSQL(String tableName);
 
-   String renewPrimaryLockSQL();
+   String tryReleaseBackupLockSQL(String tableName);
 
-   String renewBackupLockSQL();
+   String isPrimaryLockedSQL(String tableName);
 
-   String currentTimestampSQL();
+   String isBackupLockedSQL(String tableName);
+
+   String renewPrimaryLockSQL(String tableName);
+
+   String renewBackupLockSQL(String tableName);
+
+   String currentTimestampSQL(String tableName);
 
    String currentTimestampTimeZoneId();
 
-   String writeStateSQL();
+   String writeStateSQL(String tableName);
 
-   String readStateSQL();
+   String readStateSQL(String tableName);
 
-   String writeNodeIdSQL();
+   String writeNodeIdSQL(String tableName);
 
-   String initializeNodeIdSQL();
+   String initializeNodeIdSQL(String tableName);
 
-   String readNodeIdSQL();
+   String readNodeIdSQL(String tableName);
+
+   String applyCase(String tableName);
+
+   String getInsertPDBMessages(String tableName);
+
+   String getInsertPDBReferences(String tableName);
+
+   String getDeletePDBReferences(String tableName);
+
+   String getDeletePDBMessages(String tableName);
+
+   String getUpdateTX(String tableName);
 
    interface Factory {
-
-      SQLProvider create(String tableName, DatabaseStoreType dbStoreType);
+      SQLProvider create();
    }
 }

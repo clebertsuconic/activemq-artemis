@@ -32,6 +32,7 @@ import org.apache.activemq.artemis.api.core.client.ClientProducer;
 import org.apache.activemq.artemis.api.core.client.ClientSession;
 import org.apache.activemq.artemis.api.core.client.ClientSessionFactory;
 import org.apache.activemq.artemis.api.core.client.ServerLocator;
+import org.apache.activemq.artemis.core.paging.PagingManager;
 import org.apache.activemq.artemis.core.postoffice.impl.PostOfficeImpl;
 import org.apache.activemq.artemis.core.postoffice.impl.PostOfficeTestAccessor;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
@@ -143,7 +144,8 @@ public class AutoDeleteAddressTest extends ActiveMQTestBase {
 
       for (String address : addresses) {
          assertNotNull(server.getAddressInfo(SimpleString.of(address)));
-         Wait.assertTrue(() -> Arrays.asList(server.getPagingManager().getStoreNames()).contains(SimpleString.of(address)), 2000, 100);
+         PagingManager pagingManager = getPagingManager(server);
+         Wait.assertTrue(() -> Arrays.asList(pagingManager.getStoreNames()).contains(SimpleString.of(address)), 2000, 100);
       }
 
       for (int i = 0; i < MESSAGE_COUNT; i++) {
@@ -155,14 +157,14 @@ public class AutoDeleteAddressTest extends ActiveMQTestBase {
 
       for (String address : addresses) {
          assertNotNull(server.getAddressInfo(SimpleString.of(address)));
-         Wait.assertTrue(() -> Arrays.asList(server.getPagingManager().getStoreNames()).contains(SimpleString.of(address)), 2000, 100);
+         Wait.assertTrue(() -> Arrays.asList(getPagingManager(server).getStoreNames()).contains(SimpleString.of(address)), 2000, 100);
       }
 
       PostOfficeTestAccessor.sweepAndReapAddresses((PostOfficeImpl) server.getPostOffice());
 
       for (String address : addresses) {
          assertNull(server.getAddressInfo(SimpleString.of(address)));
-         Wait.assertFalse(() -> Arrays.asList(server.getPagingManager().getStoreNames()).contains(SimpleString.of(address)), 2000, 100);
+         Wait.assertFalse(() -> Arrays.asList(getPagingManager(server).getStoreNames()).contains(SimpleString.of(address)), 2000, 100);
       }
 
       consumerSession.close();

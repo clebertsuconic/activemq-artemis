@@ -36,6 +36,8 @@ import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.core.filter.Filter;
 import org.apache.activemq.artemis.core.io.IOCallback;
+import org.apache.activemq.artemis.core.memory.AddressMemoryManager;
+import org.apache.activemq.artemis.core.memory.QueueMemoryManager;
 import org.apache.activemq.artemis.core.paging.PageTransactionInfo;
 import org.apache.activemq.artemis.core.paging.PagedMessage;
 import org.apache.activemq.artemis.core.paging.PagingStore;
@@ -62,7 +64,7 @@ import org.slf4j.LoggerFactory;
 
 import static org.apache.activemq.artemis.core.server.impl.QueueImpl.DELIVERY_TIMEOUT;
 
-public final class PageSubscriptionImpl implements PageSubscription {
+public final class PageSubscriptionImpl implements PageSubscription, QueueMemoryManager {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
@@ -106,6 +108,7 @@ public final class PageSubscriptionImpl implements PageSubscription {
 
    private final PageSubscriptionCounter counter;
 
+   private AddressMemoryManager addressMemoryManager;
 
    PageSubscriptionImpl(final PageCursorProvider cursorProvider,
                         final PagingStore pageStore,
@@ -125,6 +128,14 @@ public final class PageSubscriptionImpl implements PageSubscription {
       this.counter.setSubscription(this);
    }
 
+   @Override
+   public AddressMemoryManager getAddressMemoryManager() {
+      return addressMemoryManager;
+   }
+
+   public void setAddressMemoryManager(AddressMemoryManager addressMemoryManager) {
+      this.addressMemoryManager = addressMemoryManager;
+   }
 
    @Override
    public PagingStore getPagingStore() {
@@ -338,7 +349,7 @@ public final class PageSubscriptionImpl implements PageSubscription {
             if (isPersistent()) {
                PagePosition completePage = new PagePositionImpl(infoPG.getPageId(), infoPG.getNumberOfMessages());
                infoPG.setCompleteInfo(completePage);
-               store.storePageCompleteTransactional(tx.getID(), this.getId(), completePage);
+               store.storePageCompleteTransactional(tx, this.getId(), completePage);
                if (!persist) {
                   persist = true;
                   tx.setContainsPersistent();
@@ -349,7 +360,7 @@ public final class PageSubscriptionImpl implements PageSubscription {
                // it will delete the page ack records
                for (PagePosition pos : infoPG.acks.values()) {
                   if (pos.getRecordID() >= 0) {
-                     store.deleteCursorAcknowledgeTransactional(tx.getID(), pos.getRecordID());
+                     store.deleteCursorAcknowledgeTransactional(tx, pos.getRecordID());
                      if (!persist) {
                         // only need to set it once
                         tx.setContainsPersistent();
@@ -386,8 +397,33 @@ public final class PageSubscriptionImpl implements PageSubscription {
    }
 
    @Override
+   public boolean supportsDirectDelivery() {
+      return true;
+   }
+
+   @Override
+   public PageIterator pageIterator(boolean browsing) {
+      return iterator(browsing);
+   }
+
+   @Override
    public PageIterator iterator() {
       return new CursorIterator();
+   }
+
+   @Override
+   public void pageAckTx(Transaction tx, PagedReference ref) throws Exception {
+      ackTx(tx, ref, true);
+   }
+
+   @Override
+   public void pageAck(PagedReference ref) throws Exception {
+      ack(ref);
+   }
+
+   @Override
+   public PageSubscriptionCounter getPageCounter() {
+      return getCounter();
    }
 
    @Override
@@ -410,7 +446,7 @@ public final class PageSubscriptionImpl implements PageSubscription {
    public void confirmPosition(final Transaction tx, final PagePosition position, boolean fromDelivery) throws Exception {
       // if the cursor is persistent
       if (persistent) {
-         store.storeCursorAcknowledgeTransactional(tx.getID(), cursorId, position);
+         store.storeCursorAcknowledgeTransactional(tx, cursorId, position);
       }
       installTXCallback(tx, position, fromDelivery);
 
@@ -644,7 +680,7 @@ public final class PageSubscriptionImpl implements PageSubscription {
     */
    @Override
    public void destroy() throws Exception {
-      final long tx = store.generateID();
+      Transaction tx = new TransactionImpl(store);
       try {
 
          boolean isPersistent = false;
@@ -668,13 +704,14 @@ public final class PageSubscriptionImpl implements PageSubscription {
          }
 
          if (isPersistent) {
-            store.commit(tx);
+            tx.setContainsPersistent();
+            tx.commit();
          }
 
          cursorProvider.close(this);
       } catch (Exception e) {
          try {
-            store.rollback(tx);
+            tx.rollback();
          } catch (Exception ignored) {
             // exception of the exception.. nothing that can be done here
          }

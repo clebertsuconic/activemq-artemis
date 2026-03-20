@@ -27,6 +27,7 @@ import org.apache.activemq.artemis.api.core.QueueConfiguration;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.config.amqpBrokerConnectivity.AMQPMirrorBrokerConnectionElement;
 import org.apache.activemq.artemis.core.io.IOCallback;
+import org.apache.activemq.artemis.core.paging.PagingStore;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContextImpl;
 import org.apache.activemq.artemis.core.postoffice.impl.PostOfficeImpl;
@@ -60,6 +61,7 @@ import java.lang.invoke.MethodHandles;
 
 import static org.apache.activemq.artemis.protocol.amqp.connect.mirror.AMQPMirrorControllerTarget.getControllerInUse;
 
+// Important: Mirror is not supported with RealJDBCStorage
 public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> implements MirrorController, ActiveMQComponent {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
@@ -187,11 +189,16 @@ public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> im
 
       if (sync) {
          logger.debug("Mirror is configured to sync, so pageStore={} being enforced to BLOCK, and not page", snfQueue.getName());
-         snfQueue.getPagingStore().enforceAddressFullMessagePolicy(AddressFullMessagePolicy.BLOCK);
+         getPagingStore(snfQueue).enforceAddressFullMessagePolicy(AddressFullMessagePolicy.BLOCK);
       } else {
          logger.debug("Mirror is configured to not sync, so pageStore={} being enforced to PAGE", snfQueue.getName());
-         snfQueue.getPagingStore().enforceAddressFullMessagePolicy(AddressFullMessagePolicy.PAGE);
+         getPagingStore(snfQueue).enforceAddressFullMessagePolicy(AddressFullMessagePolicy.PAGE);
       }
+   }
+
+   private PagingStore getPagingStore(Queue queue) {
+      PagingStore addressMemoryManager = (PagingStore) queue.getAddressMemoryManager();
+      return addressMemoryManager;
    }
 
    public Queue getSnfQueue() {
@@ -402,11 +409,11 @@ public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> im
             return;
          }
 
-         int creditsWrite = snfQueue.getPagingStore().page(message, tx, pagedRouteContext, this::copyMessageForPaging, true);
+         int creditsWrite = getPagingStore(snfQueue).page(message, tx, pagedRouteContext, this::copyMessageForPaging, true);
 
          // This will store the message on paging, and the message will be copied into paging.
          if (creditsWrite >= 0) {
-            snfQueue.getPagingStore().writeFlowControl(creditsWrite);
+            getPagingStore(snfQueue).writeFlowControl(creditsWrite);
             if (tx == null) {
                snfQueue.deliverAsync();
             } else {

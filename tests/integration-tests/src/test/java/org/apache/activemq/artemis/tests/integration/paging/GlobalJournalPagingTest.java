@@ -129,7 +129,7 @@ public class GlobalJournalPagingTest extends JournalPagingTest {
       }
 
       Queue queue = server.locateQueue(ADDRESS);
-      queue.getPageSubscription().getPagingStore().forceAnotherPage(true);
+      getPagingStore(queue).forceAnotherPage(true);
 
       sendFewMessages(numberOfMessages, session, producer, body);
 
@@ -233,9 +233,9 @@ public class GlobalJournalPagingTest extends JournalPagingTest {
 
             final Queue managementQueue = server.locateQueue(managementAddress);
 
-            assertNull(managementQueue.getPageSubscription());
+            assertNull(getPagingSubscription(managementQueue));
 
-            assertNull(server.getPagingManager().getPageStore(managementAddress));
+            assertNull(getPagingManager(server).getPageStore(managementAddress));
 
             final SimpleString address = SimpleString.of("queue");
 
@@ -246,7 +246,7 @@ public class GlobalJournalPagingTest extends JournalPagingTest {
 
             final CountDownLatch startSendMessages = new CountDownLatch(1);
 
-            final PagingManager pagingManager = server.getPagingManager();
+            final PagingManager pagingManager = getPagingManager(server);
 
             final long globalSize = pagingManager.getGlobalSize();
 

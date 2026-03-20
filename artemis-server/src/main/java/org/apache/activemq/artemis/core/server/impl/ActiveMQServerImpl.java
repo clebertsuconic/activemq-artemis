@@ -87,6 +87,8 @@ import org.apache.activemq.artemis.core.io.aio.AIOSequentialFileFactory;
 import org.apache.activemq.artemis.core.journal.JournalLoadInformation;
 import org.apache.activemq.artemis.core.journal.RecordInfo;
 import org.apache.activemq.artemis.core.management.impl.ActiveMQServerControlImpl;
+import org.apache.activemq.artemis.core.memory.GlobalMemoryManager;
+import org.apache.activemq.artemis.core.memory.database.NewDatabaseGlobalMemoryManager;
 import org.apache.activemq.artemis.core.paging.PagingManager;
 import org.apache.activemq.artemis.core.paging.PagingStoreFactory;
 import org.apache.activemq.artemis.core.paging.impl.PagingManagerImpl;
@@ -107,6 +109,7 @@ import org.apache.activemq.artemis.core.persistence.impl.journal.JDBCJournalStor
 import org.apache.activemq.artemis.core.persistence.impl.journal.JournalStorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContextImpl;
 import org.apache.activemq.artemis.core.persistence.impl.nullpm.NullStorageManager;
+import org.apache.activemq.artemis.core.persistence.impl.newdatabase.NewDatabaseStorageManager;
 import org.apache.activemq.artemis.core.postoffice.Binding;
 import org.apache.activemq.artemis.core.postoffice.BindingType;
 import org.apache.activemq.artemis.core.postoffice.Bindings;
@@ -135,7 +138,7 @@ import org.apache.activemq.artemis.core.server.BindingQueryResult;
 import org.apache.activemq.artemis.core.server.BrokerConnection;
 import org.apache.activemq.artemis.core.server.Divert;
 import org.apache.activemq.artemis.core.server.JournalType;
-import org.apache.activemq.artemis.core.server.MemoryManager;
+import org.apache.activemq.artemis.core.server.HeapManager;
 import org.apache.activemq.artemis.core.server.MessageReference;
 import org.apache.activemq.artemis.core.server.NetworkHealthCheck;
 import org.apache.activemq.artemis.core.server.NodeManager;
@@ -195,6 +198,8 @@ import org.apache.activemq.artemis.core.settings.impl.DeletionPolicy;
 import org.apache.activemq.artemis.core.settings.impl.HierarchicalObjectRepository;
 import org.apache.activemq.artemis.core.settings.impl.ResourceLimitSettings;
 import org.apache.activemq.artemis.core.transaction.ResourceManager;
+import org.apache.activemq.artemis.core.transaction.Transaction;
+import org.apache.activemq.artemis.core.transaction.impl.BindingsTransactionImpl;
 import org.apache.activemq.artemis.core.transaction.impl.ResourceManagerImpl;
 import org.apache.activemq.artemis.core.version.Version;
 import org.apache.activemq.artemis.lockmanager.DistributedLockManager;
@@ -280,7 +285,7 @@ public class ActiveMQServerImpl implements ActiveMQServer {
 
    private volatile QueueFactory queueFactory;
 
-   private volatile PagingManager pagingManager;
+   private volatile GlobalMemoryManager globalMemoryManager;
 
    private volatile PostOffice postOffice;
 
@@ -346,7 +351,7 @@ public class ActiveMQServerImpl implements ActiveMQServer {
 
    private volatile ConnectorsService connectorsService;
 
-   private MemoryManager memoryManager;
+   private HeapManager heapManager;
 
    private ReloadManager reloadManager;
 
@@ -604,7 +609,7 @@ public class ActiveMQServerImpl implements ActiveMQServer {
 
    private void configureJdbcNetworkTimeout() {
       if (configuration.isPersistenceEnabled()) {
-         if (configuration.isUsingDatabasePersistence()) {
+         if (configuration.isUsingFileOverDB()) {
             configuration.setMaxDiskUsage(-1); // it does not make sense with JDBC
             DatabaseStorageConfiguration databaseStorageConfiguration = (DatabaseStorageConfiguration) configuration.getStoreConfiguration();
             databaseStorageConfiguration.setConnectionProviderNetworkTimeout(threadPool, databaseStorageConfiguration.getJdbcNetworkTimeout());
@@ -614,7 +619,7 @@ public class ActiveMQServerImpl implements ActiveMQServer {
 
    private void clearJdbcNetworkTimeout() {
       if (configuration.isPersistenceEnabled()) {
-         if (configuration.isUsingDatabasePersistence()) {
+         if (configuration.isUsingFileOverDB()) {
             DatabaseStorageConfiguration databaseStorageConfiguration = (DatabaseStorageConfiguration) configuration.getStoreConfiguration();
             databaseStorageConfiguration.clearConnectionProviderNetworkTimeout();
          }
@@ -626,7 +631,7 @@ public class ActiveMQServerImpl implements ActiveMQServer {
       NodeManager manager;
       if (!configuration.isPersistenceEnabled()) {
          manager = new InVMNodeManager(replicatingBackup);
-      } else if (configuration.isUsingDatabasePersistence()) {
+      } else if (configuration.isUsingFileOverDB()) {
          final HAPolicyConfiguration.TYPE haType = configuration.getHAPolicyConfiguration() == null ? null : configuration.getHAPolicyConfiguration().getType();
          if (haType == HAPolicyConfiguration.TYPE.SHARED_STORE_PRIMARY || haType == HAPolicyConfiguration.TYPE.SHARED_STORE_BACKUP) {
             if (replicatingBackup) {
@@ -1466,10 +1471,12 @@ public class ActiveMQServerImpl implements ActiveMQServer {
 
       stopLockCoordinators();
 
-      stopComponent(pagingManager);
+      stopComponent(globalMemoryManager);
 
-      if (!criticalIOError && pagingManager != null) {
-         pagingManager.counterSnapshot();
+      if (!criticalIOError && globalMemoryManager != null) {
+         if (globalMemoryManager instanceof PagingManager) {
+            ((PagingManager)globalMemoryManager).counterSnapshot();
+         }
       }
 
       final ManagementService managementService = this.managementService;
@@ -1520,7 +1527,7 @@ public class ActiveMQServerImpl implements ActiveMQServer {
          scheduledPool.shutdownNow();
       }
 
-      stopComponent(memoryManager);
+      stopComponent(heapManager);
 
       for (SecuritySettingPlugin securitySettingPlugin : configuration.getSecuritySettingPlugins()) {
          securitySettingPlugin.stop();
@@ -1548,14 +1555,14 @@ public class ActiveMQServerImpl implements ActiveMQServer {
 
       installMirrorController(null);
 
-      pagingManager = null;
+      globalMemoryManager = null;
       securityStore = null;
       resourceManager = null;
       postOffice = null;
       queueFactory = null;
       resourceManager = null;
       messagingServerControl = null;
-      memoryManager = null;
+      heapManager = null;
       backupManager = null;
       extraRecordsLoader = null;
       this.storageManager = null;
@@ -1792,8 +1799,8 @@ public class ActiveMQServerImpl implements ActiveMQServer {
    }
 
    @Override
-   public PagingManager getPagingManager() {
-      return pagingManager;
+   public GlobalMemoryManager getGlobalMemoryManager() {
+      return globalMemoryManager;
    }
 
    @Override
@@ -3232,12 +3239,16 @@ public class ActiveMQServerImpl implements ActiveMQServer {
    }
 
    @Override
-   public PagingManager createPagingManager() throws Exception {
-      return new PagingManagerImpl(getPagingStoreFactory(), addressSettingsRepository, configuration.getGlobalMaxSize(), configuration.getGlobalMaxMessages(), configuration.getManagementAddress(), this);
+   public GlobalMemoryManager createMemoryManager() throws Exception {
+      if (storageManager instanceof NewDatabaseStorageManager) {
+         return new NewDatabaseGlobalMemoryManager();
+      } else {
+         return new PagingManagerImpl(getPagingStoreFactory(), addressSettingsRepository, configuration.getGlobalMaxSize(), configuration.getGlobalMaxMessages(), configuration.getManagementAddress(), this);
+      }
    }
 
    protected PagingStoreFactory getPagingStoreFactory() throws Exception {
-      if (configuration.isUsingDatabasePersistence()) {
+      if (configuration.isUsingFileOverDB()) {
          DatabaseStorageConfiguration dbConf = (DatabaseStorageConfiguration) configuration.getStoreConfiguration();
          return new PagingStoreFactoryDatabase(dbConf, storageManager, configuration.getPageSyncTimeout(), scheduledPool, pageExecutorFactory, false, ioCriticalErrorListener);
       } else {
@@ -3250,7 +3261,11 @@ public class ActiveMQServerImpl implements ActiveMQServer {
     */
    protected StorageManager createStorageManager() {
       if (configuration.isPersistenceEnabled()) {
-         if (configuration.isUsingDatabasePersistence()) {
+         if (configuration.isUsingNewDatabase()) {
+            NewDatabaseStorageManager journal = new NewDatabaseStorageManager(configuration, getCriticalAnalyzer(), executorFactory, ioExecutorFactory, getScheduledPool(), threadPool);
+            this.getCriticalAnalyzer().add(journal);
+            return journal;
+         } else if (configuration.isUsingFileOverDB()) {
             JDBCJournalStorageManager journal = new JDBCJournalStorageManager(configuration, getCriticalAnalyzer(), getScheduledPool(), executorFactory, ioExecutorFactory, ioCriticalErrorListener);
             this.getCriticalAnalyzer().add(journal);
             return journal;
@@ -3410,9 +3425,9 @@ public class ActiveMQServerImpl implements ActiveMQServer {
       managementService = new ManagementServiceImpl(mbeanServer, configuration);
 
       if (configuration.getMemoryMeasureInterval() != -1) {
-         memoryManager = new MemoryManager(configuration.getMemoryWarningThreshold(), configuration.getMemoryMeasureInterval());
+         heapManager = new HeapManager(configuration.getMemoryWarningThreshold(), configuration.getMemoryMeasureInterval());
 
-         memoryManager.start();
+         heapManager.start();
       }
 
       // Create the hard-wired components
@@ -3431,7 +3446,7 @@ public class ActiveMQServerImpl implements ActiveMQServer {
 
       queueFactory = new QueueFactoryImpl(executorFactory, scheduledPool, addressSettingsRepository, storageManager, this);
 
-      pagingManager = createPagingManager();
+      globalMemoryManager = createMemoryManager();
 
       resourceManager = new ResourceManagerImpl(this, (int) (configuration.getTransactionTimeout() / 1000), configuration.getTransactionTimeoutScanPeriod(), scheduledPool);
 
@@ -3448,7 +3463,7 @@ public class ActiveMQServerImpl implements ActiveMQServer {
          metricsManager.registerExecutorService(BrokerMetricNames.SCHEDULED_EXECUTOR_SERVICE, scheduledPool);
       }
 
-      postOffice = new PostOfficeImpl(this, storageManager, pagingManager, queueFactory, managementService, configuration.getMessageExpiryScanPeriod(), configuration.getAddressQueueScanPeriod(), configuration.getWildcardConfiguration(), configuration.getIDCacheSize(), configuration.isPersistIDCache(), addressSettingsRepository);
+      postOffice = new PostOfficeImpl(this, storageManager, globalMemoryManager, queueFactory, managementService, configuration.getMessageExpiryScanPeriod(), configuration.getAddressQueueScanPeriod(), configuration.getWildcardConfiguration(), configuration.getIDCacheSize(), configuration.isPersistIDCache(), addressSettingsRepository);
 
       // This can't be created until node id is set
       clusterManager = new ClusterManager(executorFactory, this, postOffice, scheduledPool, managementService, configuration, nodeManager, haPolicy.useQuorumManager());
@@ -3467,7 +3482,7 @@ public class ActiveMQServerImpl implements ActiveMQServer {
 
       remotingService = new RemotingServiceImpl(clusterManager, configuration, this, managementService, scheduledPool, protocolManagerFactories, executorFactory.getExecutor(), serviceRegistry);
 
-      messagingServerControl = managementService.registerServer(postOffice, securityStore, storageManager, configuration, addressSettingsRepository, securityRepository, resourceManager, remotingService, this, queueFactory, scheduledPool, pagingManager, haPolicy.isBackup());
+      messagingServerControl = managementService.registerServer(postOffice, securityStore, storageManager, configuration, addressSettingsRepository, securityRepository, resourceManager, remotingService, this, queueFactory, scheduledPool, globalMemoryManager, haPolicy.isBackup());
 
       // Address settings need to deployed initially, since they're require on paging manager.start()
 
@@ -3489,7 +3504,9 @@ public class ActiveMQServerImpl implements ActiveMQServer {
 
       postOffice.start();
 
-      pagingManager.start();
+      if (globalMemoryManager != null) {
+         globalMemoryManager.start();
+      }
 
       managementService.start();
 
@@ -3584,26 +3601,12 @@ public class ActiveMQServerImpl implements ActiveMQServer {
 
       loadProtocolServices();
 
-      pagingManager.reloadStores();
-
-      Set<Long> storedLargeMessages = new HashSet<>();
-      loadJournals(storedLargeMessages);
-
-      if (rebuildCounters) {
-         pagingManager.rebuildCounters(storedLargeMessages);
-
-         pagingManager.execute(() -> {
-            storedLargeMessages.forEach(id -> {
-               try {
-                  SequentialFile file = storageManager.createFileForLargeMessage(id, true);
-                  logger.debug("Removing pending large message for file={}", file);
-                  file.delete();
-               } catch (Exception e) {
-                  // this shouldn't really happen, unless something is off with the storage
-                  logger.warn("It was not possible to remove previously stored large message on folder::It will be retried on next startup", e);
-               }
-            });
-         });
+      if (globalMemoryManager instanceof PagingManager) {
+         // Initialize the pagingManager if being used
+         initializePagingManager();
+      } else {
+         Set<Long> storedLargeMessages = new HashSet<>();
+         loadJournals(storedLargeMessages);
       }
 
       removeExtraAddressStores();
@@ -3612,7 +3615,7 @@ public class ActiveMQServerImpl implements ActiveMQServer {
          manager.completeInit(storageManager);
       }
 
-      final ServerInfo dumper = new ServerInfo(this, pagingManager);
+      final ServerInfo dumper = new ServerInfo(this, globalMemoryManager);
 
       long dumpInfoInterval = configuration.getServerDumpInterval();
 
@@ -3686,6 +3689,31 @@ public class ActiveMQServerImpl implements ActiveMQServer {
       deployFileStoreMonitor();
    }
 
+   private void initializePagingManager() throws Exception {
+      PagingManager pagingManager = (PagingManager)globalMemoryManager;
+      pagingManager.reloadStores();
+
+      Set<Long> storedLargeMessages = new HashSet<>();
+      loadJournals(storedLargeMessages);
+
+      if (rebuildCounters) {
+         pagingManager.rebuildCounters(storedLargeMessages);
+
+         pagingManager.execute(() -> {
+            storedLargeMessages.forEach(id -> {
+               try {
+                  SequentialFile file = storageManager.createFileForLargeMessage(id, true);
+                  logger.debug("Removing pending large message for file={}", file);
+                  file.delete();
+               } catch (Exception e) {
+                  // this shouldn't really happen, unless something is off with the storage
+                  logger.warn("It was not possible to remove previously stored large message on folder::It will be retried on next startup", e);
+               }
+            });
+         });
+      }
+   }
+
    private void deployFileStoreMonitor() throws Exception {
       FileStoreMonitor.FileStoreMonitorType fileStoreMonitorType = null;
       Number referenceValue = null;
@@ -3734,7 +3762,9 @@ public class ActiveMQServerImpl implements ActiveMQServer {
    public void injectMonitor(FileStoreMonitor storeMonitor) throws Exception {
       try {
          this.fileStoreMonitor = storeMonitor;
-         pagingManager.injectMonitor(storeMonitor);
+         if (globalMemoryManager instanceof PagingManager) {
+            ((PagingManager)globalMemoryManager).injectMonitor(storeMonitor);
+         }
          storageManager.injectMonitor(storeMonitor);
          fileStoreMonitor.start();
       } catch (Exception e) {
@@ -3764,12 +3794,15 @@ public class ActiveMQServerImpl implements ActiveMQServer {
 
    @Override
    public double getDiskStoreUsage() {
-      //this should not happen but if it does, return -1 to highlight it is not working
-      if (getPagingManager() == null) {
+      PagingManager pagingManager = null;
+      if (globalMemoryManager instanceof PagingManager) {
+         pagingManager = (PagingManager)globalMemoryManager;
+      }
+      if (pagingManager == null) {
          return -1L;
       }
 
-      return FileStoreMonitor.calculateUsage(getPagingManager().getDiskUsableSpace(), getPagingManager().getDiskTotalSpace());
+      return FileStoreMonitor.calculateUsage(pagingManager.getDiskUsableSpace(), pagingManager.getDiskTotalSpace());
    }
 
    private void deploySecurityFromConfiguration() {
@@ -3946,7 +3979,7 @@ public class ActiveMQServerImpl implements ActiveMQServer {
 
 
    private JournalLoadInformation[] loadJournals(Set<Long> storedLargeMessages) throws Exception {
-      JournalLoader journalLoader = activation.createJournalLoader(postOffice, pagingManager, storageManager, queueFactory, nodeManager, managementService, groupingHandler, configuration, parentServer);
+      JournalLoader journalLoader = activation.createJournalLoader(postOffice, globalMemoryManager, storageManager, queueFactory, nodeManager, managementService, groupingHandler, configuration, parentServer);
 
       JournalLoadInformation[] journalInfo = new JournalLoadInformation[2];
 
@@ -3976,7 +4009,7 @@ public class ActiveMQServerImpl implements ActiveMQServer {
 
       storageManager.recoverLargeMessagesOnFolder(storedLargeMessages);
 
-      journalInfo[1] = storageManager.loadMessageJournal(postOffice, pagingManager, resourceManager, queueBindingInfosMap, duplicateIDMap, pendingLargeMessages, storedLargeMessages, pendingNonTXPageCounter, journalLoader, extraRecordsLoader);
+      journalInfo[1] = storageManager.loadMessageJournal(postOffice, globalMemoryManager, resourceManager, queueBindingInfosMap, duplicateIDMap, pendingLargeMessages, storedLargeMessages, pendingNonTXPageCounter, journalLoader, extraRecordsLoader);
 
       journalLoader.handleDuplicateIds(duplicateIDMap);
 
@@ -4101,10 +4134,10 @@ public class ActiveMQServerImpl implements ActiveMQServer {
             addressInfo.setRepositoryChangeListener(null);
          }
 
-         long txID = storageManager.generateID();
-         storageManager.deleteAddressBinding(txID, addressInfo.getId());
-         storageManager.commitBindings(txID);
-         pagingManager.deletePageStore(address);
+         Transaction tx = new BindingsTransactionImpl(storageManager);
+         storageManager.deleteAddressBinding(tx, addressInfo.getId());
+         storageManager.commitBindings(tx);
+         globalMemoryManager.removeAddress(address);
       } finally {
          clearAddressCache();
       }
@@ -4210,19 +4243,20 @@ public class ActiveMQServerImpl implements ActiveMQServer {
 
          QueueConfigurationUtils.applyDynamicDefaults(queueConfiguration, addressSettingsRepository.getMatch(queueConfiguration.getAddress().toString()));
 
-         AddressInfo info = postOfficeInUse.getAddressInfo(queueConfiguration.getAddress());
+         AddressInfo addressInfo = postOfficeInUse.getAddressInfo(queueConfiguration.getAddress());
          if (queueConfiguration.isAutoCreateAddress() || queueConfiguration.isTemporary()) {
-            if (info == null) {
-               addAddressInfo(new AddressInfo(queueConfiguration.getAddress(), queueConfiguration.getRoutingType()).setAutoCreated(true).setTemporary(queueConfiguration.isTemporary()).setInternal(queueConfiguration.isInternal()));
-            } else if (!info.getRoutingTypes().contains(queueConfiguration.getRoutingType())) {
-               EnumSet<RoutingType> routingTypes = EnumSet.copyOf(info.getRoutingTypes());
+            if (addressInfo == null) {
+               addressInfo = new AddressInfo(queueConfiguration.getAddress(), queueConfiguration.getRoutingType()).setAutoCreated(true).setTemporary(queueConfiguration.isTemporary()).setInternal(queueConfiguration.isInternal());
+               addAddressInfo(addressInfo);
+            } else if (!addressInfo.getRoutingTypes().contains(queueConfiguration.getRoutingType())) {
+               EnumSet<RoutingType> routingTypes = EnumSet.copyOf(addressInfo.getRoutingTypes());
                routingTypes.add(queueConfiguration.getRoutingType());
-               updateAddressInfo(info.getName(), routingTypes);
+               updateAddressInfo(addressInfo.getName(), routingTypes);
             }
-         } else if (info == null) {
+         } else if (addressInfo == null) {
             throw ActiveMQMessageBundle.BUNDLE.addressDoesNotExist(queueConfiguration.getAddress());
-         } else if (!info.getRoutingTypes().contains(queueConfiguration.getRoutingType())) {
-            throw ActiveMQMessageBundle.BUNDLE.invalidRoutingTypeForAddress(queueConfiguration.getRoutingType(), info.getName().toString(), info.getRoutingTypes());
+         } else if (!addressInfo.getRoutingTypes().contains(queueConfiguration.getRoutingType())) {
+            throw ActiveMQMessageBundle.BUNDLE.invalidRoutingTypeForAddress(queueConfiguration.getRoutingType(), addressInfo.getName().toString(), addressInfo.getRoutingTypes());
          }
 
          if (hasBrokerQueuePlugins()) {
@@ -4238,32 +4272,30 @@ public class ActiveMQServerImpl implements ActiveMQServer {
          // preemptive check to ensure the filterString is good
          Filter filter = FilterImpl.createFilter(queueConfiguration.getFilterString());
 
-         final Queue queue = queueFactory.createQueueWith(queueConfiguration, pagingManager, filter);
+         final Queue queue = queueFactory.createQueueWith(queueConfiguration, globalMemoryManager, filter);
 
          final QueueBinding localQueueBinding = new LocalQueueBinding(queue.getAddress(), queue, nodeManager.getNodeId());
 
-         long txID = 0;
+         Transaction tx = null;
          if (queue.isDurable()) {
-            txID = storageManager.generateID();
-            storageManager.addQueueBinding(txID, localQueueBinding);
+            tx = new BindingsTransactionImpl(storageManager);
+            storageManager.addQueueBinding(tx, localQueueBinding, addressInfo);
          }
 
          try {
             postOfficeInUse.addBinding(localQueueBinding);
             if (queue.isDurable()) {
-               storageManager.commitBindings(txID);
+               storageManager.commitBindings(tx);
             }
          } catch (Exception e) {
             try {
                if (queueConfiguration.isDurable()) {
-                  storageManager.rollbackBindings(txID);
+                  storageManager.rollbackBindings(tx);
                }
                try {
                   queue.close();
                } finally {
-                  if (queue.getPageSubscription() != null) {
-                     queue.getPageSubscription().destroy();
-                  }
+                  queue.destroy();
                }
             } catch (Throwable ignored) {
                logger.debug(ignored.getMessage(), ignored);
@@ -4571,7 +4603,7 @@ public class ActiveMQServerImpl implements ActiveMQServer {
     * Check if journal directory exists or create it (if configured to do so)
     */
    public void checkJournalDirectory() {
-      if (!configuration.isUsingDatabasePersistence()) {
+      if (!configuration.isUsingFileOverDB()) {
          File journalDir = configuration.getJournalLocation();
 
          if (!journalDir.exists() && configuration.isPersistenceEnabled()) {
@@ -4722,11 +4754,14 @@ public class ActiveMQServerImpl implements ActiveMQServer {
    }
 
    private void removeExtraAddressStores() throws Exception {
-      SimpleString[] storeNames = pagingManager.getStoreNames();
-      if (storeNames != null && storeNames.length > 0) {
-         for (SimpleString storeName : storeNames) {
-            if (getAddressInfo(storeName) == null) {
-               pagingManager.deletePageStore(storeName);
+      if (globalMemoryManager instanceof PagingManager) {
+         PagingManager pagingManager = (PagingManager)globalMemoryManager;
+         SimpleString[] storeNames = pagingManager.getStoreNames();
+         if (storeNames != null && storeNames.length > 0) {
+            for (SimpleString storeName : storeNames) {
+               if (getAddressInfo(storeName) == null) {
+                  pagingManager.deletePageStore(storeName);
+               }
             }
          }
       }

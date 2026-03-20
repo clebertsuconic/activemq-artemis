@@ -19,7 +19,6 @@ package org.apache.activemq.artemis.core.config.impl;
 import static org.apache.activemq.artemis.jdbc.store.sql.PropertySQLProvider.Factory.SQLDialect.ORACLE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.activemq.artemis.core.config.Configuration;
 import org.apache.activemq.artemis.core.config.FileDeploymentManager;
@@ -27,7 +26,6 @@ import org.apache.activemq.artemis.core.config.StoreConfiguration;
 import org.apache.activemq.artemis.core.config.storage.DatabaseStorageConfiguration;
 import org.apache.activemq.artemis.core.server.impl.ActiveMQServerImpl;
 import org.apache.activemq.artemis.jdbc.store.sql.PropertySQLProvider;
-import org.apache.activemq.artemis.jdbc.store.sql.SQLProvider;
 import org.apache.activemq.artemis.tests.util.ServerTestBase;
 import org.junit.jupiter.api.Test;
 
@@ -54,18 +52,24 @@ public class DatabaseStoreConfigurationTest extends ServerTestBase {
    }
 
    @Test
-   public void testOracle12TableSize() {
-      for (SQLProvider.DatabaseStoreType storeType : SQLProvider.DatabaseStoreType.values()) {
-         Throwable rte = null;
-         try {
-            new PropertySQLProvider.Factory(ORACLE).create("_A_TABLE_NAME_THAT_IS_TOO_LONG_", storeType);
-         } catch (Throwable t) {
-            rte = t;
-         }
+   public void newDatabaseStoreConfigTest() throws Exception {
+      Configuration configuration = createConfiguration("new-database-store-config.xml");
+      ActiveMQServerImpl server = new ActiveMQServerImpl(configuration);
+      DatabaseStorageConfiguration storeConfiguration = (DatabaseStorageConfiguration) server.getConfiguration().getStoreConfiguration();
+      assertEquals(StoreConfiguration.StoreType.NEW_DATABASE, storeConfiguration.getStoreType());
+      assertEquals(true, configuration.isNewDatabase());
+   }
 
-         assertNotNull(rte);
-         assertTrue(rte.getMessage().contains("The maximum name size for the " + storeType.name().toLowerCase() + " store table, when using Oracle12C is 30 characters."));
+   @Test
+   public void testOracle12TableSize() {
+      Throwable rte = null;
+      try {
+         new PropertySQLProvider.Factory(ORACLE).create().applyCase("_A_TABLE_NAME_THAT_IS_TOO_LONG_");
+      } catch (RuntimeException t) {
+         rte = t;
       }
+
+      assertNotNull(rte);
    }
 
    protected Configuration createConfiguration(String fileName) throws Exception {

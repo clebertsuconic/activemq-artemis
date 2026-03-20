@@ -664,7 +664,7 @@ public class ScaleDownTest extends ClusterTestBase {
       AddressSettings defaultSetting = new AddressSettings().setPageSizeBytes(10 * 1024).setMaxSizeBytes(20 * 1024);
       servers[0].getAddressSettingsRepository().addMatch("#", defaultSetting);
 
-      while (!servers[0].getPagingManager().getPageStore(SimpleString.of(addressName)).isPaging()) {
+      while (!getPagingManager(servers[0]).getPageStore(SimpleString.of(addressName)).isPaging()) {
          for (int i = 0; i < CHUNK_SIZE; i++) {
             ClientMessage message = session.createMessage(true);
             message.getBodyBuffer().writeBytes(new byte[1024]);
@@ -702,7 +702,7 @@ public class ScaleDownTest extends ClusterTestBase {
       AddressSettings defaultSetting = new AddressSettings().setPageSizeBytes(10 * 1024).setMaxSizeBytes(20 * 1024);
       servers[0].getAddressSettingsRepository().addMatch("#", defaultSetting);
 
-      while (!servers[0].getPagingManager().getPageStore(SimpleString.of(addressName)).isPaging()) {
+      while (!getPagingManager(servers[0]).getPageStore(SimpleString.of(addressName)).isPaging()) {
          for (int i = 0; i < CHUNK_SIZE; i++) {
             ClientMessage message = session.createMessage(true);
             message.getBodyBuffer().writeBytes(new byte[1024]);
@@ -869,7 +869,7 @@ public class ScaleDownTest extends ClusterTestBase {
          QueueControl queueControl = ManagementControlHelper.createQueueControl(curAddr, curQ, mbeanServer);
          assertEquals(messageCount, queueControl.sendMessagesToDeadLetterAddress(null));
          assertEquals(0, queueControl.getMessageCount());
-         Wait.assertTrue(servers[0].locateQueue(dlq).getPagingStore()::isPaging);
+         Wait.assertTrue(getPagingStore(servers[0].locateQueue(dlq))::isPaging);
       }
 
       servers[0].getActiveMQServerControl().scaleDown(servers[0].getConfiguration().getClusterConfigurations().iterator().next().getStaticConnectors().get(0));

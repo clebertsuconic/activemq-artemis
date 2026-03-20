@@ -85,7 +85,8 @@ public class PageCursorProviderImpl implements PageCursorProvider {
       }
 
       PageSubscriptionCounter subscriptionCounter = createPageCounter(cursorID, persistent);
-      PageSubscription activeCursor = new PageSubscriptionImpl(this, pagingStore, storageManager, filter, cursorID, persistent, subscriptionCounter);
+      PageSubscriptionImpl activeCursor = new PageSubscriptionImpl(this, pagingStore, storageManager, filter, cursorID, persistent, subscriptionCounter);
+      activeCursor.setAddressMemoryManager(pagingStore);
 
       activeCursors.put(cursorID, activeCursor);
       return activeCursor;

@@ -177,8 +177,8 @@ public class ScaleDownDirectTest extends ClusterTestBase {
       AddressSettings defaultSetting = new AddressSettings().setPageSizeBytes(10 * 1024).setMaxSizeBytes(1024);
       servers[0].getAddressSettingsRepository().addMatch("#", defaultSetting);
       Queue queue0 = servers[0].locateQueue(queueName);
-      queue0.getPagingStore().startPaging();
-      assertTrue(queue0.getPagingStore().isPaging());
+      getPagingStore(queue0).startPaging();
+      assertTrue(getPagingStore(queue0).isPaging());
 
       for (int i = 0; i < messageCount; i++) {
          Message message = session.createMessage(true);
@@ -189,12 +189,12 @@ public class ScaleDownDirectTest extends ClusterTestBase {
       }
       session.commit();
 
-      assertTrue(queue0.getPagingStore().isPaging());
+      assertTrue(getPagingStore(queue0).isPaging());
 
       try {
          Wait.assertEquals(messageCount, queue0::getMessageCount);
          queue0.flushExecutor();
-         queue0.getPagingStore().getExecutor().flush(10, TimeUnit.SECONDS);
+         getPagingStore(queue0).getExecutor().flush(10, TimeUnit.SECONDS);
 
          long scaledDown = performScaledown();
 
@@ -374,7 +374,7 @@ public class ScaleDownDirectTest extends ClusterTestBase {
    }
 
    private long performScaledown() throws Exception {
-      ScaleDownHandler handler = new ScaleDownHandler(servers[0].getPagingManager(), servers[0].getPostOffice(), servers[0].getNodeManager(), servers[0].getClusterManager().getClusterController(), servers[0].getStorageManager(), -1);
+      ScaleDownHandler handler = new ScaleDownHandler(servers[0].getGlobalMemoryManager(), servers[0].getPostOffice(), servers[0].getNodeManager(), servers[0].getClusterManager().getClusterController(), servers[0].getStorageManager(), -1);
 
       return handler.scaleDownMessages(sfs[1], servers[1].getNodeID(), servers[0].getConfiguration().getClusterUser(), servers[0].getConfiguration().getClusterPassword());
    }

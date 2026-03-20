@@ -133,7 +133,7 @@ public class PagingLimitTest extends ActiveMQTestBase {
          }
          if (transacted) {
             session.commit();
-            assertTrue(serverQueue.getPagingStore().isPaging());
+            assertTrue(getPagingStore(serverQueue).isPaging());
          }
 
          for (int i = 0; i < 300; i++) {
@@ -186,7 +186,7 @@ public class PagingLimitTest extends ActiveMQTestBase {
          }
 
 
-         assertTrue(serverQueue.getPagingStore().isPaging());
+         assertTrue(getPagingStore(serverQueue).isPaging());
 
          MessageConsumer consumer = session.createConsumer(queue);
          for (int i = 0; i < 150; i++) { // we will consume half of the messages
@@ -203,7 +203,7 @@ public class PagingLimitTest extends ActiveMQTestBase {
          if (transacted) {
             session.commit();
          }
-         Future<Boolean> cleanupDone = serverQueue.getPagingStore().getCursorProvider().scheduleCleanup();
+         Future<Boolean> cleanupDone = getPagingStore(serverQueue).getCursorProvider().scheduleCleanup();
 
          assertTrue(cleanupDone.get(30, TimeUnit.SECONDS));
 
@@ -368,7 +368,7 @@ public class PagingLimitTest extends ActiveMQTestBase {
 
          int originalSuccess = successfullSends;
 
-         Future<Boolean> result = serverQueue.getPagingStore().getCursorProvider().scheduleCleanup();
+         Future<Boolean> result = getPagingStore(serverQueue).getCursorProvider().scheduleCleanup();
          assertTrue(result.get(10, TimeUnit.SECONDS));
 
          for (int i = successfullSends; i < 1000; i++) {

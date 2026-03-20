@@ -96,7 +96,7 @@ public class MqttWildCardSubAutoCreateTest extends MQTTTestSupport {
       sender.publish(publishTo, UUID.randomUUID().toString().getBytes(), 2, false);
       sender.publish(publishTo, UUID.randomUUID().toString().getBytes(), 2, false);
 
-      assertTrue(server.getPagingManager().getPageStore(SimpleString.of(MQTTUtil.getCoreAddressFromMqttTopic(subscribeTo, server.getConfiguration().getWildcardConfiguration()))).isPaging());
+      assertTrue(getPagingManager(server).getPageStore(SimpleString.of(MQTTUtil.getCoreAddressFromMqttTopic(subscribeTo, server.getConfiguration().getWildcardConfiguration()))).isPaging());
 
       subscriber = createMqttClient(subscriberId);
       subscriber.subscribe(subscribeTo, 2);
@@ -191,7 +191,7 @@ public class MqttWildCardSubAutoCreateTest extends MQTTTestSupport {
          producer.send(topicNewsUsaWrestling, messageWrestlingNews);
          producer.send(topicNewsEuropeEntertainment, messageEuropeEntertainment);
 
-         System.out.println("Usage " + server.getPagingManager().getGlobalSize());
+         System.out.println("Usage " + getPagingManager(server).getGlobalSize());
 
          TextMessage msg = (TextMessage) messageConsumerAllNews.receive(5000);
 
@@ -226,7 +226,7 @@ public class MqttWildCardSubAutoCreateTest extends MQTTTestSupport {
          messageConsumerAllNews.close();
 
          int countOfPageStores = 0;
-         SimpleString[] storeNames = server.getPagingManager().getStoreNames();
+         SimpleString[] storeNames = getPagingManager(server).getStoreNames();
          for (int i = 0; i < storeNames.length; i++) {
             if (!storeNames[i].equals(SimpleString.of(MQTTUtil.MQTT_SESSION_STORE))) {
                countOfPageStores++;

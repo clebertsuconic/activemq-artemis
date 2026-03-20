@@ -39,6 +39,7 @@ import org.apache.activemq.artemis.api.core.RoutingType;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.client.impl.ClientConsumerImpl;
 import org.apache.activemq.artemis.core.io.IOCallback;
+import org.apache.activemq.artemis.core.memory.AddressMemoryManager;
 import org.apache.activemq.artemis.core.paging.PagingStore;
 import org.apache.activemq.artemis.core.protocol.openwire.OpenWireConnection;
 import org.apache.activemq.artemis.core.protocol.openwire.OpenWireConstants;
@@ -263,10 +264,13 @@ public class AMQConsumer {
 
          // Check if this is an advisory queue
          if (String.valueOf(address).startsWith(AdvisorySupport.ADVISORY_TOPIC_PREFIX)) {
-            PagingStore store = queue.getPagingStore();
+            AddressMemoryManager store = queue.getAddressMemoryManager();
             if (store != null) { // could be null on tests perhaps
                // Advisory queues cannot be paged, we must enforce DROP
-               store.enforceAddressFullMessagePolicy(AddressFullMessagePolicy.DROP);
+
+               if (store instanceof PagingStore) {
+                  ((PagingStore) store).enforceAddressFullMessagePolicy(AddressFullMessagePolicy.DROP);
+               }
             }
          }
       }

@@ -26,30 +26,24 @@ public class PropertySQLProviderTest extends ArtemisTestCase {
 
    @Test
    public void testGetProperty() {
-      for (SQLProvider.DatabaseStoreType storeType : SQLProvider.DatabaseStoreType.values()) {
-         PropertySQLProvider factory = (PropertySQLProvider) new PropertySQLProvider.Factory((PropertySQLProvider.Factory.SQLDialect) null).create("who-cares", storeType);
-         factory.sql("create-file-table");
-      }
+      PropertySQLProvider factory = (PropertySQLProvider) new PropertySQLProvider.Factory((PropertySQLProvider.Factory.SQLDialect) null).create();
+      factory.sql("create-file-table");
    }
 
    @Test
    public void testGetMissingProperty() {
-      for (SQLProvider.DatabaseStoreType storeType : SQLProvider.DatabaseStoreType.values()) {
-         PropertySQLProvider factory = (PropertySQLProvider) new PropertySQLProvider.Factory((PropertySQLProvider.Factory.SQLDialect) null).create("who-cares", storeType);
-         try {
-            factory.sql("missing-property");
-            fail();
-         } catch (IllegalStateException e) {
-            // expected
-         }
+      PropertySQLProvider factory = (PropertySQLProvider) new PropertySQLProvider.Factory((PropertySQLProvider.Factory.SQLDialect) null).create();
+      try {
+         factory.sql("missing-property");
+         fail();
+      } catch (IllegalStateException e) {
+         // expected
       }
    }
 
    @Test
    public void testGetMissingPropertyNoCheck() {
-      for (SQLProvider.DatabaseStoreType storeType : SQLProvider.DatabaseStoreType.values()) {
-         PropertySQLProvider factory = (PropertySQLProvider) new PropertySQLProvider.Factory((PropertySQLProvider.Factory.SQLDialect) null).create("who-cares", storeType);
-         assertNull(factory.sql("missing-property", false));
-      }
+      PropertySQLProvider factory = (PropertySQLProvider) new PropertySQLProvider.Factory((PropertySQLProvider.Factory.SQLDialect) null).create();
+      assertNull(factory.sql("missing-property", false));
    }
 }

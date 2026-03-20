@@ -21,25 +21,24 @@ import java.sql.SQLException;
 
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 import org.apache.activemq.artemis.jdbc.store.sql.PropertySQLProvider;
-import org.apache.activemq.artemis.jdbc.store.sql.SQLProvider;
 
 import static org.apache.activemq.artemis.jdbc.store.sql.PropertySQLProvider.Factory.SQLDialect.DB2;
 import static org.apache.activemq.artemis.jdbc.store.sql.PropertySQLProvider.Factory.SQLDialect.POSTGRESQL;
 
 class JDBCFileUtils {
 
-   static JDBCSequentialFileFactoryDriver getDBFileDriver(JDBCConnectionProvider connectionProvider, SQLProvider provider) throws SQLException {
+   static JDBCSequentialFileFactoryDriver getDBFileDriver(JDBCConnectionProvider connectionProvider, String tableName) throws SQLException {
       final JDBCSequentialFileFactoryDriver dbDriver;
       final PropertySQLProvider.Factory.SQLDialect sqlDialect;
       try (Connection connection = connectionProvider.getConnection()) {
          sqlDialect = PropertySQLProvider.Factory.investigateDialect(connection);
       }
       if (POSTGRESQL.equals(sqlDialect)) {
-         dbDriver = new PostgresSequentialSequentialFileDriver(connectionProvider, provider);
+         dbDriver = new PostgresSequentialSequentialFileDriver(connectionProvider, tableName);
       } else if (DB2.equals(sqlDialect)) {
-         dbDriver = new Db2SequentialFileDriver(connectionProvider, provider);
+         dbDriver = new Db2SequentialFileDriver(connectionProvider, tableName);
       } else {
-         dbDriver = new JDBCSequentialFileFactoryDriver(connectionProvider, provider);
+         dbDriver = new JDBCSequentialFileFactoryDriver(connectionProvider, tableName);
       }
       return dbDriver;
    }

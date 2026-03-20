@@ -161,7 +161,7 @@ public class QueueControlTest extends ManagementTestBase {
       // Give time Queue.deliverAsync to deliver messages
       assertTrue(waitForMessages(queue, TOTAL_MESSAGES, 5000));
 
-      PagingStore queuePagingStore = queue.getPagingStore();
+      PagingStore queuePagingStore = getPagingStore(queue);
       assertTrue(queuePagingStore != null && queuePagingStore.isPaging());
 
       //invoke moveMessages op
@@ -1147,7 +1147,7 @@ public class QueueControlTest extends ManagementTestBase {
 
       Wait.assertEquals(1, () -> getMessageCount(queueControl));
 
-      assertTrue(server.getPagingManager().getPageStore(address).getAddressSize() > 2048);
+      assertTrue(getPagingManager(server).getPageStore(address).getAddressSize() > 2048);
 
       Map<String, Object>[] messages = queueControl.listMessages("");
       assertEquals(1, messages.length);
@@ -2363,7 +2363,7 @@ public class QueueControlTest extends ManagementTestBase {
          producer.send(createTextMessage(session, sampleText));
       }
 
-      Wait.assertTrue(server.locateQueue(qName).getPagingStore()::isPaging);
+      Wait.assertTrue(getPagingStore(server.locateQueue(qName))::isPaging);
 
       //Send all messages to DLA, make sure all are sent
       QueueControl queueControl = createManagementControl(adName, qName);
@@ -2403,7 +2403,7 @@ public class QueueControlTest extends ManagementTestBase {
          producer.send(createTextMessage(session, sampleText));
       }
 
-      Wait.assertTrue(server.locateQueue(qName).getPagingStore()::isPaging);
+      Wait.assertTrue(getPagingStore(server.locateQueue(qName))::isPaging);
 
       //Send identifiable message to DLA
       producer.send(createTextMessage(session, sampleText).putStringProperty("myID", "unique"));
@@ -3253,7 +3253,7 @@ public class QueueControlTest extends ManagementTestBase {
 
       final int MESSAGE_SIZE = 1024 * 3; // 3k
 
-      PagingManagerImplAccessor.resetMaxSize(server.getPagingManager(), 10240, 0);
+      PagingManagerImplAccessor.resetMaxSize(getPagingManager(server), 10240, 0);
       clearDataRecreateServerDirs();
 
       SimpleString address = RandomUtil.randomUUIDSimpleString();
@@ -3262,7 +3262,7 @@ public class QueueControlTest extends ManagementTestBase {
       session.createQueue(QueueConfiguration.of(queueName).setAddress(address).setDurable(durable));
 
       Queue queue = server.locateQueue(queueName);
-      assertFalse(queue.getPageSubscription().isPaging());
+      assertFalse(getPagingStore(queue).isPaging());
 
       ClientProducer producer = session.createProducer(address);
 
@@ -3286,7 +3286,7 @@ public class QueueControlTest extends ManagementTestBase {
          producer.send(message);
       }
 
-      assertTrue(queue.getPageSubscription().isPaging());
+      assertTrue(getPagingStore(queue).isPaging());
 
       QueueControl queueControl = createManagementControl(address, queueName);
       assertMessageMetrics(queueControl, numberOfMessages, durable);
@@ -5065,7 +5065,7 @@ public class QueueControlTest extends ManagementTestBase {
          producer.send(createTextMessage(session, sampleText).setPriority((byte) 2));
       }
 
-      Wait.assertTrue(server.locateQueue(queueName).getPagingStore()::isPaging);
+      Wait.assertTrue(getPagingStore(server.locateQueue(queueName))::isPaging);
 
       //Send identifiable message to paging queue
       producer.send(createTextMessage(session, sampleText).setPriority((byte) 2));
@@ -5103,7 +5103,7 @@ public class QueueControlTest extends ManagementTestBase {
          producer.send(createTextMessage(session, sampleText));
       }
 
-      Wait.assertTrue(server.locateQueue(queueName).getPagingStore()::isPaging);
+      Wait.assertTrue(getPagingStore(server.locateQueue(queueName))::isPaging);
 
       //Send identifiable message to paging queue
       producer.send(createTextMessage(session, sampleText).putStringProperty("myID", "unique").setPriority((byte) 2));
@@ -5146,7 +5146,7 @@ public class QueueControlTest extends ManagementTestBase {
          producer.send(createTextMessage(session, sampleText));
       }
 
-      Wait.assertTrue(server.locateQueue(queueName1).getPagingStore()::isPaging);
+      Wait.assertTrue(getPagingStore(server.locateQueue(queueName1))::isPaging);
 
       //Send identifiable message to paging queue
       producer.send(createTextMessage(session, sampleText).putStringProperty("myID", "unique").setPriority((byte) 2));
@@ -5183,7 +5183,7 @@ public class QueueControlTest extends ManagementTestBase {
          producer.send(createTextMessage(session, sampleText));
       }
 
-      Wait.assertTrue(server.locateQueue(queueName1).getPagingStore()::isPaging);
+      Wait.assertTrue(getPagingStore(server.locateQueue(queueName1))::isPaging);
 
       //Send identifiable message to paging queue
       producer.send(createTextMessage(session, sampleText).putStringProperty("myID", "unique").setPriority((byte) 2));

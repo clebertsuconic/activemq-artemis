@@ -210,7 +210,7 @@ public class BackupActivationNoReconnectTest {
          Journal journal = Mockito.mock(Journal.class);
          when(storageManager.getBindingsJournal()).thenReturn(journal);
          when(storageManager.getMessageJournal()).thenReturn(journal);
-         when(server.createPagingManager()).thenReturn(Mockito.mock(PagingManager.class));
+         when(server.createMemoryManager()).thenReturn(Mockito.mock(PagingManager.class));
 
 
          AtomicBoolean reconnectWorkOnRetry = new AtomicBoolean();

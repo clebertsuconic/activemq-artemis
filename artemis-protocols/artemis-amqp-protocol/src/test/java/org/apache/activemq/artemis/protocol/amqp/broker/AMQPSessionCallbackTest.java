@@ -82,7 +82,7 @@ public class AMQPSessionCallbackTest {
    public void testOfferProducerWithNoAddressDoesNotTopOffCreditAboveThreshold() {
       // Mock returns to get at the runnable that grants credit.
       Mockito.when(manager.getServer()).thenReturn(server);
-      Mockito.when(server.getPagingManager()).thenReturn(pagingManager);
+      Mockito.when(server.getGlobalMemoryManager()).thenReturn(pagingManager);
 
       // Capture credit runnable and invoke to trigger credit top off
       ArgumentCaptor<Runnable> argument = ArgumentCaptor.forClass(Runnable.class);
@@ -114,7 +114,7 @@ public class AMQPSessionCallbackTest {
    public void testOfferProducerWithNoAddressTopsOffCreditAtThreshold() {
       // Mock returns to get at the runnable that grants credit.
       Mockito.when(manager.getServer()).thenReturn(server);
-      Mockito.when(server.getPagingManager()).thenReturn(pagingManager);
+      Mockito.when(server.getGlobalMemoryManager()).thenReturn(pagingManager);
 
       // Capture credit runnable and invoke to trigger credit top off
       ArgumentCaptor<Runnable> argument = ArgumentCaptor.forClass(Runnable.class);
@@ -146,8 +146,8 @@ public class AMQPSessionCallbackTest {
    public void testOfferProducerWithAddressDoesNotTopOffCreditAboveThreshold() throws Exception {
       // Mock returns to get at the runnable that grants credit.
       Mockito.when(manager.getServer()).thenReturn(server);
-      Mockito.when(server.getPagingManager()).thenReturn(pagingManager);
-      Mockito.when(pagingManager.getPageStore(any(SimpleString.class))).thenReturn(pagingStore);
+      Mockito.when(server.getGlobalMemoryManager()).thenReturn(pagingManager);
+      Mockito.when(pagingManager.getMemoryAddressManager(any(SimpleString.class))).thenReturn(pagingStore);
 
       // Capture credit runnable and invoke to trigger credit top off
       ArgumentCaptor<Runnable> argument = ArgumentCaptor.forClass(Runnable.class);
@@ -179,8 +179,8 @@ public class AMQPSessionCallbackTest {
    public void testOfferProducerWithAddressTopsOffCreditAtThreshold() throws Exception {
       // Mock returns to get at the runnable that grants credit.
       Mockito.when(manager.getServer()).thenReturn(server);
-      Mockito.when(server.getPagingManager()).thenReturn(pagingManager);
-      Mockito.when(pagingManager.getPageStore(any(SimpleString.class))).thenReturn(pagingStore);
+      Mockito.when(server.getGlobalMemoryManager()).thenReturn(pagingManager);
+      Mockito.when(pagingManager.getMemoryAddressManager(any(SimpleString.class))).thenReturn(pagingStore);
 
       // Capture credit runnable and invoke to trigger credit top off
       ArgumentCaptor<Runnable> argument = ArgumentCaptor.forClass(Runnable.class);
@@ -212,7 +212,7 @@ public class AMQPSessionCallbackTest {
    public void testOfferProducerWithNoAddressDoesNotGrantNegativeCredit() {
       // Mock returns to get at the runnable that grants credit.
       Mockito.when(manager.getServer()).thenReturn(server);
-      Mockito.when(server.getPagingManager()).thenReturn(pagingManager);
+      Mockito.when(server.getGlobalMemoryManager()).thenReturn(pagingManager);
 
       // Capture credit runnable and invoke to trigger credit top off
       ArgumentCaptor<Runnable> argument = ArgumentCaptor.forClass(Runnable.class);
@@ -244,8 +244,8 @@ public class AMQPSessionCallbackTest {
    public void testOfferProducerWithAddressDoesNotGrantNegativeCredit() throws Exception {
       // Mock returns to get at the runnable that grants credit.
       Mockito.when(manager.getServer()).thenReturn(server);
-      Mockito.when(server.getPagingManager()).thenReturn(pagingManager);
-      Mockito.when(pagingManager.getPageStore(any(SimpleString.class))).thenReturn(pagingStore);
+      Mockito.when(server.getGlobalMemoryManager()).thenReturn(pagingManager);
+      Mockito.when(pagingManager.getMemoryAddressManager(any(SimpleString.class))).thenReturn(pagingStore);
 
       // Capture credit runnable and invoke to trigger credit top off
       ArgumentCaptor<Runnable> argument = ArgumentCaptor.forClass(Runnable.class);
@@ -293,8 +293,8 @@ public class AMQPSessionCallbackTest {
    public void testProducerThatIsNotStartedDoesNotTopOffCredit() throws Exception {
       // Mock returns to get at the runnable that grants credit.
       Mockito.when(manager.getServer()).thenReturn(server);
-      Mockito.when(server.getPagingManager()).thenReturn(pagingManager);
-      Mockito.when(pagingManager.getPageStore(any(SimpleString.class))).thenReturn(pagingStore);
+      Mockito.when(server.getGlobalMemoryManager()).thenReturn(pagingManager);
+      Mockito.when(pagingManager.getMemoryAddressManager(any(SimpleString.class))).thenReturn(pagingStore);
 
       // Capture credit runnable and invoke to trigger credit top off
       ArgumentCaptor<Runnable> argument = ArgumentCaptor.forClass(Runnable.class);

@@ -28,8 +28,8 @@ import org.apache.activemq.artemis.api.core.QueueConfiguration;
 import org.apache.activemq.artemis.api.core.RoutingType;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.filter.Filter;
-import org.apache.activemq.artemis.core.paging.PagingStore;
-import org.apache.activemq.artemis.core.paging.cursor.PageSubscription;
+import org.apache.activemq.artemis.core.memory.AddressMemoryManager;
+import org.apache.activemq.artemis.core.memory.QueueMemoryManager;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.postoffice.Binding;
 import org.apache.activemq.artemis.core.server.impl.AckReason;
@@ -52,9 +52,9 @@ public interface Queue extends Bindable, CriticalComponent {
 
    void setFilter(Filter filter);
 
-   PagingStore getPagingStore();
+   AddressMemoryManager getAddressMemoryManager();
 
-   PageSubscription getPageSubscription();
+   QueueMemoryManager getQueueMemoryManager();
 
    RoutingType getRoutingType();
 
@@ -98,6 +98,8 @@ public interface Queue extends Bindable, CriticalComponent {
 
    default void setSwept(boolean sweep) {
    }
+
+   void destroy() throws Exception;
 
    long getAutoDeleteDelay();
 

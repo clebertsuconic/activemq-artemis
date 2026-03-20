@@ -145,11 +145,11 @@ public class SNFPagedMirrorTest extends ActiveMQTestBase {
       Wait.assertTrue(() -> server2.locateQueue(QUEUE_NAME) != null);
 
       org.apache.activemq.artemis.core.server.Queue queueServer2 = server2.locateQueue(QUEUE_NAME);
-      snf1.getPagingStore().startPaging();
+      getPagingStore(snf1).startPaging();
 
       Wait.assertEquals(0, snf1::getMessageCount);
 
-      queueServer2.getPagingStore().stopPaging();
+      getPagingStore(queueServer2).stopPaging();
 
       int NUMBER_OF_MESSAGES = 5000;
 
@@ -211,12 +211,12 @@ public class SNFPagedMirrorTest extends ActiveMQTestBase {
       int NUMBER_OF_MESSAGES = 200;
 
       if (pageQueue) {
-         queueOnServer1.getPagingStore().startPaging();
+         getPagingStore(queueOnServer1).startPaging();
       }
 
       if (pageSNF) {
-         snf1.getPagingStore().startPaging();
-         Wait.assertTrue(() -> snf1.getPagingStore().isPaging(), 5000, 100);
+         getPagingStore(snf1).startPaging();
+         Wait.assertTrue(() -> getPagingStore(snf1).isPaging(), 5000, 100);
       }
 
       try (Connection sendConnecton = server1CF.createConnection()) {
@@ -234,15 +234,15 @@ public class SNFPagedMirrorTest extends ActiveMQTestBase {
       }
 
       if (pageQueue) {
-         assertTrue(queueOnServer1.getPagingStore().isPaging());
+         assertTrue(getPagingStore(queueOnServer1).isPaging());
       } else {
-         assertFalse(queueOnServer1.getPagingStore().isPaging());
+         assertFalse(getPagingStore(queueOnServer1).isPaging());
       }
 
       if (pageSNF) {
-         assertTrue(snf1.getPagingStore().isPaging());
+         assertTrue(getPagingStore(snf1).isPaging());
       } else {
-         assertFalse(snf1.getPagingStore().isPaging());
+         assertFalse(getPagingStore(snf1).isPaging());
       }
 
       if (pageSNF && pageQueue) {
@@ -261,7 +261,7 @@ public class SNFPagedMirrorTest extends ActiveMQTestBase {
       if (pageTarget) {
          org.apache.activemq.artemis.core.server.Queue queue2 = server2.locateQueue(QUEUE_NAME);
          assertNotNull(queue2);
-         queue2.getPagingStore().startPaging();
+         getPagingStore(queue2).startPaging();
       }
 
       org.apache.activemq.artemis.core.server.Queue snf2 = server2.locateQueue("$ACTIVEMQ_ARTEMIS_MIRROR_other");

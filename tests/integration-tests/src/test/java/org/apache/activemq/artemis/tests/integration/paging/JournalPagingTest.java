@@ -60,6 +60,8 @@ import org.apache.activemq.artemis.core.server.Queue;
 import org.apache.activemq.artemis.core.server.impl.AddressInfo;
 import org.apache.activemq.artemis.core.server.impl.QueueImpl;
 import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
+import org.apache.activemq.artemis.core.transaction.Transaction;
+import org.apache.activemq.artemis.core.transaction.impl.TransactionImpl;
 import org.apache.activemq.artemis.jms.client.ActiveMQConnectionFactory;
 import org.apache.activemq.artemis.logs.AssertionLoggerHandler;
 import org.apache.activemq.artemis.tests.util.ActiveMQTestBase;
@@ -146,14 +148,14 @@ public class JournalPagingTest extends ActiveMQTestBase {
       }
 
       Queue queue = server.locateQueue(ADDRESS);
-      queue.getPagingStore().startPaging();
+      getPagingStore(queue).startPaging();
 
-      queue.getPagingStore().forceAnotherPage(true); // forcing an empty file, just to make it more challenging
+      getPagingStore(queue).forceAnotherPage(true); // forcing an empty file, just to make it more challenging
 
       int page = 1;
       for (int i = 0; i < numberOfMessages; i++) {
          if (i % 10 == 0 && i > 0) {
-            queue.getPagingStore().forceAnotherPage(true);
+            getPagingStore(queue).forceAnotherPage(true);
             page++;
          }
          message = session.createMessage(true);
@@ -168,7 +170,7 @@ public class JournalPagingTest extends ActiveMQTestBase {
          producer.send(message);
       }
 
-      queue.getPagingStore().getCursorProvider().disableCleanup();
+      getPagingStore(queue).getCursorProvider().disableCleanup();
 
       ClientConsumer consumer = session.createConsumer(ADDRESS);
       session.start();
@@ -189,11 +191,11 @@ public class JournalPagingTest extends ActiveMQTestBase {
       message.acknowledge();
       session.commit();
 
-      File folder = queue.getPagingStore().getFolder();
+      File folder = getPagingStore(queue).getFolder();
 
       // We will truncate two files
       for (int f = 2; f <= 3; f++) {
-         String fileName = ((PagingStoreImpl) queue.getPagingStore()).createFileName(f);
+         String fileName = ((PagingStoreImpl) getPagingStore(queue)).createFileName(f);
          File file = new File(folder, fileName);
          file.delete();
          file.createNewFile();
@@ -207,7 +209,7 @@ public class JournalPagingTest extends ActiveMQTestBase {
 
       server.getStorageManager().getMessageJournal().scheduleCompactAndBlock(5000);
 
-      Page page4 = queue.getPagingStore().newPageObject(4);
+      Page page4 = getPagingStore(queue).newPageObject(4);
       page4.open(true);
       org.apache.activemq.artemis.utils.collections.LinkedList<PagedMessage> messagesRead = page4.read(server.getStorageManager());
       assertEquals(10, messagesRead.size());
@@ -224,9 +226,9 @@ public class JournalPagingTest extends ActiveMQTestBase {
       server.start();
 
       queue = server.locateQueue(ADDRESS);
-      assertTrue(queue.getPagingStore().isPaging());
+      assertTrue(getPagingStore(queue).isPaging());
 
-      queue.getPageSubscription().enableAutoCleanup(); // this should been true already as the server was restarted, just braces and belts
+      getPagingSubscription(queue).enableAutoCleanup(); // this should been true already as the server was restarted, just braces and belts
 
       sf = createSessionFactory(locator);
       session = sf.createSession(false, true, true);
@@ -249,7 +251,7 @@ public class JournalPagingTest extends ActiveMQTestBase {
       assertNull(msgClient);
       session.commit();
 
-      Wait.assertFalse(queue.getPagingStore()::isPaging, 5000, 100);
+      Wait.assertFalse(getPagingStore(queue)::isPaging, 5000, 100);
    }
 
    @Test
@@ -296,7 +298,7 @@ public class JournalPagingTest extends ActiveMQTestBase {
       producer.close();
       session.close();
 
-      String addressTxt = server.getPagingManager().getPageStore(JournalPagingTest.ADDRESS).getFolder().getAbsolutePath() + File.separator + PagingStoreFactoryNIO.ADDRESS_FILE;
+      String addressTxt = getPagingManager(server).getPageStore(JournalPagingTest.ADDRESS).getFolder().getAbsolutePath() + File.separator + PagingStoreFactoryNIO.ADDRESS_FILE;
 
       server.stop();
 
@@ -342,14 +344,14 @@ public class JournalPagingTest extends ActiveMQTestBase {
 
       Wait.assertEquals(0, purgeQueue::getMessageCount);
 
-      Wait.assertEquals(0, purgeQueue.getPageSubscription().getPagingStore()::getAddressSize);
+      Wait.assertEquals(0, getPagingSubscription(purgeQueue).getPagingStore()::getAddressSize);
 
       MessageConsumer consumer = session.createConsumer(jmsQueue);
 
       for (int i = 0; i < 100; i++) {
          producer.send(session.createTextMessage("hello" + i));
          if (i == 10) {
-            purgeQueue.getPageSubscription().getPagingStore().startPaging();
+            getPagingSubscription(purgeQueue).getPagingStore().startPaging();
          }
       }
       session.commit();
@@ -358,14 +360,14 @@ public class JournalPagingTest extends ActiveMQTestBase {
 
       Wait.assertEquals(0, purgeQueue::getMessageCount);
 
-      Wait.assertFalse(purgeQueue.getPageSubscription()::isPaging);
+      Wait.assertFalse(getPagingSubscription(purgeQueue)::isPaging);
 
-      Wait.assertEquals(0, purgeQueue.getPageSubscription().getPagingStore()::getAddressSize);
+      Wait.assertEquals(0, getPagingSubscription(purgeQueue).getPagingStore()::getAddressSize);
       consumer = session.createConsumer(jmsQueue);
 
       for (int i = 0; i < 100; i++) {
-         purgeQueue.getPageSubscription().getPagingStore().startPaging();
-         assertTrue(purgeQueue.getPageSubscription().isPaging());
+         getPagingSubscription(purgeQueue).getPagingStore().startPaging();
+         assertTrue(getPagingSubscription(purgeQueue).isPaging());
          producer.send(session.createTextMessage("hello" + i));
          if (i % 2 == 0) {
             session.commit();
@@ -374,7 +376,7 @@ public class JournalPagingTest extends ActiveMQTestBase {
 
       session.commit();
 
-      Wait.assertTrue(purgeQueue.getPageSubscription()::isPaging);
+      Wait.assertTrue(getPagingSubscription(purgeQueue)::isPaging);
 
       connection.start();
 
@@ -385,24 +387,24 @@ public class JournalPagingTest extends ActiveMQTestBase {
       consumer.close();
 
       Wait.assertEquals(0, purgeQueue::getMessageCount);
-      Wait.assertEquals(0, purgeQueue.getPageSubscription().getPagingStore()::getAddressSize);
-      Wait.assertFalse(purgeQueue.getPageSubscription()::isPaging, 5000, 100);
+      Wait.assertEquals(0, getPagingSubscription(purgeQueue).getPagingStore()::getAddressSize);
+      Wait.assertFalse(getPagingSubscription(purgeQueue)::isPaging, 5000, 100);
 
       StorageManager sm = server.getStorageManager();
 
       for (int i = 0; i < 1000; i++) {
-         long tx = sm.generateID();
-         PageTransactionInfoImpl txinfo = new PageTransactionInfoImpl(tx);
+         Transaction tx = new TransactionImpl(sm);
+         PageTransactionInfoImpl txinfo = new PageTransactionInfoImpl(tx.getID());
          sm.storePageTransaction(tx, txinfo);
          sm.commit(tx);
-         tx = sm.generateID();
+         tx = new TransactionImpl(sm);
          sm.updatePageTransaction(tx, txinfo, 1);
          sm.commit(tx);
       }
 
       server.stop();
       server.start();
-      Wait.assertEquals(0, () -> server.getPagingManager().getTransactions().size());
+      Wait.assertEquals(0, () -> getPagingManager(server).getTransactions().size());
    }
 
    // First page is complete but it wasn't deleted
@@ -438,7 +440,7 @@ public class JournalPagingTest extends ActiveMQTestBase {
          bb.put(getSamplebyte(j));
       }
 
-      queue.getPageSubscription().getPagingStore().startPaging();
+      getPagingSubscription(queue).getPagingStore().startPaging();
 
       forcePage(queue);
 
@@ -455,7 +457,7 @@ public class JournalPagingTest extends ActiveMQTestBase {
 
          if (i == 4) {
             session.commit();
-            queue.getPageSubscription().getPagingStore().forceAnotherPage(true);
+            getPagingStore(queue).forceAnotherPage(true);
          }
       }
 
@@ -480,7 +482,7 @@ public class JournalPagingTest extends ActiveMQTestBase {
          session.prepare(xidConsumeNoCommit);
       }
 
-      File pagingFolder = queue.getPageSubscription().getPagingStore().getFolder();
+      File pagingFolder = getPagingStore(queue).getFolder();
 
       server.stop();
 
@@ -509,10 +511,10 @@ public class JournalPagingTest extends ActiveMQTestBase {
    }
 
    private void forcePage(Queue queue) throws InterruptedException {
-      for (long timeout = System.currentTimeMillis() + 5000; timeout > System.currentTimeMillis() && !queue.getPageSubscription().getPagingStore().isPaging(); ) {
+      for (long timeout = System.currentTimeMillis() + 5000; timeout > System.currentTimeMillis() && !getPagingStore(queue).isPaging(); ) {
          Thread.sleep(10);
       }
-      assertTrue(queue.getPageSubscription().getPagingStore().isPaging());
+      assertTrue(getPagingStore(queue).isPaging());
    }
 
    @Test
@@ -674,7 +676,7 @@ public class JournalPagingTest extends ActiveMQTestBase {
 
       Wait.assertEquals(0, queue::getMessageCount);
 
-      Wait.assertFalse(queue.getPagingStore()::isPaging, 1000, 100);
+      Wait.assertFalse(getPagingStore(queue)::isPaging, 1000, 100);
 
       server.stop();
 

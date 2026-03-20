@@ -56,9 +56,10 @@ import org.apache.activemq.artemis.core.config.WildcardConfiguration;
 import org.apache.activemq.artemis.core.filter.Filter;
 import org.apache.activemq.artemis.core.filter.impl.FilterImpl;
 import org.apache.activemq.artemis.core.io.IOCallback;
+import org.apache.activemq.artemis.core.memory.AddressMemoryManager;
+import org.apache.activemq.artemis.core.memory.GlobalMemoryManager;
+import org.apache.activemq.artemis.core.memory.QueueMemoryManager;
 import org.apache.activemq.artemis.core.message.impl.CoreMessage;
-import org.apache.activemq.artemis.core.paging.PagingManager;
-import org.apache.activemq.artemis.core.paging.PagingStore;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.persistence.config.AbstractPersistedAddressSetting;
 import org.apache.activemq.artemis.core.persistence.config.PersistedAddressSettingJSON;
@@ -131,7 +132,7 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
 
    private final StorageManager storageManager;
 
-   private final PagingManager pagingManager;
+   private final GlobalMemoryManager globalMemoryManager;
 
    private volatile boolean started;
 
@@ -163,7 +164,7 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
 
    public PostOfficeImpl(final ActiveMQServer server,
                          final StorageManager storageManager,
-                         final PagingManager pagingManager,
+                         final GlobalMemoryManager globalMemoryManager,
                          final QueueFactory bindableFactory,
                          final ManagementService managementService,
                          final long expiryReaperPeriod,
@@ -178,7 +179,7 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
 
       this.managementService = managementService;
 
-      this.pagingManager = pagingManager;
+      this.globalMemoryManager = globalMemoryManager;
 
       this.expiryReaperPeriod = expiryReaperPeriod;
 
@@ -741,9 +742,11 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
                   throw ActiveMQMessageBundle.BUNDLE.invalidMaxConsumersUpdate(queueConfiguration.getName().toString(), queueConfiguration.getMaxConsumers(), consumerCount);
                }
             }
+
+            final SimpleString address = queue.getAddress();
+            final AddressInfo addressInfo = addressManager.getAddressInfo(address);
+
             if (queueConfiguration.getRoutingType() != null) {
-               final SimpleString address = queue.getAddress();
-               final AddressInfo addressInfo = addressManager.getAddressInfo(address);
                final EnumSet<RoutingType> addressRoutingTypes = addressInfo.getRoutingTypes();
                if (!addressRoutingTypes.contains(queueConfiguration.getRoutingType())) {
                   throw ActiveMQMessageBundle.BUNDLE.invalidRoutingTypeUpdate(queueConfiguration.getName().toString(), queueConfiguration.getRoutingType(), address.toString(), addressRoutingTypes);
@@ -821,12 +824,12 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
             }
 
             if (changed) {
-               final long txID = storageManager.generateID();
+               final Transaction transaction = new TransactionImpl(storageManager);
                try {
-                  storageManager.updateQueueBinding(txID, queueBinding);
-                  storageManager.commitBindings(txID);
+                  storageManager.updateQueueBinding(transaction, queueBinding, addressInfo);
+                  storageManager.commitBindings(transaction);
                } catch (Throwable throwable) {
-                  storageManager.rollback(txID);
+                  storageManager.rollback(transaction);
                   logger.warn(throwable.getMessage(), throwable);
                   throw throwable;
                }
@@ -1068,7 +1071,7 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
    @Override
    public boolean isAddressBound(final SimpleString address) throws Exception {
       Collection<Binding> bindings = getDirectBindings(address);
-      PagingStore pagingStore = pagingManager.getPageStore(address);
+      AddressMemoryManager pagingStore = globalMemoryManager.getMemoryAddressManager(address);
       return (bindings != null && !bindings.isEmpty()) ||
          // When an address has no direct bindings but the address size is > 0, it means queues on other addresses
          // have one or more message references pointing to this address (e.g., queues bound to wildcard addresses).
@@ -1415,7 +1418,7 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
    @Override
    public MessageReference reload(final Message message, final Queue queue, final Transaction tx) throws Exception {
 
-      message.setOwner(pagingManager.getPageStore(message.getAddressSimpleString()));
+      message.setOwner(globalMemoryManager.getMemoryAddressManager(message.getAddressSimpleString()));
       MessageReference reference = MessageReference.Factory.createReference(message, queue);
 
       Long scheduledDeliveryTime;
@@ -1690,14 +1693,14 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
          deliveryTime = null;
       }
       final SimpleString messageAddress = message.getAddressSimpleString();
-      final PagingStore owningStore = pagingManager.getPageStore(messageAddress);
+      final AddressMemoryManager owningStore = globalMemoryManager.getMemoryAddressManager(messageAddress);
       message.setOwner(owningStore);
       for (Map.Entry<SimpleString, RouteContextList> entry : context.getContexListing().entrySet()) {
-         final PagingStore store;
+         final AddressMemoryManager store;
          if (entry.getKey().equals(messageAddress)) {
             store = owningStore;
          } else {
-            store = pagingManager.getPageStore(entry.getKey());
+            store = globalMemoryManager.getMemoryAddressManager(entry.getKey());
          }
 
          if (store != null && storageManager.addToPage(store, message, context.getTransaction(), entry.getValue())) {
@@ -1808,7 +1811,7 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
             storeDurableReference(storageManager, message, tx, queue, durableQueuesCount - 1 == i);
             if (deliveryTime != null && deliveryTime > 0) {
                if (tx != null) {
-                  storageManager.updateScheduledDeliveryTimeTransactional(tx.getID(), reference);
+                  storageManager.updateScheduledDeliveryTimeTransactional(tx, reference);
                } else {
                   storageManager.updateScheduledDeliveryTime(reference);
                }
@@ -1825,13 +1828,13 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
       final int durableRefCount = queue.durableUp(message);
       if (durableRefCount == 1) {
          if (tx != null) {
-            storageManager.storeMessageTransactional(tx.getID(), message);
+            storageManager.storeMessageTransactional(tx, message);
          } else {
             storageManager.storeMessage(message);
          }
       }
       if (tx != null) {
-         storageManager.storeReferenceTransactional(tx.getID(), queue.getID(), message.getMessageID());
+         storageManager.storeReferenceTransactional(tx, queue.getID(), message.getMessageID());
          tx.setContainsPersistent();
       } else {
          storageManager.storeReference(queue.getID(), message.getMessageID(), sync);
@@ -2074,8 +2077,8 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
          AddressSettings settings = addressSettingsRepository.getMatch(queue.getAddress().toString());
          if (!queue.isInternalQueue() && queue.isAutoDelete() && QueueManagerImpl.consumerCountCheck(queue) && (initialCheck || QueueManagerImpl.delayCheck(queue, settings)) && QueueManagerImpl.messageCountCheck(queue) && (initialCheck || queueWasUsed(queue, settings))) {
             // we only reap queues on the initialCheck if they are actually empty
-            PagingStore queuePagingStore = queue.getPagingStore();
-            boolean isPaging = queuePagingStore != null && queuePagingStore.isStorePaging();
+            QueueMemoryManager memoryManager = queue.getQueueMemoryManager();
+            boolean isPaging = memoryManager != null && memoryManager.isPaging();
             boolean validInitialCheck = initialCheck && queue.getMessageCount() == 0 && !isPaging;
             if (validInitialCheck || queue.isSwept()) {
                if (logger.isDebugEnabled()) {

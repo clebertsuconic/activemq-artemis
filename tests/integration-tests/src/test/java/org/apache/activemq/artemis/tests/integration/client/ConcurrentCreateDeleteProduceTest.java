@@ -76,7 +76,7 @@ public class ConcurrentCreateDeleteProduceTest extends ActiveMQTestBase {
 
       // just to make it page forever
       Queue serverQueue = server.createQueue(QueueConfiguration.of("everPage").setAddress(ADDRESS).setRoutingType(RoutingType.ANYCAST));
-      serverQueue.getPageSubscription().getPagingStore().startPaging();
+      getPagingSubscription(serverQueue).getPagingStore().startPaging();
 
       Consumer[] consumers = new Consumer[10];
 

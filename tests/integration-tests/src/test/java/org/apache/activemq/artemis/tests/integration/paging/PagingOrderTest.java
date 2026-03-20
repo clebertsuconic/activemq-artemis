@@ -634,7 +634,7 @@ public class PagingOrderTest extends ActiveMQTestBase {
       TextMessage txt = sess.createTextMessage("TST");
       prod.send(txt);
 
-      PagingStore store = server.getPagingManager().getPageStore(SimpleString.of("TT"));
+      PagingStore store = getPagingManager(server).getPageStore(SimpleString.of("TT"));
 
       assertEquals(1024 * 1024, store.getMaxSize());
       assertEquals(10 * 1024, store.getPageSizeBytes());
@@ -653,8 +653,6 @@ public class PagingOrderTest extends ActiveMQTestBase {
       assertEquals(1024 * 1024, settings.getMaxSizeBytes());
       assertEquals(10 * 1024, settings.getPageSizeBytes());
       assertEquals(AddressFullMessagePolicy.PAGE, settings.getAddressFullMessagePolicy());
-
-      store = server.getPagingManager().getPageStore(SimpleString.of("TT"));
 
       conn.close();
 
@@ -702,7 +700,7 @@ public class PagingOrderTest extends ActiveMQTestBase {
          prod.send(bmt);
       }
 
-      PagingStore store = server.getPagingManager().getPageStore(SimpleString.of("Q1"));
+      PagingStore store = getPagingManager(server).getPageStore(SimpleString.of("Q1"));
 
       assertEquals(100 * 1024, store.getMaxSize());
       assertEquals(10 * 1024, store.getPageSizeBytes());
@@ -724,7 +722,7 @@ public class PagingOrderTest extends ActiveMQTestBase {
       assertEquals(10 * 1024, settings.getPageSizeBytes());
       assertEquals(AddressFullMessagePolicy.PAGE, settings.getAddressFullMessagePolicy());
 
-      store = server.getPagingManager().getPageStore(SimpleString.of("Q1"));
+      store = getPagingManager(server).getPageStore(SimpleString.of("Q1"));
       assertEquals(100 * 1024, store.getMaxSize());
       assertEquals(10 * 1024, store.getPageSizeBytes());
       assertEquals(AddressFullMessagePolicy.PAGE, store.getAddressFullMessagePolicy());

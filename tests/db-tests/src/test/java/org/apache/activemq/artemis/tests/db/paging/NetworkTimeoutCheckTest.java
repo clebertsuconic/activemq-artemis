@@ -68,8 +68,8 @@ public class NetworkTimeoutCheckTest extends ParameterDBTestBase {
 
       server.addAddressInfo(new AddressInfo(getName()).addRoutingType(RoutingType.ANYCAST));
       Queue queue = server.createQueue(QueueConfiguration.of(getName()).setRoutingType(RoutingType.ANYCAST).setDurable(true));
-      queue.getPagingStore().startPaging();
-      PagingStoreImpl store = (PagingStoreImpl) queue.getPagingStore();
+      getPagingStore(queue).startPaging();
+      PagingStoreImpl store = (PagingStoreImpl) getPagingStore(queue);
       Page page = store.getCurrentPage();
       JDBCSequentialFile file = (JDBCSequentialFile) page.getFile();
       assertEquals(TIMEOUT, file.getNetworkTimeoutMillis());

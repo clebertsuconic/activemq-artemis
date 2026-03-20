@@ -90,18 +90,18 @@ public class TestDeadlockOnPurgePagingTest extends ActiveMQTestBase {
 
       Wait.assertEquals(0, purgeQueue::getMessageCount);
 
-      Wait.assertEquals(0, purgeQueue.getPageSubscription().getPagingStore()::getAddressSize);
+      Wait.assertEquals(0, getPagingStore(purgeQueue)::getAddressSize);
 
       MessageConsumer consumer = session.createConsumer(jmsQueue);
 
       for (int i = 0; i < NUMBER_OF_MESSAGES / 5; i++) {
          producer.send(session.createTextMessage("hello" + i));
          if (i == 10) {
-            purgeQueue.getPageSubscription().getPagingStore().startPaging();
+            getPagingStore(purgeQueue).startPaging();
          }
 
          if (i > 10 && i % 10 == 0) {
-            purgeQueue.getPageSubscription().getPagingStore().forceAnotherPage(true);
+            getPagingStore(purgeQueue).forceAnotherPage(true);
          }
       }
       session.commit();
@@ -117,9 +117,9 @@ public class TestDeadlockOnPurgePagingTest extends ActiveMQTestBase {
 
       Wait.assertEquals(0L, purgeQueue::getMessageCount, 5000L, 10L);
 
-      Wait.assertFalse(purgeQueue.getPageSubscription()::isPaging, 5000L, 10L);
+      Wait.assertFalse(getPagingStore(purgeQueue)::isPaging, 5000L, 10L);
 
-      Wait.assertEquals(0L, purgeQueue.getPageSubscription().getPagingStore()::getAddressSize, 5000L, 10L);
+      Wait.assertEquals(0L, getPagingStore(purgeQueue)::getAddressSize, 5000L, 10L);
    }
 
 

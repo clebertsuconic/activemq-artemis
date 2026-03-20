@@ -22,29 +22,22 @@ import java.sql.Connection;
 import java.sql.SQLException;
 
 import org.apache.activemq.artemis.core.config.storage.DatabaseStorageConfiguration;
+import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 import org.apache.activemq.artemis.jdbc.store.drivers.AbstractJDBCDriver;
-import org.apache.activemq.artemis.jdbc.store.sql.SQLProvider;
 
-public class TestJDBCDriver extends AbstractJDBCDriver {
+public class TestJDBCTableBase extends AbstractJDBCDriver {
 
-   public static TestJDBCDriver usingDbConf(DatabaseStorageConfiguration dbConf,
-                                            SQLProvider provider) {
-      return usingDbConf(dbConf, provider, false);
-   }
-
-   public static TestJDBCDriver usingDbConf(DatabaseStorageConfiguration dbConf,
-                                            SQLProvider provider,
-                                            boolean initialize) {
-
-      TestJDBCDriver driver = new TestJDBCDriver(initialize);
-      driver.setSqlProvider(provider);
-      driver.setJdbcConnectionProvider(dbConf.getConnectionProvider());
+   public static TestJDBCTableBase usingDbConf(DatabaseStorageConfiguration dbConf,
+                                               String tableName,
+                                               boolean initialize) {
+      TestJDBCTableBase driver = new TestJDBCTableBase(dbConf.getConnectionProvider(), tableName, initialize);
       return driver;
    }
 
    private boolean initialize;
 
-   private TestJDBCDriver(boolean initialize) {
+   private TestJDBCTableBase(JDBCConnectionProvider sqlProvider, String tableName, boolean initialize) {
+      super(sqlProvider, tableName);
       this.initialize = initialize;
    }
 
@@ -55,12 +48,12 @@ public class TestJDBCDriver extends AbstractJDBCDriver {
    @Override
    protected void createSchema() {
       try (Connection connection = getJdbcConnectionProvider().getConnection()) {
-         connection.createStatement().execute(sqlProvider.createNodeManagerStoreTableSQL());
+         connection.createStatement().execute(sqlProvider.createNodeManagerStoreTableSQL(tableName));
          if (initialize) {
-            connection.createStatement().execute(sqlProvider.createNodeIdSQL());
-            connection.createStatement().execute(sqlProvider.createStateSQL());
-            connection.createStatement().execute(sqlProvider.createPrimaryLockSQL());
-            connection.createStatement().execute(sqlProvider.createBackupLockSQL());
+            connection.createStatement().execute(sqlProvider.createNodeIdSQL(tableName));
+            connection.createStatement().execute(sqlProvider.createStateSQL(tableName));
+            connection.createStatement().execute(sqlProvider.createPrimaryLockSQL(tableName));
+            connection.createStatement().execute(sqlProvider.createBackupLockSQL(tableName));
          }
       } catch (SQLException e) {
          fail(e.getMessage());

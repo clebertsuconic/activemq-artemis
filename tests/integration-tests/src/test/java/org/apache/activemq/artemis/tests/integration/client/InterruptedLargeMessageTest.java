@@ -43,9 +43,9 @@ import org.apache.activemq.artemis.api.core.client.ClientSession;
 import org.apache.activemq.artemis.api.core.client.ClientSessionFactory;
 import org.apache.activemq.artemis.core.config.StoreConfiguration;
 import org.apache.activemq.artemis.core.filter.Filter;
-import org.apache.activemq.artemis.core.paging.PagingManager;
-import org.apache.activemq.artemis.core.paging.PagingStore;
-import org.apache.activemq.artemis.core.paging.cursor.PageSubscription;
+import org.apache.activemq.artemis.core.memory.AddressMemoryManager;
+import org.apache.activemq.artemis.core.memory.GlobalMemoryManager;
+import org.apache.activemq.artemis.core.memory.QueueMemoryManager;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.postoffice.PostOffice;
 import org.apache.activemq.artemis.core.protocol.core.Packet;
@@ -336,7 +336,7 @@ public class InterruptedLargeMessageTest extends LargeMessageTestBase {
 
       session.createQueue(QueueConfiguration.of(ADDRESS));
 
-      server.getPagingManager().getPageStore(ADDRESS).startPaging();
+      getPagingManager(server).getPageStore(ADDRESS).startPaging();
 
       ClientProducer producer = session.createProducer(ADDRESS);
 
@@ -506,8 +506,8 @@ public class InterruptedLargeMessageTest extends LargeMessageTestBase {
 
          NoPostACKQueue(QueueConfiguration queueConfiguration,
                                Filter filter,
-                               PagingStore pagingStore,
-                               PageSubscription pageSubscription,
+                               AddressMemoryManager addressMemoryManager,
+                               QueueMemoryManager memoryManager,
                                ScheduledExecutorService scheduledExecutor,
                                PostOffice postOffice,
                                StorageManager storageManager,
@@ -515,7 +515,7 @@ public class InterruptedLargeMessageTest extends LargeMessageTestBase {
                                ArtemisExecutor executor,
                                ActiveMQServer server,
                                QueueFactory factory) {
-            super(queueConfiguration, filter, pagingStore, pageSubscription, scheduledExecutor, postOffice, storageManager, addressSettingsRepository, executor, server, factory);
+            super(queueConfiguration, filter, addressMemoryManager, memoryManager, scheduledExecutor, postOffice, storageManager, addressSettingsRepository, executor, server, factory);
          }
 
          @Override
@@ -557,9 +557,9 @@ public class InterruptedLargeMessageTest extends LargeMessageTestBase {
          }
 
          @Override
-         public Queue createQueueWith(QueueConfiguration config, PagingManager pagingManager, Filter filter) throws Exception {
-            PageSubscription pageSubscription = QueueFactoryImpl.getPageSubscription(config, pagingManager, filter);
-            return new NoPostACKQueue(config, filter, pageSubscription != null ? pageSubscription.getPagingStore() : null, pageSubscription, scheduledExecutor, postOffice, storageManager, addressSettingsRepository, execFactory.getExecutor(), server, this);
+         public Queue createQueueWith(QueueConfiguration config, GlobalMemoryManager pagingManager, Filter filter) throws Exception {
+            QueueMemoryManager pageSubscription = QueueFactoryImpl.getPageSubscription(config, pagingManager, filter);
+            return new NoPostACKQueue(config, filter, pageSubscription != null ? pageSubscription.getAddressMemoryManager() : null, pageSubscription, scheduledExecutor, postOffice, storageManager, addressSettingsRepository, execFactory.getExecutor(), server, this);
          }
 
          @Override

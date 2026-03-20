@@ -89,7 +89,7 @@ public class PagedSNFTopicDistributionTest extends ClusterTestBase {
       servers[0].getPostOffice().getAllBindings().forEach(b -> {
          if (b instanceof LocalQueueBinding localQueueBinding) {
             try {
-               localQueueBinding.getQueue().getPagingStore().startPaging();
+               getPagingStore(localQueueBinding.getQueue()).startPaging();
             } catch (Exception e) {
             }
          }

@@ -28,7 +28,8 @@ import org.apache.activemq.artemis.api.core.Pair;
 import org.apache.activemq.artemis.api.core.RoutingType;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.filter.Filter;
-import org.apache.activemq.artemis.core.paging.PagingStore;
+import org.apache.activemq.artemis.core.memory.AddressMemoryManager;
+import org.apache.activemq.artemis.core.memory.QueueMemoryManager;
 import org.apache.activemq.artemis.core.paging.cursor.PageSubscription;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.postoffice.Binding;
@@ -71,8 +72,18 @@ public class FakeQueue extends CriticalComponentImpl implements Queue {
    }
 
    @Override
-   public PagingStore getPagingStore() {
+   public AddressMemoryManager getAddressMemoryManager() {
       return null;
+   }
+
+   @Override
+   public QueueMemoryManager getQueueMemoryManager() {
+      return subs;
+   }
+
+   @Override
+   public void destroy() throws Exception {
+
    }
 
    @Override
@@ -893,11 +904,6 @@ public class FakeQueue extends CriticalComponentImpl implements Queue {
    public void addLast(MessageReference ref, boolean direct) {
       // no-op
 
-   }
-
-   @Override
-   public PageSubscription getPageSubscription() {
-      return subs;
    }
 
    @Override

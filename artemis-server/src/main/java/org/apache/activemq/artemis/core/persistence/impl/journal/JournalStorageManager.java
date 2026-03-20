@@ -134,11 +134,6 @@ public class JournalStorageManager extends AbstractJournalStorageManager {
    }
 
    @Override
-   public SequentialFileFactory getJournalSequentialFileFactory() {
-      return journalFF;
-   }
-
-   @Override
    protected void init(Configuration config, IOCriticalErrorListener criticalErrorListener) {
 
       if (!EnumSet.allOf(JournalType.class).contains(config.getJournalType())) {
@@ -236,7 +231,7 @@ public class JournalStorageManager extends AbstractJournalStorageManager {
    }
 
    protected void createDirectories() {
-      if (!config.isUsingDatabasePersistence()) {
+      if (!config.isUsingFileOverDB()) {
          checkAndCreateDir(config.getBindingsLocation(), config.isCreateBindingsDir());
          checkAndCreateDir(config.getJournalLocation(), config.isCreateJournalDir());
          checkAndCreateDir(config.getLargeMessagesLocation(), config.isCreateJournalDir());

@@ -94,7 +94,7 @@ public class AmqpScheduledMessageTest extends AmqpClientTestSupport {
          assertNotNull(queueView);
 
          final SimpleString queueNameSS = SimpleString.of(getQueueName());
-         PagingStore targetPagingStore = server.getPagingManager().getPageStore(queueNameSS);
+         PagingStore targetPagingStore = getPagingManager(server).getPageStore(queueNameSS);
          assertNotNull(targetPagingStore);
 
          QueueControl queueControl = ManagementControlHelper.createQueueControl(queueNameSS, queueNameSS, RoutingType.ANYCAST, this.mBeanServer);

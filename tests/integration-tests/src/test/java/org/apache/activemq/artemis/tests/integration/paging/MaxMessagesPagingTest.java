@@ -117,7 +117,7 @@ public class MaxMessagesPagingTest extends ActiveMQTestBase {
 
       Queue queue = server.locateQueue(ADDRESS);
 
-      Wait.assertTrue(queue.getPagingStore()::isPaging);
+      Wait.assertTrue(getPagingStore(queue)::isPaging);
 
       ClientConsumer consumer = session.createConsumer(ADDRESS);
 
@@ -130,7 +130,7 @@ public class MaxMessagesPagingTest extends ActiveMQTestBase {
       }
       session.commit();
 
-      Wait.assertFalse(queue.getPagingStore()::isPaging);
+      Wait.assertFalse(getPagingStore(queue)::isPaging);
 
       messageSize = 1;
 
@@ -144,13 +144,13 @@ public class MaxMessagesPagingTest extends ActiveMQTestBase {
          producer.send(message);
          if (i == 30) {
             // it should not kick based on the size of the address
-            Wait.assertFalse(queue.getPagingStore()::isPaging);
+            Wait.assertFalse(getPagingStore(queue)::isPaging);
          }
       }
 
-      Wait.assertTrue(queue.getPagingStore()::isPaging);
+      Wait.assertTrue(getPagingStore(queue)::isPaging);
 
-      SizeAwareMetric globalSizeMetric = PagingManagerImplAccessor.globalSizeAwareMetric(server.getPagingManager());
+      SizeAwareMetric globalSizeMetric = PagingManagerImplAccessor.globalSizeAwareMetric(getPagingManager(server));
 
       // this is validating the test is actually validating paging after over elements
       assertTrue(globalSizeMetric.isOverElements());
@@ -206,14 +206,14 @@ public class MaxMessagesPagingTest extends ActiveMQTestBase {
          Queue queue = server.locateQueue(address);
          if (adr == 1) {
             // first address is fine
-            Wait.assertFalse(queue.getPagingStore()::isPaging);
+            Wait.assertFalse(getPagingStore(queue)::isPaging);
          } else {
             // on second one we reach max
-            Wait.assertTrue(queue.getPagingStore()::isPaging);
+            Wait.assertTrue(getPagingStore(queue)::isPaging);
          }
       }
 
-      SizeAwareMetric globalSizeMetric = PagingManagerImplAccessor.globalSizeAwareMetric(server.getPagingManager());
+      SizeAwareMetric globalSizeMetric = PagingManagerImplAccessor.globalSizeAwareMetric(getPagingManager(server));
 
       // this is validating the test is actually validating paging after over elements
       assertTrue(globalSizeMetric.isOverElements());
@@ -269,9 +269,9 @@ public class MaxMessagesPagingTest extends ActiveMQTestBase {
 
             producer.send(message);
             if (i >= 4) {
-               Wait.assertTrue(queue.getPagingStore()::isPaging);
+               Wait.assertTrue(getPagingStore(queue)::isPaging);
             } else {
-               assertFalse(queue.getPagingStore().isPaging());
+               assertFalse(getPagingStore(queue).isPaging());
             }
          }
       }
@@ -322,9 +322,9 @@ public class MaxMessagesPagingTest extends ActiveMQTestBase {
          }
 
          if (adr >= 9) {
-            Wait.assertTrue(queue.getPagingStore()::isPaging);
+            Wait.assertTrue(getPagingStore(queue)::isPaging);
          } else {
-            assertFalse(queue.getPagingStore().isPaging());
+            assertFalse(getPagingStore(queue).isPaging());
          }
       }
    }

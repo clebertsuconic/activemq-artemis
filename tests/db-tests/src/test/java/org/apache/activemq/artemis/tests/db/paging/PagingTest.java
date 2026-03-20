@@ -80,6 +80,7 @@ import org.apache.activemq.artemis.core.journal.PreparedTransactionInfo;
 import org.apache.activemq.artemis.core.journal.RecordInfo;
 import org.apache.activemq.artemis.core.paging.PageTransactionInfo;
 import org.apache.activemq.artemis.core.paging.PagedMessage;
+import org.apache.activemq.artemis.core.transaction.impl.TransactionImpl;
 import org.apache.activemq.artemis.core.paging.PagingManager;
 import org.apache.activemq.artemis.core.paging.PagingStore;
 import org.apache.activemq.artemis.core.paging.PagingStoreFactory;
@@ -298,8 +299,8 @@ public class PagingTest extends ParameterDBTestBase {
 
          session.createQueue(QueueConfiguration.of(ADDRESS.concat("-0")).setAddress(ADDRESS));
 
-         server.getPagingManager().getPageStore(ADDRESS).forceAnotherPage(true);
-         server.getPagingManager().getPageStore(ADDRESS).disableCleanup();
+         getPagingManager(server).getPageStore(ADDRESS).forceAnotherPage(true);
+         getPagingManager(server).getPageStore(ADDRESS).disableCleanup();
          session.start();
 
          ClientProducer producer = session.createProducer(ADDRESS);
@@ -343,7 +344,7 @@ public class PagingTest extends ParameterDBTestBase {
 
          Queue queue = server.locateQueue(ADDRESS.concat("-0"));
 
-         PagingStore store = server.getPagingManager().getPageStore(ADDRESS);
+         PagingStore store = getPagingManager(server).getPageStore(ADDRESS);
          PageCursorProvider provider = store.getCursorProvider();
 
          PageSubscription cursorSubscription = provider.getSubscription(queue.getID());
@@ -357,8 +358,8 @@ public class PagingTest extends ParameterDBTestBase {
          session.close();
          assertFalse(loggerHandler.findText("Could not locate page"));
          assertFalse(loggerHandler.findText("AMQ222029"));
-         server.getPagingManager().getPageStore(ADDRESS).enableCleanup();
-         Wait.assertFalse(server.getPagingManager().getPageStore(ADDRESS)::isPaging);
+         getPagingManager(server).getPageStore(ADDRESS).enableCleanup();
+         Wait.assertFalse(getPagingManager(server).getPageStore(ADDRESS)::isPaging);
       }
    }
 
@@ -385,8 +386,8 @@ public class PagingTest extends ParameterDBTestBase {
 
       session.createQueue(QueueConfiguration.of(ADDRESS.concat("-0")).setAddress(ADDRESS));
 
-      server.getPagingManager().getPageStore(ADDRESS).startPaging();
-      server.getPagingManager().getPageStore(ADDRESS).disableCleanup();
+      getPagingManager(server).getPageStore(ADDRESS).startPaging();
+      getPagingManager(server).getPageStore(ADDRESS).disableCleanup();
       session.start();
 
       ClientProducer producer = session.createProducer(ADDRESS);
@@ -413,7 +414,7 @@ public class PagingTest extends ParameterDBTestBase {
 
       Queue queue = server.locateQueue(ADDRESS.concat("-0"));
 
-      PagingStore store = server.getPagingManager().getPageStore(ADDRESS);
+      PagingStore store = getPagingManager(server).getPageStore(ADDRESS);
       PageCursorProvider provider = store.getCursorProvider();
 
       PageSubscription cursorSubscription = provider.getSubscription(queue.getID());
@@ -453,7 +454,7 @@ public class PagingTest extends ParameterDBTestBase {
       assertNotNull(queue);
       queue.pause();
 
-      PagingStore store = queue.getPagingStore();
+      PagingStore store = getPagingStore(queue);
 
       store.startPaging();
       store.disableCleanup();
@@ -526,8 +527,8 @@ public class PagingTest extends ParameterDBTestBase {
 
       session.createQueue(QueueConfiguration.of(ADDRESS.concat("-0")).setAddress(ADDRESS));
 
-      server.getPagingManager().getPageStore(ADDRESS).startPaging();
-      server.getPagingManager().getPageStore(ADDRESS).disableCleanup();
+      getPagingManager(server).getPageStore(ADDRESS).startPaging();
+      getPagingManager(server).getPageStore(ADDRESS).disableCleanup();
       session.start();
 
       ClientProducer producer = session.createProducer(ADDRESS);
@@ -551,7 +552,7 @@ public class PagingTest extends ParameterDBTestBase {
       Queue queue = server.locateQueue(ADDRESS.concat("-0"));
       queue.pause();
 
-      PagingStore store = server.getPagingManager().getPageStore(ADDRESS);
+      PagingStore store = getPagingManager(server).getPageStore(ADDRESS);
       PageCursorProvider provider = store.getCursorProvider();
 
       PageSubscription cursorSubscription = provider.getSubscription(queue.getID());
@@ -697,7 +698,7 @@ public class PagingTest extends ParameterDBTestBase {
          Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
          javax.jms.Queue jmsQueue = session.createQueue(getName());
 
-         serverQueue.getPagingStore().startPaging();
+         getPagingStore(serverQueue).startPaging();
 
          MessageProducer producer = session.createProducer(jmsQueue);
 
@@ -705,12 +706,12 @@ public class PagingTest extends ParameterDBTestBase {
             for (int j = 0; j < 10; j++) {
                producer.send(session.createMessage());
             }
-            serverQueue.getPagingStore().forceAnotherPage(true);
+            getPagingStore(serverQueue).forceAnotherPage(true);
          }
       }
 
       // Forcing a situation in the data that would cause an issue while reloading the data
-      long tx = server.getStorageManager().generateID();
+      TransactionImpl tx = new TransactionImpl(server.getStorageManager());
       server.getStorageManager().storePageCompleteTransactional(tx, serverQueue.getID(), new PagePositionImpl(1, 10));
       server.getStorageManager().commit(tx);
       server.getStorageManager().storeCursorAcknowledge(serverQueue.getID(), new PagePositionImpl(1, 0));
@@ -733,7 +734,7 @@ public class PagingTest extends ParameterDBTestBase {
          }
 
          assertNull(consumer.receiveNoWait());
-         Wait.assertFalse(serverQueueAfterRestart.getPagingStore()::isPaging);
+         Wait.assertFalse(getPagingStore(serverQueueAfterRestart)::isPaging);
       }
 
    }
@@ -853,7 +854,7 @@ public class PagingTest extends ParameterDBTestBase {
 
       Queue queue = server.locateQueue(ADDRESS);
       for (int repeat = 0; repeat < 2; repeat++) {
-         queue.getPagingStore().startPaging();
+         getPagingStore(queue).startPaging();
 
          for (int i = 0; i < numberOfMessages; i++) {
             ClientMessage message = session.createMessage(true);
@@ -879,12 +880,12 @@ public class PagingTest extends ParameterDBTestBase {
             session.commit();
          }
          consumer.close();
-         Wait.assertFalse(queue.getPagingStore()::isPaging, 5000, 100);
+         Wait.assertFalse(getPagingStore(queue)::isPaging, 5000, 100);
 
-         Wait.assertTrue(() -> PagingStoreTestAccessor.getUsedPagesSize(queue.getPagingStore()) <= 1, 1000, 100);
+         Wait.assertTrue(() -> PagingStoreTestAccessor.getUsedPagesSize(getPagingStore(queue)) <= 1, 1000, 100);
 
       }
-      Wait.assertFalse(queue.getPagingStore()::isPaging, 5000, 100);
+      Wait.assertFalse(getPagingStore(queue)::isPaging, 5000, 100);
    }
 
    @TestTemplate
@@ -924,7 +925,7 @@ public class PagingTest extends ParameterDBTestBase {
       }
 
       Queue queue = server.locateQueue(address + "_1");
-      queue.getPagingStore().startPaging();
+      getPagingStore(queue).startPaging();
 
       int page = 1;
 
@@ -933,7 +934,7 @@ public class PagingTest extends ParameterDBTestBase {
 
       for (int i = 0; i < numberOfMessages; i++) {
          if (i % 10 == 0 && i > 0) {
-            queue.getPagingStore().forceAnotherPage(true);
+            getPagingStore(queue).forceAnotherPage(true);
             page++;
          }
          message = session.createMessage(true);
@@ -951,7 +952,7 @@ public class PagingTest extends ParameterDBTestBase {
          producer.send(message);
       }
 
-      queue.getPagingStore().getCursorProvider().disableCleanup();
+      getPagingStore(queue).getCursorProvider().disableCleanup();
 
       ClientConsumer consumer = session.createConsumer(address + "_1", "page=3");
       session.start();
@@ -964,14 +965,14 @@ public class PagingTest extends ParameterDBTestBase {
       }
       session.commit();
 
-      assertEquals(10, queue.getPagingStore().getNumberOfPages());
+      assertEquals(10, getPagingStore(queue).getNumberOfPages());
 
-      PageCursorProviderTestAccessor.cleanup(queue.getPagingStore().getCursorProvider());
+      PageCursorProviderTestAccessor.cleanup(getPagingStore(queue).getCursorProvider());
 
-      assertEquals(9, queue.getPagingStore().getNumberOfPages());
+      assertEquals(9, getPagingStore(queue).getNumberOfPages());
 
       {
-         SequentialFileFactory factory = PagingStoreTestAccessor.getFileFactory(queue.getPagingStore());
+         SequentialFileFactory factory = PagingStoreTestAccessor.getFileFactory(getPagingStore(queue));
 
          Wait.assertEquals(9, () -> factory.listFiles("page").size(), 5000, 100);
       }
@@ -983,10 +984,10 @@ public class PagingTest extends ParameterDBTestBase {
       server.start();
 
       queue = server.locateQueue(address + "_1");
-      queue.getPagingStore().startPaging();
+      getPagingStore(queue).startPaging();
 
       {
-         SequentialFileFactory factory = PagingStoreTestAccessor.getFileFactory(queue.getPagingStore());
+         SequentialFileFactory factory = PagingStoreTestAccessor.getFileFactory(getPagingStore(queue));
          // Making sure restarting the server should not recreate a file
          assertEquals(9, factory.listFiles("page").size());
 
@@ -1059,15 +1060,15 @@ public class PagingTest extends ParameterDBTestBase {
       Queue queue = server.locateQueue(address);
 
       for (int repeat = 0; repeat < 5; repeat++) {
-         queue.getPagingStore().startPaging();
+         getPagingStore(queue).startPaging();
          int page = 1;
 
          for (int i = 0; i < numberOfMessages; i++) {
             if (i % 10 == 0 && i > 0) {
-               queue.getPagingStore().forceAnotherPage(true);
+               getPagingStore(queue).forceAnotherPage(true);
                // forceAnotherPage could be called concurrently with cleanup on this case
                // so we have to call startPaging to make sure we are still paging on this test
-               queue.getPagingStore().startPaging();
+               getPagingStore(queue).startPaging();
                page++;
             }
             message = session.createMessage(true);
@@ -1094,9 +1095,9 @@ public class PagingTest extends ParameterDBTestBase {
          session.commit();
 
          consumer.close();
-         PageCursorProviderTestAccessor.cleanup(queue.getPagingStore().getCursorProvider());
+         PageCursorProviderTestAccessor.cleanup(getPagingStore(queue).getCursorProvider());
 
-         Wait.assertFalse(queue.getPagingStore()::isPaging, 5000, 100);
+         Wait.assertFalse(getPagingStore(queue)::isPaging, 5000, 100);
       }
    }
 
@@ -1239,8 +1240,8 @@ public class PagingTest extends ParameterDBTestBase {
 
       session.commit();
 
-      Wait.assertTrue(server.getPagingManager().getPageStore(ADDRESS)::isPaging, 5000, 100);
-      assertEquals(ADDRESS, server.getPagingManager().getPageStore(ADDRESS).getAddress());
+      Wait.assertTrue(getPagingManager(server).getPageStore(ADDRESS)::isPaging, 5000, 100);
+      assertEquals(ADDRESS, getPagingManager(server).getPageStore(ADDRESS).getAddress());
 
       session.start();
 
@@ -1256,8 +1257,8 @@ public class PagingTest extends ParameterDBTestBase {
 
       session.commit();
 
-      server.getPagingManager().deletePageStore(fqqn);
-      assertFalse(Arrays.asList(server.getPagingManager().getStoreNames()).contains(ADDRESS));
+      getPagingManager(server).deletePageStore(fqqn);
+      assertFalse(Arrays.asList(getPagingManager(server).getStoreNames()).contains(ADDRESS));
    }
 
    // First page is complete but it wasn't deleted
@@ -1280,7 +1281,7 @@ public class PagingTest extends ParameterDBTestBase {
       server.addAddressInfo(new AddressInfo(PagingTest.ADDRESS, RoutingType.ANYCAST));
       Queue queue = server.createQueue(QueueConfiguration.of(ADDRESS).setRoutingType(RoutingType.ANYCAST));
 
-      queue.getPageSubscription().getPagingStore().startPaging();
+      getPagingStore(queue).startPaging();
 
       ClientProducer producer = session.createProducer(PagingTest.ADDRESS);
 
@@ -1307,7 +1308,7 @@ public class PagingTest extends ParameterDBTestBase {
 
          if ((i + 1) % 5 == 0) {
             session.commit();
-            queue.getPageSubscription().getPagingStore().forceAnotherPage(true);
+            getPagingStore(queue).forceAnotherPage(true);
          }
       }
 
@@ -1316,7 +1317,7 @@ public class PagingTest extends ParameterDBTestBase {
       session.close();
 
       // This will make the cursor to set the page complete and not actually delete it
-      queue.getPageSubscription().getPagingStore().disableCleanup();
+      getPagingStore(queue).disableCleanup();
 
       session = sf.createSession(false, false, false);
 
@@ -1394,7 +1395,7 @@ public class PagingTest extends ParameterDBTestBase {
          bb.put(getSamplebyte(j));
       }
 
-      queue.getPageSubscription().getPagingStore().startPaging();
+      getPagingStore(queue).startPaging();
 
       forcePage(queue);
 
@@ -1412,7 +1413,7 @@ public class PagingTest extends ParameterDBTestBase {
 
          if ((i + 1) % 5 == 0) {
             session.commit();
-            queue.getPageSubscription().getPagingStore().forceAnotherPage(true);
+            getPagingStore(queue).forceAnotherPage(true);
          }
       }
 
@@ -1478,7 +1479,7 @@ public class PagingTest extends ParameterDBTestBase {
 
       queue = server.locateQueue(ADDRESS);
 
-      assertTrue(queue.getPageSubscription().getPagingStore().isPaging());
+      assertTrue(getPagingStore(queue).isPaging());
 
       producer = session.createProducer(ADDRESS);
 
@@ -1495,7 +1496,7 @@ public class PagingTest extends ParameterDBTestBase {
 
          if ((i + 1) % 5 == 0) {
             session.commit();
-            queue.getPageSubscription().getPagingStore().forceAnotherPage(true);
+            getPagingStore(queue).forceAnotherPage(true);
          }
       }
 
@@ -1573,7 +1574,7 @@ public class PagingTest extends ParameterDBTestBase {
             bb.put(getSamplebyte(j));
          }
 
-         queue.getPageSubscription().getPagingStore().startPaging();
+         getPagingStore(queue).startPaging();
 
          // Send many messages, 5 on each page
          for (int i = 0; i < numberOfMessages; i++) {
@@ -1589,7 +1590,7 @@ public class PagingTest extends ParameterDBTestBase {
 
             if ((i + 1) % 5 == 0) {
                session.commit();
-               queue.getPageSubscription().getPagingStore().forceAnotherPage(true);
+               getPagingStore(queue).forceAnotherPage(true);
             }
          }
 
@@ -1641,10 +1642,10 @@ public class PagingTest extends ParameterDBTestBase {
    }
 
    private void forcePage(Queue queue) throws InterruptedException {
-      for (long timeout = System.currentTimeMillis() + 5000; timeout > System.currentTimeMillis() && !queue.getPageSubscription().getPagingStore().isPaging(); ) {
+      for (long timeout = System.currentTimeMillis() + 5000; timeout > System.currentTimeMillis() && !getPagingStore(queue).isPaging(); ) {
          Thread.sleep(10);
       }
-      assertTrue(queue.getPageSubscription().getPagingStore().isPaging());
+      assertTrue(getPagingStore(queue).isPaging());
    }
 
    @TestTemplate
@@ -1901,9 +1902,84 @@ public class PagingTest extends ParameterDBTestBase {
 
       Wait.assertEquals(0, queue::getMessageCount);
 
-      Wait.assertFalse(queue.getPageSubscription().getPagingStore()::isPaging, 5000, 100);
+      Wait.assertFalse(getPagingStore(queue)::isPaging, 5000, 100);
 
-      assertFalse(queue.getPageSubscription().getPagingStore().isPaging());
+      assertFalse(getPagingStore(queue).isPaging());
+
+      server.stop();
+   }
+
+   @TestTemplate
+   public void testAckAndCount() throws Exception {
+      Configuration config = createDefaultInVMConfig().setJournalDirectory(getJournalDir()).setJournalSyncNonTransactional(false).setJournalCompactMinFiles(0).setPageSyncTimeout(1000); // disable compact
+
+      server = createServer(true, config, PagingTest.PAGE_SIZE, PagingTest.PAGE_MAX, -1, -1);
+
+      server.start();
+
+      final int NUM_MESSAGES = 100;
+      final int COMMIT_INTERVAL = 10;
+
+      locator = createInVMNonHALocator().setConsumerWindowSize(10 * 1024 * 1024).setBlockOnNonDurableSend(true).setBlockOnDurableSend(true).setBlockOnAcknowledge(true);
+
+      ClientSessionFactory sf = locator.createSessionFactory();
+
+      ClientSession session = sf.createSession(false, false, false);
+
+      session.createAddress(PagingTest.ADDRESS, RoutingType.MULTICAST, false);
+      session.createQueue(QueueConfiguration.of(PagingTest.ADDRESS).setRoutingType(RoutingType.MULTICAST));
+
+      Queue queue = server.locateQueue(ADDRESS);
+      getPagingStore(queue).startPaging();
+
+      ClientProducer producer = session.createProducer(PagingTest.ADDRESS);
+
+      ClientMessage message = null;
+
+      byte[] body = new byte[MESSAGE_SIZE];
+
+      ByteBuffer bb = ByteBuffer.wrap(body);
+
+      for (int j = 1; j <= MESSAGE_SIZE; j++) {
+         bb.put(getSamplebyte(j));
+      }
+
+      for (int i = 0; i < NUM_MESSAGES; i++) {
+         message = session.createMessage(true);
+
+         ActiveMQBuffer bodyLocal = message.getBodyBuffer();
+
+         bodyLocal.writeBytes(body);
+
+         producer.send(message);
+         if (i % COMMIT_INTERVAL == 0) {
+            session.commit();
+         }
+      }
+      session.commit();
+      session.close();
+
+      locator = createInVMNonHALocator();
+      locator.setConsumerWindowSize(10 * 1024 * 1024);
+      sf = locator.createSessionFactory();
+      session = sf.createSession(false, false, false);
+      ClientConsumer cons = (ClientConsumerInternal) session.createConsumer(ADDRESS);
+      session.start();
+
+      assertNotNull(queue);
+
+      long total = NUM_MESSAGES;
+
+      for (int i = 0; i < NUM_MESSAGES; i++) {
+         Wait.assertEquals(total, queue::getMessageCount, 5000, 100);
+         total--;
+         message = cons.receive(1000);
+         assertNotNull(message);
+         message.acknowledge();
+         session.commit();
+      }
+      Wait.assertEquals(0L, queue::getMessageCount, 5000, 100);
+      Wait.assertFalse(getPagingStore(queue)::isPaging, 5000, 100);
 
       server.stop();
    }
@@ -1927,7 +2003,7 @@ public class PagingTest extends ParameterDBTestBase {
       Session session = connection.createSession(true, Session.SESSION_TRANSACTED);
       javax.jms.Queue jmsQueue = session.createQueue(queue.toString());
 
-      purgeQueue.getPageSubscription().getPagingStore().startPaging();
+      getPagingStore(purgeQueue).startPaging();
 
       MessageProducer producer = session.createProducer(jmsQueue);
 
@@ -1940,7 +2016,7 @@ public class PagingTest extends ParameterDBTestBase {
 
       purgeQueue.deleteQueue(false);
 
-      Wait.assertEquals(0, ()->server.getPagingManager().getTransactions().size(), 5_000);
+      Wait.assertEquals(0, ()->getPagingManager(server).getTransactions().size(), 5_000);
    }
 
    private void waitBuffer(ClientConsumerInternal clientBuffer, int bufferSize) {
@@ -2119,7 +2195,7 @@ public class PagingTest extends ParameterDBTestBase {
 
       Wait.assertEquals(0, queue::getMessageCount);
 
-      PageCursorProviderTestAccessor.cleanup(queue.getPagingStore().getCursorProvider());
+      PageCursorProviderTestAccessor.cleanup(getPagingStore(queue).getCursorProvider());
 
       waitForNotPaging(queue);
    }
@@ -2291,10 +2367,10 @@ public class PagingTest extends ParameterDBTestBase {
       Wait.assertEquals(0, queue::getMessageCount);
 
       long timeout = System.currentTimeMillis() + 5000;
-      while (timeout > System.currentTimeMillis() && queue.getPageSubscription().getPagingStore().isPaging()) {
+      while (timeout > System.currentTimeMillis() && getPagingStore(queue).isPaging()) {
          Thread.sleep(100);
       }
-      Wait.assertFalse(() -> queue.getPageSubscription().getPagingStore().isPaging());
+      Wait.assertFalse(() -> getPagingStore(queue).isPaging());
 
    }
 
@@ -2399,10 +2475,10 @@ public class PagingTest extends ParameterDBTestBase {
       Queue q1 = server.locateQueue(SimpleString.of("q1"));
       Queue q2 = server.locateQueue(SimpleString.of("q2"));
 
-      q1.getPageSubscription().cleanupEntries(false);
-      q2.getPageSubscription().cleanupEntries(false);
+      getPagingSubscription(q1).cleanupEntries(false);
+      getPagingSubscription(q2).cleanupEntries(false);
 
-      PageCursorProvider provider = q1.getPageSubscription().getPagingStore().getCursorProvider();
+      PageCursorProvider provider = getPagingStore(q1).getCursorProvider();
       PageCursorProviderTestAccessor.cleanup(provider);
 
       waitForNotPaging(q1);
@@ -2436,7 +2512,7 @@ public class PagingTest extends ParameterDBTestBase {
 
          session.createQueue(QueueConfiguration.of("q2").setAddress(ADDRESS.toString()));
 
-         server.getPagingManager().getPageStore(ADDRESS).startPaging();
+         getPagingManager(server).getPageStore(ADDRESS).startPaging();
 
          ClientProducer producer = session.createProducer(PagingTest.ADDRESS);
 
@@ -2530,7 +2606,7 @@ public class PagingTest extends ParameterDBTestBase {
 
       long timeout = System.currentTimeMillis() + 5000;
 
-      while (System.currentTimeMillis() < timeout && server.getPagingManager().getPageStore(ADDRESS).isPaging()) {
+      while (System.currentTimeMillis() < timeout && getPagingManager(server).getPageStore(ADDRESS).isPaging()) {
          Thread.sleep(100);
       }
    }
@@ -2600,10 +2676,10 @@ public class PagingTest extends ParameterDBTestBase {
 
       session.commit();
 
-      PagingStore store = server.getPagingManager().getPageStore(ADDRESS);
+      PagingStore store = getPagingManager(server).getPageStore(ADDRESS);
       PageCursorProviderTestAccessor.cleanup(store.getCursorProvider());
 
-      Wait.assertFalse(server.getPagingManager().getPageStore(ADDRESS)::isPaging, 5000, 100);
+      Wait.assertFalse(getPagingManager(server).getPageStore(ADDRESS)::isPaging, 5000, 100);
    }
 
    public void internalMultiQueuesTest(final boolean divert) throws Exception {
@@ -2801,14 +2877,14 @@ public class PagingTest extends ParameterDBTestBase {
 
          assertEquals(0, errors.get());
 
-         for (int i = 0; i < 20 && server.getPagingManager().getTransactions().size() != 0; i++) {
-            if (server.getPagingManager().getTransactions().size() != 0) {
+         for (int i = 0; i < 20 && getPagingManager(server).getTransactions().size() != 0; i++) {
+            if (getPagingManager(server).getTransactions().size() != 0) {
                // The delete may be asynchronous, giving some time case it eventually happen asynchronously
                Thread.sleep(500);
             }
          }
 
-         Wait.assertEquals(0, () -> server.getPagingManager().getTransactions().size());
+         Wait.assertEquals(0, () -> getPagingManager(server).getTransactions().size());
 
       } finally {
          running.set(false);
@@ -2926,9 +3002,9 @@ public class PagingTest extends ParameterDBTestBase {
 
       session.close();
 
-      Wait.assertFalse(() -> server.getPagingManager().getPageStore(ADDRESS).isPaging());
+      Wait.assertFalse(() -> getPagingManager(server).getPageStore(ADDRESS).isPaging());
 
-      Wait.assertEquals(0, () -> server.getPagingManager().getTransactions().size());
+      Wait.assertEquals(0, () -> getPagingManager(server).getTransactions().size());
 
    }
 
@@ -2952,7 +3028,7 @@ public class PagingTest extends ParameterDBTestBase {
       session.createQueue(QueueConfiguration.of(PagingTest.ADDRESS));
 
       Queue queue = server.locateQueue(ADDRESS);
-      queue.getPageSubscription().getPagingStore().startPaging();
+      getPagingStore(queue).startPaging();
 
       ClientProducer producer = session.createProducer(PagingTest.ADDRESS);
 
@@ -3068,7 +3144,7 @@ public class PagingTest extends ParameterDBTestBase {
          message.getBodyBuffer().writeBytes(body);
 
          // Stop sending message as soon as we start paging
-         if (server.getPagingManager().getPageStore(PagingTest.ADDRESS).isPaging()) {
+         if (getPagingManager(server).getPageStore(PagingTest.ADDRESS).isPaging()) {
             break;
          }
          numberOfMessages++;
@@ -3078,7 +3154,7 @@ public class PagingTest extends ParameterDBTestBase {
          producer.send(message);
       }
 
-      assertTrue(server.getPagingManager().getPageStore(PagingTest.ADDRESS).isPaging());
+      assertTrue(getPagingManager(server).getPageStore(PagingTest.ADDRESS).isPaging());
 
       session.start();
 
@@ -3186,7 +3262,7 @@ public class PagingTest extends ParameterDBTestBase {
          message.putBooleanProperty("new", false);
 
          // Stop sending message as soon as we start paging
-         if (server.getPagingManager().getPageStore(PagingTest.ADDRESS).isPaging()) {
+         if (getPagingManager(server).getPageStore(PagingTest.ADDRESS).isPaging()) {
             break;
          }
          numberOfMessages++;
@@ -3198,7 +3274,7 @@ public class PagingTest extends ParameterDBTestBase {
       }
       session.commit();
 
-      assertTrue(server.getPagingManager().getPageStore(PagingTest.ADDRESS).isPaging());
+      assertTrue(getPagingManager(server).getPageStore(PagingTest.ADDRESS).isPaging());
 
       session.start();
 
@@ -3309,7 +3385,7 @@ public class PagingTest extends ParameterDBTestBase {
                msgSend.getBodyBuffer().writeBytes(new byte[20 * 1024]);
                producerNonTransacted.send(msgSend);
             }
-            Wait.assertTrue(() -> server.getPagingManager().getPageStore(PagingTest.ADDRESS).isPaging(), 1000);
+            Wait.assertTrue(() -> getPagingManager(server).getPageStore(PagingTest.ADDRESS).isPaging(), 1000);
          } else {
             logger.debug("Receiving");
             ClientConsumer consumer = sessionNonTX.createConsumer(PagingTest.ADDRESS);
@@ -3473,7 +3549,7 @@ public class PagingTest extends ParameterDBTestBase {
                   // and make sure there are no pending messages
                   sessionProducer.commit();
 
-                  Wait.assertTrue(() -> server.getPagingManager().getPageStore(ADDRESS).isPaging());
+                  Wait.assertTrue(() -> getPagingManager(server).getPageStore(ADDRESS).isPaging());
                   ready.countDown();
                }
             }
@@ -3572,7 +3648,7 @@ public class PagingTest extends ParameterDBTestBase {
          message.getBodyBuffer().writeBytes(body);
          message.putIntProperty(SimpleString.of("id"), i);
 
-         PagingStore store = server.getPagingManager().getPageStore(PagingTest.ADDRESS);
+         PagingStore store = getPagingManager(server).getPageStore(PagingTest.ADDRESS);
 
          // Worse scenario possible... only schedule what's on pages
          if (store.getCurrentPage() != null) {
@@ -3697,7 +3773,7 @@ public class PagingTest extends ParameterDBTestBase {
 
       Queue queue = server.locateQueue(ADDRESS);
 
-      queue.getPageSubscription().getPagingStore().startPaging();
+      getPagingStore(queue).startPaging();
 
       ClientProducer producer = session.createProducer(PagingTest.ADDRESS);
 
@@ -3714,7 +3790,7 @@ public class PagingTest extends ParameterDBTestBase {
 
          producer.send(message);
          session.commit();
-         queue.getPageSubscription().getPagingStore().forceAnotherPage(true);
+         getPagingStore(queue).forceAnotherPage(true);
 
       }
 
@@ -3734,9 +3810,9 @@ public class PagingTest extends ParameterDBTestBase {
 
       ClientSession consumerSession = sf.createSession(false, false);
 
-      queue.getPageSubscription().getPagingStore().disableCleanup();
+      getPagingStore(queue).disableCleanup();
 
-      PageCursorProviderTestAccessor.cleanup(queue.getPagingStore().getCursorProvider());
+      PageCursorProviderTestAccessor.cleanup(getPagingStore(queue).getCursorProvider());
 
       consumerSession.start();
       ClientConsumer consumer = consumerSession.createConsumer(ADDRESS, SimpleString.of("id > 0"));
@@ -3749,9 +3825,9 @@ public class PagingTest extends ParameterDBTestBase {
 
          // The only reason I'm calling cleanup directly is that it would be easy to debug in case of bugs
          // if you see an issue with cleanup here, enjoy debugging this method
-         PageCursorProviderTestAccessor.cleanup(queue.getPagingStore().getCursorProvider());
+         PageCursorProviderTestAccessor.cleanup(getPagingStore(queue).getCursorProvider());
       }
-      queue.getPageSubscription().getPagingStore().enableCleanup();
+      getPagingStore(queue).enableCleanup();
 
       consumerSession.close();
 
@@ -3820,7 +3896,7 @@ public class PagingTest extends ParameterDBTestBase {
 
       final Queue queue1 = server.locateQueue(ADDRESS);
 
-      queue1.getPageSubscription().getPagingStore().startPaging();
+      getPagingStore(queue1).startPaging();
 
       ClientProducer producer = session.createProducer(PagingTest.ADDRESS);
 
@@ -3838,17 +3914,17 @@ public class PagingTest extends ParameterDBTestBase {
          producer.send(message);
          session.commit();
          if (i < 19) {
-            queue1.getPageSubscription().getPagingStore().forceAnotherPage(true);
+            getPagingStore(queue1).forceAnotherPage(true);
          }
 
       }
 
-      Wait.assertEquals(20, () -> queue1.getPageSubscription().getPagingStore().getCurrentWritingPage());
+      Wait.assertEquals(20, () -> getPagingStore(queue1).getCurrentWritingPage());
 
       // This will force a scenario where the pages are cleaned up. When restarting we need to check if the current page is complete
       // if it is complete we must move to another page avoiding races on cleanup
       // which could happen during a crash / restart
-      long tx = server.getStorageManager().generateID();
+      TransactionImpl tx = new TransactionImpl(server.getStorageManager());
       for (int i = 1; i <= 20; i++) {
          server.getStorageManager().storePageCompleteTransactional(tx, queue1.getID(), new PagePositionImpl(i, 1));
       }
@@ -3885,15 +3961,15 @@ public class PagingTest extends ParameterDBTestBase {
          session.commit();
 
          if (i == 5) {
-            queue.getPageSubscription().getPagingStore().forceAnotherPage(true);
+            getPagingStore(queue).forceAnotherPage(true);
          }
       }
 
       mainCleanup.set(true);
 
       queue = server.locateQueue(ADDRESS);
-      queue.getPageSubscription().cleanupEntries(false);
-      PageCursorProviderTestAccessor.cleanup(queue.getPageSubscription().getPagingStore().getCursorProvider());
+      getPagingSubscription(queue).cleanupEntries(false);
+      PageCursorProviderTestAccessor.cleanup(getPagingStore(queue).getCursorProvider());
 
       ClientConsumer consumer = session.createConsumer(ADDRESS);
       session.start();
@@ -3979,7 +4055,7 @@ public class PagingTest extends ParameterDBTestBase {
 
       final Queue queue1 = server.locateQueue(queue1Name);
 
-      queue1.getPageSubscription().getPagingStore().startPaging();
+      getPagingStore(queue1).startPaging();
 
       ClientProducer producer = session.createProducer(PagingTest.ADDRESS);
 
@@ -3998,8 +4074,8 @@ public class PagingTest extends ParameterDBTestBase {
          session.commit();
       }
 
-      Wait.assertTrue(queue1.getPagingStore()::isPaging);
-      Future<Boolean> doneCleanup = queue1.getPagingStore().getCursorProvider().scheduleCleanup();
+      Wait.assertTrue(getPagingStore(queue1)::isPaging);
+      Future<Boolean> doneCleanup = getPagingStore(queue1).getCursorProvider().scheduleCleanup();
 
       assertTrue(startFlag.await(5, TimeUnit.SECONDS));
 
@@ -4187,7 +4263,7 @@ public class PagingTest extends ParameterDBTestBase {
 
       assertNull(consumer.receiveImmediate());
 
-      Wait.assertEquals(0, () -> server.getPagingManager().getPageStore(PagingTest.ADDRESS).getAddressSize());
+      Wait.assertEquals(0, () -> getPagingManager(server).getPageStore(PagingTest.ADDRESS).getAddressSize());
 
       for (int i = 0; i < numberOfMessages; i++) {
          byte[] body = new byte[2048];
@@ -4244,7 +4320,7 @@ public class PagingTest extends ParameterDBTestBase {
 
       session.close();
 
-      Wait.assertEquals(0, () -> server.getPagingManager().getPageStore(PagingTest.ADDRESS).getAddressSize());
+      Wait.assertEquals(0, () -> getPagingManager(server).getPageStore(PagingTest.ADDRESS).getAddressSize());
    }
 
    @TestTemplate
@@ -4445,8 +4521,8 @@ public class PagingTest extends ParameterDBTestBase {
 
       session.close();
 
-      assertTrue(server.getPagingManager().getPageStore(PAGED_ADDRESS).isPaging());
-      Wait.assertFalse(() -> server.getPagingManager().getPageStore(NON_PAGED_ADDRESS).isPaging());
+      assertTrue(getPagingManager(server).getPageStore(PAGED_ADDRESS).isPaging());
+      Wait.assertFalse(() -> getPagingManager(server).getPageStore(NON_PAGED_ADDRESS).isPaging());
 
       session = sf.createSession(false, true, false);
 
@@ -4527,7 +4603,7 @@ public class PagingTest extends ParameterDBTestBase {
 
       session.close();
 
-      assertTrue(server.getPagingManager().getPageStore(PAGED_ADDRESS).isPaging());
+      assertTrue(getPagingManager(server).getPageStore(PAGED_ADDRESS).isPaging());
       session = sf.createSession(false, true, false);
 
       session.start();
@@ -4617,7 +4693,7 @@ public class PagingTest extends ParameterDBTestBase {
          session.commit();
       }
 
-      PagingStore store = server.getPagingManager().getPageStore(ADDRESS);
+      PagingStore store = getPagingManager(server).getPageStore(ADDRESS);
       PageCursorProviderTestAccessor.cleanup(store.getCursorProvider());
 
       long timeout = System.currentTimeMillis() + 5000;
@@ -4626,7 +4702,7 @@ public class PagingTest extends ParameterDBTestBase {
       }
 
       // It's async, so need to wait a bit for it happening
-      assertFalse(server.getPagingManager().getPageStore(ADDRESS).isPaging());
+      assertFalse(getPagingManager(server).getPageStore(ADDRESS).isPaging());
    }
 
    @TestTemplate
@@ -4692,7 +4768,7 @@ public class PagingTest extends ParameterDBTestBase {
             consumer.close();
          }
 
-         PagingStore store = server.getPagingManager().getPageStore(ADDRESS);
+         PagingStore store = getPagingManager(server).getPageStore(ADDRESS);
          PageCursorProviderTestAccessor.cleanup(store.getCursorProvider());
 
          Wait.waitFor(() -> !store.isPaging(), 5000);
@@ -4735,11 +4811,11 @@ public class PagingTest extends ParameterDBTestBase {
          // A queue with an impossible filter
          session.createQueue(QueueConfiguration.of(PagingTest.ADDRESS.concat("-3")).setAddress(PagingTest.ADDRESS).setFilterString(SimpleString.of("nothing='something'")));
 
-         PagingStore store = server.getPagingManager().getPageStore(ADDRESS);
+         PagingStore store = getPagingManager(server).getPageStore(ADDRESS);
 
          Queue queue = server.locateQueue(PagingTest.ADDRESS.concat("=1"));
 
-         queue.getPageSubscription().getPagingStore().startPaging();
+         getPagingStore(queue).startPaging();
 
          ClientProducer producer = session.createProducer(PagingTest.ADDRESS);
 
@@ -4855,14 +4931,14 @@ public class PagingTest extends ParameterDBTestBase {
 
          long timeout = System.currentTimeMillis() + 10000;
 
-         PagingStore store = server.getPagingManager().getPageStore(ADDRESS);
+         PagingStore store = getPagingManager(server).getPageStore(ADDRESS);
 
          // It's async, so need to wait a bit for it happening
          while (timeout > System.currentTimeMillis() && store.isPaging()) {
             Thread.sleep(100);
          }
 
-         assertFalse(server.getPagingManager().getPageStore(ADDRESS).isPaging());
+         assertFalse(getPagingManager(server).getPageStore(ADDRESS).isPaging());
 
          server.stop();
 
@@ -4915,9 +4991,9 @@ public class PagingTest extends ParameterDBTestBase {
 
          Queue serverQueue = server.locateQueue(ADDRESS);
 
-         PagingStore pgStoreAddress = server.getPagingManager().getPageStore(ADDRESS);
+         PagingStore pgStoreAddress = getPagingManager(server).getPageStore(ADDRESS);
          pgStoreAddress.startPaging();
-         PagingStore pgStoreDLA = server.getPagingManager().getPageStore(SimpleString.of("DLA"));
+         PagingStore pgStoreDLA = getPagingManager(server).getPageStore(SimpleString.of("DLA"));
 
          ClientProducer producer = session.createProducer(PagingTest.ADDRESS);
 
@@ -5065,7 +5141,7 @@ public class PagingTest extends ParameterDBTestBase {
 
          assertNull(cons.receiveImmediate());
 
-         pgStoreAddress = server.getPagingManager().getPageStore(ADDRESS);
+         pgStoreAddress = getPagingManager(server).getPageStore(ADDRESS);
 
          pgStoreAddress.getCursorProvider().getSubscription(serverQueue.getID()).cleanupEntries(false);
 
@@ -5112,7 +5188,7 @@ public class PagingTest extends ParameterDBTestBase {
 
          session.createQueue(QueueConfiguration.of("DLA"));
 
-         PagingStore pgStoreAddress = server.getPagingManager().getPageStore(ADDRESS);
+         PagingStore pgStoreAddress = getPagingManager(server).getPageStore(ADDRESS);
          pgStoreAddress.startPaging();
 
          ClientProducer producer = session.createProducer(PagingTest.ADDRESS);
@@ -5192,7 +5268,7 @@ public class PagingTest extends ParameterDBTestBase {
 
          cons.close();
 
-         pgStoreAddress = server.getPagingManager().getPageStore(ADDRESS);
+         pgStoreAddress = getPagingManager(server).getPageStore(ADDRESS);
 
          Wait.assertFalse(pgStoreAddress::isPaging, 5000, 100);
 
@@ -5481,7 +5557,7 @@ public class PagingTest extends ParameterDBTestBase {
       session.createQueue(QueueConfiguration.of("Q3").setAddress("Q").setFilterString("dest=3"));
 
       Queue queue = server.locateQueue(SimpleString.of("Q1"));
-      queue.getPageSubscription().getPagingStore().startPaging();
+      getPagingStore(queue).startPaging();
 
       ClientProducer prod = session.createProducer("Q");
       ClientMessage msg = session.createMessage(true);
@@ -5504,7 +5580,7 @@ public class PagingTest extends ParameterDBTestBase {
       msg = cons2.receive(5000);
       assertNotNull(msg);
 
-      queue.getPageSubscription().getPagingStore().forceAnotherPage(true);
+      getPagingStore(queue).forceAnotherPage(true);
 
       msg = session.createMessage(true);
       msg.putIntProperty("dest", 1);
@@ -5515,7 +5591,7 @@ public class PagingTest extends ParameterDBTestBase {
       assertNotNull(msg);
       msg.acknowledge();
 
-      queue.getPageSubscription().cleanupEntries(false);
+      getPagingSubscription(queue).cleanupEntries(false);
 
       server.stop();
    }
@@ -5567,7 +5643,7 @@ public class PagingTest extends ParameterDBTestBase {
          final byte[] bodyWrite = new byte[MESSAGE_SIZE];
 
          Queue serverQueue = server.locateQueue(SimpleString.of("Q1"));
-         PagingStore pageStore = serverQueue.getPageSubscription().getPagingStore();
+         PagingStore pageStore = getPagingStore(serverQueue);
 
          ClientProducer producer = session.createProducer(ADDRESS);
 
@@ -5704,7 +5780,7 @@ public class PagingTest extends ParameterDBTestBase {
          session.createQueue(QueueConfiguration.of("Q1").setAddress(ADDRESS.toString()).setFilterString("dest=1"));
          session.createQueue(QueueConfiguration.of("Q2").setAddress(ADDRESS.toString()).setFilterString("dest=2"));
 
-         PagingStore store = server.getPagingManager().getPageStore(ADDRESS);
+         PagingStore store = getPagingManager(server).getPageStore(ADDRESS);
 
          store.startPaging();
 
@@ -5795,7 +5871,7 @@ public class PagingTest extends ParameterDBTestBase {
 
          session.createQueue(QueueConfiguration.of("Q1").setAddress(ADDRESS.toString()));
 
-         PagingStore store = server.getPagingManager().getPageStore(ADDRESS);
+         PagingStore store = getPagingManager(server).getPageStore(ADDRESS);
 
          ClientProducer prod = session.createProducer(ADDRESS);
 
@@ -5876,7 +5952,7 @@ public class PagingTest extends ParameterDBTestBase {
 
          session.createQueue(QueueConfiguration.of("Q1").setAddress(ADDRESS.toString()));
 
-         PagingStore store = server.getPagingManager().getPageStore(ADDRESS);
+         PagingStore store = getPagingManager(server).getPageStore(ADDRESS);
 
          store.startPaging();
 
@@ -5914,7 +5990,7 @@ public class PagingTest extends ParameterDBTestBase {
 
          server.start();
 
-         store = server.getPagingManager().getPageStore(ADDRESS);
+         store = getPagingManager(server).getPageStore(ADDRESS);
 
          locator = createInVMNonHALocator();
 
@@ -5959,7 +6035,7 @@ public class PagingTest extends ParameterDBTestBase {
          session.createQueue(QueueConfiguration.of("Q1").setAddress(ADDRESS.toString()).setFilterString("dest=1"));
          session.createQueue(QueueConfiguration.of("Q2").setAddress(ADDRESS.toString()).setFilterString("dest=2"));
 
-         PagingStore store = server.getPagingManager().getPageStore(ADDRESS);
+         PagingStore store = getPagingManager(server).getPageStore(ADDRESS);
 
          store.startPaging();
 
@@ -6043,7 +6119,7 @@ public class PagingTest extends ParameterDBTestBase {
       locator.close();
       server.stop();
       server.start();
-      waitForNotPaging(server.getPagingManager().getPageStore(ADDRESS));
+      waitForNotPaging(getPagingManager(server).getPageStore(ADDRESS));
       server.stop();
 
    }
@@ -6069,7 +6145,7 @@ public class PagingTest extends ParameterDBTestBase {
          session.createQueue(QueueConfiguration.of("Q1"));
          session.createQueue(QueueConfiguration.of("Q2"));
 
-         PagingStore store = server.getPagingManager().getPageStore(SimpleString.of("Q1"));
+         PagingStore store = getPagingManager(server).getPageStore(SimpleString.of("Q1"));
 
          ClientProducer prod = session.createProducer("Q1");
 
@@ -6185,7 +6261,8 @@ public class PagingTest extends ParameterDBTestBase {
                return new PagingStoreFactoryDatabase((DatabaseStorageConfiguration) this.getConfiguration().getStoreConfiguration(), this.getStorageManager(), this.getConfiguration().getJournalBufferTimeout_NIO(), this.getScheduledPool(), this.getExecutorFactory(), this.getConfiguration().isJournalSyncNonTransactional(), null) {
                   @Override
                   public synchronized PagingStore newStore(SimpleString address, AddressSettings settings) {
-                     return new NonStoppablePagingStoreImpl(address, this.getScheduledExecutor(), config.getJournalBufferTimeout_NIO(), getPagingManager(), getStorageManager(), null, this, address, settings, getExecutorFactory().getExecutor(), this.syncNonTransactional);
+                     PagingManager pagingManager = ((PagingManager)getGlobalMemoryManager());
+                     return new NonStoppablePagingStoreImpl(address, this.getScheduledExecutor(), config.getJournalBufferTimeout_NIO(), pagingManager, getStorageManager(), null, this, address, settings, getExecutorFactory().getExecutor(), this.syncNonTransactional);
                   }
                };
             }
@@ -6252,7 +6329,7 @@ public class PagingTest extends ParameterDBTestBase {
 
       Queue queue = server.locateQueue(PagingTest.ADDRESS);
       Wait.assertEquals(numberOfMessages, queue::getMessageCount);
-      Wait.assertEquals(1, ()->server.getPagingManager().getPageStore(ADDRESS).getNumberOfPages());
+      Wait.assertEquals(1, ()->getPagingManager(server).getPageStore(ADDRESS).getNumberOfPages());
 
       sf.close();
 
@@ -6329,8 +6406,8 @@ public class PagingTest extends ParameterDBTestBase {
       }
       session.commit();
       producer.close();
-      assertTrue(Arrays.asList(server.getPagingManager().getStoreNames()).contains(PagingTest.ADDRESS));
-      assertTrue(server.getPagingManager().getPageStore(PagingTest.ADDRESS).isPaging());
+      assertTrue(Arrays.asList(getPagingManager(server).getStoreNames()).contains(PagingTest.ADDRESS));
+      assertTrue(getPagingManager(server).getPageStore(PagingTest.ADDRESS).isPaging());
 
       session.deleteQueue(PagingTest.ADDRESS);
       session.close();
@@ -6338,17 +6415,17 @@ public class PagingTest extends ParameterDBTestBase {
       locator.close();
       locator = null;
       sf = null;
-      Wait.assertFalse(() -> Arrays.asList(server.getPagingManager().getStoreNames()).contains(PagingTest.ADDRESS));
+      Wait.assertFalse(() -> Arrays.asList(getPagingManager(server).getStoreNames()).contains(PagingTest.ADDRESS));
       // Ensure pagingStore is physically deleted
-      server.getPagingManager().reloadStores();
-      Wait.assertFalse(() -> Arrays.asList(server.getPagingManager().getStoreNames()).contains(PagingTest.ADDRESS));
+      getPagingManager(server).reloadStores();
+      Wait.assertFalse(() -> Arrays.asList(getPagingManager(server).getStoreNames()).contains(PagingTest.ADDRESS));
       server.stop();
 
       server.start();
-      assertFalse(Arrays.asList(server.getPagingManager().getStoreNames()).contains(PagingTest.ADDRESS));
+      assertFalse(Arrays.asList(getPagingManager(server).getStoreNames()).contains(PagingTest.ADDRESS));
       // Ensure pagingStore is physically deleted
-      server.getPagingManager().reloadStores();
-      assertFalse(Arrays.asList(server.getPagingManager().getStoreNames()).contains(PagingTest.ADDRESS));
+      getPagingManager(server).reloadStores();
+      assertFalse(Arrays.asList(getPagingManager(server).getStoreNames()).contains(PagingTest.ADDRESS));
       server.stop();
    }
 
@@ -6378,9 +6455,9 @@ public class PagingTest extends ParameterDBTestBase {
          ClientSession session = sf.createSession(false, false, false);
          session.createQueue(QueueConfiguration.of(PagingTest.ADDRESS.concat("=1")).setAddress(PagingTest.ADDRESS).setFilterString("destQ=1 or both=true"));
          session.createQueue(QueueConfiguration.of(PagingTest.ADDRESS.concat("=2")).setAddress(PagingTest.ADDRESS).setFilterString("destQ=2 or both=true"));
-         PagingStore store = server.getPagingManager().getPageStore(ADDRESS);
+         PagingStore store = getPagingManager(server).getPageStore(ADDRESS);
          Queue queue = server.locateQueue(PagingTest.ADDRESS.concat("=1"));
-         queue.getPageSubscription().getPagingStore().startPaging();
+         getPagingStore(queue).startPaging();
 
          ClientProducer producer = session.createProducer(PagingTest.ADDRESS);
          ClientMessage message = session.createMessage(persistentMessages);
@@ -6399,7 +6476,7 @@ public class PagingTest extends ParameterDBTestBase {
          session.commit();
 
          if (forceAnotherPage) {
-            queue.getPageSubscription().getPagingStore().forceAnotherPage(true);
+            getPagingStore(queue).forceAnotherPage(true);
          }
 
          message = session.createMessage(persistentMessages);
@@ -6482,8 +6559,8 @@ public class PagingTest extends ParameterDBTestBase {
             producer.send(message);
             session.commit();
          }
-         assertTrue(Arrays.asList(server.getPagingManager().getStoreNames()).contains(PagingTest.ADDRESS));
-         assertTrue(server.getPagingManager().getPageStore(PagingTest.ADDRESS).isPaging());
+         assertTrue(Arrays.asList(getPagingManager(server).getStoreNames()).contains(PagingTest.ADDRESS));
+         assertTrue(getPagingManager(server).getPageStore(PagingTest.ADDRESS).isPaging());
          for (int i = 0; i < numberOfMessages; i++) {
             ClientMessage msg = consumer1.receive(5000);
             assertNotNull(msg);
@@ -6521,7 +6598,7 @@ public class PagingTest extends ParameterDBTestBase {
 
          session.createQueue(QueueConfiguration.of(ADDRESS));
 
-         PagingStore store = server.getPagingManager().getPageStore(ADDRESS);
+         PagingStore store = getPagingManager(server).getPageStore(ADDRESS);
          store.startPaging();
 
          ClientProducer prod = session.createProducer(ADDRESS);
@@ -6596,31 +6673,31 @@ public class PagingTest extends ParameterDBTestBase {
 
       Queue queue = server.locateQueue(PagingTest.ADDRESS);
 
-      queue.getPageSubscription().getPagingStore().startPaging();
+      getPagingStore(queue).startPaging();
 
       ClientProducer producer = session.createProducer(PagingTest.ADDRESS);
 
       if (rollbackBeforeDelivery) {
          sendMessages(session, producer, numberOfMessages);
          session.rollback();
-         assertEquals(1, server.getPagingManager().getTransactions().size());
-         PageTransactionInfo pageTransactionInfo = server.getPagingManager().getTransactions().values().iterator().next();
+         assertEquals(1, getPagingManager(server).getTransactions().size());
+         PageTransactionInfo pageTransactionInfo = getPagingManager(server).getTransactions().values().iterator().next();
          // Make sure rollback happens before delivering messages
          Wait.assertTrue(() -> pageTransactionInfo.isRollback(), 1000, 100);
          ClientConsumer consumer = session.createConsumer(PagingTest.ADDRESS);
          session.start();
          assertNull(consumer.receiveImmediate());
-         Wait.assertTrue(() -> server.getPagingManager().getTransactions().isEmpty(), 5000);
+         Wait.assertTrue(() -> getPagingManager(server).getTransactions().isEmpty(), 5000);
       } else {
          ClientConsumer consumer = session.createConsumer(PagingTest.ADDRESS);
          session.start();
          sendMessages(session, producer, numberOfMessages);
          assertNull(consumer.receiveImmediate());
-         assertEquals(1, server.getPagingManager().getTransactions().size());
-         PageTransactionInfo pageTransactionInfo = server.getPagingManager().getTransactions().values().iterator().next();
+         assertEquals(1, getPagingManager(server).getTransactions().size());
+         PageTransactionInfo pageTransactionInfo = getPagingManager(server).getTransactions().values().iterator().next();
          session.rollback();
          Wait.assertTrue(() -> pageTransactionInfo.isRollback(), 1000, 100);
-         Wait.assertTrue(() -> server.getPagingManager().getTransactions().isEmpty(), 5000);
+         Wait.assertTrue(() -> getPagingManager(server).getTransactions().isEmpty(), 5000);
       }
 
       session.close();
@@ -6664,8 +6741,8 @@ public class PagingTest extends ParameterDBTestBase {
       for (int repeat = 0; repeat < 2; repeat++) {
          Wait.waitFor(() -> server.locateQueue(queueName) != null);
          Queue testQueue = server.locateQueue(queueName);
-         testQueue.getPagingStore().startPaging();
-         assertTrue(testQueue.getPagingStore().isPaging());
+         getPagingStore(testQueue).startPaging();
+         assertTrue(getPagingStore(testQueue).isPaging());
 
          ConnectionFactory connectionFactory = CFUtil.createConnectionFactory("CORE", "tcp://localhost:61616");
          try (Connection connection = connectionFactory.createConnection()) {
@@ -6682,7 +6759,7 @@ public class PagingTest extends ParameterDBTestBase {
          if (repeat == 0) {
             PageSubscriptionImpl subscription = QueueAccessor.getSubscription(testQueue);
             try (PageIterator iterator = subscription.iterator(true)) {
-               long txID = server.getStorageManager().generateID();
+               TransactionImpl txID = new TransactionImpl(server.getStorageManager());
                int i = 0;
                while (iterator.hasNext()) {
                   PagedReference reference = iterator.next();
@@ -6735,8 +6812,8 @@ public class PagingTest extends ParameterDBTestBase {
 
       Wait.waitFor(() -> server.locateQueue(queueName) != null);
       Queue testQueue = server.locateQueue(queueName);
-      testQueue.getPagingStore().startPaging();
-      assertTrue(testQueue.getPagingStore().isPaging());
+      getPagingStore(testQueue).startPaging();
+      assertTrue(getPagingStore(testQueue).isPaging());
 
       ConnectionFactory connectionFactory = CFUtil.createConnectionFactory("CORE", "tcp://localhost:61616");
       try (Connection connection = connectionFactory.createConnection()) {
@@ -6784,7 +6861,7 @@ public class PagingTest extends ParameterDBTestBase {
             producer.send(message);
             if (i > 0 && i % 10 == 0) {
                session.commit();
-               testQueue.getPagingStore().forceAnotherPage();
+               getPagingStore(testQueue).forceAnotherPage();
             }
          }
          session.commit();
@@ -6828,8 +6905,8 @@ public class PagingTest extends ParameterDBTestBase {
       Wait.waitFor(() -> server.locateQueue(queueName) != null);
       Queue testQueue = server.locateQueue(queueName);
 
-      testQueue.getPagingStore().startPaging();
-      assertTrue(testQueue.getPagingStore().isPaging());
+      getPagingStore(testQueue).startPaging();
+      assertTrue(getPagingStore(testQueue).isPaging());
 
       ConnectionFactory connectionFactory = CFUtil.createConnectionFactory(protocol, "tcp://localhost:61616");
       try (Connection connection = connectionFactory.createConnection()) {

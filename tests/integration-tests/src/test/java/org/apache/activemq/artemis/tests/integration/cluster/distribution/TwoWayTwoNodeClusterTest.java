@@ -112,7 +112,7 @@ public class TwoWayTwoNodeClusterTest extends ClusterTestBase {
       Wait.assertTrue(() -> getMessageCount(servers[0], "queues") + getMessageCount(servers[1], "queues") >= numSent, 5000);
 
       Queue queue0 = servers[0].locateQueue(SimpleString.of("queue0"));
-      assertTrue(queue0.getPageSubscription().isPaging());
+      assertTrue(getPagingStore(queue0).isPaging());
 
       closeAllSessionFactories();
       stopServers(0, 1);

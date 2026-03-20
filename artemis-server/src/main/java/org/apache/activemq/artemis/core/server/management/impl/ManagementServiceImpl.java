@@ -76,11 +76,11 @@ import org.apache.activemq.artemis.core.management.impl.JGroupsChannelBroadcastG
 import org.apache.activemq.artemis.core.management.impl.JGroupsFileBroadcastGroupControlImpl;
 import org.apache.activemq.artemis.core.management.impl.QueueControlImpl;
 import org.apache.activemq.artemis.core.management.impl.RemoteBrokerConnectionControlImpl;
+import org.apache.activemq.artemis.core.memory.GlobalMemoryManager;
 import org.apache.activemq.artemis.core.message.impl.CoreMessage;
 import org.apache.activemq.artemis.core.messagecounter.MessageCounter;
 import org.apache.activemq.artemis.core.messagecounter.MessageCounterManager;
 import org.apache.activemq.artemis.core.messagecounter.impl.MessageCounterManagerImpl;
-import org.apache.activemq.artemis.core.paging.PagingManager;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.postoffice.PostOffice;
 import org.apache.activemq.artemis.core.remoting.server.RemotingService;
@@ -138,7 +138,7 @@ public class ManagementServiceImpl implements ManagementService {
 
    private SecurityStore securityStore;
 
-   private PagingManager pagingManager;
+   private GlobalMemoryManager globalMemoryManager;
 
    private StorageManager storageManager;
 
@@ -215,7 +215,7 @@ public class ManagementServiceImpl implements ManagementService {
                                                    final ActiveMQServer messagingServer,
                                                    final QueueFactory queueFactory,
                                                    final ScheduledExecutorService scheduledThreadPool,
-                                                   final PagingManager pagingManager,
+                                                   final GlobalMemoryManager globalMemoryManager,
                                                    final boolean backup) throws Exception {
       this.postOffice = postOffice;
       this.securityStore = securityStore;
@@ -223,7 +223,7 @@ public class ManagementServiceImpl implements ManagementService {
       this.securityRepository = securityRepository;
       this.storageManager = storageManager1;
       this.messagingServer = messagingServer;
-      this.pagingManager = pagingManager;
+      this.globalMemoryManager = globalMemoryManager;
 
       messageCounterManager = new MessageCounterManagerImpl(scheduledThreadPool, messagingServer.getExecutorFactory().getExecutor());
       messageCounterManager.setMaxDayCount(configuration.getMessageCounterMaxDayHistory());
@@ -274,7 +274,7 @@ public class ManagementServiceImpl implements ManagementService {
 
    @Override
    public void registerAddress(AddressInfo addressInfo) throws Exception {
-      AddressControlImpl addressControl = new AddressControlImpl(addressInfo, messagingServer, pagingManager, storageManager, securityRepository, securityStore, this);
+      AddressControlImpl addressControl = new AddressControlImpl(addressInfo, messagingServer, globalMemoryManager, storageManager, securityRepository, securityStore, this);
       registerInJMX(objectNameBuilder.getAddressObjectName(addressInfo.getName()), addressControl);
       registries.registerAddressControl(addressInfo.getName().toString(), addressControl);
       registerAddressMeters(addressInfo, addressControl);
@@ -970,7 +970,7 @@ public class ManagementServiceImpl implements ManagementService {
 
       postOffice = null;
 
-      pagingManager = null;
+      globalMemoryManager = null;
 
       storageManager = null;
 

@@ -25,6 +25,7 @@ import org.apache.activemq.artemis.api.core.TransportConfiguration;
 import org.apache.activemq.artemis.api.core.management.ResourceNames;
 import org.apache.activemq.artemis.core.config.Configuration;
 import org.apache.activemq.artemis.core.config.impl.FileConfiguration;
+import org.apache.activemq.artemis.core.memory.GlobalMemoryManager;
 import org.apache.activemq.artemis.core.paging.PagingManager;
 import org.apache.activemq.artemis.core.paging.PagingStore;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
@@ -77,7 +78,6 @@ public class ManagementServiceImplTest {
       Mockito.when(pagingManager.getPageStore(Mockito.any(SimpleString.class))).thenReturn(pageStore);
       Mockito.when(pageStore.isPaging()).thenReturn(true);
       Mockito.when(pageStore.isStorePaging()).thenReturn(true);
-
 
       managementService.registerServer(null, securityStore, null, configuration, null, null, null, null, messagingServer, null, null, pagingManager, false);
 
@@ -149,7 +149,7 @@ public class ManagementServiceImplTest {
       Mockito.when(postOffice.isStarted()).thenReturn(true);
       Mockito.when(messagingServer.getPostOffice()).thenReturn(postOffice);
 
-      managementService.registerServer(null, securityStore, null, configuration, null, null, null, null, messagingServer, null, null, null, false);
+      managementService.registerServer(null, securityStore, null, configuration, null, null, null, null, messagingServer, null, null, (GlobalMemoryManager) null, false);
 
       // acceptor
       Mockito.clearInvocations(securityStore);
