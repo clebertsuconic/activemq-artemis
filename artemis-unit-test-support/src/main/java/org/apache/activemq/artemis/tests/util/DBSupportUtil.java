@@ -28,8 +28,10 @@ public class DBSupportUtil {
 
    public static final String EXPECTED_DERBY_DROP_STATE = "08006";
    public static final String EXPECTED_DERBY_SHUTDOWN_STATE = "XJ015";
+   public static final String EXPECTED_DERBY_NOT_FOUND = "XJ004";
 
    public static void dropDerbyDatabase(String user, String password, String databaseName) throws SQLException {
+      logger.debug("DropDerbyDatabase on {}", databaseName);
       try {
          if (user == null) {
             DriverManager.getConnection("jdbc:derby:" + databaseName + ";drop=true");
@@ -37,12 +39,17 @@ public class DBSupportUtil {
             DriverManager.getConnection("jdbc:derby:" + databaseName + ";drop=true", user, password);
          }
       } catch (SQLException sqlE) {
-         if (!sqlE.getSQLState().equals(EXPECTED_DERBY_DROP_STATE)) {
-            logger.warn("{} / {}", sqlE.getMessage(), sqlE.getSQLState());
-            throw sqlE;
-         } else {
-            logger.info("{} / {}", sqlE.getMessage(), sqlE.getSQLState());
-         }
+         treatSLQException(sqlE);
+      }
+   }
+
+   private static void treatSLQException(SQLException sqlE) throws SQLException {
+      logger.debug("{} / {}", sqlE.getMessage(), sqlE.getSQLState(), sqlE);
+      if (!sqlE.getSQLState().equals(EXPECTED_DERBY_SHUTDOWN_STATE) && !sqlE.getSQLState().equals(EXPECTED_DERBY_NOT_FOUND) && !sqlE.getSQLState().equals(EXPECTED_DERBY_DROP_STATE)) {
+         logger.warn("{} / {}", sqlE.getMessage(), sqlE.getSQLState());
+         throw sqlE;
+      } else {
+         logger.info("{} / {}", sqlE.getMessage(), sqlE.getSQLState());
       }
    }
 
@@ -54,10 +61,7 @@ public class DBSupportUtil {
             DriverManager.getConnection("jdbc:derby:;shutdown=true;deregister=false", user, password);
          }
       } catch (SQLException sqlE) {
-         logger.debug("{} / {}", sqlE.getMessage(), sqlE.getSQLState());
-         if (!sqlE.getSQLState().equals(EXPECTED_DERBY_SHUTDOWN_STATE)) {
-            throw sqlE;
-         }
+         treatSLQException(sqlE);
       }
    }
 

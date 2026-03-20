@@ -221,7 +221,7 @@ The database storage layer uses a **group commit** (write coalescing) architectu
 
 **Group commit** — `DataManager` extends `ActiveMQScheduledComponent`. Callers submit data into `pendingData`; a scheduled timer fires `flush()`, which hands the accumulated batch to a `DataWorker`. One `commit` covers all operations in the batch, amortizing the most expensive part (network round-trip + fsync).
 
-**Command pattern** — Each `DBData` subclass encapsulates a single operation and dispatches itself to the correct `BatchableStatement` via `store(DataWorker)`. This cleanly separates "what to persist" from "how to persist."
+**Command pattern** — Each `DBData` subclass encapsulates a single operation and dispatches itself to the correct `BatchableStatement` via `perform(DataWorker)`. This cleanly separates "what to persist" from "how to persist."
 
 **Heterogeneous batching** — A single transaction mixes inserts and deletes across different tables (messages, references, addresses, queues, pages). This provides atomicity for logical operations that touch multiple tables (e.g. routing a message creates a message row + reference rows).
 
@@ -256,12 +256,13 @@ MySQLSqlProvider.java     # MySQL-specific SQL (BIGINT, LONGBLOB, etc.)
 DatabaseProvider.java     # createSchema() calls JDBCUtils.createTable for each entity
 ```
 
-**`artemis-server`** — persistence layer (under `org.apache.activemq.artemis.core.persistence.impl.database`):
+**`artemis-direct-db`** — persistence layer (under `org.apache.artemis.database`):
 ```
 dbdata/          # Data carrier classes (extend DBData<DataWorker>)
 queries/         # JDBC read queries (SELECT, used at startup/reload)
 statements/      # Batched write statements (extend BatchableStatement<XxxData>)
 worker/          # DataWorker (owns statement instances) + DataManager (public API)
+DatabaseStoreTX  # Collects DBData items for a single broker transaction
 ```
 
 ### Step-by-step Checklist
@@ -287,11 +288,11 @@ JDBCUtils.createTable(connection, sqlProvider, fooTableName, sqlProvider.createF
 ```
 
 #### 2. Data classes — `dbdata/`
-- **`FooData.java`** — extends `DBData<DataWorker>`. Holds the entity's fields as public members. Constructor takes the domain fields + `IOCompletion context` (passed to `super`). Implement `store(DataWorker worker)` to call `worker.insertFooStatement.addData(this, context)`.
-- **`DeleteFooData.java`** — extends `DBData<DataWorker>`. Holds the key fields needed for deletion. Implement `store(DataWorker worker)` to call `worker.deleteFooStatement.addData(this, context)`.
+- **`FooData.java`** — extends `DBData<DataWorker>`. Holds the entity's fields as public members. Constructor takes the domain fields + `IOCompletion context` (passed to `super`). Implement `perform(DataWorker worker)` to call `worker.insertFooStatement.addData(this, context)`.
+- **`DeleteFooData.java`** — extends `DBData<DataWorker>`. Holds the key fields needed for deletion. Implement `perform(DataWorker worker)` to call `worker.deleteFooStatement.addData(this, context)`.
 
 #### 3. Statements — `statements/`
-- **`InsertFooStatement.java`** — extends `BatchableStatement<FooData>`. Constructor takes `(DatabaseProvider, Connection, DatabaseStorageConfiguration, int expectedSize)`, calls `super(...)` with the INSERT SQL from a static `getSQL()` method. Override `doOne(FooData task)` to bind PreparedStatement parameters.
+- **`InsertFooStatement.java`** — extends `BatchableStatement<FooData>`. Constructor takes `(DatabaseProvider, Connection, int expectedSize)`, calls `super(...)` with the INSERT SQL from a static `getSQL()` method. Override `doOne(FooData task)` to bind PreparedStatement parameters.
 - **`DeleteFooStatement.java`** — extends `BatchableStatement<DeleteFooData>`. Same constructor pattern. Override `doOne(DeleteFooData task)` with DELETE SQL parameter binding.
 
 #### 4. Query class — `queries/`

@@ -17,6 +17,7 @@
 package org.apache.activemq.artemis.core.config.storage;
 
 import javax.sql.DataSource;
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Executor;
@@ -26,6 +27,7 @@ import org.apache.activemq.artemis.core.config.StoreConfiguration;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCConnectionProvider;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCDataSourceUtils;
 import org.apache.activemq.artemis.jdbc.store.sql.SQLProvider;
+import org.apache.artemis.database.DatabaseProvider;
 
 public class DatabaseStorageConfiguration implements StoreConfiguration {
 
@@ -55,6 +57,8 @@ public class DatabaseStorageConfiguration implements StoreConfiguration {
 
    private JDBCConnectionProvider connectionProvider;
 
+   private DatabaseProvider databaseProvider;
+
    private SQLProvider.Factory sqlProviderFactory;
 
    private int jdbcNetworkTimeout = ActiveMQDefaultConfiguration.getDefaultJdbcNetworkTimeout();
@@ -71,9 +75,16 @@ public class DatabaseStorageConfiguration implements StoreConfiguration {
 
    private int maxPageSizeBytes = ActiveMQDefaultConfiguration.getDefaultJdbcMaxPageSizeBytes();
 
+   private StoreType storeType = StoreType.DATABASE;
+
    @Override
    public StoreType getStoreType() {
-      return StoreType.DATABASE;
+      return storeType;
+   }
+
+   public DatabaseStorageConfiguration setStoreType(StoreType storeType) {
+      this.storeType = storeType;
+      return this;
    }
 
    public String getMessageTableName() {
@@ -220,6 +231,14 @@ public class DatabaseStorageConfiguration implements StoreConfiguration {
       }
       return connectionProvider;
    }
+
+   public DatabaseProvider getDatabaseProvider() throws SQLException {
+      if (databaseProvider == null) {
+         databaseProvider = new DatabaseProvider(getDataSource(), getJdbcUser(), getJdbcPassword());
+      }
+      return databaseProvider;
+   }
+
 
    public DatabaseStorageConfiguration setConnectionProviderNetworkTimeout(Executor executor, int ms) {
       getConnectionProvider().setNetworkTimeout(executor, ms);

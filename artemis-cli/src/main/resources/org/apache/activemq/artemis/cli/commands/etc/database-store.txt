@@ -4,6 +4,7 @@
                  however if you require a database please refer to your database provider
                  for any database specific questions.
                  We don't endorse any specific JDBC provider. Derby is provided by default for demonstration purposes. -->
+            ${databaseStorage}
             <jdbc-driver-class-name>${jdbcClassName}</jdbc-driver-class-name>
             <jdbc-connection-url>${jdbcURL}</jdbc-connection-url>
             <message-table-name>${jdbcMessages}</message-table-name>

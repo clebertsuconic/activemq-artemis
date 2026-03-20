@@ -44,7 +44,7 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
-   private final PagingStoreImpl pagingStore;
+   private final AbstractPagingStoreImpl pagingStore;
 
    private final StorageManager storageManager;
 
@@ -86,7 +86,7 @@ public class PageTimedWriter extends ActiveMQScheduledComponent {
       final boolean useFlowControl;
    }
 
-   public PageTimedWriter(int writeCredits, StorageManager storageManager, PagingStoreImpl pagingStore, ScheduledExecutorService scheduledExecutor, Executor executor, boolean syncNonTX, long timeSync) {
+   public PageTimedWriter(int writeCredits, StorageManager storageManager, AbstractPagingStoreImpl pagingStore, ScheduledExecutorService scheduledExecutor, Executor executor, boolean syncNonTX, long timeSync) {
       super(scheduledExecutor, executor, timeSync, TimeUnit.NANOSECONDS, true);
       this.pagingStore = pagingStore;
       this.storageManager = storageManager;

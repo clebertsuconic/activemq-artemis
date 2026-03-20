@@ -34,6 +34,7 @@ import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.cli.Artemis;
 import org.apache.activemq.artemis.cli.commands.ActionContext;
 import org.apache.activemq.artemis.core.config.Configuration;
+import org.apache.activemq.artemis.core.config.storage.DatabaseStorageConfiguration;
 import org.apache.activemq.artemis.core.journal.RecordInfo;
 import org.apache.activemq.artemis.core.message.impl.CoreMessagePersister;
 import org.apache.activemq.artemis.core.paging.PagedMessage;
@@ -48,6 +49,7 @@ import org.apache.activemq.artemis.core.paging.impl.PagingManagerImpl;
 import org.apache.activemq.artemis.core.paging.impl.PagingStoreFactoryNIO;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.journal.DescribeJournal;
+import org.apache.activemq.artemis.core.persistence.impl.journal.DescribeNewDatabase;
 import org.apache.activemq.artemis.core.persistence.impl.journal.JournalRecordIds;
 import org.apache.activemq.artemis.core.persistence.impl.journal.codec.CursorAckRecordEncoding;
 import org.apache.activemq.artemis.core.persistence.impl.journal.codec.PageUpdateTXEncoding;
@@ -109,7 +111,9 @@ public class PrintData extends DBOption {
       Configuration configuration = getParameterConfiguration();
 
       try {
-         if (configuration.isJDBC()) {
+         if (configuration.isUsingDatabaseStorage()) {
+            printNewDatabase(configuration, context.out);
+         } else if (configuration.isJDBC()) {
             printDataJDBC(configuration, context.out);
          } else {
             printData(new File(getBinding()), new File(getJournal()), new File(getPaging()), context.out, safe, reclaimed, skipBindings, skipJournal, maxPages, legacyOutput);
@@ -122,6 +126,13 @@ public class PrintData extends DBOption {
       return null;
    }
 
+
+   public void printNewDatabase(Configuration configuration, PrintStream out) throws Exception {
+      Artemis.printBanner(out);
+
+      DatabaseStorageConfiguration dbConfig = (DatabaseStorageConfiguration) configuration.getStoreConfiguration();
+      DescribeNewDatabase.describeDatabase(dbConfig, out, safe);
+   }
 
    public void printDataJDBC(Configuration configuration, PrintStream out) throws Exception {
       initializeJournal(configuration);
@@ -314,7 +325,7 @@ public class PrintData extends DBOption {
                   break;
                }
                Page page = pgStore.newPageObject(pgid);
-               while (!page.getFile().exists() && pgid < pgStore.getCurrentWritingPage()) {
+               while (!page.storageExists() && pgid < pgStore.getCurrentWritingPage()) {
                   pgid++;
                   page = pgStore.newPageObject(pgid);
                }

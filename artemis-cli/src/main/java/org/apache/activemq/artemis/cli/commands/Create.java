@@ -283,6 +283,9 @@ public class Create extends InstallAbstract {
    @Option(names = "--jdbc", description = "Store message data in JDBC instead of local files.")
    boolean jdbc;
 
+   @Option(names = "--database-storage", description = "Use the new database storage implementation (implies --jdbc).")
+   boolean databaseStorage;
+
    @Option(names = {"--staticCluster", "--static-cluster"}, description = "Cluster node connectors list separated by comma, e.g. \"tcp://server:61616,tcp://server2:61616,tcp://server3:61616\".")
    String staticNode;
 
@@ -621,6 +624,11 @@ public class Create extends InstallAbstract {
          throw new IllegalArgumentException("The device-block-size must be a multiple of 512");
       }
 
+      // --database-storage implies --jdbc
+      if (databaseStorage) {
+         jdbc = true;
+      }
+
       filters.put("${device-block-size}", Integer.toString(journalDeviceBlockSize));
 
       filters.put("${primary-backup}", isBackup() ? "backup" : "primary");
@@ -714,6 +722,11 @@ public class Create extends InstallAbstract {
          filters.put("${jdbcNetworkTimeout}", "" + jdbcNetworkTimeout);
          filters.put("${jdbcLockRenewPeriod}", "" + jdbcLockRenewPeriod);
          filters.put("${jdbcLockExpiration}", "" + jdbcLockExpiration);
+         if (databaseStorage) {
+            filters.put("${databaseStorage}", "<database-storage>true</database-storage>");
+         } else {
+            filters.put("${databaseStorage}", "");
+         }
          filters.put("${jdbc}", readTextFile(ETC_DATABASE_STORE_TXT, filters));
       } else {
          filters.put("${jdbc}", "");

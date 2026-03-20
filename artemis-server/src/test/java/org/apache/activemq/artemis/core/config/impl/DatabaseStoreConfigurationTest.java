@@ -54,6 +54,15 @@ public class DatabaseStoreConfigurationTest extends ServerTestBase {
    }
 
    @Test
+   public void databaseStorageConfigTest() throws Exception {
+      Configuration configuration = createConfiguration("database-storage-store-config.xml");
+      ActiveMQServerImpl server = new ActiveMQServerImpl(configuration);
+      DatabaseStorageConfiguration storeConfiguration = (DatabaseStorageConfiguration) server.getConfiguration().getStoreConfiguration();
+      assertEquals(StoreConfiguration.StoreType.NEW_DATABASE, storeConfiguration.getStoreType());
+      assertEquals(true, configuration.isDatabaseStorage());
+   }
+
+   @Test
    public void testOracle12TableSize() {
       for (SQLProvider.DatabaseStoreType storeType : SQLProvider.DatabaseStoreType.values()) {
          Throwable rte = null;

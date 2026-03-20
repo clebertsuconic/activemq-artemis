@@ -20,6 +20,7 @@ import javax.transaction.xa.Xid;
 import java.util.List;
 
 import org.apache.activemq.artemis.api.core.ActiveMQException;
+import org.apache.activemq.artemis.core.journal.StorageTX;
 import org.apache.activemq.artemis.core.server.Queue;
 import org.apache.activemq.artemis.core.server.impl.AckReason;
 import org.apache.activemq.artemis.core.server.impl.RefsOperation;
@@ -32,6 +33,8 @@ public interface Transaction {
    enum State {
       ACTIVE, PREPARED, COMMITTED, ROLLEDBACK, SUSPENDED, ROLLBACK_ONLY
    }
+
+   StorageTX getStorageTx();
 
    Object getProtocolData();
 
@@ -125,5 +128,17 @@ public interface Transaction {
     * This is to be called when the delay portion is done.
     */
    void delayDone();
+
+
+   void setMessagesSent();
+
+   boolean isAckedMessages();
+
+   void setAckedMessages();
+
+   boolean isPagedMessages();
+
+   void setPagedMessages();
+
 
 }

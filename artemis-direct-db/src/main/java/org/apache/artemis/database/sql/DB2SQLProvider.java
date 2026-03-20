@@ -1,0 +1,56 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.artemis.database.sql;
+
+public class DB2SQLProvider extends SQLProvider {
+
+   @Override
+   public String createMessages(String tableName) {
+      return String.format("CREATE TABLE IF NOT EXISTS %s(MESSAGE_ID BIGINT NOT NULL, TX_ID BIGINT, MESSAGE_RECORD BLOB, PRIMARY KEY (MESSAGE_ID))", tableName);
+   }
+
+   @Override
+   public String createReferences(String tableName) {
+      return String.format("CREATE TABLE IF NOT EXISTS %s(MESSAGE_ID BIGINT NOT NULL, QUEUE_ID BIGINT NOT NULL, PENDING_DELIVERY CHAR NOT NULL, TX_ID BIGINT, PRIMARY KEY (QUEUE_ID, MESSAGE_ID))", tableName);
+   }
+
+   @Override
+   public String createAddress(String tableName) {
+      return String.format("CREATE TABLE IF NOT EXISTS %s(ADDRESS_ID BIGINT NOT NULL, ADDRESS_NAME VARCHAR(255) NOT NULL, IS_MULTICAST CHAR, IS_ANYCAST CHAR, PRIMARY KEY (ADDRESS_ID))", tableName);
+   }
+
+   @Override
+   public String createQueue(String tableName) {
+      return String.format("CREATE TABLE IF NOT EXISTS %s(QUEUE_ID BIGINT NOT NULL, ADDRESS_ID BIGINT NOT NULL, QUEUE_NAME VARCHAR(255), IS_MULTICAST CHAR, IS_ANYCAST CHAR, FILTER_STRING BLOB, QUEUE_CONFIG BLOB, PRIMARY KEY (QUEUE_ID))", tableName);
+   }
+
+   @Override
+   public String createPage(String tableName) {
+      return String.format("CREATE TABLE IF NOT EXISTS %s(ADDRESS_ID BIGINT NOT NULL, PAGE_ID BIGINT NOT NULL, PAGE_NR BIGINT NOT NULL, MESSAGE_ID BIGINT NOT NULL, TX_ID BIGINT, MESSAGE_RECORD BLOB, PRIMARY KEY (ADDRESS_ID, PAGE_ID, PAGE_NR))", tableName);
+   }
+
+   @Override
+   public String createPageReferences(String tableName) {
+      return String.format("CREATE TABLE IF NOT EXISTS %s(ADDRESS_ID BIGINT NOT NULL, PAGE_ID BIGINT NOT NULL, PAGE_NR BIGINT NOT NULL, QUEUE_ID BIGINT NOT NULL, PRIMARY KEY (ADDRESS_ID, PAGE_ID, PAGE_NR, QUEUE_ID))", tableName);
+   }
+
+   @Override
+   public String createGenericData(String tableName) {
+      return String.format("CREATE TABLE IF NOT EXISTS %s(ID BIGINT NOT NULL, RECORD_TYPE SMALLINT NOT NULL, TX_ID BIGINT, DATA_RECORD BLOB, PRIMARY KEY (ID))", tableName);
+   }
+}

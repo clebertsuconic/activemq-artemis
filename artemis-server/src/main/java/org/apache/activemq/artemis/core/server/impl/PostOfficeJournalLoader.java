@@ -40,6 +40,7 @@ import org.apache.activemq.artemis.core.paging.PagingManager;
 import org.apache.activemq.artemis.core.paging.PagingStore;
 import org.apache.activemq.artemis.core.paging.cursor.PageSubscriptionCounter;
 import org.apache.activemq.artemis.core.paging.impl.Page;
+import org.apache.activemq.artemis.core.paging.impl.PagingManagerImpl;
 import org.apache.activemq.artemis.core.persistence.AddressBindingInfo;
 import org.apache.activemq.artemis.core.persistence.AddressQueueStatus;
 import org.apache.activemq.artemis.core.persistence.GroupingInfo;
@@ -48,6 +49,7 @@ import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.PageCountPending;
 import org.apache.activemq.artemis.core.persistence.impl.journal.AddMessageRecord;
 import org.apache.activemq.artemis.core.persistence.impl.journal.codec.QueueStatusEncoding;
+import org.apache.artemis.database.data.MessageReferenceData;
 import org.apache.activemq.artemis.core.postoffice.Binding;
 import org.apache.activemq.artemis.core.postoffice.DuplicateIDCache;
 import org.apache.activemq.artemis.core.postoffice.PostOffice;
@@ -127,7 +129,7 @@ public class PostOfficeJournalLoader implements JournalLoader {
          if (postOffice.getBinding(queueConfig.getName()) != null) {
 
             if (FilterUtils.isTopicIdentification(filter)) {
-               final long tx = storageManager.generateID();
+               final Transaction tx = new TransactionImpl(storageManager);
                storageManager.deleteQueueBinding(tx, queueConfig.getId());
                storageManager.commitBindings(tx);
                continue;
@@ -176,6 +178,20 @@ public class PostOfficeJournalLoader implements JournalLoader {
          }
          postOffice.reloadAddressInfo(addressInfo);
       }
+   }
+
+   // for the new JDBC loader
+   @Override
+   public void handleJDBCAdd(Message message, MessageReferenceData referenceData) throws Exception {
+      Queue queue = this.queues.get(referenceData.queueID);
+      if (queue == null) {
+         ActiveMQServerLogger.LOGGER.journalCannotFindQueueForMessage(referenceData.queueID);
+         return;
+      }
+
+      MessageReference queueReference = postOffice.reload(message, queue, null);
+      // TODO-important: Implement this
+      //queueReference.setDeliveryCount(referenceData.getDeliveryCount());
    }
 
    @Override
@@ -338,6 +354,10 @@ public class PostOfficeJournalLoader implements JournalLoader {
       // Address -> PageID -> QueueID -> List<PageCountPending>
       // The following loop will sort the records according to the hierarchy we need
 
+      if (!(pagingManager instanceof PagingManagerImpl)) {
+         return;
+      }
+
       Transaction txRecoverCounter = new TransactionImpl(storageManager);
 
       Map<SimpleString, Map<Long, Map<Long, List<PageCountPending>>>> perAddressMap = generateMapsOnPendingCount(queues, pendingNonTXPageCounter, txRecoverCounter);
@@ -394,7 +414,7 @@ public class PostOfficeJournalLoader implements JournalLoader {
                      if (logger.isDebugEnabled()) {
                         logger.debug("Deleting pg tempCount {}", record.getID());
                      }
-                     storageManager.deletePendingPageCounter(txRecoverCounter.getID(), record.getID());
+                     storageManager.deletePendingPageCounter(txRecoverCounter, record.getID());
                   }
 
                   PageSubscriptionCounter counter = store.getCursorProvider().getSubscription(entry.getKey()).getCounter();
@@ -417,7 +437,7 @@ public class PostOfficeJournalLoader implements JournalLoader {
                      if (logger.isDebugEnabled()) {
                         logger.debug("Removing pending page counter {}", record.getID());
                      }
-                     storageManager.deletePendingPageCounter(txRecoverCounter.getID(), record.getID());
+                     storageManager.deletePendingPageCounter(txRecoverCounter, record.getID());
                      txRecoverCounter.setContainsPersistent();
                   }
                }
@@ -453,7 +473,7 @@ public class PostOfficeJournalLoader implements JournalLoader {
             }
 
             // this means the queue doesn't exist any longer, we will remove it from the storage
-            storageManager.deletePendingPageCounter(txRecoverCounter.getID(), pgCount.getID());
+            storageManager.deletePendingPageCounter(txRecoverCounter, pgCount.getID());
             txRecoverCounter.setContainsPersistent();
             continue;
          }

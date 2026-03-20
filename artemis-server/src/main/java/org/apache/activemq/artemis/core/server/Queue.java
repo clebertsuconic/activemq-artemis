@@ -99,6 +99,8 @@ public interface Queue extends Bindable, CriticalComponent {
    default void setSwept(boolean sweep) {
    }
 
+   void destroy() throws Exception;
+
    long getAutoDeleteDelay();
 
    long getAutoDeleteMessageCount();

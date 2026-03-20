@@ -168,7 +168,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
 
    private final PostOffice postOffice;
 
-   private volatile boolean queueDestroyed = false;
+   protected volatile boolean queueDestroyed = false;
 
    // Variable to control if we should print a flow controlled message or not. Once it was flow controlled, we will stop
    // warning until it's cleared once again
@@ -336,6 +336,13 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
       this.swept = swept;
    }
 
+   @Override
+   public void destroy() throws Exception {
+      if (pagingStore != null) {
+         pagingStore.destroy();
+      }
+   }
+
    /**
     * This is to avoid multi-thread races on calculating direct delivery, to guarantee ordering will be always be
     * correct
@@ -388,6 +395,8 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
                     final ActiveMQServer server,
                     final QueueFactory factory) {
       super(server.getCriticalAnalyzer(), CRITICAL_PATHS);
+
+      this.directDeliver = storageManager.supportsDirectDeliver();
 
       this.createdTimestamp = System.currentTimeMillis();
 
@@ -1026,7 +1035,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
 
                if (deliveriesInTransit.getCount() == 0 && getExecutor().isFlushed() &&
                   intermediateMessageReferences.isEmpty() && messageReferences.isEmpty() &&
-                  pageIterator != null && !pageIterator.hasNext() &&
+                  (canSwitchToDirectDeliver()) &&
                   pageSubscription != null && !pageSubscription.isStorePaging()) {
                   // We must block on the executor to ensure any async deliveries have completed or we might get out of order
                   // deliveries
@@ -1055,6 +1064,10 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
          // Delivery async will both poll for intermediate reference and deliver to clients
          deliverAsync();
       }
+   }
+
+   protected boolean canSwitchToDirectDeliver() {
+      return pageIterator != null && !pageIterator.hasNext();
    }
 
    protected boolean scheduleIfPossible(MessageReference ref) {
@@ -1207,7 +1220,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
             }
 
             if (consumers.isEmpty()) {
-               this.supportsDirectDeliver = consumer.supportsDirectDelivery();
+               this.supportsDirectDeliver = consumer.supportsDirectDelivery() && (pagingStore == null || storageManager.supportsDirectDeliver());
             } else {
                if (!consumer.supportsDirectDelivery()) {
                   this.supportsDirectDeliver = false;
@@ -1718,7 +1731,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
 
             if (durableRef) {
                if (transactional) {
-                  storageManager.storeAcknowledgeTransactional(tx.getID(), queueConfiguration.getId(), message.getMessageID());
+                  storageManager.storeAcknowledgeTransactional(tx, queueConfiguration.getId(), message.getMessageID());
                   tx.setContainsPersistent();
                } else {
                   storageManager.storeAcknowledge(queueConfiguration.getId(), message.getMessageID());
@@ -2270,7 +2283,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
          }
 
          if (isDurable()) {
-            storageManager.deleteQueueBinding(tx.getID(), getID());
+            storageManager.deleteQueueBinding(tx, getID());
             tx.setContainsPersistent();
          }
 
@@ -2473,8 +2486,8 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
          }
 
          // If empty we need to schedule depaging to make sure we would depage expired messages as well
-         if ((!hasElements || expired) && pageIterator != null && pageIterator.tryNext() != PageIterator.NextResult.noElements) {
-            scheduleDepage(true);
+         if ((!hasElements || expired)) {
+            checkDepage();
          }
       }
    }
@@ -3141,7 +3154,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
       refRemoved(ref);
    }
 
-   private void checkDepage() {
+   protected void checkDepage() {
       if (queueDestroyed) {
          return;
       }

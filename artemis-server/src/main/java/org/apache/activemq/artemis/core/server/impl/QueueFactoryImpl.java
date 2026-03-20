@@ -94,11 +94,14 @@ public class QueueFactoryImpl implements QueueFactory {
    }
 
    public static PageSubscription getPageSubscription(QueueConfiguration queueConfiguration, PagingManager pagingManager, Filter filter) {
+      if (pagingManager == null) {
+         return null;
+      }
       PageSubscription pageSubscription;
 
       try {
          PagingStore pageStore = pagingManager.getPageStore(queueConfiguration.getAddress());
-         if (pageStore != null) {
+         if (pageStore != null && pageStore.getCursorProvider() != null) {
             pageSubscription = pageStore.getCursorProvider().createSubscription(queueConfiguration.getId(), filter, queueConfiguration.isDurable());
          } else {
             pageSubscription = null;
@@ -113,7 +116,7 @@ public class QueueFactoryImpl implements QueueFactory {
    private static SimpleString lastValueKey(final QueueConfiguration config) {
       if (config.getLastValueKey() != null && !config.getLastValueKey().isEmpty()) {
          return config.getLastValueKey();
-      } else if (config.isLastValue()) {
+      } else if (config.isLastValue() != null && config.isLastValue().booleanValue()) {
          return Message.HDR_LAST_VALUE_NAME;
       } else {
          return null;

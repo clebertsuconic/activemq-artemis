@@ -59,7 +59,7 @@ import org.slf4j.LoggerFactory;
 import static org.apache.activemq.artemis.core.server.files.FileStoreMonitor.FileStoreMonitorType;
 import static org.apache.activemq.artemis.core.server.files.FileStoreMonitor.FileStoreMonitorType.MaxDiskUsage;
 
-public final class PagingManagerImpl implements PagingManager {
+public class PagingManagerImpl implements PagingManager {
 
    private static final int PAGE_TX_CLEANUP_PRINT_LIMIT = 1000;
 

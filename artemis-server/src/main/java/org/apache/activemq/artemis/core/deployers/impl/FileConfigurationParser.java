@@ -2077,6 +2077,14 @@ public final class FileConfigurationParser extends XMLConfigurationUtil {
 
    private DatabaseStorageConfiguration createDatabaseStoreConfig(Element storeNode, Configuration mainConfig) throws Exception {
       DatabaseStorageConfiguration conf = new DatabaseStorageConfiguration();
+
+      // Check if this is a database-storage configuration
+      boolean databaseStorage = getBoolean(storeNode, "database-storage", false);
+      if (databaseStorage) {
+         conf.setStoreType(org.apache.activemq.artemis.core.config.StoreConfiguration.StoreType.NEW_DATABASE);
+         mainConfig.setDatabaseStorage(true);
+      }
+
       conf.setBindingsTableName(getString(storeNode, "bindings-table-name", conf.getBindingsTableName(), NO_CHECK));
       conf.setMessageTableName(getString(storeNode, "message-table-name", conf.getMessageTableName(), NO_CHECK));
       conf.setLargeMessageTableName(getString(storeNode, "large-message-table-name", conf.getLargeMessageTableName(), NO_CHECK));
