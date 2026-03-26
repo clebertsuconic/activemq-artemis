@@ -877,14 +877,6 @@ public interface Message {
    int getMemoryEstimate();
 
    /**
-    * The first estimate that's been calculated without any updates.
-    */
-   default int getOriginalEstimate() {
-      // For Core Protocol we always use the same estimate
-      return getMemoryEstimate();
-   }
-
-   /**
     * This is the size of the message when persisted on disk which is used for metrics tracking Note that even if the
     * message itself is not persisted on disk (ie non-durable) this value is still used for metrics tracking If a normal
     * message it will be the encoded message size If a large message it will be encoded message size + large message

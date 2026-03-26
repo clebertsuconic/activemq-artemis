@@ -87,7 +87,6 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -216,11 +215,11 @@ public class AMQPMessageTest {
       // Now reload from encoded data
       message.reloadPersistence(encoded, null);
 
-      assertEquals(AMQPMessage.MessageDataScanningStatus.RELOAD_PERSISTENCE, message.getDataScanningStatus());
+      assertEquals(AMQPMessage.MessageDataScanningStatus.NOT_SCANNED, message.getDataScanningStatus());
 
       assertTrue(message.hasScheduledDeliveryTime());
 
-      assertEquals(AMQPMessage.MessageDataScanningStatus.RELOAD_PERSISTENCE, message.getDataScanningStatus());
+      assertEquals(AMQPMessage.MessageDataScanningStatus.NOT_SCANNED, message.getDataScanningStatus());
 
       message.getHeader();
 
@@ -249,11 +248,11 @@ public class AMQPMessageTest {
       // Now reload from encoded data
       message.reloadPersistence(encoded, null);
 
-      assertEquals(AMQPMessage.MessageDataScanningStatus.RELOAD_PERSISTENCE, message.getDataScanningStatus());
+      assertEquals(AMQPMessage.MessageDataScanningStatus.NOT_SCANNED, message.getDataScanningStatus());
 
       assertTrue(message.hasScheduledDeliveryTime());
 
-      assertEquals(AMQPMessage.MessageDataScanningStatus.RELOAD_PERSISTENCE, message.getDataScanningStatus());
+      assertEquals(AMQPMessage.MessageDataScanningStatus.NOT_SCANNED, message.getDataScanningStatus());
 
       message.getHeader();
 
@@ -279,11 +278,11 @@ public class AMQPMessageTest {
       // Now reload from encoded data
       message.reloadPersistence(encoded, null);
 
-      assertEquals(AMQPMessage.MessageDataScanningStatus.RELOAD_PERSISTENCE, message.getDataScanningStatus());
+      assertEquals(AMQPMessage.MessageDataScanningStatus.NOT_SCANNED, message.getDataScanningStatus());
 
       assertFalse(message.hasScheduledDeliveryTime());
 
-      assertEquals(AMQPMessage.MessageDataScanningStatus.RELOAD_PERSISTENCE, message.getDataScanningStatus());
+      assertEquals(AMQPMessage.MessageDataScanningStatus.NOT_SCANNED, message.getDataScanningStatus());
 
       message.getHeader();
 
@@ -331,12 +330,7 @@ public class AMQPMessageTest {
       }
 
       assertEquals(TEST_APPLICATION_PROPERTY_VALUE, decodedWithApplicationPropertiesUnmarshalled.getStringProperty(TEST_APPLICATION_PROPERTY_KEY));
-
-      if (paged) {
-         assertEquals(decodedWithApplicationPropertiesUnmarshalled.getMemoryEstimate(), decoded.getMemoryEstimate());
-      } else {
-         assertNotEquals(decodedWithApplicationPropertiesUnmarshalled.getMemoryEstimate(), decoded.getMemoryEstimate());
-      }
+      assertEquals(decodedWithApplicationPropertiesUnmarshalled.getMemoryEstimate(), decoded.getMemoryEstimate());
    }
 
    //----- Test Connection ID access -----------------------------------------//
@@ -1647,7 +1641,7 @@ public class AMQPMessageTest {
    }
 
    @Test
-   public void testExtraProperty() {
+   public void testJournalPersistence() {
       MessageImpl protonMessage = (MessageImpl) Message.Factory.create();
 
       byte[] original = RandomUtil.randomBytes();
@@ -1655,19 +1649,24 @@ public class AMQPMessageTest {
       AMQPStandardMessage decoded = encodeAndDecodeMessage(protonMessage);
       decoded.setAddress("someAddress");
       decoded.setMessageID(33);
+      decoded.setPriority((byte) 2);
+      decoded.putStringProperty("hello", "world");
       decoded.putExtraBytesProperty(name, original);
-
-      ICoreMessage coreMessage = decoded.toCore();
-      assertSame(original, coreMessage.getBytesProperty(name));
+      decoded.reencode();
 
       ActiveMQBuffer buffer = ActiveMQBuffers.pooledBuffer(10 * 1024);
       try {
          decoded.getPersister().encode(buffer, decoded);
-         assertEquals(AMQPMessagePersisterV3.getInstance().getID(), buffer.readByte()); // the journal reader will read 1 byte to find the persister
+         assertEquals(AMQPMessagePersisterV4.getInstance().getID(), buffer.readByte()); // the journal reader will read 1 byte to find the persister
          AMQPStandardMessage readMessage = (AMQPStandardMessage)decoded.getPersister().decode(buffer, null, null);
          assertEquals(33, readMessage.getMessageID());
          assertEquals("someAddress", readMessage.getAddress());
          assertArrayEquals(original, readMessage.getExtraBytesProperty(name));
+         assertEquals((byte) 2, readMessage.getPriority());
+         assertEquals(AMQPMessage.MessageDataScanningStatus.NOT_SCANNED, readMessage.getDataScanningStatus());
+         assertEquals("world", readMessage.getStringProperty("hello"));
+         assertEquals(AMQPMessage.MessageDataScanningStatus.SCANNED, readMessage.getDataScanningStatus());
+
       } finally {
          buffer.release();
       }
@@ -2886,6 +2885,7 @@ public class AMQPMessageTest {
          assertTrue(isEquals(left.getBody(), right.getBody()));
          assertFootersEquals(left.getFooter(), right.getFooter());
       } catch (Throwable e) {
+         logger.debug(e.getMessage(), e);
          return false;
       }
 

@@ -68,9 +68,6 @@ public class AMQPLargeMessagePersister extends MessagePersister {
       }
    }
 
-   /**
-    * Sub classes must add the first short as the protocol-id
-    */
    @Override
    public void encode(ActiveMQBuffer buffer, Message record) {
       super.encode(buffer, record);
