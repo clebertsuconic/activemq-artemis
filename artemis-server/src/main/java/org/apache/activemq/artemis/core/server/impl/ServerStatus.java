@@ -80,6 +80,7 @@ public class ServerStatus {
          snapshotOfServerStatusAttributes.put("nodeId", Objects.toString(nodeId, null));
          snapshotOfServerStatusAttributes.put("uptime", server.getUptime());
          snapshotOfServerStatusAttributes.put("state", server.getState().toString());
+         snapshotOfServerStatusAttributes.put("lockStatus", server.getLockStatus());
 
          update(SERVER_COMPONENT, JsonUtil.toJsonObject(snapshotOfServerStatusAttributes));
       }

@@ -59,6 +59,12 @@ public interface ActiveMQServerControl {
    @Attribute(desc = IS_ACTIVE_DESCRIPTION)
    boolean isActive();
 
+   @Attribute(desc = "Return the status of lock coordinators")
+   String getLockStatus();
+
+   @Attribute
+   String[] getLockList();
+
    /**
     * {@return the number of clients connected to this server.}
     */

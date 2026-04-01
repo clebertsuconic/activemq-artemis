@@ -85,6 +85,7 @@ import org.apache.activemq.artemis.core.config.BridgeConfiguration;
 import org.apache.activemq.artemis.core.config.ClusterConnectionConfiguration;
 import org.apache.activemq.artemis.core.config.Configuration;
 import org.apache.activemq.artemis.core.config.DivertConfiguration;
+import org.apache.activemq.artemis.core.config.LockCoordinatorConfiguration;
 import org.apache.activemq.artemis.core.config.brokerConnectivity.BrokerConnectConfiguration;
 import org.apache.activemq.artemis.core.config.impl.SecurityConfiguration;
 import org.apache.activemq.artemis.core.management.impl.ActiveMQServerControlImpl;
@@ -6563,6 +6564,18 @@ public class ActiveMQServerControlTest extends ManagementTestBase {
       } catch (ActiveMQException e) {
          assertSame(startException, e.getCause(), "Unexpected cause");
       }
+   }
+
+   @TestTemplate
+   public void testGetLockStatusAndList() throws Exception {
+      // Test with no lock coordinators (default server configuration)
+      ActiveMQServerControl serverControl = createManagementControl();
+      String lockStatus = serverControl.getLockStatus();
+      assertEquals("", lockStatus);
+
+      String[] lockList = serverControl.getLockList();
+      assertNotNull(lockList);
+      assertEquals(0, lockList.length);
    }
 
    class FakeWebServerComponent implements ServiceComponent, WebServerComponentMarker {

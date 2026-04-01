@@ -1882,6 +1882,16 @@ public class ActiveMQServerControlUsingCoreTest extends ActiveMQServerControlTes
          public void exportConfigAsProperties() throws Exception {
             proxy.invokeOperation("exportConfigAsProperties");
          }
+
+         @Override
+         public String getLockStatus() {
+            return (String) proxy.retrieveAttributeValue("lockStatus", String.class);
+         }
+
+         @Override
+         public String[] getLockList() {
+            return (String[]) proxy.retrieveAttributeValue("lockList", String.class);
+         }
       };
    }
 

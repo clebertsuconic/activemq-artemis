@@ -125,6 +125,7 @@ import org.apache.activemq.artemis.core.server.cluster.ha.PrimaryOnlyPolicy;
 import org.apache.activemq.artemis.core.server.cluster.ha.ScaleDownPolicy;
 import org.apache.activemq.artemis.core.server.cluster.ha.SharedStoreBackupPolicy;
 import org.apache.activemq.artemis.core.server.group.GroupingHandler;
+import org.apache.activemq.artemis.core.server.lock.LockCoordinator;
 import org.apache.activemq.artemis.core.server.impl.Activation;
 import org.apache.activemq.artemis.core.server.impl.AddressInfo;
 import org.apache.activemq.artemis.core.server.impl.SharedNothingPrimaryActivation;
@@ -4753,6 +4754,37 @@ public class ActiveMQServerControlImpl extends AbstractControl implements Active
             File exportFileInTmp = new File(System.getProperty(TMP_DIR_SYSTEM_PROPERTY), CONFIG_AS_PROPERTIES_FILE);
             this.server.getConfiguration().exportAsProperties(exportFileInTmp);
          }
+      }
+   }
+
+   @Override
+   public String getLockStatus() {
+      if (AuditLogger.isBaseLoggingEnabled()) {
+         AuditLogger.getLockStatus(this.server);
+      }
+      checkStarted();
+
+      clearIO();
+      try {
+         return server.getLockStatus();
+      } finally {
+         blockOnIO();
+      }
+   }
+
+   @Override
+   public String[] getLockList() {
+      if (AuditLogger.isBaseLoggingEnabled()) {
+         AuditLogger.getLockList(this.server);
+      }
+      checkStarted();
+
+      clearIO();
+      try {
+         Set<String> names = server.getLockCoordinatorNames();
+         return names.toArray(new String[names.size()]);
+      } finally {
+         blockOnIO();
       }
    }
 

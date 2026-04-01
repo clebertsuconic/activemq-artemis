@@ -565,6 +565,31 @@ public class ActiveMQServerImpl implements ActiveMQServer {
    }
 
    @Override
+   public String getLockStatus() {
+      if (lockCoordinators.isEmpty()) {
+         return "[]";
+      }
+
+      StringBuilder result = new StringBuilder();
+      boolean first = true;
+      for (LockCoordinator coordinator: lockCoordinators.values()) {
+         if (!first) {
+            result.append(", ");
+         }
+         first = false;
+
+         result.append(coordinator.getName()).append(": ");
+         result.append(coordinator.isLocked() ? "locked" : "unlocked");
+      }
+      return result.toString();
+   }
+
+   @Override
+   public Set<String> getLockCoordinatorNames() {
+      return lockCoordinators.keySet();
+   }
+
+   @Override
    public void replay(Date start, Date end, String address, String target, String filter) throws Exception {
       if (replayManager == null) {
          throw ActiveMQMessageBundle.BUNDLE.noRetention();

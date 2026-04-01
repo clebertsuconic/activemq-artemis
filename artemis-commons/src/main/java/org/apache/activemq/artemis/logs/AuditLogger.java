@@ -2905,4 +2905,18 @@ public interface AuditLogger {
    @LogMessage(id = 601803, value = "User {} is getting BlockedViaManagement on target resource: {}", level = LogMessage.Level.INFO)
    void isBlockedViaManagement(String user, Object source);
 
+   static void getLockStatus(Object source) {
+      BASE_LOGGER.getLockStatus(getCaller(), source);
+   }
+
+   @LogMessage(id = 601804, value = "User {} is getting LockStatus on target resource: {}", level = LogMessage.Level.INFO)
+   void getLockStatus(String user, Object source);
+
+   static void getLockList(Object source) {
+      BASE_LOGGER.getLockList(getCaller(), source);
+   }
+
+   @LogMessage(id = 601805, value = "User {} is getting LockList on target resource: {}", level = LogMessage.Level.INFO)
+   void getLockList(String user, Object source);
+
 }
