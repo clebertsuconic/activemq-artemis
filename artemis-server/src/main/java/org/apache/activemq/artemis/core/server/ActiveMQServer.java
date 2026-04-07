@@ -189,6 +189,10 @@ public interface ActiveMQServer extends ServiceComponent {
 
    Set<String> getLockCoordinatorNames();
 
+   void startLock(String lockName);
+
+   void stopLock(String lockName);
+
    void updateStatus(String component, String statusJson);
 
    /**

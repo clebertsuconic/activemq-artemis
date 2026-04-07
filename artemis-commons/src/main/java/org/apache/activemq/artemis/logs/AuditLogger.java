@@ -2919,4 +2919,18 @@ public interface AuditLogger {
    @LogMessage(id = 601805, value = "User {} is getting LockList on target resource: {}", level = LogMessage.Level.INFO)
    void getLockList(String user, Object source);
 
+   static void startLock(Object source, String lockName) {
+      BASE_LOGGER.startLock(getCaller(), lockName, source);
+   }
+
+   @LogMessage(id = 601806, value = "User {} is starting lock {} on target resource: {}", level = LogMessage.Level.INFO)
+   void startLock(String user, String lockName, Object source);
+
+   static void stopLock(Object source, String lockName) {
+      BASE_LOGGER.stopLock(getCaller(), lockName, source);
+   }
+
+   @LogMessage(id = 601807, value = "User {} is stopping lock {} on target resource: {}", level = LogMessage.Level.INFO)
+   void stopLock(String user, String lockName, Object source);
+
 }

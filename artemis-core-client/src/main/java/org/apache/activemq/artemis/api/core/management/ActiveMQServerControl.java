@@ -65,6 +65,10 @@ public interface ActiveMQServerControl {
    @Attribute
    String[] getLockList();
 
+   void startLock(String lockName);
+
+   void stopLock(String lockName);
+
    /**
     * {@return the number of clients connected to this server.}
     */

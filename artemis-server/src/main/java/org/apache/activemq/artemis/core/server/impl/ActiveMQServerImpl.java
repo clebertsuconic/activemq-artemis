@@ -590,6 +590,22 @@ public class ActiveMQServerImpl implements ActiveMQServer {
    }
 
    @Override
+   public void startLock(String lockName) {
+      LockCoordinator coordinator = lockCoordinators.get(lockName);
+      if (coordinator != null) {
+         coordinator.start();
+      }
+   }
+
+   @Override
+   public void stopLock(String lockName) {
+      LockCoordinator coordinator = lockCoordinators.get(lockName);
+      if (coordinator != null) {
+         coordinator.stop();
+      }
+   }
+
+   @Override
    public void replay(Date start, Date end, String address, String target, String filter) throws Exception {
       if (replayManager == null) {
          throw ActiveMQMessageBundle.BUNDLE.noRetention();

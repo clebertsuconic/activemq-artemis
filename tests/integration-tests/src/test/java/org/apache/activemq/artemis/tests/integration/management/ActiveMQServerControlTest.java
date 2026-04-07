@@ -6578,6 +6578,15 @@ public class ActiveMQServerControlTest extends ManagementTestBase {
       assertEquals(0, lockList.length);
    }
 
+   @TestTemplate
+   public void testStartStopLock() throws Exception {
+      // Test with no lock coordinators (default server configuration)
+      // Should not throw exception even if lock doesn't exist
+      ActiveMQServerControl serverControl = createManagementControl();
+      serverControl.startLock("nonexistent");
+      serverControl.stopLock("nonexistent");
+   }
+
    class FakeWebServerComponent implements ServiceComponent, WebServerComponentMarker {
       AtomicBoolean started = new AtomicBoolean(false);
       AtomicLong startTime = new AtomicLong(0);

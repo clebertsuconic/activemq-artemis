@@ -4788,6 +4788,36 @@ public class ActiveMQServerControlImpl extends AbstractControl implements Active
       }
    }
 
+   @Override
+   public void startLock(String lockName) {
+      if (AuditLogger.isBaseLoggingEnabled()) {
+         AuditLogger.startLock(this.server, lockName);
+      }
+      checkStarted();
+
+      clearIO();
+      try {
+         server.startLock(lockName);
+      } finally {
+         blockOnIO();
+      }
+   }
+
+   @Override
+   public void stopLock(String lockName) {
+      if (AuditLogger.isBaseLoggingEnabled()) {
+         AuditLogger.stopLock(this.server, lockName);
+      }
+      checkStarted();
+
+      clearIO();
+      try {
+         server.stopLock(lockName);
+      } finally {
+         blockOnIO();
+      }
+   }
+
    public ActiveMQServer getServer() {
       return server;
    }

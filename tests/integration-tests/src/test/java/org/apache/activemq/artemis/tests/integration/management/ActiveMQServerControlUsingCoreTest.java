@@ -1892,6 +1892,16 @@ public class ActiveMQServerControlUsingCoreTest extends ActiveMQServerControlTes
          public String[] getLockList() {
             return (String[]) proxy.retrieveAttributeValue("lockList", String.class);
          }
+
+         @Override
+         public void startLock(String lockName) {
+            proxy.invokeOperation("startLock", lockName);
+         }
+
+         @Override
+         public void stopLock(String lockName) {
+            proxy.invokeOperation("stopLock", lockName);
+         }
       };
    }
 
