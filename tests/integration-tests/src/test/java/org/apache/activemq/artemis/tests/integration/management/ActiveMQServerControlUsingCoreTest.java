@@ -1894,12 +1894,12 @@ public class ActiveMQServerControlUsingCoreTest extends ActiveMQServerControlTes
          }
 
          @Override
-         public void startLock(String lockName) {
+         public void startLock(String lockName) throws Exception {
             proxy.invokeOperation("startLock", lockName);
          }
 
          @Override
-         public void stopLock(String lockName) {
+         public void stopLock(String lockName) throws Exception {
             proxy.invokeOperation("stopLock", lockName);
          }
       };
