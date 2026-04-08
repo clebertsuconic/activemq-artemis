@@ -585,6 +585,20 @@ public class ActiveMQServerImpl implements ActiveMQServer {
    }
 
    @Override
+   public Collection<LockCoordinator> getLockList() {
+
+      if (lockCoordinators.isEmpty()) {
+         return Collections.emptyList();
+      }
+
+      // copying the list (don't want to return map.values directly)
+      Collection<LockCoordinator> returnValue = new ArrayList<>();
+      lockCoordinators.values().forEach(returnValue::add);
+
+      return returnValue;
+   }
+
+   @Override
    public Set<String> getLockCoordinatorNames() {
       return lockCoordinators.keySet();
    }

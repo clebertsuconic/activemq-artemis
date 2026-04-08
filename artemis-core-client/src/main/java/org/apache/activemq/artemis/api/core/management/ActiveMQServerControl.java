@@ -60,7 +60,7 @@ public interface ActiveMQServerControl {
    boolean isActive();
 
    @Attribute(desc = "Return the status of lock coordinators")
-   String getLockStatus();
+   String getLockListAsJSON();
 
    @Attribute
    String[] getLockList();

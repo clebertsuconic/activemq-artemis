@@ -2905,12 +2905,12 @@ public interface AuditLogger {
    @LogMessage(id = 601803, value = "User {} is getting BlockedViaManagement on target resource: {}", level = LogMessage.Level.INFO)
    void isBlockedViaManagement(String user, Object source);
 
-   static void getLockStatus(Object source) {
-      BASE_LOGGER.getLockStatus(getCaller(), source);
+   static void getLockListAsJSON(Object source) {
+      BASE_LOGGER.getLockListAsJSON(getCaller(), source);
    }
 
-   @LogMessage(id = 601804, value = "User {} is getting LockStatus on target resource: {}", level = LogMessage.Level.INFO)
-   void getLockStatus(String user, Object source);
+   @LogMessage(id = 601804, value = "User {} is getting LockListAsJSON on target resource: {}", level = LogMessage.Level.INFO)
+   void getLockListAsJSON(String user, Object source);
 
    static void getLockList(Object source) {
       BASE_LOGGER.getLockList(getCaller(), source);

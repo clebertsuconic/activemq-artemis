@@ -4758,15 +4758,26 @@ public class ActiveMQServerControlImpl extends AbstractControl implements Active
    }
 
    @Override
-   public String getLockStatus() {
+   public String getLockListAsJSON() {
       if (AuditLogger.isBaseLoggingEnabled()) {
-         AuditLogger.getLockStatus(this.server);
+         AuditLogger.getLockListAsJSON(this.server);
       }
       checkStarted();
 
       clearIO();
       try {
-         return server.getLockStatus();
+         Collection<LockCoordinator> coordinators = server.getLockList();
+
+         JsonArrayBuilder array = JsonLoader.createArrayBuilder();
+         coordinators.forEach(l -> {
+            JsonObjectBuilder objectBuilder = JsonLoader.createObjectBuilder();
+            objectBuilder.add("name", l.getName());
+            objectBuilder.add("type", l.getLockManager().getClass().getName());
+            objectBuilder.add("locked", l.isLocked());
+            objectBuilder.add("started", l.isStarted());
+         });
+
+         return array.build().toString();
       } finally {
          blockOnIO();
       }
