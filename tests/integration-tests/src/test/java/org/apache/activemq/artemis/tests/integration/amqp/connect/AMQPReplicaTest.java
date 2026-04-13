@@ -1551,14 +1551,12 @@ public class AMQPReplicaTest extends AmqpClientTestSupport {
       server_2.setIdentity("server_2");
       server_2.getConfiguration().setName("thisone");
 
-      AMQPBrokerConnectConfiguration amqpConnection = new AMQPBrokerConnectConfiguration(brokerConnectionName, "tcp://localhost:" + AMQP_PORT).setReconnectAttempts(-1).setRetryInterval(100);
+      AMQPBrokerConnectConfiguration amqpConnection = new AMQPBrokerConnectConfiguration(brokerConnectionName, "tcp://localhost:" + AMQP_PORT).setReconnectAttempts(-1).setRetryInterval(2000);
       AMQPMirrorBrokerConnectionElement replica = new AMQPMirrorBrokerConnectionElement().setMessageAcknowledgements(true).setDurable(true).setSync(true);
       replica.setName("theReplica");
       amqpConnection.addElement(replica);
       server_2.getConfiguration().addAMQPConnection(amqpConnection);
       server_2.getConfiguration().setName("server_2");
-
-      int NUMBER_OF_MESSAGES = 200;
 
       server_2.start();
       Wait.assertTrue(server_2::isStarted);
@@ -1572,6 +1570,8 @@ public class AMQPReplicaTest extends AmqpClientTestSupport {
 
       connection.start();
 
+      //server.stop();
+
       final int NMESSAGES = 1;
 
       try (Session session = connection.createSession(true, Session.SESSION_TRANSACTED)) {
@@ -1584,7 +1584,6 @@ public class AMQPReplicaTest extends AmqpClientTestSupport {
       }
 
       logger.info("Sleeping......................................................................................................................................");
-      Thread.sleep(5000);
 
       logger.info("******************************************************************************************************************************* Receiving");
 
