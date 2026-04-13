@@ -180,7 +180,7 @@ public class OperationContextImpl implements OperationContext {
 
    @Override
    public void replicationLineUp() {
-      logger.info("repplication line up", new Exception("trace"));
+      new Exception("replication lineup").printStackTrace();
       REPLICATION_LINEUP_UPDATER.incrementAndGet(this);
    }
 

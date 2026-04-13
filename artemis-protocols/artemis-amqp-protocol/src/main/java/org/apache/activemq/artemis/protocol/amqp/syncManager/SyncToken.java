@@ -46,7 +46,7 @@ public class SyncToken {
    }
 
    public void scan() {
-      if (scan++ > 2) {
+      if (scan++ > 2 && !done) {
          timeoutError();
       }
    }

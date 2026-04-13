@@ -1551,12 +1551,32 @@ public class AMQPReplicaTest extends AmqpClientTestSupport {
       server_2.setIdentity("server_2");
       server_2.getConfiguration().setName("thisone");
 
-      AMQPBrokerConnectConfiguration amqpConnection = new AMQPBrokerConnectConfiguration(brokerConnectionName, "tcp://localhost:" + AMQP_PORT).setReconnectAttempts(-1).setRetryInterval(2000);
-      AMQPMirrorBrokerConnectionElement replica = new AMQPMirrorBrokerConnectionElement().setMessageAcknowledgements(true).setDurable(true).setSync(true);
-      replica.setName("theReplica");
-      amqpConnection.addElement(replica);
-      server_2.getConfiguration().addAMQPConnection(amqpConnection);
-      server_2.getConfiguration().setName("server_2");
+
+      ActiveMQServer server_3 = createServer(AMQP_PORT_3, false);
+      server_3.setIdentity("server_3");
+      server_3.getConfiguration().setName("third");
+      server_3.start();
+      Wait.assertTrue(server_3::isStarted);
+
+      {
+         AMQPBrokerConnectConfiguration amqpConnection = new AMQPBrokerConnectConfiguration(brokerConnectionName, "tcp://localhost:" + AMQP_PORT).setReconnectAttempts(-1).setRetryInterval(2000);
+         AMQPMirrorBrokerConnectionElement replica = new AMQPMirrorBrokerConnectionElement().setMessageAcknowledgements(true).setDurable(true).setSync(true);
+         replica.setName("theReplica");
+         amqpConnection.addElement(replica);
+         server_2.getConfiguration().addAMQPConnection(amqpConnection);
+         server_2.getConfiguration().setName("server_2");
+      }
+
+
+      {
+         AMQPBrokerConnectConfiguration amqpConnection = new AMQPBrokerConnectConfiguration(brokerConnectionName + " 3", "tcp://localhost:" + AMQP_PORT_3).setReconnectAttempts(-1).setRetryInterval(2000);
+         AMQPMirrorBrokerConnectionElement replica = new AMQPMirrorBrokerConnectionElement().setMessageAcknowledgements(true).setDurable(true).setSync(true);
+         replica.setName("theReplica3");
+         amqpConnection.addElement(replica);
+         server_2.getConfiguration().addAMQPConnection(amqpConnection);
+         server_2.getConfiguration().setName("server_2");
+      }
+
 
       server_2.start();
       Wait.assertTrue(server_2::isStarted);
@@ -1570,7 +1590,7 @@ public class AMQPReplicaTest extends AmqpClientTestSupport {
 
       connection.start();
 
-      //server.stop();
+      server.stop();
 
       final int NMESSAGES = 1;
 
@@ -1578,10 +1598,15 @@ public class AMQPReplicaTest extends AmqpClientTestSupport {
          for (int i = 0; i < NMESSAGES; i++) {
             logger.info("Sending {}", i);
             MessageProducer producer = session.createProducer(session.createQueue(getQueueName()));
-            producer.send(session.createTextMessage("hello" + i));
+            TextMessage msg = session.createTextMessage("Hello " + i);
+            msg.setStringProperty("messageI", "i = " + i);
+            producer.send(msg);
             session.commit();
          }
       }
+
+
+      server_3.stop();
 
       logger.info("Sleeping......................................................................................................................................");
 
@@ -1593,8 +1618,8 @@ public class AMQPReplicaTest extends AmqpClientTestSupport {
             TextMessage message = (TextMessage) consumer.receive(5000);
             assertNotNull(message);
             logger.info("Received {}", message.getText());
-            session.commit();
          }
+         session.commit();
 
       }
 

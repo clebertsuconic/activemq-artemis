@@ -683,7 +683,7 @@ public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> im
       private void doWired(Message ack, MessageReference ref) {
          OperationContext context = (OperationContext) ack.getUserContext(OperationContext.class);
          if (context != null) {
-            brokerConnection.getSyncManager().messageAck(ref, context);
+            brokerConnection.getSyncManager().messageAck(ack, ref, context);
          }
       }
    }

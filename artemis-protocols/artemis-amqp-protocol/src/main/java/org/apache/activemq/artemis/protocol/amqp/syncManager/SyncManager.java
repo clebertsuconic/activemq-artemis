@@ -40,6 +40,7 @@ public class SyncManager extends ActiveMQScheduledComponent {
 
    // short for Sync Property
    private final SimpleString TOKEN_PROPERTY = SimpleString.of("SNCPRP");
+   private final SimpleString TOKEN_PROPERTY_ACK = SimpleString.of("SNCPRPACK");
 
    private final ConcurrentHashMap<UUID, SyncToken> tokens = new ConcurrentHashMap<>();
 
@@ -83,9 +84,9 @@ public class SyncManager extends ActiveMQScheduledComponent {
       tokens.remove(token.getKey());
    }
 
-   private UUID getUUIDFromExtraProperty(Message message) {
+   private UUID getUUIDFromExtraProperty(Message message, SimpleString property) {
       try {
-         byte[] extraProperty = message.getExtraBytesProperty(TOKEN_PROPERTY);
+         byte[] extraProperty = message.getExtraBytesProperty(property);
          if (extraProperty != null) {
             return UUID.of(extraProperty);
          } else {
@@ -104,28 +105,39 @@ public class SyncManager extends ActiveMQScheduledComponent {
       if (token != null) {
          token.done();
       } else {
-         token = (SyncToken) reference.getMessage().getUserContext(TOKEN_PROPERTY);
-         if (token == null) {
-            UUID tokenUUID = getUUIDFromExtraProperty(reference.getMessage());
-            if (tokenUUID != null) {
-               token = tokens.get(tokenUUID);
-            }
-         }
-
-         if (token != null) {
-            token.done();
-         }
+         doToken(reference, TOKEN_PROPERTY);
+         doToken(reference, TOKEN_PROPERTY_ACK);
       }
    }
 
-   public void messageAck(MessageReference reference, OperationContext context) {
+   private void doToken(MessageReference reference, SimpleString property) {
+      SyncToken token;
+      token = (SyncToken) reference.getMessage().getUserContext(property);
+      if (token == null) {
+         UUID tokenUUID = getUUIDFromExtraProperty(reference.getMessage(), property);
+         if (tokenUUID != null) {
+            token = tokens.get(tokenUUID);
+         }
+      }
+
+      if (token != null) {
+         token.done();
+      }
+   }
+
+   public void messageAck(Message ackCommand, MessageReference reference, OperationContext context) {
       if (context != null) {
-         SyncToken token = reference.getProtocolData(SyncToken.class);
+         SyncToken token = (SyncToken) reference.getMessage().getUserContext(TOKEN_PROPERTY_ACK);
          if (token == null) {
             UUID uuid = UUIDGenerator.getInstance().generateUUID();
             token = new SyncToken(uuid, context, this);
+            reference.getMessage().setUserContext(TOKEN_PROPERTY_ACK, token);
             tokens.put(uuid, token);
             reference.setProtocolData(SyncToken.class, token);
+            ackCommand.setUserContext(TOKEN_PROPERTY_ACK, token);
+         } else {
+            reference.setProtocolData(SyncToken.class, token);
+            ackCommand.setUserContext(TOKEN_PROPERTY_ACK, token);
          }
 
       }
