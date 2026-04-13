@@ -106,6 +106,10 @@ public final class UUID {
       mId[UUID.INDEX_VARIATION] |= (byte) 0x80;
    }
 
+   public static UUID of(final byte[] data) {
+      return new UUID(data);
+   }
+
    private UUID(final byte[] data) {
       assert data.length == 16;
       mId = data;

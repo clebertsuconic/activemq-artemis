@@ -34,7 +34,7 @@ public class AMQPMirrorBrokerConnectionElement extends AMQPBrokerConnectionEleme
 
    boolean messageAcknowledgements = true;
 
-   boolean sync = false;
+   volatile boolean sync = false;
 
    SimpleString mirrorSNF;
 

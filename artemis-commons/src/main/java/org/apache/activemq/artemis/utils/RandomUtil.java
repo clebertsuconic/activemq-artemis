@@ -63,7 +63,7 @@ public class RandomUtil {
     * {@return A randomly generated {@link java.util.UUID} converted to a {@code String}}
     */
    public static String randomUUIDString() {
-      return java.util.UUID.randomUUID().toString();
+      return UUIDGenerator.getInstance().generateStringUUID();
    }
 
    /**

@@ -94,6 +94,7 @@ import org.apache.activemq.artemis.protocol.amqp.proton.SenderController;
 import org.apache.activemq.artemis.protocol.amqp.sasl.ClientSASL;
 import org.apache.activemq.artemis.protocol.amqp.sasl.ClientSASLFactory;
 import org.apache.activemq.artemis.protocol.amqp.sasl.scram.SCRAMClientSASL;
+import org.apache.activemq.artemis.protocol.amqp.syncManager.SyncManager;
 import org.apache.activemq.artemis.spi.core.protocol.ConnectionEntry;
 import org.apache.activemq.artemis.spi.core.remoting.ClientConnectionLifeCycleListener;
 import org.apache.activemq.artemis.spi.core.remoting.ClientProtocolManager;
@@ -163,6 +164,7 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
    private final Set<Queue> receivers = new HashSet<>();
    private final Map<String, Predicate<Link>> linkClosedInterceptors = new ConcurrentHashMap<>();
    private LockCoordinator lockCoordinator;
+   private SyncManager syncManager;
 
    /**
     * This will be false if the lock coordinator is in place and it is not holding the lock
@@ -193,6 +195,10 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
    public AMQPBrokerConnection setLockCoordinator(LockCoordinator lockCoordinator) {
       this.lockCoordinator = lockCoordinator;
       return this;
+   }
+
+   public SyncManager getSyncManager() {
+      return syncManager;
    }
 
    final Executor connectExecutor;
@@ -302,6 +308,9 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
          started = true;
          server.getConfiguration().registerBrokerPlugin(this);
 
+         this.syncManager = new SyncManager(server.getScheduledPool(), server.getExecutorFactory().getExecutor(), 5);
+         this.syncManager.start();
+
          try {
             if (brokerConnectConfiguration != null && brokerConnectConfiguration.getConnectionElements() != null) {
                for (AMQPBrokerConnectionElement connectionElement : brokerConnectConfiguration.getConnectionElements()) {
@@ -351,6 +360,9 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
       //       and our tests would eventually miss an event, or more importantly users would lose a message during this process
       if (started) {
          started = false;
+         if (syncManager != null) {
+            syncManager.stop();
+         }
          server.getConfiguration().unRegisterBrokerPlugin(this);
 
          if (protonRemotingConnection != null) {

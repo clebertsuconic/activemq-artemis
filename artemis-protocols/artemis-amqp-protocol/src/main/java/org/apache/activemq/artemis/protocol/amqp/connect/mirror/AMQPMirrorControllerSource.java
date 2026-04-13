@@ -105,11 +105,10 @@ public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> im
    final boolean deleteQueues;
    final MirrorAddressFilter addressFilter;
    private final AMQPBrokerConnection brokerConnection;
-   private final boolean sync;
 
    private final PagedRouteContext pagedRouteContext;
 
-   final AMQPMirrorBrokerConnectionElement replicaConfig;
+   final AMQPMirrorBrokerConnectionElement mirrorConfig;
 
    boolean started;
 
@@ -165,11 +164,11 @@ public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> im
       return started;
    }
 
-   public AMQPMirrorControllerSource(ReferenceIDSupplier referenceIdSupplier, Queue snfQueue, ActiveMQServer server, AMQPMirrorBrokerConnectionElement replicaConfig,
+   public AMQPMirrorControllerSource(ReferenceIDSupplier referenceIdSupplier, Queue snfQueue, ActiveMQServer server, AMQPMirrorBrokerConnectionElement mirrorConfig,
                                      AMQPBrokerConnection brokerConnection) {
       super(server);
       assert snfQueue != null;
-      this.replicaConfig = replicaConfig;
+      this.mirrorConfig = mirrorConfig;
       this.snfQueue = snfQueue;
       if (!snfQueue.isInternalQueue()) {
          logger.debug("marking queue {} as internal to avoid redistribution kicking in", snfQueue.getName());
@@ -177,21 +176,12 @@ public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> im
       }
       this.server = server;
       this.idSupplier = referenceIdSupplier;
-      this.addQueues = replicaConfig.isQueueCreation();
-      this.deleteQueues = replicaConfig.isQueueRemoval();
-      this.addressFilter = new MirrorAddressFilter(replicaConfig.getAddressFilter());
-      this.acks = replicaConfig.isMessageAcknowledgements();
+      this.addQueues = mirrorConfig.isQueueCreation();
+      this.deleteQueues = mirrorConfig.isQueueRemoval();
+      this.addressFilter = new MirrorAddressFilter(mirrorConfig.getAddressFilter());
+      this.acks = mirrorConfig.isMessageAcknowledgements();
       this.brokerConnection = brokerConnection;
-      this.sync = replicaConfig.isSync();
       this.pagedRouteContext = new PagedRouteContext(snfQueue);
-
-      if (sync) {
-         logger.debug("Mirror is configured to sync, so pageStore={} being enforced to BLOCK, and not page", snfQueue.getName());
-         snfQueue.getPagingStore().enforceAddressFullMessagePolicy(AddressFullMessagePolicy.BLOCK);
-      } else {
-         logger.debug("Mirror is configured to not sync, so pageStore={} being enforced to PAGE", snfQueue.getName());
-         snfQueue.getPagingStore().enforceAddressFullMessagePolicy(AddressFullMessagePolicy.PAGE);
-      }
    }
 
    public Queue getSnfQueue() {
@@ -437,11 +427,11 @@ public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> im
             getSendOperation(tx).addRef(ref);
          } // if non transactional the afterStoreOperations will use the ref directly and call processReferences
 
-         if (sync) {
+         if (mirrorConfig.isSync()) {
             OperationContext operContext = OperationContextImpl.getContext(server.getExecutorFactory());
             if (tx == null) {
                // notice that if transactional, the context is lined up on beforeCommit as part of the transaction operation
-               operContext.replicationLineUp();
+               brokerConnection.getSyncManager().messageSend(message, operContext);
             }
             if (logger.isDebugEnabled()) {
                logger.debug("sendMessage::mirror syncUp context={}, ref={}", operContext, ref);
@@ -473,24 +463,7 @@ public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> im
    }
 
    private void syncDone(MessageReference reference) {
-      OperationContext ctx = reference.getProtocolData(OperationContext.class);
-      if (ctx != null) {
-         ctx.replicationDone();
-         logger.debug("syncDone::replicationDone::ctx={},ref={}", ctx, reference);
-      }  else {
-         Message message = reference.getMessage();
-         if (message != null) {
-            ctx = (OperationContext) message.getUserContext(OperationContext.class);
-            if (ctx != null) {
-               ctx.replicationDone();
-               logger.debug("syncDone::replicationDone message={}", message);
-            } else {
-               logger.trace("syncDone::No operationContext set on message {}", message);
-            }
-         } else {
-            logger.debug("syncDone::no message set on reference {}", reference);
-         }
-      }
+      brokerConnection.getSyncManager().messageSendDone(reference);
    }
 
    public static void validateProtocolData(ReferenceIDSupplier referenceIDSupplier, MessageReference ref, SimpleString snfAddress) {
@@ -554,7 +527,7 @@ public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> im
 
    private void postACKInternalMessage(MessageReference reference) {
       logger.debug("postACKInternalMessage::server={}, ref={}", server, reference);
-      if (sync) {
+      if (mirrorConfig.isSync()) {
          syncDone(reference);
       }
 
@@ -619,7 +592,7 @@ public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> im
       String nodeID = idSupplier.getServerID(ref); // notice the brokerID will be null for any message generated on this broker.
       long internalID = idSupplier.getID(ref);
       Message messageCommand = createMessage(ref.getQueue().getAddress(), ref.getQueue().getName(), POST_ACK, nodeID, internalID, reason);
-      if (sync) {
+      if (mirrorConfig.isSync()) {
          OperationContext operationContext;
          operationContext = OperationContextImpl.getContext(server.getExecutorFactory());
          messageCommand.setUserContext(OperationContext.class, operationContext);
@@ -680,7 +653,7 @@ public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> im
       return sendOperation;
    }
 
-   private static class MirrorACKOperation implements Runnable {
+   private class MirrorACKOperation implements Runnable {
 
       final ActiveMQServer server;
 
@@ -710,14 +683,12 @@ public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> im
       private void doWired(Message ack, MessageReference ref) {
          OperationContext context = (OperationContext) ack.getUserContext(OperationContext.class);
          if (context != null) {
-            context.replicationLineUp();
+            brokerConnection.getSyncManager().messageAck(ref, context);
          }
       }
-
-
    }
 
-   private static final class MirrorSendOperation extends TransactionOperationAbstract {
+   private final class MirrorSendOperation extends TransactionOperationAbstract {
       final List<MessageReference> refs = new ArrayList<>();
 
       public void addRef(MessageReference ref) {
@@ -733,7 +704,7 @@ public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> im
       private void doBeforeCommit(MessageReference ref) {
          OperationContext context = ref.getProtocolData(OperationContext.class);
          if (context != null) {
-            context.replicationLineUp();
+            brokerConnection.getSyncManager().messageSend(ref.getMessage(), context);
          }
       }
 

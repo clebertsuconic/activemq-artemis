@@ -842,7 +842,7 @@ public interface Message {
    }
 
    /**
-    * {@return Returns the message properties in Map form, useful when encoding to JSON}
+    * {@return Returns the message properties in Map form, useful when encoding to JSON
     *
     * @param valueSizeLimit that limits [] map values
     */
