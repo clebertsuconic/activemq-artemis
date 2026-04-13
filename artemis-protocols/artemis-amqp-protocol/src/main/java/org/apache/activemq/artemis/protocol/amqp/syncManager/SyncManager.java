@@ -99,6 +99,7 @@ public class SyncManager extends ActiveMQScheduledComponent {
 
 
    public void messageSendDone(MessageReference reference) {
+      logger.info("Message done {}", reference);
       SyncToken token = reference.getProtocolData(SyncToken.class);
       if (token != null) {
          token.done();
