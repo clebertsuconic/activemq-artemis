@@ -1538,4 +1538,68 @@ public class AMQPReplicaTest extends AmqpClientTestSupport {
          Wait.assertEquals((long)expectedMessages, () -> store.getAddressElements(), 5000, 100);
       }
    }
+
+
+   @Test
+   public void testSend() throws Exception {
+
+      String brokerConnectionName = "brokerConnectionName:" + UUIDGenerator.getInstance().generateStringUUID();
+      server.setIdentity("targetServer");
+      server.start();
+
+      server_2 = createServer(AMQP_PORT_2, false);
+      server_2.setIdentity("server_2");
+      server_2.getConfiguration().setName("thisone");
+
+      AMQPBrokerConnectConfiguration amqpConnection = new AMQPBrokerConnectConfiguration(brokerConnectionName, "tcp://localhost:" + AMQP_PORT).setReconnectAttempts(-1).setRetryInterval(100);
+      AMQPMirrorBrokerConnectionElement replica = new AMQPMirrorBrokerConnectionElement().setMessageAcknowledgements(true).setDurable(true).setSync(true);
+      replica.setName("theReplica");
+      amqpConnection.addElement(replica);
+      server_2.getConfiguration().addAMQPConnection(amqpConnection);
+      server_2.getConfiguration().setName("server_2");
+
+      int NUMBER_OF_MESSAGES = 200;
+
+      server_2.start();
+      Wait.assertTrue(server_2::isStarted);
+
+      // We create the address to avoid auto delete on the queue
+      server_2.addAddressInfo(new AddressInfo(getQueueName()).addRoutingType(RoutingType.ANYCAST).setAutoCreated(false));
+      server_2.createQueue(QueueConfiguration.of(getQueueName()).setRoutingType(RoutingType.ANYCAST).setAddress(getQueueName()).setAutoCreated(false));
+
+      ConnectionFactory factory = CFUtil.createConnectionFactory("AMQP", "tcp://localhost:" + AMQP_PORT_2);
+      Connection connection = factory.createConnection();
+
+      connection.start();
+
+      final int NMESSAGES = 1;
+
+      try (Session session = connection.createSession(true, Session.SESSION_TRANSACTED)) {
+         for (int i = 0; i < NMESSAGES; i++) {
+            logger.info("Sending {}", i);
+            MessageProducer producer = session.createProducer(session.createQueue(getQueueName()));
+            producer.send(session.createTextMessage("hello" + i));
+            session.commit();
+         }
+      }
+
+      logger.info("Sleeping......................................................................................................................................");
+      Thread.sleep(5000);
+
+      logger.info("******************************************************************************************************************************* Receiving");
+
+      try (Session session = connection.createSession(true, Session.SESSION_TRANSACTED)) {
+         MessageConsumer consumer = session.createConsumer(session.createQueue(getQueueName()));
+         for (int i = 0; i < NMESSAGES; i++) {
+            TextMessage message = (TextMessage) consumer.receive(5000);
+            assertNotNull(message);
+            logger.info("Received {}", message.getText());
+            session.commit();
+         }
+
+      }
+
+
+   }
+
 }
