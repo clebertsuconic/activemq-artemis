@@ -17,6 +17,8 @@
 package org.apache.activemq.artemis.utils;
 
 import javax.security.auth.Subject;
+
+import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.security.Principal;
@@ -27,8 +29,12 @@ import org.apache.activemq.artemis.core.security.CheckType;
 import org.apache.activemq.artemis.core.security.Role;
 import org.apache.activemq.artemis.core.server.ActiveMQServerLogger;
 import org.apache.activemq.artemis.spi.core.security.jaas.RolePrincipal;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class SecurityManagerUtil {
+
+   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
    private static final String WILDCARD = "*";
 
@@ -128,11 +134,13 @@ public class SecurityManagerUtil {
          if (!rolesForSubject.isEmpty() && !rolesWithPermission.isEmpty()) {
             for (Principal subjectRole : rolesForSubject) {
                if (rolesWithPermission.contains(subjectRole)) {
+                  logger.trace("user is authorized");
                   return true;
                }
             }
          }
       }
+      logger.trace("user is NOT authorized");
       return false;
    }
 }
