@@ -21,7 +21,6 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.security.Principal;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Set;
 
 import org.apache.activemq.artemis.core.security.CheckType;
@@ -114,31 +113,26 @@ public class SecurityManagerUtil {
     * This method tries to match the RolePrincipals in the Subject with the provided Set of Roles and CheckType
     */
    public static boolean authorize(final Subject subject, final Set<Role> roles, final CheckType checkType, final Class rolePrincipalClass) {
-      boolean authorized = false;
 
       if (subject != null) {
          Set<RolePrincipal> rolesWithPermission = getPrincipalsInRole(checkType, roles, rolePrincipalClass);
 
          // Check the caller's roles
-         Set<Principal> rolesForSubject = new HashSet<>();
+         Set<Principal> rolesForSubject;
          try {
-            rolesForSubject.addAll(subject.getPrincipals(rolePrincipalClass));
+            rolesForSubject = subject.getPrincipals(rolePrincipalClass);
          } catch (Exception e) {
             ActiveMQServerLogger.LOGGER.failedToFindRolesForTheSubject(e);
+            return false;
          }
          if (!rolesForSubject.isEmpty() && !rolesWithPermission.isEmpty()) {
-            Iterator<Principal> rolesForSubjectIter = rolesForSubject.iterator();
-            while (!authorized && rolesForSubjectIter.hasNext()) {
-               Iterator<RolePrincipal> rolesWithPermissionIter = rolesWithPermission.iterator();
-               Principal subjectRole = rolesForSubjectIter.next();
-               while (!authorized && rolesWithPermissionIter.hasNext()) {
-                  Principal roleWithPermission = rolesWithPermissionIter.next();
-                  authorized = subjectRole.equals(roleWithPermission);
+            for (Principal subjectRole : rolesForSubject) {
+               if (rolesWithPermission.contains(subjectRole)) {
+                  return true;
                }
             }
          }
       }
-
-      return authorized;
+      return false;
    }
 }
