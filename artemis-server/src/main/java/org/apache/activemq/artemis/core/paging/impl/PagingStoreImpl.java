@@ -1423,62 +1423,35 @@ public class PagingStoreImpl implements PagingStore {
       return page(message, tx, listCtx, null, false) >= 0;
    }
 
-   @Override
-   public int page(Message message,
-                       final Transaction tx,
-                       RouteContextList listCtx,
-                       Function<Message, Message> pageDecorator,
-                       boolean useFlowControl) throws Exception {
+   public boolean checkFullPolicy(Message message) throws Exception {
 
-      if (!running) {
-         return -1;
-      }
-
-      boolean diskFull = pagingManager.isDiskFull();
-
-      if (diskFullMessagePolicy == DiskFullMessagePolicy.DROP || diskFullMessagePolicy == DiskFullMessagePolicy.FAIL) {
-         if (diskFull) {
+      if (isFull() || pagingManager.isDiskFull()) {
+         if (addressFullMessagePolicy == AddressFullMessagePolicy.FAIL) {
             if (message.isLargeMessage()) {
-               ((LargeServerMessage) message).deleteFile();
+               try {
+                  ((LargeServerMessage) message).deleteFile();
+               } catch (Exception e) {
+                  // only thing to be done is log on this case
+                  logger.debug("Error deleting large message file for {}", message, e);
+               }
             }
-
-            if (diskFullMessagePolicy == DiskFullMessagePolicy.FAIL) {
-               throw ActiveMQMessageBundle.BUNDLE.addressIsFull(address.toString());
+            throw ActiveMQMessageBundle.BUNDLE.addressIsFull(address.toString());
+         } else if (addressFullMessagePolicy == AddressFullMessagePolicy.DROP) {
+            if (message.isLargeMessage()) {
+               try {
+                  ((LargeServerMessage) message).deleteFile();
+               } catch (Exception e) {
+                  // only thing to be done is log on this case
+                  logger.debug("Error deleting large message file for {}", message, e);
+               }
             }
-
             // Dist is full, just drop the data
             if (!printedDropMessagesWarning) {
                printedDropMessagesWarning = true;
                ActiveMQServerLogger.LOGGER.pageStoreDropMessages(storeName, getPageInfo());
             }
-
-            return 0;
+            return false;
          }
-      }
-
-      boolean full = isFull();
-
-      if (addressFullMessagePolicy == AddressFullMessagePolicy.DROP || addressFullMessagePolicy == AddressFullMessagePolicy.FAIL) {
-         if (full) {
-            if (message.isLargeMessage()) {
-               ((LargeServerMessage) message).deleteFile();
-            }
-
-            if (addressFullMessagePolicy == AddressFullMessagePolicy.FAIL) {
-               throw ActiveMQMessageBundle.BUNDLE.addressIsFull(address.toString());
-            }
-
-            // Address is full, we just pretend we are paging, and drop the data
-            if (!printedDropMessagesWarning) {
-               printedDropMessagesWarning = true;
-               ActiveMQServerLogger.LOGGER.pageStoreDropMessages(storeName, getPageInfo());
-            }
-            return 0;
-         } else {
-            return -1;
-         }
-      } else if (addressFullMessagePolicy == AddressFullMessagePolicy.BLOCK) {
-         return -1;
       }
 
       if (pageFull) {
@@ -1494,10 +1467,25 @@ public class PagingStoreImpl implements PagingStore {
             printedDropMessagesWarning = true;
             ActiveMQServerLogger.LOGGER.pageStoreDropMessages(storeName, getPageInfo());
          }
+         return false;
+      }
 
-         // we are in page mode, if we got to this point, we are dropping the message while still paging
-         // we return 0 as in the storage is in "page mode" however no credits are being taken.
-         return 0;
+      return true;
+   }
+
+   @Override
+   public int page(Message message,
+                       final Transaction tx,
+                       RouteContextList listCtx,
+                       Function<Message, Message> pageDecorator,
+                       boolean useFlowControl) throws Exception {
+
+      if (!running) {
+         return -1;
+      }
+
+      if (addressFullMessagePolicy == AddressFullMessagePolicy.BLOCK) {
+         return -1;
       }
 
       return writePage(message, tx, listCtx, pageDecorator, useFlowControl);

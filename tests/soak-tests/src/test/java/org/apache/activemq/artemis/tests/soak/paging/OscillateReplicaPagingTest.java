@@ -61,6 +61,7 @@ import org.apache.activemq.artemis.utils.Wait;
 import org.apache.activemq.artemis.utils.actors.OrderedExecutorFactory;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -224,7 +225,7 @@ public class OscillateReplicaPagingTest extends SoakTestBase {
    private final int OSCILLATED_RUNTIME = optionOscillatedRuntime();
 
    protected int optionRepeats() {
-      return 2;
+      return 20;
    }
    private final int REPEATS = optionRepeats();
 
@@ -455,6 +456,7 @@ public class OscillateReplicaPagingTest extends SoakTestBase {
       internalOscillateAndFailback(false);
    }
 
+   @RepeatedTest(200)
    @Test
    public void testOscillateAndFailbackPurge() throws Exception {
       internalOscillateAndFailback(true);
