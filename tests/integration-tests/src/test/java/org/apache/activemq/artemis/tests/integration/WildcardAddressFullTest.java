@@ -61,7 +61,7 @@ public class WildcardAddressFullTest extends ActiveMQTestBase {
    @BeforeEach
    public void setUp() throws Exception {
       super.setUp();
-      server = createServer(false, createDefaultNettyConfig());
+      server = createServer(true, createDefaultNettyConfig());
       server.start();
       locator = createInVMNonHALocator();
       sf = createSessionFactory(locator);
@@ -147,7 +147,7 @@ public class WildcardAddressFullTest extends ActiveMQTestBase {
    private void testPaging(final String addressToSend, final String[] queueToReceive, final String addressSettingsMatch) throws Exception {
       int producerSend = 1000;
       final int MAX_MESSAGES = 1;
-      server.getAddressSettingsRepository().addMatch(addressSettingsMatch, new AddressSettings().setMaxSizeMessages(MAX_MESSAGES).setAddressFullMessagePolicy(AddressFullMessagePolicy.PAGE));
+      server.getAddressSettingsRepository().addMatch("#", new AddressSettings().setMaxSizeMessages(MAX_MESSAGES).setMaxSizeBytes(1).setAddressFullMessagePolicy(AddressFullMessagePolicy.PAGE));
 
       ConnectionFactory factory = CFUtil.createConnectionFactory("CORE", "tcp://localhost:61616");
 
@@ -163,9 +163,6 @@ public class WildcardAddressFullTest extends ActiveMQTestBase {
             producer.send(session.createTextMessage("will send"));
          }
       }
-
-
-      logger.info("> > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Consuming.....");
 
       try (Connection connection = factory.createConnection()) {
          connection.start();
