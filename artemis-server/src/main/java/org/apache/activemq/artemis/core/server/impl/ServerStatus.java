@@ -17,12 +17,14 @@
 package org.apache.activemq.artemis.core.server.impl;
 
 
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
 import org.apache.activemq.artemis.api.core.JsonUtil;
 import org.apache.activemq.artemis.api.core.SimpleString;
+import org.apache.activemq.artemis.core.server.lock.LockCoordinator;
 import org.apache.activemq.artemis.json.JsonObject;
 import org.apache.activemq.artemis.json.JsonObjectBuilder;
 import org.apache.activemq.artemis.utils.JsonLoader;
@@ -80,6 +82,20 @@ public class ServerStatus {
          snapshotOfServerStatusAttributes.put("nodeId", Objects.toString(nodeId, null));
          snapshotOfServerStatusAttributes.put("uptime", server.getUptime());
          snapshotOfServerStatusAttributes.put("state", server.getState().toString());
+         Enumeration<String> coordinators = server.getLockCoordinators();
+
+         if (coordinators.hasMoreElements()) {
+            StringBuilder builder = new StringBuilder();
+            while (coordinators.hasMoreElements()) {
+               String name = coordinators.nextElement();
+               LockCoordinator coordinator = server.getLockCoordinator(name);
+               builder.append(name + " status = " + (coordinator.isLocked() ? "locked" : "unlocked"));
+               if (coordinators.hasMoreElements()) {
+                  builder.append(","); // we will have only one lock in most cases, but it's open to have more
+               }
+            }
+            snapshotOfServerStatusAttributes.put("lockStatus", builder.toString());
+         }
 
          update(SERVER_COMPONENT, JsonUtil.toJsonObject(snapshotOfServerStatusAttributes));
       }

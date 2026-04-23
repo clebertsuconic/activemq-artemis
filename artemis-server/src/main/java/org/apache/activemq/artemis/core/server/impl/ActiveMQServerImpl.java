@@ -30,6 +30,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.EnumSet;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -297,6 +298,11 @@ public class ActiveMQServerImpl implements ActiveMQServer {
    private ReplayManager replayManager;
 
    private ConcurrentHashMap<String, LockCoordinator> lockCoordinators = new ConcurrentHashMap<>();
+
+
+   public Enumeration<String> getLockCoordinators() {
+      return lockCoordinators.keys();
+   }
 
    /**
     * Certain management operations shouldn't use more than one thread. this semaphore is used to guarantee a single
