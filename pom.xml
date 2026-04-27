@@ -128,15 +128,12 @@
       <zookeeper.version>3.9.5</zookeeper.version>
       <woodstox.version>4.4.0</woodstox.version>
       <pem-keystore.version>2.3.0</pem-keystore.version>
-      <!-- This overrides the Apache parent POM due to https://issues.apache.org/jira/browse/MSHADE-462. Once that issue
-           is resolved and a new Apache parent is released then we can get rid of this. -->
-      <version.maven-shade-plugin>3.4.1</version.maven-shade-plugin>
 
       <!-- This overrides the Apache parent POM. Once a new Apache parent is released with the latest version then we
            can get rid of this. -->
       <version.maven-plugin-tools>3.11.0</version.maven-plugin-tools>
-      <!-- Isolated bump until parent update, for compatibility with JDK21 multi-release jars -->
-      <version.maven-shade-plugin>3.6.0</version.maven-shade-plugin>
+      <!-- Isolated bump until parent update, for compatibility with JDK25 multi-release jars -->
+      <version.maven-shade-plugin>3.6.2</version.maven-shade-plugin>
       <!-- Isolated definition until parent update, workaround for parent productisation bug / to fix example -->
       <version.maven-checkstyle-plugin>3.6.0</version.maven-checkstyle-plugin>
 
