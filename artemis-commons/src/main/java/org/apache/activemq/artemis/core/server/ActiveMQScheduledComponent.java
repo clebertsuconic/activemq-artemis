@@ -49,7 +49,7 @@ public abstract class ActiveMQScheduledComponent implements ActiveMQComponent, R
    private TimeUnit timeUnit;
    protected final Executor executor;
    private volatile boolean isStarted;
-   private ScheduledFuture future;
+   protected ScheduledFuture future;
    private final boolean onDemand;
    // The start/stop actions shouldn't interact concurrently with delay so it doesn't need to be volatile
    private AtomicBoolean bookedForRunning;
