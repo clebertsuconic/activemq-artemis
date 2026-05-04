@@ -16,6 +16,8 @@
  */
 package org.apache.activemq.artemis.utils;
 
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 
@@ -51,6 +53,8 @@ public class SizeAwareMetric {
    private long lowerMarkSize;
 
    private AddCallback onSizeCallback;
+
+   private List<AddCallback> addCallbackList;
 
    private Runnable overCallback;
 
@@ -109,6 +113,14 @@ public class SizeAwareMetric {
       return this;
    }
 
+   public synchronized SizeAwareMetric addSizeCallback(AddCallback onSizeCallback) {
+      if (addCallbackList == null) {
+         addCallbackList = new CopyOnWriteArrayList<>();
+      }
+      addCallbackList.add(onSizeCallback);
+      return this;
+   }
+
    public SizeAwareMetric setOverCallback(Runnable over) {
       this.overCallback = over;
       return this;
@@ -161,11 +173,24 @@ public class SizeAwareMetric {
 
       changeFlag(NOT_USED, FREE);
 
-      if (onSizeCallback != null && affectCallbacks) {
-         try {
-            onSizeCallback.add(delta, sizeOnly);
-         } catch (Throwable e) {
-            logger.warn(e.getMessage(), e);
+      if (affectCallbacks) {
+
+         if (onSizeCallback != null) {
+            try {
+               onSizeCallback.add(delta, sizeOnly);
+            } catch (Throwable e) {
+               logger.warn(e.getMessage(), e);
+            }
+         }
+
+         if (addCallbackList != null) {
+            addCallbackList.forEach(f -> {
+               try {
+                  f.add(delta, sizeOnly);
+               } catch (Throwable e) {
+                  logger.warn(e.getMessage(), e);
+               }
+            });
          }
       }
 
