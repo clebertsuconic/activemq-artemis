@@ -28,10 +28,12 @@ import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.io.SequentialFile;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.nullpm.NullStorageManager;
+import org.apache.activemq.artemis.logs.AssertionLoggerHandler;
 import org.apache.activemq.artemis.protocol.amqp.broker.AMQPLargeMessage;
 import org.apache.activemq.artemis.protocol.amqp.broker.AMQPLargeMessagePersister;
 import org.apache.activemq.artemis.protocol.amqp.broker.AMQPLargeMessagePersisterV2;
 import org.apache.activemq.artemis.protocol.amqp.broker.AMQPMessage;
+import org.apache.activemq.artemis.protocol.amqp.broker.AMQPMessageMapCodec;
 import org.apache.activemq.artemis.protocol.amqp.broker.AMQPMessagePersister;
 import org.apache.activemq.artemis.protocol.amqp.broker.AMQPMessagePersisterV2;
 import org.apache.activemq.artemis.protocol.amqp.broker.AMQPMessagePersisterV3;
@@ -53,12 +55,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class AMQPReloadFromPersistenceTest extends ActiveMQTestBase {
 
+   SimpleString stringAddedOnFake = RandomUtil.randomUUIDSimpleString();
 
    @Test
    public void testPersistCheck() throws Exception {
       internalPersistCheck(AMQPMessage.MessageDataScanningStatus.NOT_SCANNED, AMQPMessagePersisterV4.getInstance(), AMQPMessagePersisterV4.getInstance());
-      internalPersistCheck(AMQPMessage.MessageDataScanningStatus.NOT_SCANNED, new FakePersisterFromTheFuture(), AMQPMessagePersisterV4.getInstance());
-      internalPersistCheck(AMQPMessage.MessageDataScanningStatus.NOT_SCANNED, AMQPMessagePersisterV4.getInstance(), new FakePersisterFromTheFuture());
+      try (AssertionLoggerHandler handler = new AssertionLoggerHandler()) {
+         AssertionLoggerHandler.LogLevel originalLevel = AssertionLoggerHandler.setLevel(AMQPMessageMapCodec.class.getName(), AssertionLoggerHandler.LogLevel.TRACE);
+         try {
+            internalPersistCheck(AMQPMessage.MessageDataScanningStatus.NOT_SCANNED, new FakePersisterFromTheFuture(), AMQPMessagePersisterV4.getInstance());
+            internalPersistCheck(AMQPMessage.MessageDataScanningStatus.NOT_SCANNED, AMQPMessagePersisterV4.getInstance(), new FakePersisterFromTheFuture());
+            assertTrue(handler.findText(stringAddedOnFake.toString()));
+         } finally {
+            AssertionLoggerHandler.setLevel(AMQPMessageMapCodec.class.getName(), originalLevel);
+         }
+      }
    }
 
    @Test
@@ -164,7 +175,16 @@ public class AMQPReloadFromPersistenceTest extends ActiveMQTestBase {
       internalPersistCheckLargeMessage(AMQPLargeMessagePersister.getInstance(), AMQPLargeMessagePersister.getInstance(), false);
       internalPersistCheckLargeMessage(AMQPLargeMessagePersisterV2.getInstance(), AMQPLargeMessagePersisterV2.getInstance(), true);
       internalPersistCheckLargeMessage(AMQPLargeMessagePersisterV2.getInstance(), new FakeLargePersisterFromTheFuture(), true);
-      internalPersistCheckLargeMessage(new FakeLargePersisterFromTheFuture(), AMQPLargeMessagePersisterV2.getInstance(), true);
+
+      try (AssertionLoggerHandler handler = new AssertionLoggerHandler()) {
+         AssertionLoggerHandler.LogLevel originalLevel = AssertionLoggerHandler.setLevel(AMQPMessageMapCodec.class.getName(), AssertionLoggerHandler.LogLevel.TRACE);
+         try {
+            internalPersistCheckLargeMessage(new FakeLargePersisterFromTheFuture(), AMQPLargeMessagePersisterV2.getInstance(), true);
+            assertTrue(handler.findText(stringAddedOnFake.toString()));
+         } finally {
+            AssertionLoggerHandler.setLevel(AMQPMessageMapCodec.class.getName(), originalLevel);
+         }
+      }
    }
 
    private void internalPersistCheckLargeMessage(AMQPLargeMessagePersister persisterOnWrite, AMQPLargeMessagePersister persisterOnRead, boolean checkMemoryEstimate) throws Exception {
@@ -232,63 +252,60 @@ public class AMQPReloadFromPersistenceTest extends ActiveMQTestBase {
 
 
 
-   static class FakeLargePersisterFromTheFuture extends AMQPLargeMessagePersisterV2 {
+   class FakeLargePersisterFromTheFuture extends AMQPLargeMessagePersisterV2 {
 
       FakeLargePersisterFromTheFuture() {
          super();
       }
 
-      // how much stuff from the future is coming
-      private final int EXTRA_STUFF = 77;
-
       @Override
-      protected void writeSizeDelimiter(ActiveMQBuffer buffer) {
-         buffer.writeInt(AMQPLargeMessagePersisterV2.PERSISTER_SIZE + EXTRA_STUFF);
+      protected void writeMapCodecData(ActiveMQBuffer buffer, Message record) {
+         new FutureMap().encode(buffer, record);
       }
 
       @Override
-      public int getEncodeSize(Message record) {
-         // I am adding 77 bytes extra on this fake from the future
-         return super.getEncodeSize(record) + EXTRA_STUFF;
+      protected int getMapCodecSize(Message record) {
+         return new FutureMap().getEncodeSize(record);
       }
 
-      @Override
-      public void encode(ActiveMQBuffer buffer, Message record) {
-         super.encode(buffer, record);
-
-         for (int i = 0; i < EXTRA_STUFF; i++) {
-            buffer.writeByte((byte) 0xf);
-         }
-      }
    }
 
-   static class FakePersisterFromTheFuture extends AMQPMessagePersisterV4 {
+   class FakePersisterFromTheFuture extends AMQPMessagePersisterV4 {
 
       FakePersisterFromTheFuture() {
          super();
       }
 
-      // how much stuff from the future is coming
-      private final int EXTRA_STUFF = 77;
-
       @Override
-      protected void writeSizeDelimiter(ActiveMQBuffer buffer) {
-         buffer.writeInt(AMQPMessagePersisterV4.PERSISTER_SIZE + EXTRA_STUFF);
+      protected void writeMapCodecData(ActiveMQBuffer buffer, Message record) {
+         new FutureMap().encode(buffer, record);
       }
 
       @Override
-      public int getEncodeSize(Message record) {
-         // I am adding 77 bytes extra on this fake from the future
-         return super.getEncodeSize(record) + EXTRA_STUFF;
+      protected int getMapCodecSize(Message record) {
+         return new FutureMap().getEncodeSize(record);
+      }
+
+   }
+
+   class FutureMap extends AMQPMessageMapCodec {
+
+      private final short ID_FAKE = (short) 101;
+
+      @Override
+      protected int getPayloadSize(Message record) {
+         return super.getPayloadSize(record) + payloadSizeSimpleString(stringAddedOnFake);
       }
 
       @Override
-      public void encode(ActiveMQBuffer buffer, Message record) {
-         super.encode(buffer, record);
+      public int getNumberOfElements(Message record) {
+         return super.getNumberOfElements(record) + 1;
+      }
 
-         for (int i = 0; i < EXTRA_STUFF; i++) {
-            buffer.writeByte((byte) 0xf);
-         }
+      @Override
+      protected void encodeElements(ActiveMQBuffer buffer, AMQPMessage msgEncode) {
+         super.encodeElements(buffer, msgEncode);
+         writeSimpleString(buffer, ID_FAKE, stringAddedOnFake);
       }
    }
 

@@ -16,6 +16,7 @@
  */
 package org.apache.activemq.artemis.protocol.amqp.broker;
 
+import io.netty.buffer.ByteBuf;
 import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
 import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.core.persistence.CoreMessageObjectPools;
@@ -45,50 +46,67 @@ public class AMQPLargeMessagePersisterV2 extends AMQPLargeMessagePersister {
       super();
    }
 
-
-   protected static final int PERSISTER_SIZE = DataConstants.SIZE_INT + // memory estimate
-                                             DataConstants.SIZE_BYTE; // message priority
+   int size;
 
    @Override
    public int getEncodeSize(Message record) {
-      return super.getEncodeSize(record) +
-         DataConstants.SIZE_INT + // size delimiter for future use to keep compatibility better
-         PERSISTER_SIZE;
+      AMQPLargeMessage msgEncode = (AMQPLargeMessage) record;
+      ByteBuf buf = msgEncode.getSavedEncodeBuffer();
+
+      try {
+         size = buf.writerIndex() + getMapCodecSize(record) + DataConstants.SIZE_BYTE;
+         return size;
+      } finally {
+         msgEncode.releaseEncodedBuffer();
+      }
+   }
+
+   /** Write persister data using Map like boundaries from MapPersister */
+   protected void writeMapCodecData(ActiveMQBuffer buffer, Message record) {
+      AMQPMessageMapCodec.getInstance().encode(buffer, record);
+   }
+
+   protected int getMapCodecSize(Message record) {
+      return AMQPMessageMapCodec.getInstance().getEncodeSize(record);
+   }
+
+   @Override
+   public Message decode(ActiveMQBuffer buffer, Message record, CoreMessageObjectPools pool) {
+      AMQPMessageMapCodec mapCodec = AMQPMessageMapCodec.getInstance().reset();
+
+      mapCodec.decode(buffer);
+
+      assert mapCodec.memoryEstimate != 0;
+
+      AMQPLargeMessage largeMessage = new AMQPLargeMessage(mapCodec.messageID, mapCodec.messageFormat, mapCodec.extraProperties, null, null);
+
+      largeMessage.reloadSetDurable(mapCodec.isDurable);
+      largeMessage.setFileDurable(mapCodec.isDurable);
+      if (mapCodec.address != null) {
+         largeMessage.setAddress(mapCodec.address);
+      }
+
+      largeMessage.readSavedEncoding(buffer.byteBuf());
+
+      largeMessage.reloadExpiration(mapCodec.messageExpiration);
+      largeMessage.setReencoded(mapCodec.isReencoded);
+      largeMessage.setMemoryEstimate(mapCodec.memoryEstimate);
+      largeMessage.reloadPriority(mapCodec.priority);
+
+      mapCodec.reset();
+
+      return largeMessage;
    }
 
    @Override
    public void encode(ActiveMQBuffer buffer, Message record) {
-      super.encode(buffer, record);
+      AMQPLargeMessage msgEncode = (AMQPLargeMessage)  record;
+      writePersisterID(buffer);
+      writeMapCodecData(buffer, record);
 
-      AMQPLargeMessage msgEncode = (AMQPLargeMessage) record;
-      writeSizeDelimiter(buffer);
-      buffer.writeInt(msgEncode.getMemoryEstimate());
-      buffer.writeByte(msgEncode.getPriority());
-   }
-
-   protected void writeSizeDelimiter(ActiveMQBuffer buffer) {
-      buffer.writeInt(PERSISTER_SIZE); // how many bytes this persister is using
-   }
-
-   @Override
-   public Message decode(ActiveMQBuffer buffer, Message record, CoreMessageObjectPools pools) {
-      AMQPLargeMessage message = (AMQPLargeMessage) super.decode(buffer, record, pools);
-
-
-      int sizePersister = buffer.readInt();
-      int lastPosition = buffer.readerIndex() + sizePersister;
-
-      {
-         message.setMemoryEstimate(buffer.readInt());
-         message.setPriority(buffer.readByte());
-
-         assert buffer.readerIndex() <= lastPosition;
-      }
-
-      // if a future version of this persister wrote more bytes than what we expected now, this will make sure we skip them.
-      buffer.readerIndex(lastPosition);
-
-      return message;
+      ByteBuf savedEncodeBuffer = msgEncode.getSavedEncodeBuffer();
+      buffer.writeBytes(savedEncodeBuffer, 0, savedEncodeBuffer.writerIndex());
+      msgEncode.releaseEncodedBufferAfterWrite();
    }
 
 }

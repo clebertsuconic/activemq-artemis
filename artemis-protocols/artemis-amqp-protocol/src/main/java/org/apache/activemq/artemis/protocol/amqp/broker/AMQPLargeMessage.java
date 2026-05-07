@@ -203,8 +203,9 @@ public class AMQPLargeMessage extends AMQPMessage implements LargeServerMessage 
          if (temporaryBuffer == null) {
             temporaryBuffer = PooledByteBufAllocator.DEFAULT.buffer(getEstimateSavedEncode());
             saveEncoding(temporaryBuffer);
+            temporaryBuffer.retain(1);
          }
-         return temporaryBuffer.retain(1);
+         return temporaryBuffer;
       }
    }
 
@@ -658,7 +659,8 @@ public class AMQPLargeMessage extends AMQPMessage implements LargeServerMessage 
 
    @Override
    public Persister<Message> getPersister() {
-      return AMQPLargeMessagePersisterV2.getInstance();
+      return AMQPLargeMessagePersister.getInstance();
+      //return AMQPLargeMessagePersisterV2.getInstance();
    }
 
    @Override

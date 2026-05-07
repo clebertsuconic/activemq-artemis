@@ -37,6 +37,11 @@ public class AMQPMessagePersisterV4 extends AMQPMessagePersisterV3 {
 
    public static final byte ID = AMQPMessagePersisterV4_ID;
 
+
+   protected static final int PERSISTER_SIZE = DataConstants.SIZE_INT + // memory estimate
+      DataConstants.SIZE_BYTE +
+      DataConstants.SIZE_BOOLEAN; // message priority
+
    public static AMQPMessagePersisterV4 theInstance;
 
    public static AMQPMessagePersisterV4 getInstance() {
@@ -46,64 +51,57 @@ public class AMQPMessagePersisterV4 extends AMQPMessagePersisterV3 {
       return theInstance;
    }
 
+   public AMQPMessagePersisterV4() {
+      super();
+   }
+
    @Override
    public byte getID() {
       return ID;
    }
 
-   public AMQPMessagePersisterV4() {
-      super();
-   }
-
-
-   protected static final int PERSISTER_SIZE = DataConstants.SIZE_INT + // memory estimate
-      DataConstants.SIZE_BYTE +
-      DataConstants.SIZE_BOOLEAN; // message priority
-
    @Override
    public int getEncodeSize(Message record) {
-      int encodeSize = super.getEncodeSize(record) + PERSISTER_SIZE + DataConstants.SIZE_INT; // the size delimiter and whatever is written in encode
-      return encodeSize;
+      return DataConstants.SIZE_BYTE + record.getPersistSize() + getMapCodecSize(record);
    }
-
 
    @Override
    public void encode(ActiveMQBuffer buffer, Message record) {
-      super.encode(buffer, record);
+      writePersisterID(buffer);
 
-      writeSizeDelimiter(buffer);
-      buffer.writeInt(record.getMemoryEstimate());
-      buffer.writeByte(record.getPriority());
-      buffer.writeBoolean(record.isDurable());
+      writeMapCodecData(buffer, record);
+
+      record.persist(buffer);
    }
 
-   protected void writeSizeDelimiter(ActiveMQBuffer buffer) {
-      // this is to allow us to determine the boundary of this persister, for future use.
-      buffer.writeInt(PERSISTER_SIZE);
+   /** Write persister data using Map like boundaries from MapPersister */
+   protected void writeMapCodecData(ActiveMQBuffer buffer, Message record) {
+      AMQPMessageMapCodec.getInstance().encode(buffer, record);
    }
+
+   protected int getMapCodecSize(Message record) {
+      return AMQPMessageMapCodec.getInstance().getEncodeSize(record);
+   }
+
 
    @Override
-   public Message decode(ActiveMQBuffer buffer, Message ignore, CoreMessageObjectPools pool) {
-      Message record = super.decode(buffer, ignore, pool);
+   public Message decode(ActiveMQBuffer buffer, Message record, CoreMessageObjectPools pool) {
+      AMQPMessageMapCodec mapCodec = AMQPMessageMapCodec.getInstance().reset();
 
-      int sizePersister = buffer.readInt();
-      int lastPosition = buffer.readerIndex() + sizePersister;
+      mapCodec.decode(buffer);
 
-      {
-         AMQPStandardMessage standardMessage = (AMQPStandardMessage) record;
-         standardMessage.setMemoryEstimate(buffer.readInt());
-         standardMessage.reloadPriority(buffer.readByte());
-         standardMessage.reloadSetDurable(buffer.readBoolean());
+      assert mapCodec.memoryEstimate != 0;
 
-         assert buffer.readerIndex() <= lastPosition;
+      AMQPStandardMessage standardMessage = new AMQPStandardMessage(mapCodec.messageFormat);
+      standardMessage.reloadPersistence(buffer, pool);
+      if (mapCodec.extraProperties != null) {
+         standardMessage.setExtraProperties(mapCodec.extraProperties);
       }
-
-      // if a future version of this persister wrote more bytes than what we expected now, this will take care of skipping them
-      buffer.readerIndex(lastPosition);
-
-      // note that for v4 and beyond we are not calling scanAfterReload
-
-      return record;
+      standardMessage.setMessageID(mapCodec.messageID);
+      standardMessage.setAddress(mapCodec.address);
+      standardMessage.setMemoryEstimate(mapCodec.memoryEstimate);
+      standardMessage.reloadPriority(mapCodec.priority);
+      standardMessage.reloadSetDurable(mapCodec.isDurable);
+      return standardMessage;
    }
-
 }
