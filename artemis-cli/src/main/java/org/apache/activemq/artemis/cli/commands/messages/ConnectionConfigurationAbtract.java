@@ -163,7 +163,7 @@ public class ConnectionConfigurationAbtract extends InputAbstract {
 
    protected String inputPassword(String password) {
       if (password == null) {
-         this.password = inputPassword("--password", "Type the password for a retry", null);
+         this.password = inputPassword("--password", "Type the password for a retry");
          return this.password;
       }
       return password;

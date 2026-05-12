@@ -564,7 +564,7 @@ public class Transfer extends InputAbstract {
       getActionContext().out.println("Type in user/password towards " + uri);
       String user, password;
       user = input("--user", "Type the username for a retry", null);
-      password = inputPassword("--password", "Type the password for a retry", null);
+      password = inputPassword("--password", "Type the password for a retry");
       return new Pair<>(user, password);
    }
 
