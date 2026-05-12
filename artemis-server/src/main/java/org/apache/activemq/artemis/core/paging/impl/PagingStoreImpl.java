@@ -541,6 +541,19 @@ public class PagingStoreImpl implements PagingStore {
    }
 
    @Override
+   public void addHierarchy(PagingStore related) {
+      PagingStoreImpl storeRelated = (PagingStoreImpl) related;
+      size.addHierarchy(storeRelated.size);
+   }
+
+   @Override
+   public void removeHierarchy(PagingStore related) {
+      PagingStoreImpl storeRelated = (PagingStoreImpl) related;
+      size.removeHierarchy(storeRelated.size);
+   }
+
+
+   @Override
    public long getMaxSize() {
       if (maxSize <= 0) {
          // if maxSize <= 0, we will return 2 pages for de-page purposes

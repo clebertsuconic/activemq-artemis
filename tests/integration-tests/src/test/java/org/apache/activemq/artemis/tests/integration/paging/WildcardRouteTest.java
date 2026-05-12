@@ -25,7 +25,9 @@ import javax.jms.MessageProducer;
 import javax.jms.Session;
 import javax.jms.TextMessage;
 import java.lang.invoke.MethodHandles;
+import java.util.function.Predicate;
 
+import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.QueueConfiguration;
 import org.apache.activemq.artemis.api.core.RoutingType;
 import org.apache.activemq.artemis.api.core.SimpleString;
@@ -34,10 +36,12 @@ import org.apache.activemq.artemis.api.core.client.ClientSessionFactory;
 import org.apache.activemq.artemis.api.core.client.ServerLocator;
 import org.apache.activemq.artemis.core.paging.PagingStore;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
+import org.apache.activemq.artemis.core.server.Queue;
 import org.apache.activemq.artemis.core.settings.impl.AddressFullMessagePolicy;
 import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
 import org.apache.activemq.artemis.tests.util.ActiveMQTestBase;
 import org.apache.activemq.artemis.tests.util.CFUtil;
+import org.apache.activemq.artemis.tests.util.Wait;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -105,28 +109,72 @@ public class WildcardRouteTest extends ActiveMQTestBase {
 
    @Test
    public void testMultipleSends() throws Exception {
-      internalMultipleSends(false);
+      internalMultipleSends(false, true);
    }
 
    @Test
-   public void testMultipleSendsNoDirectQueue() throws Exception {
-      internalMultipleSends(true);
+   public void testMultipleSendsNoRouteOnMainQueue() throws Exception {
+      internalMultipleSends(true, true);
    }
 
-   public void internalMultipleSends(boolean skipSendingQueue) throws Exception {
+   @Test
+   public void testMultipleSendsNoQueueOnSendingAddress() throws Exception {
+      internalMultipleSends(true, true);
+   }
 
-      int numberOfMessages = 10;
-      server.getAddressSettingsRepository().addMatch(addressSettingsMatch, new AddressSettings().setMaxSizeMessages(100_000).setAddressFullMessagePolicy(AddressFullMessagePolicy.FAIL));
+   @Test
+   public void testValidateSizingOneMessage() throws Exception {
+
+      // only queue to receive messages here will be the sending address
+      createHierarchicalQueues(q -> !q.equals(addressToSend), true);
 
       ConnectionFactory factory = CFUtil.createConnectionFactory("CORE", "tcp://localhost:61616");
 
-      session.createAddress(SimpleString.of(addressToSend), RoutingType.MULTICAST, false);
-      for (String q : queueToReceive) {
-         if (skipSendingQueue && q.equals(addressToSend)) {
-            continue;
-         }
-         session.createQueue(QueueConfiguration.of(q).setRoutingType(RoutingType.MULTICAST).setAddress(q));
+      try (Connection connection = factory.createConnection()) {
+         Session session = connection.createSession(true, Session.SESSION_TRANSACTED);
+         MessageProducer producer = session.createProducer(session.createTopic(addressToSend));
+         producer.send(session.createTextMessage("hello"));
+         session.commit();
       }
+
+      Queue queue = server.locateQueue(addressToSend);
+      Wait.assertEquals(1L, queue::getMessageCount);
+
+      long size = -1;
+      for (String q : queueToReceive) {
+         PagingStore store = server.getPagingManager().getPageStore(SimpleString.of(q));
+         assertEquals(1, store.getAddressElements());
+         if (size < 0) {
+            size = store.getAddressSize();
+         } else {
+            assertEquals(size, store.getAddressSize());
+         }
+      }
+
+      printSizes();
+
+      try (Connection connection = factory.createConnection()) {
+         connection.start();
+         Session session = connection.createSession(true, Session.SESSION_TRANSACTED);
+         MessageConsumer consumer = session.createConsumer(session.createQueue(addressToSend + "::" + addressToSend));
+         assertNotNull(consumer.receive(5000));
+         session.commit();
+      }
+
+      for (String q : queueToReceive) {
+         PagingStore store = server.getPagingManager().getPageStore(SimpleString.of(q));
+         assertEquals(0L, store.getAddressElements());
+         assertEquals(0L, store.getAddressSize());
+      }
+
+   }
+
+   public void internalMultipleSends(boolean skipSendingQueue, boolean useFilterOnSkip) throws Exception {
+
+      int numberOfMessages = 10;
+      ConnectionFactory factory = CFUtil.createConnectionFactory("CORE", "tcp://localhost:61616");
+
+      createHierarchicalQueues(skipSendingQueue ? q -> q.equals(addressToSend) : null, useFilterOnSkip);
 
       try (Connection connection = factory.createConnection()) {
          Session session = connection.createSession(true, Session.SESSION_TRANSACTED);
@@ -135,6 +183,14 @@ public class WildcardRouteTest extends ActiveMQTestBase {
             producer.send(session.createTextMessage("message " + i));
          }
          session.commit();
+      }
+
+      PagingStore rootStore = server.getPagingManager().getPageStore(SimpleString.of("a.*.*.*.*.*.*"));
+      Wait.assertEquals((long)numberOfMessages, rootStore::getAddressElements);
+
+      for (String q : queueToReceive) {
+         PagingStore leaveStore = server.getPagingManager().getPageStore(SimpleString.of(q));
+         assertEquals(numberOfMessages, leaveStore.getAddressElements());
       }
 
       printSizes();
@@ -169,6 +225,22 @@ public class WildcardRouteTest extends ActiveMQTestBase {
          store = server.getPagingManager().getPageStore(SimpleString.of(q));
          assertEquals(0L, store.getAddressElements());
          assertEquals(0, store.getAddressSize());
+      }
+   }
+
+   private void createHierarchicalQueues(Predicate<String> skipFilter, boolean useFilterStringOnSkipped) throws ActiveMQException {
+      server.getAddressSettingsRepository().addMatch(addressSettingsMatch, new AddressSettings().setMaxSizeMessages(100_000).setAddressFullMessagePolicy(AddressFullMessagePolicy.FAIL));
+      session.createAddress(SimpleString.of(addressToSend), RoutingType.MULTICAST, false);
+      for (String q : queueToReceive) {
+         if (skipFilter != null && skipFilter.test(q)) {
+            if (useFilterStringOnSkipped) {
+               session.createQueue(QueueConfiguration.of(q).setRoutingType(RoutingType.MULTICAST).setAddress(q).setFilterString("impossibleField=true"));
+            } else {
+               // just skip it, don't create
+            }
+         } else {
+            session.createQueue(QueueConfiguration.of(q).setRoutingType(RoutingType.MULTICAST).setAddress(q));
+         }
       }
    }
 }
