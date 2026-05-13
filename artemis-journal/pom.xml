@@ -14,7 +14,8 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
    <modelVersion>4.0.0</modelVersion>
 
    <parent>
@@ -92,4 +93,64 @@
          <scope>test</scope>
       </dependency>
    </dependencies>
+   <profiles>
+      <profile>
+         <id>jdk22onwards</id>
+         <activation>
+            <jdk>[22,)</jdk>
+         </activation>
+         <dependencies>
+            <dependency>
+               <groupId>org.apache.artemis</groupId>
+               <artifactId>artemis-ffm</artifactId>
+               <version>${project.version}</version>
+               <scope>compile</scope>
+            </dependency>
+         </dependencies>
+         <build>
+            <plugins>
+               <plugin>
+                  <artifactId>maven-compiler-plugin</artifactId>
+                  <executions>
+                     <execution>
+                        <id>java22-test-compile</id>
+                        <phase>compile</phase>
+                        <goals>
+                           <goal>compile</goal>
+                        </goals>
+                        <configuration>
+                           <source>22</source>
+                           <target>22</target>
+                           <release>22</release>
+                           <outputDirectory>${project.build.outputDirectory}</outputDirectory>
+                           <compileSourceRoots>
+                              <compileSourceRoot>${project.basedir}/src/main/java22</compileSourceRoot>
+                           </compileSourceRoots>
+                        </configuration>
+                     </execution>
+                  </executions>
+               </plugin>
+               <plugin>
+                  <artifactId>maven-jar-plugin</artifactId>
+                  <executions>
+                     <execution>
+                        <id>default-jar</id>
+                        <phase>package</phase>
+                        <goals>
+                           <goal>jar</goal>
+                        </goals>
+                        <configuration>
+                           <archive>
+                              <manifestEntries>
+                                 <Multi-Release>true</Multi-Release>
+                              </manifestEntries>
+                           </archive>
+                        </configuration>
+                     </execution>
+                  </executions>
+               </plugin>
+            </plugins>
+         </build>
+      </profile>
+   </profiles>
 </project>
