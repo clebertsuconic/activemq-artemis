@@ -481,8 +481,23 @@
             <jdk>[16,)</jdk>
          </activation>
          <properties>
-            <its-surefire-extra-args>--add-exports java.security.jgss/sun.security.krb5=ALL-UNNAMED</its-surefire-extra-args>
+            <its-surefire-extra-args>--add-exports java.security.jgss/sun.security.krb5=ALL-UNNAMED
+            </its-surefire-extra-args>
          </properties>
+      </profile>
+      <profile>
+         <id>jdk24onwards</id>
+         <activation>
+            <jdk>[24,)</jdk>
+         </activation>
+         <dependencies>
+            <dependency>
+               <groupId>org.apache.artemis</groupId>
+               <artifactId>artemis-ffm</artifactId>
+               <version>${project.version}</version>
+               <scope>test</scope>
+            </dependency>
+         </dependencies>
       </profile>
    </profiles>
 </project>
