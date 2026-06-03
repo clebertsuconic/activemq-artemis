@@ -6,7 +6,7 @@ Guidelines for AI agents working on this codebase.
 - Running
   - **Java**: 17+
 - Building
-  - **Java**: 17
+  - **Java**: 25+
   - **Maven**: 3.9+
 
 ## AI Agent Rules of Engagement
