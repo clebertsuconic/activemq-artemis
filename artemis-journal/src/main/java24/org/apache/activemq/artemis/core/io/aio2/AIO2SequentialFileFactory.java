@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.activemq.artemis.core.io.aioffm.libaio;
+package org.apache.activemq.artemis.core.io.aio2;
 
 import java.io.File;
 import java.io.IOException;
@@ -46,12 +46,12 @@ import org.jctools.queues.atomic.MpmcAtomicArrayQueue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public final class FfmAIOSequentialFileFactory extends AbstractSequentialFileFactory {
+public final class AIO2SequentialFileFactory extends AbstractSequentialFileFactory {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
    // This is useful in cases where you want to disable loading the native library. (e.g. testsuite)
-   private static final boolean DISABLED = System.getProperty(FfmAIOSequentialFileFactory.class.getName() + ".DISABLED") != null;
+   private static final boolean DISABLED = System.getProperty(AIO2SequentialFileFactory.class.getName() + ".DISABLED") != null;
 
    static {
       // This is usually only used on testsuite.
@@ -59,7 +59,7 @@ public final class FfmAIOSequentialFileFactory extends AbstractSequentialFileFac
       if (DISABLED) {
 
          // This is only used in tests, hence I'm not creating a Logger for this
-         logger.info("{}.DISABLED = true", FfmAIOSequentialFileFactory.class.getName());
+         logger.info("{}.DISABLED = true", AIO2SequentialFileFactory.class.getName());
       }
    }
 
@@ -69,9 +69,9 @@ public final class FfmAIOSequentialFileFactory extends AbstractSequentialFileFac
 
    private Thread pollerThread;
 
-   volatile LibaioContext<AIOSequentialCallback> libaioContext;
+   volatile LibaioContext<AIO2SequentialCallback> libaioContext;
 
-   private final Queue<AIOSequentialCallback> callbackPool;
+   private final Queue<AIO2SequentialCallback> callbackPool;
 
    private final AtomicBoolean running = new AtomicBoolean(false);
 
@@ -88,29 +88,29 @@ public final class FfmAIOSequentialFileFactory extends AbstractSequentialFileFac
    public void afterClose() {
    }
 
-   public FfmAIOSequentialFileFactory(final File journalDir, int maxIO) {
+   public AIO2SequentialFileFactory(final File journalDir, int maxIO) {
       this(journalDir, ArtemisConstants.DEFAULT_JOURNAL_BUFFER_SIZE_AIO, ArtemisConstants.DEFAULT_JOURNAL_BUFFER_TIMEOUT_AIO, maxIO, false, null, null);
    }
 
-   public FfmAIOSequentialFileFactory(final File journalDir, final IOCriticalErrorListener listener, int maxIO) {
+   public AIO2SequentialFileFactory(final File journalDir, final IOCriticalErrorListener listener, int maxIO) {
       this(journalDir, ArtemisConstants.DEFAULT_JOURNAL_BUFFER_SIZE_AIO, ArtemisConstants.DEFAULT_JOURNAL_BUFFER_TIMEOUT_AIO, maxIO, false, listener, null);
    }
 
-   public FfmAIOSequentialFileFactory(final File journalDir,
-                                      final int bufferSize,
-                                      final int bufferTimeout,
-                                      final int maxIO,
-                                      final boolean logRates) {
+   public AIO2SequentialFileFactory(final File journalDir,
+                                    final int bufferSize,
+                                    final int bufferTimeout,
+                                    final int maxIO,
+                                    final boolean logRates) {
       this(journalDir, bufferSize, bufferTimeout, maxIO, logRates, null, null);
    }
 
-   public FfmAIOSequentialFileFactory(final File journalDir,
-                                      final int bufferSize,
-                                      final int bufferTimeout,
-                                      final int maxIO,
-                                      final boolean logRates,
-                                      final IOCriticalErrorListener listener,
-                                      final CriticalAnalyzer analyzer) {
+   public AIO2SequentialFileFactory(final File journalDir,
+                                    final int bufferSize,
+                                    final int bufferTimeout,
+                                    final int maxIO,
+                                    final boolean logRates,
+                                    final IOCriticalErrorListener listener,
+                                    final CriticalAnalyzer analyzer) {
       super(journalDir, true, bufferSize, bufferTimeout, maxIO, logRates, listener, analyzer);
       logger.debug("CONSTRUCTOR: bufferSize={}, DEFAULT={}", this.bufferSize, ArtemisConstants.DEFAULT_JOURNAL_BUFFER_SIZE_AIO);
       if (maxIO == 1) {
@@ -121,10 +121,10 @@ public final class FfmAIOSequentialFileFactory extends AbstractSequentialFileFac
       logger.trace("New AIO File Created");
    }
 
-   public AIOSequentialCallback getCallback() {
-      AIOSequentialCallback callback = callbackPool.poll();
+   public AIO2SequentialCallback getCallback() {
+      AIO2SequentialCallback callback = callbackPool.poll();
       if (callback == null) {
-         callback = new AIOSequentialCallback();
+         callback = new AIO2SequentialCallback();
       }
 
       return callback;
@@ -134,13 +134,15 @@ public final class FfmAIOSequentialFileFactory extends AbstractSequentialFileFac
       this.reuseBuffers = true;
    }
 
-   public void disableBufferReuse() {
+   @Override
+   public AIO2SequentialFileFactory disableBufferReuse() {
       this.reuseBuffers = false;
+      return this;
    }
 
    @Override
    public SequentialFile createSequentialFile(final String fileName) {
-      return new FfmAIOSequentialFile(this, bufferSize, bufferTimeout, journalDir, fileName);
+      return new AIO2SequentialFile(this, bufferSize, bufferTimeout, journalDir, fileName);
    }
 
    @Override
@@ -232,6 +234,17 @@ public final class FfmAIOSequentialFileFactory extends AbstractSequentialFileFac
          alignment = calculateAlignment(journalDir);
       }
       return alignment;
+   }
+
+   @Override
+   public ByteBuffer newNativeBuffer(int size, int alignment) {
+      return LibaioContext.newAlignedBuffer(size, alignment).asByteBuffer();
+   }
+
+
+   @Override
+   public void freeNativeBuffer(ByteBuffer buffer) {
+      LibaioContext.freeBuffer(MemorySegment.ofBuffer(buffer));
    }
 
    private static int calculateAlignment(File journalDir) {
@@ -329,11 +342,11 @@ public final class FfmAIOSequentialFileFactory extends AbstractSequentialFileFac
    /**
     * The same callback is used for Runnable executor. This way we can save some memory over the pool.
     */
-   public class AIOSequentialCallback implements SubmitInfo, Runnable, Comparable<AIOSequentialCallback> {
+   public class AIO2SequentialCallback implements SubmitInfo, Runnable, Comparable<AIO2SequentialCallback> {
 
       IOCallback callback;
       boolean error = false;
-      FfmAIOSequentialFile sequentialFile;
+      AIO2SequentialFile sequentialFile;
       ByteBuffer buffer;
       LibaioFile libaioFile;
       String errorMessage;
@@ -348,7 +361,7 @@ public final class FfmAIOSequentialFileFactory extends AbstractSequentialFileFac
          return "AIOSequentialCallback{" + "error=" + error + ", errorMessage='" + errorMessage + '\'' + ", errorCode=" + errorCode + ", writeSequence=" + writeSequence + ", releaseBuffer=" + releaseBuffer + ", position=" + position + '}';
       }
 
-      public AIOSequentialCallback initWrite(long positionToWrite, int bytesToWrite) {
+      public AIO2SequentialCallback initWrite(long positionToWrite, int bytesToWrite) {
          this.position = positionToWrite;
          this.bytes = bytesToWrite;
          return this;
@@ -365,7 +378,7 @@ public final class FfmAIOSequentialFileFactory extends AbstractSequentialFileFac
       }
 
       @Override
-      public int compareTo(AIOSequentialCallback other) {
+      public int compareTo(AIO2SequentialCallback other) {
          if (this == other || this.writeSequence == other.writeSequence) {
             return 0;
          } else if (other.writeSequence < this.writeSequence) {
@@ -375,12 +388,12 @@ public final class FfmAIOSequentialFileFactory extends AbstractSequentialFileFac
          }
       }
 
-      public AIOSequentialCallback init(long writeSequence,
-                                        IOCallback IOCallback,
-                                        LibaioFile libaioFile,
-                                        FfmAIOSequentialFile sequentialFile,
-                                        ByteBuffer usedBuffer,
-                                        boolean releaseBuffer) {
+      public AIO2SequentialCallback init(long writeSequence,
+                                         IOCallback IOCallback,
+                                         LibaioFile libaioFile,
+                                         AIO2SequentialFile sequentialFile,
+                                         ByteBuffer usedBuffer,
+                                         boolean releaseBuffer) {
          this.callback = IOCallback;
          this.sequentialFile = sequentialFile;
          this.error = false;
@@ -431,7 +444,7 @@ public final class FfmAIOSequentialFileFactory extends AbstractSequentialFileFac
                buffersControl.bufferDone(buffer);
             }
 
-            callbackPool.offer(AIOSequentialCallback.this);
+            callbackPool.offer(AIO2SequentialCallback.this);
          }
       }
    }
@@ -568,6 +581,6 @@ public final class FfmAIOSequentialFileFactory extends AbstractSequentialFileFac
 
    @Override
    public String toString() {
-      return FfmAIOSequentialFileFactory.class.getSimpleName() + "(buffersControl.stopped=" + buffersControl.stopped + "):" + super.toString();
+      return AIO2SequentialFileFactory.class.getSimpleName() + "(buffersControl.stopped=" + buffersControl.stopped + "):" + super.toString();
    }
 }

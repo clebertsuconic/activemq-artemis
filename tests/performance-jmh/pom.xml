@@ -122,15 +122,15 @@
     </build>
     <profiles>
         <profile>
-            <id>jdk22onwards</id>
+            <id>jdk24onwards</id>
             <activation>
-                <jdk>[22,)</jdk>
+                <jdk>[24,)</jdk>
             </activation>
             <dependencies>
                 <dependency>
                     <groupId>org.apache.artemis</groupId>
                     <artifactId>artemis-ffm</artifactId>
-                    <version>${parent.version}</version>
+                    <version>${project.version}</version>
                 </dependency>
             </dependencies>
             <build>
@@ -139,16 +139,16 @@
                         <artifactId>maven-compiler-plugin</artifactId>
                         <executions>
                             <execution>
-                                <id>java22-compile</id>
+                                <id>java24-compile</id>
                                 <phase>compile</phase>
                                 <goals>
                                     <goal>compile</goal>
                                 </goals>
                                 <configuration>
-                                    <source>22</source>
-                                    <target>22</target>
-                                    <release>22</release>
-                                    <compileSourceRoots>${project.basedir}/src/main/java22</compileSourceRoots>
+                                    <source>24</source>
+                                    <target>24</target>
+                                    <release>24</release>
+                                    <compileSourceRoots>${project.basedir}/src/main/java24</compileSourceRoots>
                                 </configuration>
                             </execution>
                         </executions>

@@ -22,26 +22,25 @@ import java.io.File;
 
 import org.apache.activemq.artemis.ArtemisConstants;
 import org.apache.activemq.artemis.core.io.SequentialFileFactory;
-import org.apache.activemq.artemis.core.io.aioffm.libaio.FfmAIOSequentialFileFactory;
-import org.apache.artemis.nativo.jlibaio.LibaioContext;
+import org.apache.activemq.artemis.core.io.aio2.AIO2Helper;
 import org.apache.activemq.artemis.tests.unit.core.journal.impl.JournalImplTestUnit;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 
 import static org.junit.jupiter.api.Assertions.fail;
 
-public class FfmAIOJournalImplTest extends JournalImplTestUnit {
+public class AIO2JournalImplTest extends JournalImplTestUnit {
 
    @BeforeAll
    public static void hasAIO() {
-      org.junit.jupiter.api.Assumptions.assumeTrue(FfmAIOSequentialFileFactory.isSupported(), "Test case needs FFM AIO to run");
+      org.junit.jupiter.api.Assumptions.assumeTrue(AIO2Helper.isSupported(), "Test case needs FFM AIO to run");
    }
 
    @Override
    @BeforeEach
    public void setUp() throws Exception {
       super.setUp();
-      if (!LibaioContext.isLoaded()) {
+      if (!AIO2Helper.isSupported()) {
          fail(String.format("libAIO is not loaded on %s %s %s", System.getProperty("os.name"), System.getProperty("os.arch"), System.getProperty("os.version")));
       }
    }
@@ -55,7 +54,7 @@ public class FfmAIOJournalImplTest extends JournalImplTestUnit {
       file.mkdir();
 
       // forcing the alignment to be 512, as this test was hard coded around this size.
-      return new FfmAIOSequentialFileFactory(getTestDirfile(), ArtemisConstants.DEFAULT_JOURNAL_BUFFER_SIZE_AIO, 1000000, 10, false).setAlignment(512);
+      return AIO2Helper.getAIO2SequentialFileFactory(getTestDirfile(), ArtemisConstants.DEFAULT_JOURNAL_BUFFER_SIZE_AIO, 1000000, 10, false).setAlignment(512);
    }
 
    @Override

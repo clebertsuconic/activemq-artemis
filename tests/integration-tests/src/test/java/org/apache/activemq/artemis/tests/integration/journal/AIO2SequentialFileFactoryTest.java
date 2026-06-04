@@ -23,28 +23,28 @@ import java.nio.ByteBuffer;
 
 import org.apache.activemq.artemis.core.io.SequentialFile;
 import org.apache.activemq.artemis.core.io.SequentialFileFactory;
-import org.apache.activemq.artemis.core.io.aioffm.libaio.FfmAIOSequentialFileFactory;
+import org.apache.activemq.artemis.core.io.aio2.AIO2Helper;
 import org.apache.activemq.artemis.tests.unit.core.journal.impl.SequentialFileFactoryTestBase;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class FfmAIOSequentialFileFactoryTest extends SequentialFileFactoryTestBase {
+public class AIO2SequentialFileFactoryTest extends SequentialFileFactoryTestBase {
 
    @BeforeAll
    public static void hasAIO() {
-      org.junit.jupiter.api.Assumptions.assumeTrue(FfmAIOSequentialFileFactory.isSupported(), "Test case needs FFM AIO to run");
+      org.junit.jupiter.api.Assumptions.assumeTrue(AIO2Helper.isSupported(), "Test case needs FFM AIO to run");
    }
 
    @Override
    protected SequentialFileFactory createFactory(String folder) {
-      return new FfmAIOSequentialFileFactory(new File(folder), 10);
+      return AIO2Helper.getAIO2SequentialFileFactory(new File(folder), 10);
    }
 
    @Test
    public void canCreateFactoryWithMaxIOLessThenTwo() {
-      FfmAIOSequentialFileFactory factory = new FfmAIOSequentialFileFactory(new File("ignore"), 1);
+      SequentialFileFactory factory = AIO2Helper.getAIO2SequentialFileFactory(new File("ignore"), 1);
    }
 
    @Test

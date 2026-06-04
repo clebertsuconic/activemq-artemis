@@ -14,9 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.activemq.artemis.tests.unit.core.ffmaio;
+package org.apache.activemq.artemis.tests.unit.core.asyncio2;
 
-import java.lang.foreign.MemorySegment;
 import java.lang.invoke.MethodHandles;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -28,9 +27,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.activemq.artemis.core.io.IOCallback;
-import org.apache.activemq.artemis.core.io.aioffm.libaio.FfmAIOSequentialFile;
-import org.apache.activemq.artemis.core.io.aioffm.libaio.FfmAIOSequentialFileFactory;
-import org.apache.artemis.nativo.jlibaio.LibaioContext;
+import org.apache.activemq.artemis.core.io.SequentialFile;
+import org.apache.activemq.artemis.core.io.SequentialFileFactory;
+import org.apache.activemq.artemis.core.io.aio2.AIO2Helper;
 import org.apache.activemq.artemis.tests.util.ActiveMQTestBase;
 import org.apache.activemq.artemis.utils.ActiveMQThreadFactory;
 import org.junit.jupiter.api.AfterEach;
@@ -53,13 +52,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <li>Add {@literal -Djava.library.path=${project-root}/native/src/.libs}
  * </ol>
  */
-public class FfmAIOMultiThreadAsynchronousFileTest extends FfmAIOTestBase {
+public class AIO2MultiThreadAsynchronousFileTest extends AIO2TestBase {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
    @BeforeAll
    public static void hasAIO() {
-      org.junit.jupiter.api.Assumptions.assumeTrue(FfmAIOSequentialFileFactory.isSupported(), "Test case needs FFM AIO to run");
+      assertTrue(AIO2Helper.isSupported());
+      org.junit.jupiter.api.Assumptions.assumeTrue(AIO2Helper.isSupported(), "Test case needs FFM AIO to run");
    }
 
    AtomicInteger position = new AtomicInteger(0);
@@ -103,23 +103,23 @@ public class FfmAIOMultiThreadAsynchronousFileTest extends FfmAIOTestBase {
    private void executeTest(final boolean sync) throws Throwable {
       logger.debug(sync ? "Sync test:" : "Async test");
 
-      FfmAIOSequentialFileFactory factory = new FfmAIOSequentialFileFactory(getTestDirfile(), 100);
+      SequentialFileFactory factory = AIO2Helper.getAIO2SequentialFileFactory(getTestDirfile(), 100);
       factory.start();
       factory.disableBufferReuse();
 
-      FfmAIOSequentialFile file = (FfmAIOSequentialFile) factory.createSequentialFile(fileName);
+      SequentialFile file = factory.createSequentialFile(fileName);
       file.open();
       try {
          logger.debug("Preallocating file");
 
-         file.fill(FfmAIOMultiThreadAsynchronousFileTest.NUMBER_OF_THREADS * FfmAIOMultiThreadAsynchronousFileTest.SIZE * FfmAIOMultiThreadAsynchronousFileTest.NUMBER_OF_LINES);
+         file.fill(AIO2MultiThreadAsynchronousFileTest.NUMBER_OF_THREADS * AIO2MultiThreadAsynchronousFileTest.SIZE * AIO2MultiThreadAsynchronousFileTest.NUMBER_OF_LINES);
          logger.debug("Done Preallocating file");
 
-         CountDownLatch latchStart = new CountDownLatch(FfmAIOMultiThreadAsynchronousFileTest.NUMBER_OF_THREADS + 1);
+         CountDownLatch latchStart = new CountDownLatch(AIO2MultiThreadAsynchronousFileTest.NUMBER_OF_THREADS + 1);
 
-         List<ThreadProducer> list = new ArrayList<>(FfmAIOMultiThreadAsynchronousFileTest.NUMBER_OF_THREADS);
-         for (int i = 0; i < FfmAIOMultiThreadAsynchronousFileTest.NUMBER_OF_THREADS; i++) {
-            ThreadProducer producer = new ThreadProducer("Thread " + i, latchStart, file, sync);
+         List<ThreadProducer> list = new ArrayList<>(AIO2MultiThreadAsynchronousFileTest.NUMBER_OF_THREADS);
+         for (int i = 0; i < AIO2MultiThreadAsynchronousFileTest.NUMBER_OF_THREADS; i++) {
+            ThreadProducer producer = new ThreadProducer("Thread " + i, latchStart, factory, file, sync);
             list.add(producer);
             producer.start();
          }
@@ -157,14 +157,18 @@ public class FfmAIOMultiThreadAsynchronousFileTest extends FfmAIOTestBase {
 
       boolean sync;
 
-      FfmAIOSequentialFile libaio;
+      SequentialFileFactory factory;
+
+      SequentialFile libaio;
 
       ThreadProducer(final String name,
                      final CountDownLatch latchStart,
-                     final FfmAIOSequentialFile libaio,
+                     final SequentialFileFactory factory,
+                     final SequentialFile libaio,
                      final boolean sync) {
          super(name);
          this.latchStart = latchStart;
+         this.factory = factory;
          this.libaio = libaio;
          this.sync = sync;
       }
@@ -175,14 +179,14 @@ public class FfmAIOMultiThreadAsynchronousFileTest extends FfmAIOTestBase {
 
          ByteBuffer buffer = null;
 
-         buffer = LibaioContext.newAlignedBuffer(FfmAIOMultiThreadAsynchronousFileTest.SIZE, 512).asByteBuffer();
+         buffer = factory.newNativeBuffer(AIO2MultiThreadAsynchronousFileTest.SIZE, 512);
 
          try {
 
             // I'm always reusing the same buffer, as I don't want any noise from
             // malloc on the measurement
             // Encoding buffer
-            FfmAIOMultiThreadAsynchronousFileTest.addString("Thread name=" + Thread.currentThread().getName() + ";" + "\n", buffer);
+            AIO2MultiThreadAsynchronousFileTest.addString("Thread name=" + Thread.currentThread().getName() + ";" + "\n", buffer);
             for (int local = buffer.position(); local < buffer.capacity() - 1; local++) {
                buffer.put((byte) ' ');
             }
@@ -194,12 +198,12 @@ public class FfmAIOMultiThreadAsynchronousFileTest extends FfmAIOTestBase {
             CountDownLatch latchFinishThread = null;
 
             if (!sync) {
-               latchFinishThread = new CountDownLatch(FfmAIOMultiThreadAsynchronousFileTest.NUMBER_OF_LINES);
+               latchFinishThread = new CountDownLatch(AIO2MultiThreadAsynchronousFileTest.NUMBER_OF_LINES);
             }
 
             LinkedList<CountDownCallback> list = new LinkedList<>();
 
-            for (int i = 0; i < FfmAIOMultiThreadAsynchronousFileTest.NUMBER_OF_LINES; i++) {
+            for (int i = 0; i < AIO2MultiThreadAsynchronousFileTest.NUMBER_OF_LINES; i++) {
 
                if (sync) {
                   latchFinishThread = new CountDownLatch(1);
@@ -230,12 +234,12 @@ public class FfmAIOMultiThreadAsynchronousFileTest extends FfmAIOTestBase {
             }
 
          } catch (Throwable e) {
-            e.printStackTrace();
+            logger.warn(e.getMessage(), e);
             failed = e;
          } finally {
-            synchronized (FfmAIOMultiThreadAsynchronousFileTest.class) {
+            synchronized (AIO2MultiThreadAsynchronousFileTest.class) {
                buffer.clear();
-               LibaioContext.freeBuffer(MemorySegment.ofBuffer(buffer));
+               factory.freeNativeBuffer(buffer);
             }
          }
 
@@ -247,7 +251,7 @@ public class FfmAIOMultiThreadAsynchronousFileTest extends FfmAIOTestBase {
       buffer.put(bytes);
    }
 
-   private void addData(final FfmAIOSequentialFile aio,
+   private void addData(final SequentialFile aio,
                         final ByteBuffer buffer,
                         final IOCallback callback) throws Exception {
       aio.writeDirect(buffer, true, callback);

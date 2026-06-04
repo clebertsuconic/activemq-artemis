@@ -124,7 +124,7 @@
             <configuration>
                <instructions>
                   <Bundle-SymbolicName>org.apache.activemq.artemis-server-osgi</Bundle-SymbolicName>
-                  <Embed-Dependency>*;scope=compile|runtime;groupId=org.apache.activemq|org.apache.artemis</Embed-Dependency>
+                  <Embed-Dependency>*;scope=compile|runtime;groupId=org.apache.activemq|org.apache.artemis;inline=!META-INF/versions/**</Embed-Dependency>
                   <Import-Package>
                      org.glassfish.json*;resolution:=optional,
                      org.postgresql*;resolution:=optional,
@@ -134,10 +134,10 @@
                      com.sun.net.httpserver*;resolution:=optional,
                      com.nimbusds.jose*;resolution:=optional,
                      com.nimbusds.jwt*;resolution:=optional,
+                     org.apache.artemis.nativo.jlibaio;resolution:=optional,
                      *
                   </Import-Package>
                   <_exportcontents>org.apache.activemq.artemis.*;-noimport:=true</_exportcontents>
-                  <!-- Add this to remove Java 22 requirement -->
                   <_noee>true</_noee>
                </instructions>
             </configuration>

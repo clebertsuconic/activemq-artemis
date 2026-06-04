@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.activemq.artemis.tests.unit.core.ffmaio;
+package org.apache.activemq.artemis.tests.unit.core.asyncio2;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -25,6 +25,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.core.io.IOCallback;
+import org.apache.activemq.artemis.core.io.aio2.AIO2Helper;
 import org.apache.artemis.nativo.jlibaio.LibaioContext;
 import org.apache.artemis.nativo.jlibaio.LibaioFile;
 import org.apache.activemq.artemis.tests.util.ActiveMQTestBase;
@@ -37,7 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * The base class for AIO Tests
  */
-public abstract class FfmAIOTestBase extends ActiveMQTestBase {
+public abstract class AIO2TestBase extends ActiveMQTestBase {
    // The AIO Test must use a local filesystem. Sometimes $HOME is on a NFS on
    // most enterprise systems
 
@@ -47,14 +48,13 @@ public abstract class FfmAIOTestBase extends ActiveMQTestBase {
    @BeforeEach
    public void setUp() throws Exception {
       super.setUp();
-
-      assertTrue(LibaioContext.isLoaded(), String.format("libAIO is not loaded on %s %s %s", System.getProperty("os.name"), System.getProperty("os.arch"), System.getProperty("os.version")));
+      assertTrue(AIO2Helper.isSupported(), String.format("libAIO is not loaded on %s %s %s", System.getProperty("os.name"), System.getProperty("os.arch"), System.getProperty("os.version")));
    }
 
    @Override
    @AfterEach
    public void tearDown() throws Exception {
-      assertEquals(0, LibaioContext.getTotalMaxIO());
+      assertEquals(0, AIO2Helper.getTotalMaxIO());
 
       super.tearDown();
    }

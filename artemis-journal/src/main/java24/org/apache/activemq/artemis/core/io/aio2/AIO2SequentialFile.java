@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.activemq.artemis.core.io.aioffm.libaio;
+package org.apache.activemq.artemis.core.io.aio2;
 
 import java.io.File;
 import java.io.IOException;
@@ -37,7 +37,7 @@ import org.slf4j.LoggerFactory;
 /**
  * This class is implementing Runnable to reuse a callback to close it.
  */
-public class FfmAIOSequentialFile extends AbstractSequentialFile {
+public class AIO2SequentialFile extends AbstractSequentialFile {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
@@ -45,7 +45,7 @@ public class FfmAIOSequentialFile extends AbstractSequentialFile {
 
    private LibaioFile aioFile;
 
-   private final FfmAIOSequentialFileFactory aioFactory;
+   private final AIO2SequentialFileFactory aioFactory;
 
    /**
     * Used to determine the next writing sequence
@@ -57,18 +57,18 @@ public class FfmAIOSequentialFile extends AbstractSequentialFile {
     * <p>
     * We use this {@link PriorityQueue} to hold values until they are in order
     */
-   final PriorityQueue<FfmAIOSequentialFileFactory.AIOSequentialCallback> pendingCallbackList = new PriorityQueue<>();
+   final PriorityQueue<AIO2SequentialFileFactory.AIO2SequentialCallback> pendingCallbackList = new PriorityQueue<>();
 
    /**
     * Used to determine the next writing sequence. This is accessed from a single thread (the Poller Thread)
     */
    private long nextReadSequence = 0;
 
-   public FfmAIOSequentialFile(final FfmAIOSequentialFileFactory factory,
-                               final int bufferSize,
-                               final long bufferTimeoutMilliseconds,
-                               final File directory,
-                               final String fileName) {
+   public AIO2SequentialFile(final AIO2SequentialFileFactory factory,
+                             final int bufferSize,
+                             final long bufferTimeoutMilliseconds,
+                             final File directory,
+                             final String fileName) {
       super(directory, fileName, factory);
       this.aioFactory = factory;
    }
@@ -90,7 +90,7 @@ public class FfmAIOSequentialFile extends AbstractSequentialFile {
 
    @Override
    public SequentialFile cloneFile() {
-      return new FfmAIOSequentialFile(aioFactory, -1, -1, getFile().getParentFile(), getFile().getName());
+      return new AIO2SequentialFile(aioFactory, -1, -1, getFile().getParentFile(), getFile().getName());
    }
 
    @Override
@@ -229,7 +229,7 @@ public class FfmAIOSequentialFile extends AbstractSequentialFile {
 
       final long positionToWrite = position.getAndAdd(bytesToWrite);
 
-      final FfmAIOSequentialFileFactory.AIOSequentialCallback runnableCallback = getCallback(completion, bytes, releaseBuffer);
+      final AIO2SequentialFileFactory.AIO2SequentialCallback runnableCallback = getCallback(completion, bytes, releaseBuffer);
       runnableCallback.initWrite(positionToWrite, bytesToWrite);
       runnableCallback.run();
 
@@ -253,24 +253,24 @@ public class FfmAIOSequentialFile extends AbstractSequentialFile {
 
       final long positionToWrite = position.getAndAdd(bytesToWrite);
 
-      FfmAIOSequentialFileFactory.AIOSequentialCallback runnableCallback = getCallback(callback, bytes);
+      AIO2SequentialFileFactory.AIO2SequentialCallback runnableCallback = getCallback(callback, bytes);
       runnableCallback.initWrite(positionToWrite, bytesToWrite);
       runnableCallback.run();
    }
 
-   FfmAIOSequentialFileFactory.AIOSequentialCallback getCallback(IOCallback originalCallback, ByteBuffer buffer) {
+   AIO2SequentialFileFactory.AIO2SequentialCallback getCallback(IOCallback originalCallback, ByteBuffer buffer) {
       return getCallback(originalCallback, buffer, true);
    }
 
-   FfmAIOSequentialFileFactory.AIOSequentialCallback getCallback(IOCallback originalCallback,
-                                                                 ByteBuffer buffer,
-                                                                 boolean releaseBuffer) {
-      FfmAIOSequentialFileFactory.AIOSequentialCallback callback = aioFactory.getCallback();
+   AIO2SequentialFileFactory.AIO2SequentialCallback getCallback(IOCallback originalCallback,
+                                                                ByteBuffer buffer,
+                                                                boolean releaseBuffer) {
+      AIO2SequentialFileFactory.AIO2SequentialCallback callback = aioFactory.getCallback();
       callback.init(this.nextWritingSequence.getAndIncrement(), originalCallback, aioFile, this, buffer, releaseBuffer);
       return callback;
    }
 
-   void done(FfmAIOSequentialFileFactory.AIOSequentialCallback callback) {
+   void done(AIO2SequentialFileFactory.AIO2SequentialCallback callback) {
       if (callback.writeSequence == -1) {
          callback.sequentialDone();
       }
@@ -290,7 +290,7 @@ public class FfmAIOSequentialFile extends AbstractSequentialFile {
 
    private void flushCallbacks() {
       while (!pendingCallbackList.isEmpty() && pendingCallbackList.peek().writeSequence == nextReadSequence) {
-         FfmAIOSequentialFileFactory.AIOSequentialCallback callback = pendingCallbackList.poll();
+         AIO2SequentialFileFactory.AIO2SequentialCallback callback = pendingCallbackList.poll();
          try {
             callback.sequentialDone();
          } finally {

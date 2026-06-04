@@ -810,6 +810,17 @@ public final class FileConfigurationParser extends XMLConfigurationUtil {
             }
             config.setJournalType(JournalType.NIO);
          }
+      } else if (config.getJournalType() == JournalType.ASYNCIO_2) {
+         // We do the check here to see if AIO is supported so we can use the correct defaults and/or use correct
+         // settings in xml. If we fall back later on these settings can be ignored.
+         boolean supportsAIO = AIOSequentialFileFactory.isSupported();
+
+         if (!supportsAIO) {
+            if (validateAIO) {
+               ActiveMQServerLogger.LOGGER.AIONotFound();
+            }
+            config.setJournalType(JournalType.NIO);
+         }
       }
 
       config.setJournalDatasync(getBoolean(e, "journal-datasync", config.isJournalDatasync()));

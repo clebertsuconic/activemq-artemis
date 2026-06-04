@@ -14,8 +14,7 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
    <modelVersion>4.0.0</modelVersion>
 
    <parent>
@@ -95,9 +94,9 @@
    </dependencies>
    <profiles>
       <profile>
-         <id>jdk22onwards</id>
+         <id>jdk24onwards</id>
          <activation>
-            <jdk>[22,)</jdk>
+            <jdk>[24,)</jdk>
          </activation>
          <dependencies>
             <dependency>
@@ -105,6 +104,7 @@
                <artifactId>artemis-ffm</artifactId>
                <version>${project.version}</version>
                <scope>compile</scope>
+               <optional>true</optional>
             </dependency>
          </dependencies>
          <build>
@@ -113,39 +113,31 @@
                   <artifactId>maven-compiler-plugin</artifactId>
                   <executions>
                      <execution>
-                        <id>java22-test-compile</id>
+                        <id>java24-compile</id>
                         <phase>compile</phase>
                         <goals>
                            <goal>compile</goal>
                         </goals>
                         <configuration>
-                           <source>22</source>
-                           <target>22</target>
-                           <release>22</release>
-                           <outputDirectory>${project.build.outputDirectory}</outputDirectory>
-                           <compileSourceRoots>
-                              <compileSourceRoot>${project.basedir}/src/main/java22</compileSourceRoot>
-                           </compileSourceRoots>
+                           <release>24</release>
+                           <compileSourceRoots>${project.basedir}/src/main/java24</compileSourceRoots>
+                           <multiReleaseOutput>true</multiReleaseOutput>
                         </configuration>
                      </execution>
                   </executions>
                </plugin>
                <plugin>
                   <artifactId>maven-jar-plugin</artifactId>
+                  <!-- Do jar creation earlier, before the "test" phase, so that the
+                       multi-release-jar content is visible to any dependent modules,
+                       enabling them to use the relevant classes during their tests. -->
                   <executions>
                      <execution>
                         <id>default-jar</id>
-                        <phase>package</phase>
+                        <phase>process-test-classes</phase>
                         <goals>
                            <goal>jar</goal>
                         </goals>
-                        <configuration>
-                           <archive>
-                              <manifestEntries>
-                                 <Multi-Release>true</Multi-Release>
-                              </manifestEntries>
-                           </archive>
-                        </configuration>
                      </execution>
                   </executions>
                </plugin>
