@@ -26,6 +26,10 @@
    <packaging>pom</packaging>
    <name>Apache Artemis Features</name>
 
+   <properties>
+      <include.ffm>false</include.ffm>
+   </properties>
+
    <dependencies>
       <dependency>
          <groupId>org.apache.karaf.features</groupId>
@@ -164,4 +168,15 @@
          </plugin>
       </plugins>
    </build>
+   <profiles>
+      <profile>
+         <id>jdk22plus</id>
+         <activation>
+            <jdk>[22,)</jdk>
+         </activation>
+         <properties>
+            <include.ffm>true</include.ffm>
+         </properties>
+      </profile>
+   </profiles>
 </project>

@@ -83,6 +83,7 @@
 		<bundle dependency="true">mvn:com.nimbusds/nimbus-jose-jwt/${nimbus.jwt.version}</bundle>
 
 		<bundle>mvn:org.apache.activemq/activemq-artemis-native/${activemq-artemis-native-version}</bundle>
+		<bundle xmlns:if="isset: ${{include.ffm}}">mvn:org.apache.artemis/artemis-ffm/${project.version}</bundle>
 		<bundle>mvn:org.apache.artemis/artemis-lockmanager-api/${pom.version}</bundle>
 		<bundle>mvn:org.apache.artemis/artemis-server-osgi/${pom.version}</bundle>
 	</feature>

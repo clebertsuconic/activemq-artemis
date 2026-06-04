@@ -493,14 +493,6 @@
          <activation>
             <jdk>[22,)</jdk>
          </activation>
-         <dependencies>
-            <dependency>
-               <groupId>org.apache.artemis</groupId>
-               <artifactId>artemis-ffm</artifactId>
-               <version>${project.version}</version>
-               <scope>test</scope>
-            </dependency>
-         </dependencies>
          <build>
             <plugins>
                <plugin>

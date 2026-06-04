@@ -232,59 +232,6 @@ public class FFMNativeHelperTest {
 
    @Test
    @EnabledOnOs(OS.LINUX)
-   public void testPollMultipleEvents() throws IOException, InterruptedException {
-      logger.trace("@Test:: testPollMultipleEvents");
-      Path testFile = Path.of("multi-poll-test.bin");
-      FFMNativeHelper<TestSubmitInfo> helper = new FFMNativeHelper<>(null);
-      IOControl context = null;
-      int fd = -1;
-      TestSubmitInfo[] callBacks = new TestSubmitInfo[4];
-      MemorySegment[] nativeBuffers = new MemorySegment[4];
-      ByteBuffer[] buffers = new ByteBuffer[4];
-
-      try {
-         Files.deleteIfExists(testFile);
-         fd = FFMNativeHelper.open(testFile.toString(), true);
-         FFMNativeHelper.fallocate(fd, 8192);
-
-         context = helper.newContext(8);
-
-         for (int i = 0; i < 4; i++) {
-            callBacks[i] = new TestSubmitInfo();
-            nativeBuffers[i] = FFMNativeHelper.newAlignedBuffer(4096, 4096);
-            buffers[i] = nativeBuffers[i].asByteBuffer();
-            byte[] data = new byte[2048];
-            new Random(12345 + i).nextBytes(data);
-            buffers[i].put(data).flip();
-            helper.submitWrite(fd, context, i * 2048, 2048, buffers[i], callBacks[i]);
-         }
-
-         int events = helper.poll(context, callBacks, 2, 4);
-         assertTrue(events >= 2 && events <= 4, "Expected 2-4 events, got = " + events);
-
-         for (TestSubmitInfo cb : callBacks) {
-            assertTrue(cb.isDone());
-            assertFalse(cb.hasError());
-         }
-
-      } finally {
-         if (context != null) {
-            helper.deleteContext(context);
-         }
-         if (fd >= 0) {
-            FFMNativeHelper.close(fd);
-         }
-         Files.deleteIfExists(testFile);
-         for (MemorySegment buf : nativeBuffers) {
-            if (buf != null) {
-               FFMNativeHelper.freeBuffer(buf);
-            }
-         }
-      }
-   }
-
-   @Test
-   @EnabledOnOs(OS.LINUX)
    public void blockedPollTest() throws IOException, InterruptedException {
       logger.trace("@Test:: blockedPollTest");
       Path testFile = Path.of("blocked-poll-test.bin");

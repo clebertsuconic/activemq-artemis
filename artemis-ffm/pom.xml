@@ -126,44 +126,6 @@
                 </plugins>
             </build>
         </profile>
-        <profile>
-            <id>no-libaio</id>
-            <activation>
-                <file>
-                    <missing>/usr/lib64/libaio.so.1</missing>
-                </file>
-            </activation>
-            <properties>
-                <skipTests>true</skipTests>
-                <maven.compiler.skipMain>false</maven.compiler.skipMain>
-                <native.skip>true</native.skip>
-            </properties>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <skipTests>${skipTests}</skipTests>
-                        </configuration>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-compiler-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <id>default-compile</id>
-                                <phase>compile</phase>
-                                <goals><goal>compile</goal></goals>
-                            </execution>
-                        </executions>
-                        <configuration>
-                            <skip>${native.skip}</skip>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
     </profiles>
 
     <build>
@@ -182,15 +144,47 @@
                 </configuration>
             </plugin>
 
+<!--            <plugin>-->
+<!--                <groupId>org.apache.maven.plugins</groupId>-->
+<!--                <artifactId>maven-jar-plugin</artifactId>-->
+<!--                <configuration>-->
+<!--                    <archive>-->
+<!--                        <manifestEntries>-->
+<!--                            <Automatic-Module-Name>artemis.ffm</Automatic-Module-Name>-->
+<!--                        </manifestEntries>-->
+<!--                    </archive>-->
+<!--                </configuration>-->
+<!--            </plugin>-->
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-jar-plugin</artifactId>
+                <groupId>org.apache.felix</groupId>
+                <artifactId>maven-bundle-plugin</artifactId>
+                <version>5.1.9</version>
+                <executions>
+                    <execution>
+                        <id>bundle-manifest</id>
+                        <goals>
+                            <goal>manifest</goal>
+                        </goals>
+                        <phase>process-classes</phase>
+                    </execution>
+                    <execution>
+                        <id>default-bundle</id>
+                        <goals>
+                            <goal>bundle</goal>
+                        </goals>
+                        <phase>package</phase>
+                    </execution>
+                </executions>
                 <configuration>
-                    <archive>
-                        <manifestEntries>
-                            <Automatic-Module-Name>artemis.ffm</Automatic-Module-Name>
-                        </manifestEntries>
-                    </archive>
+                    <instructions>
+                        <Bundle-SymbolicName>org.apache.artemis.ffm</Bundle-SymbolicName>
+                        <Bundle-Version>${project.version}</Bundle-Version>
+                        <Export-Package>org.apache.artemis.nativo.jlibaio;version="${project.version}"</Export-Package>
+                        <!-- Use ! for exclusion in bnd -->
+                        <Import-Package>!java.lang.foreign,*</Import-Package>
+                        <DynamicImport-Package>*</DynamicImport-Package>
+                        <_noee>true</_noee>
+                    </instructions>
                 </configuration>
             </plugin>
         </plugins>

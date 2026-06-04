@@ -27,8 +27,12 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.VarHandle;
 import java.util.concurrent.locks.ReentrantLock;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class FFMHandles {
 
+   private static final Logger logger = LoggerFactory.getLogger(FFMHandles.class);
    static final Linker LINKER = Linker.nativeLinker();
    static final SymbolLookup STDLIB = setStdLib();
    public static final SymbolLookup LIBAIO = setLibaio();
@@ -89,11 +93,17 @@ public class FFMHandles {
    private static SymbolLookup setStdLib() {
       String[] libcPaths = {"/lib64/libc.so.6", "/usr/lib64/libc.so.6", "/lib/x86_64-linux-gnu/libc.so.6", "libc.so.6"};
       for (String path : libcPaths) {
-         SymbolLookup loopup = SymbolLookup.libraryLookup(path, Arena.global());
-         if (loopup != null) {
-            return loopup;
+         try {
+            SymbolLookup loopup = SymbolLookup.libraryLookup(path, Arena.global());
+            if (loopup != null) {
+               logger.info("libc.so.6 found at {}", path);
+               return loopup;
+            }
+         } catch (IllegalArgumentException | SecurityException e) {
+            logger.warn("libc.so.6 not found", e);
          }
       }
+      logger.warn("libc.so.6 not found");
       throw new RuntimeException("libc.so.6 not found");
    }
 
@@ -101,12 +111,18 @@ public class FFMHandles {
       String[] paths = {System.getProperty("libaio.path"), "/usr/lib64/libaio.so.1", "/usr/lib/x86_64-linux-gnu/libaio.so.1", "/lib64/libaio.so.1", "/usr/lib/libaio.so.1", "libaio.so.1"};
       for (String path : paths) {
          if (path != null && !path.isEmpty()) {
-            SymbolLookup lookup = SymbolLookup.libraryLookup(path, Arena.global());
-            if (lookup != null) {
-               return lookup;
+            try {
+               SymbolLookup lookup = SymbolLookup.libraryLookup(path, Arena.global());
+               if (lookup != null) {
+                  logger.info("libaio.so.1 found at {}", path);
+                  return lookup;
+               }
+            } catch (IllegalArgumentException | SecurityException e) {
+               logger.warn("libaio.so.1 not found", e);
             }
          }
       }
+      logger.warn("libaio.so.1 not found");
       throw new RuntimeException("libaio.so.1 not found");
    }
 }

@@ -137,6 +137,8 @@
                      *
                   </Import-Package>
                   <_exportcontents>org.apache.activemq.artemis.*;-noimport:=true</_exportcontents>
+                  <!-- Add this to remove Java 22 requirement -->
+                  <_noee>true</_noee>
                </instructions>
             </configuration>
          </plugin>
