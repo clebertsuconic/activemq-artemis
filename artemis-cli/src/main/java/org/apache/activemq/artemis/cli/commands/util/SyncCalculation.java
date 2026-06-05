@@ -248,12 +248,12 @@ public class SyncCalculation {
          case ASYNCIO:
             factory = new AIOSequentialFileFactory(datafolder, maxAIO).setDatasync(datasync);
             factory.start();
-            ((AIOSequentialFileFactory) factory).disableBufferReuse();
+            factory.disableBufferReuse();
             return factory;
          case ASYNCIO_2:
             factory = AIO2Helper.getAIO2SequentialFileFactory(datafolder, maxAIO).setDatasync(datasync);
             factory.start();
-            ((AIOSequentialFileFactory) factory).disableBufferReuse();
+            factory.disableBufferReuse();
             return factory;
          case MAPPED:
             factory = new MappedSequentialFileFactory(datafolder, fileSize, false, 0, 0, null)

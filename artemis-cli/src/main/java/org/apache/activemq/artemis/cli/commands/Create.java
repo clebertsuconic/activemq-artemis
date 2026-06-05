@@ -241,7 +241,6 @@ public class Create extends InstallAbstract {
    @Option(names = "--aio2", description = "Set the journal as asyncio 2 (Panama FFM).")
    private boolean aio2;
 
-
    @Option(names = "--nio", description = "Set the journal as nio.")
    private boolean nio;
 
