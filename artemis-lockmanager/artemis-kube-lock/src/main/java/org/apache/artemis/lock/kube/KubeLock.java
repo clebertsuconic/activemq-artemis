@@ -47,11 +47,6 @@ public class KubeLock extends AbstractDistributedLock {
    final String id;
    private final int leasePeriodSeconds;
 
-   // Local observation cache to handle clock skew (Kubernetes client-go approach)
-   // We only trust our local clock for measuring elapsed time since last observation
-   private String lastObservedHolder;
-   private String lastObservedRenewTime;
-   private OffsetDateTime localObservationTime;
 
 
    public KubeLock(String hostname, String namespace, String id, int leasePeriodSeconds) {
@@ -171,9 +166,7 @@ public class KubeLock extends AbstractDistributedLock {
 
    /**
     * Attempts to acquire a lease that may have expired.
-    * Uses local observation timestamps to avoid clock skew issues between nodes.
-    * This follows the Kubernetes client-go approach: we only trust our local clock
-    * for measuring elapsed time, not remote timestamps in the lease spec.
+    * Simple approach comparing against remote lease time.
     *
     * @param existingLease the current lease state from the API server
     * @param holderIdentity the current holder of the lease
@@ -189,111 +182,48 @@ public class KubeLock extends AbstractDistributedLock {
       logger.debug("executing tryAcquireExpiredLease");
 
       OffsetDateTime now = currentTime();
+      OffsetDateTime renewTime = OffsetDateTime.parse(renewTimeStr, KUBERNETES_TIME_FORMATTER.withZone(ZoneOffset.UTC));
+      long elapsedSeconds = Duration.between(renewTime, now).toSeconds();
 
-      // Check if the lease state has changed (different holder or renewed)
-      boolean leaseChanged = hasLeaseChanged(holderIdentity, renewTimeStr);
-
-      if (leaseChanged) {
-         // Record this observation locally with our own timestamp
-         lastObservedHolder = holderIdentity;
-         lastObservedRenewTime = renewTimeStr;
-         localObservationTime = now;
-
-         if (logger.isDebugEnabled()) {
-            logger.debug("Lease changed - recording new observation: holder={}, renewTime={}, debugInfo={}",
-                        holderIdentity, renewTimeStr, getDebugInfo());
-         }
-
-         return false; // Not expired - just observed a change
+      if (logger.isDebugEnabled()) {
+         logger.debug("Checking lease expiration: holder={}, elapsed={}s, lease duration={}s, debugInfo={}",
+                     holderIdentity, elapsedSeconds, leaseDuration, getDebugInfo());
       }
 
-      // Lease hasn't changed - check if enough local time has passed since our last observation
-      if (localObservationTime != null) {
-         long localElapsedSeconds = Duration.between(localObservationTime, now).toSeconds();
+      if (elapsedSeconds > leaseDuration) {
+         // Expired - try to acquire
+         logger.debug("Lease expired: holder={}, elapsed={}s, lease duration={}s, debugInfo={}",
+                     holderIdentity, elapsedSeconds, leaseDuration, getDebugInfo());
 
-         if (logger.isDebugEnabled()) {
-            logger.debug("Checking lease expiration: holder={}, local elapsed={}s, lease duration={}s, debugInfo={}",
-                        holderIdentity, localElapsedSeconds, leaseDuration, getDebugInfo());
-         }
+         OffsetDateTime newTime = currentTime();
+         String newRenewTime = newTime.format(KUBERNETES_TIME_FORMATTER);
+         String acquireTime = newTime.format(KUBERNETES_TIME_FORMATTER);
 
-         if (localElapsedSeconds > leaseDuration) {
-            // Expired based on our local observation - try to acquire
-            logger.debug("Lease expired locally: holder={}, local elapsed={}s, lease duration={}s, debugInfo={}",
-                        holderIdentity, localElapsedSeconds, leaseDuration, getDebugInfo());
+         String resourceVersion = KubernetesClient.getResourceVersion(existingLease);
 
-            OffsetDateTime newTime = currentTime();
-            String newRenewTime = newTime.format(KUBERNETES_TIME_FORMATTER);
-            String acquireTime = newTime.format(KUBERNETES_TIME_FORMATTER);
-
-            String resourceVersion = KubernetesClient.getResourceVersion(existingLease);
-
-            try {
-               LockKubeClient.renewLease(namespace, id, resourceVersion, hostname, acquireTime, newRenewTime, leasePeriodSeconds);
-               if (logger.isDebugEnabled()) {
-                  logger.debug("Successfully acquired expired lease, local elapsed={}s, lease duration={}s, debugInfo={}",
-                              localElapsedSeconds, leaseDuration, getDebugInfo());
-               }
-
-               resetObservedCache();
-
-               return true;
-            } catch (KubernetesConflictException e) {
-               // Someone else acquired the expired lease first - this is a normal race condition
-               if (logger.isDebugEnabled()) {
-                  logger.debug("Conflict acquiring expired lease, another instance won the race, debugInfo={}", getDebugInfo(), e);
-               }
-               resetObservedCache();
-               return false;
-
-            } catch (KubernetesApiException e) {
-               if (logger.isDebugEnabled()) {
-                  logger.debug("KubernetesApiException acquiring expired lease, debugInfo={}", getDebugInfo(), e);
-               }
-               logger.warn("Failed to acquire expired lease: {}", e.getMessage(), e);
-               return false;
+         try {
+            LockKubeClient.renewLease(namespace, id, resourceVersion, hostname, acquireTime, newRenewTime, leasePeriodSeconds);
+            if (logger.isDebugEnabled()) {
+               logger.debug("Successfully acquired expired lease, elapsed={}s, lease duration={}s, debugInfo={}",
+                           elapsedSeconds, leaseDuration, getDebugInfo());
             }
+            return true;
+         } catch (KubernetesConflictException e) {
+            // Someone else acquired the expired lease first - this is a normal race condition
+            if (logger.isDebugEnabled()) {
+               logger.debug("Conflict acquiring expired lease, another instance won the race, debugInfo={}", getDebugInfo(), e);
+            }
+            return false;
+         } catch (KubernetesApiException e) {
+            if (logger.isDebugEnabled()) {
+               logger.debug("KubernetesApiException acquiring expired lease, debugInfo={}", getDebugInfo(), e);
+            }
+            logger.warn("Failed to acquire expired lease: {}", e.getMessage(), e);
+            return false;
          }
       }
 
       return false;
-   }
-
-   private void resetObservedCache() {
-      // Reset observation state after acquiring
-      lastObservedHolder = null;
-      lastObservedRenewTime = null;
-      localObservationTime = null;
-   }
-
-   /**
-    * Checks if the lease has changed since our last observation.
-    * A lease is considered changed if the holder identity or renew time differs.
-    *
-    * @param currentHolder the current holder identity
-    * @param currentRenewTime the current renew time string
-    * @return true if the lease has changed, false otherwise
-    */
-   private boolean hasLeaseChanged(String currentHolder, String currentRenewTime) {
-      if (lastObservedHolder == null || lastObservedRenewTime == null) {
-         if (logger.isDebugEnabled()) {
-            logger.debug("hasLeaseChanged returning true as either lastObserverHolder={} or lastObservedRenewTime={} is null", lastObservedHolder, lastObservedRenewTime);
-         }
-         return true;
-      }
-
-      return !currentHolder.equals(lastObservedHolder) ||
-             !currentRenewTime.equals(lastObservedRenewTime);
-   }
-
-   @Override
-   public boolean requiresRecreation() {
-      return false;
-   }
-
-   // we don't need to keep retrying like in other implementations.
-   @Override
-   public boolean tryLock(long timeout, TimeUnit unit) throws UnavailableStateException, InterruptedException {
-      return tryLock();
    }
 
    @Override
