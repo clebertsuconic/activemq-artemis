@@ -41,6 +41,7 @@ import org.apache.activemq.artemis.core.paging.PageTransactionInfo;
 import org.apache.activemq.artemis.core.paging.PagingManager;
 import org.apache.activemq.artemis.core.paging.PagingStore;
 import org.apache.activemq.artemis.core.paging.PagingStoreFactory;
+import org.apache.activemq.artemis.core.paging.ResourceQuotaManager;
 import org.apache.activemq.artemis.core.paging.cursor.impl.PageCounterRebuildManager;
 import org.apache.activemq.artemis.core.server.ActiveMQScheduledComponent;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
@@ -81,6 +82,8 @@ public final class PagingManagerImpl implements PagingManager {
    private final ConcurrentMap<SimpleString, PagingStore> stores = new ConcurrentHashMap<>();
 
    private final HierarchicalRepository<AddressSettings> addressSettingsRepository;
+
+   private ResourceQuotaManager resourceQuotaManager;
 
    private final ActiveMQServer server;
 
@@ -169,6 +172,17 @@ public final class PagingManagerImpl implements PagingManager {
    @Override
    public long getMaxMessages() {
       return maxMessages;
+   }
+
+   @Override
+   public ResourceQuotaManager getResourceQuotaManager() {
+      return resourceQuotaManager;
+   }
+
+   @Override
+   public void setResourceQuotaManager(ResourceQuotaManager resourceQuotaManager) {
+      this.resourceQuotaManager = resourceQuotaManager;
+      logger.debug("ResourceQuotaManager set for PagingManager");
    }
 
    public PagingManagerImpl(final PagingStoreFactory pagingSPI,
@@ -574,7 +588,18 @@ public final class PagingManagerImpl implements PagingManager {
       assert managementAddress == null || (managementAddress != null && !address.startsWith(managementAddress));
       syncLock.readLock().lock();
       try {
-         PagingStore store = pagingStoreFactory.newStore(address, addressSettingsRepository.getMatch(address.toString()));
+         org.apache.activemq.artemis.core.settings.impl.AddressSettings settings = addressSettingsRepository.getMatch(address.toString());
+         PagingStore store = pagingStoreFactory.newStore(address, settings);
+
+         // Set resource quota if quota manager is available and address settings specify a quota
+         if (resourceQuotaManager != null && settings.getResourceQuota() != null) {
+            org.apache.activemq.artemis.core.settings.impl.ResourceQuota quota =
+               resourceQuotaManager.getQuotaForAddress(address, settings);
+            if (quota != null) {
+               store.setResourceQuota(quota);
+            }
+         }
+
          store.start();
          if (!cleanupEnabled) {
             store.disableCleanup();

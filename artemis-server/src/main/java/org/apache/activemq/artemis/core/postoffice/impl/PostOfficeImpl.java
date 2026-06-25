@@ -93,6 +93,8 @@ import org.apache.activemq.artemis.core.server.management.ManagementService;
 import org.apache.activemq.artemis.core.server.management.Notification;
 import org.apache.activemq.artemis.core.server.management.NotificationListener;
 import org.apache.activemq.artemis.core.server.mirror.MirrorController;
+import org.apache.activemq.artemis.core.server.quota.AddressQuotaToken;
+import org.apache.activemq.artemis.core.server.quota.ResourceQuotaService;
 import org.apache.activemq.artemis.core.settings.HierarchicalRepository;
 import org.apache.activemq.artemis.core.settings.HierarchicalRepositoryChangeListener;
 import org.apache.activemq.artemis.core.settings.impl.NamedHierarchicalRepositoryChangeListener;
@@ -137,6 +139,8 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
 
    private final ManagementService managementService;
 
+   private final ResourceQuotaService resourceQuotaService;
+
    private ExpiryReaper expiryReaperRunnable;
 
    private final long expiryReaperPeriod;
@@ -166,6 +170,7 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
                          final PagingManager pagingManager,
                          final QueueFactory bindableFactory,
                          final ManagementService managementService,
+                         final ResourceQuotaService resourceQuotaService,
                          final long expiryReaperPeriod,
                          final long addressQueueReaperPeriod,
                          final WildcardConfiguration wildcardConfiguration,
@@ -177,6 +182,8 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
       queueFactory = bindableFactory;
 
       this.managementService = managementService;
+
+      this.resourceQuotaService = resourceQuotaService;
 
       this.pagingManager = pagingManager;
 
@@ -544,36 +551,60 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
             server.callBrokerAddressPlugins(plugin -> plugin.beforeAddAddress(addressInfo, reload));
          }
 
-         boolean result;
-         if (reload) {
-            result = addressManager.reloadAddressInfo(addressInfo);
-         } else {
-            result = addressManager.addAddressInfo(addressInfo);
-         }
-         // only register address if it is new
-         if (result) {
-            if (!reload && mirrorControllerSource != null) {
-               mirrorControllerSource.addAddress(addressInfo);
+         // Acquire quota token to reserve capacity
+         // If quota is exceeded, this throws an exception before we create anything
+         try (AddressQuotaToken token = resourceQuotaService.acquireAddressToken(addressInfo.getName(), reload)) {
+            boolean result;
+            if (reload) {
+               result = addressManager.reloadAddressInfo(addressInfo);
+            } else {
+               result = addressManager.addAddressInfo(addressInfo);
             }
 
-            try {
-               managementService.registerAddress(addressInfo);
+            // only register address if it is new
+            if (result) {
+               try {
+                  if (!reload && mirrorControllerSource != null) {
+                     mirrorControllerSource.addAddress(addressInfo);
+                  }
 
-               if (server.hasBrokerAddressPlugins()) {
-                  server.callBrokerAddressPlugins(plugin -> plugin.afterAddAddress(addressInfo, reload));
+                  managementService.registerAddress(addressInfo);
+
+                  if (server.hasBrokerAddressPlugins()) {
+                     server.callBrokerAddressPlugins(plugin -> plugin.afterAddAddress(addressInfo, reload));
+                  }
+                  long retroactiveMessageCount = addressSettingsRepository.getMatch(addressInfo.getName().toString()).getRetroactiveMessageCount();
+                  if (retroactiveMessageCount > 0 && !addressInfo.isInternal() && !ResourceNames.isRetroactiveResource(server.getInternalNamingPrefix(), addressInfo.getName())) {
+                     createRetroactiveResources(addressInfo.getName(), retroactiveMessageCount, reload);
+                  }
+                  if (ResourceNames.isRetroactiveResource(server.getInternalNamingPrefix(), addressInfo.getName())) {
+                     registerRepositoryListenerForRetroactiveAddress(addressInfo.getName());
+                  }
+
+                  token.commit();
+
+               } catch (Exception e) {
+                  // Rollback mirror state if address was added to mirror
+                  if (!reload && mirrorControllerSource != null) {
+                     try {
+                        mirrorControllerSource.deleteAddress(addressInfo);
+                     } catch (Exception rollbackEx) {
+                        logger.warn("Failed to rollback mirror state for address {}", addressInfo.getName(), rollbackEx);
+                     }
+                  }
+
+                  addressManager.removeAddressInfo(addressInfo.getName());
+                  if (e instanceof RuntimeException) {
+                     throw (RuntimeException) e;
+                  }
+                  throw new RuntimeException("Failed to complete address registration", e);
                }
-               long retroactiveMessageCount = addressSettingsRepository.getMatch(addressInfo.getName().toString()).getRetroactiveMessageCount();
-               if (retroactiveMessageCount > 0 && !addressInfo.isInternal() && !ResourceNames.isRetroactiveResource(server.getInternalNamingPrefix(), addressInfo.getName())) {
-                  createRetroactiveResources(addressInfo.getName(), retroactiveMessageCount, reload);
-               }
-               if (ResourceNames.isRetroactiveResource(server.getInternalNamingPrefix(), addressInfo.getName())) {
-                  registerRepositoryListenerForRetroactiveAddress(addressInfo.getName());
-               }
-            } catch (Exception e) {
-               e.printStackTrace();
             }
+            // If result is false (address already exists), token auto-rolls back
+            // This is correct - we reserved quota but didn't use it
+
+            return result;
          }
-         return result;
       }
    }
 
@@ -900,22 +931,29 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
          } else if (!bindingsForAddress.isEmpty()) {
             throw ActiveMQMessageBundle.BUNDLE.addressHasBindings(address);
          }
-         managementService.unregisterAddress(address);
-         final AddressInfo addressInfo = addressManager.removeAddressInfo(address);
 
-         if (mirrorControllerSource != null && addressInfo != null) {
-            mirrorControllerSource.deleteAddress(addressInfo);
-         }
+         // Acquire removal token - decrements quota on commit, rolls back on exception
+         try (AddressQuotaToken token = resourceQuotaService.acquireAddressRemovalToken(address)) {
+            managementService.unregisterAddress(address);
+            final AddressInfo addressInfo = addressManager.removeAddressInfo(address);
 
-         removeRetroactiveResources(address);
+            if (mirrorControllerSource != null && addressInfo != null) {
+               mirrorControllerSource.deleteAddress(addressInfo);
+            }
 
-         deleteDuplicateCache(address);
+            removeRetroactiveResources(address);
 
-         if (server.hasBrokerAddressPlugins()) {
-            server.callBrokerAddressPlugins(plugin -> plugin.afterRemoveAddress(address, addressInfo));
-         }
+            deleteDuplicateCache(address);
 
-         return addressInfo;
+            if (server.hasBrokerAddressPlugins()) {
+               server.callBrokerAddressPlugins(plugin -> plugin.afterRemoveAddress(address, addressInfo));
+            }
+
+            // Commit quota decrement only after successful removal
+            token.commit();
+
+            return addressInfo;
+         } // Auto-rollback if exception thrown before commit
       }
    }
 

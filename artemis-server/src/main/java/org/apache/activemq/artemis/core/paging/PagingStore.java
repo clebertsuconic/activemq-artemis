@@ -108,6 +108,13 @@ public interface PagingStore extends ActiveMQComponent, RefCountMessageListener 
    void applySetting(AddressSettings addressSettings);
 
    /**
+    * Set the resource quota for this paging store.
+    *
+    * @param quota the resource quota to enforce, or null for no quota
+    */
+   void setResourceQuota(org.apache.activemq.artemis.core.settings.impl.ResourceQuota quota);
+
+   /**
     * This method will look if the current state of paging is not paging, without using a lock. For cases where you need
     * absolutely atomic results, check it directly on the internal variables while requiring a readLock.
     * <p>

@@ -146,6 +146,8 @@ public class PagingStoreImpl implements PagingStore {
    // Bytes consumed by the queue on the memory
    private final SizeAwareMetric size;
 
+   private volatile org.apache.activemq.artemis.core.settings.impl.ResourceQuota resourceQuota;
+
    private volatile boolean full;
 
    private long numberOfPages;
@@ -276,6 +278,14 @@ public class PagingStoreImpl implements PagingStore {
    @Override
    public void applySetting(final AddressSettings addressSettings) {
       applySetting(addressSettings, false);
+   }
+
+   @Override
+   public void setResourceQuota(org.apache.activemq.artemis.core.settings.impl.ResourceQuota quota) {
+      this.resourceQuota = quota;
+      if (quota != null) {
+         logger.debug("Resource quota {} applied to address {}", quota.getName(), address);
+      }
    }
 
    private void applySetting(final AddressSettings addressSettings, final boolean firstTime) {
@@ -1338,7 +1348,7 @@ public class PagingStoreImpl implements PagingStore {
                return false;
             }
          } else if (addressFullMessagePolicy == AddressFullMessagePolicy.BLOCK && (maxMessages != -1 || maxSize != -1 || usingGlobalMaxSize)) {
-            if (this.full || pagingManager.isGlobalFull()) {
+            if (isFull()) {
                if (runWhenBlocking != null) {
                   runWhenBlocking.run();
                }
@@ -1349,7 +1359,7 @@ public class PagingStoreImpl implements PagingStore {
                // has been added, but the check to execute was done before the element was added
                // NOTE! We do not fix this race by locking the whole thing, doing this check provides
                // MUCH better performance in a highly concurrent environment
-               if (!pagingManager.isGlobalFull() && !full) {
+               if (!isFull()) {
                   // run it now
                   runWhenAvailable.run();
                   onMemoryFreedRunnables.remove(runWhenAvailable);
@@ -1378,6 +1388,12 @@ public class PagingStoreImpl implements PagingStore {
 
    @Override
    public void addSize(final int size, boolean sizeOnly, boolean affectGlobal) {
+      // Track quota alongside paging store size
+      final org.apache.activemq.artemis.core.settings.impl.ResourceQuota quota = resourceQuota;
+      if (quota != null && size != 0) {
+         quota.addSize(size, true);
+      }
+
       long newSize = this.size.addSize(size, sizeOnly, affectGlobal);
       boolean globalFull = pagingManager.isGlobalFull();
 
@@ -1393,7 +1409,7 @@ public class PagingStoreImpl implements PagingStore {
          return;
       } else if (addressFullMessagePolicy == AddressFullMessagePolicy.PAGE) {
          if (size > 0) {
-            if (globalFull || full) {
+            if (isFull()) {
                startPaging();
             }
          }
@@ -1404,7 +1420,7 @@ public class PagingStoreImpl implements PagingStore {
 
    @Override
    public boolean checkReleasedMemory() {
-      if (!blockedViaManagement && !pagingManager.isGlobalFull() && !full) {
+      if (!blockedViaManagement && !isFull()) {
          executor.execute(this::memoryReleased);
          if (blocking) {
             ActiveMQServerLogger.LOGGER.unblockingMessageProduction(address, getPageInfo());
@@ -1432,6 +1448,16 @@ public class PagingStoreImpl implements PagingStore {
 
       if (!running) {
          return -1;
+      }
+
+      // Check quota limit FIRST - always throws exception if exceeded
+      // Quota is a hard hierarchical limit independent of address-full-policy
+      final org.apache.activemq.artemis.core.settings.impl.ResourceQuota quota = resourceQuota;
+      if (quota != null && quota.isOverByteLimit()) {
+         throw ActiveMQMessageBundle.BUNDLE.resourceQuotaExceeded(
+               "quota '" + quota.getName() +
+                     "' - current usage " + quota.getCurrentMessageBytes() +
+                     " bytes, max " + quota.getMaxMessageBytes() + " bytes");
       }
 
       boolean diskFull = pagingManager.isDiskFull();
@@ -1859,6 +1885,8 @@ public class PagingStoreImpl implements PagingStore {
    // To be used on isDropMessagesWhenFull
    @Override
    public boolean isFull() {
+      // Quota no longer participates in paging decisions - it always throws an exception
+      // Only address and global memory limits affect paging behavior
       return full || pagingManager.isGlobalFull();
    }
 

@@ -170,6 +170,9 @@ import org.apache.activemq.artemis.core.server.metrics.MetricsManager;
 import org.apache.activemq.artemis.core.server.mirror.MirrorController;
 import org.apache.activemq.artemis.core.server.mirror.MirrorRegistry;
 import org.apache.activemq.artemis.core.server.plugin.ActiveMQPluginRunnable;
+import org.apache.activemq.artemis.core.server.quota.QueueQuotaToken;
+import org.apache.activemq.artemis.core.server.quota.ResourceQuotaService;
+import org.apache.activemq.artemis.core.server.quota.impl.ResourceQuotaServiceImpl;
 import org.apache.activemq.artemis.core.server.plugin.ActiveMQServerAddressPlugin;
 import org.apache.activemq.artemis.core.server.plugin.ActiveMQServerBasePlugin;
 import org.apache.activemq.artemis.core.server.plugin.ActiveMQServerBindingPlugin;
@@ -341,6 +344,8 @@ public class ActiveMQServerImpl implements ActiveMQServer {
    private final List<ActiveMQComponent> protocolServices = new ArrayList<>();
 
    private volatile ManagementService managementService;
+
+   private volatile ResourceQuotaService resourceQuotaService;
 
    private volatile MirrorController mirrorControllerService;
 
@@ -1523,9 +1528,18 @@ public class ActiveMQServerImpl implements ActiveMQServer {
          }
       }
 
+      if (resourceQuotaService != null) {
+         try {
+            resourceQuotaService.stop();
+         } catch (Throwable t) {
+            ActiveMQServerLogger.LOGGER.errorStoppingComponent(resourceQuotaService.getClass().getName(), t);
+         }
+      }
+
       installMirrorController(null);
 
       pagingManager = null;
+      resourceQuotaService = null;
       securityStore = null;
       resourceManager = null;
       postOffice = null;
@@ -1796,6 +1810,11 @@ public class ActiveMQServerImpl implements ActiveMQServer {
    @Override
    public ManagementService getManagementService() {
       return managementService;
+   }
+
+   @Override
+   public ResourceQuotaService getResourceQuotaService() {
+      return resourceQuotaService;
    }
 
    @Override
@@ -2624,11 +2643,17 @@ public class ActiveMQServerImpl implements ActiveMQServer {
             mirrorControllerService.deleteQueue(queue.getAddress(), queue.getName(), queue.getQueueConfiguration());
          }
 
-         queue.deleteQueue(removeConsumers);
+         // Acquire removal token - decrements quota on commit, rolls back on exception
+         try (QueueQuotaToken token = getResourceQuotaService().acquireQueueRemovalToken(address)) {
+            queue.deleteQueue(removeConsumers);
 
-         if (hasBrokerQueuePlugins()) {
-            callBrokerQueuePlugins(plugin -> plugin.afterDestroyQueue(queue, address, session, checkConsumerCount, removeConsumers, forceAutoDeleteAddress));
-         }
+            if (hasBrokerQueuePlugins()) {
+               callBrokerQueuePlugins(plugin -> plugin.afterDestroyQueue(queue, address, session, checkConsumerCount, removeConsumers, forceAutoDeleteAddress));
+            }
+
+            // Commit quota decrement only after successful deletion
+            token.commit();
+         } // Auto-rollback if exception thrown before commit
 
          if (forceAutoDeleteAddress) {
             AddressInfo addressInfo = getAddressInfo(address);
@@ -3410,6 +3435,8 @@ public class ActiveMQServerImpl implements ActiveMQServer {
 
       pagingManager = createPagingManager();
 
+      resourceQuotaService = new ResourceQuotaServiceImpl(addressSettingsRepository, configuration);
+
       resourceManager = new ResourceManagerImpl(this, (int) (configuration.getTransactionTimeout() / 1000), configuration.getTransactionTimeoutScanPeriod(), scheduledPool);
 
       /*
@@ -3425,7 +3452,7 @@ public class ActiveMQServerImpl implements ActiveMQServer {
          metricsManager.registerExecutorService(BrokerMetricNames.SCHEDULED_EXECUTOR_SERVICE, scheduledPool);
       }
 
-      postOffice = new PostOfficeImpl(this, storageManager, pagingManager, queueFactory, managementService, configuration.getMessageExpiryScanPeriod(), configuration.getAddressQueueScanPeriod(), configuration.getWildcardConfiguration(), configuration.getIDCacheSize(), configuration.isPersistIDCache(), addressSettingsRepository);
+      postOffice = new PostOfficeImpl(this, storageManager, pagingManager, queueFactory, managementService, resourceQuotaService, configuration.getMessageExpiryScanPeriod(), configuration.getAddressQueueScanPeriod(), configuration.getWildcardConfiguration(), configuration.getIDCacheSize(), configuration.isPersistIDCache(), addressSettingsRepository);
 
       // This can't be created until node id is set
       clusterManager = new ClusterManager(executorFactory, this, postOffice, scheduledPool, managementService, configuration, nodeManager, haPolicy.useQuorumManager());
@@ -3469,6 +3496,11 @@ public class ActiveMQServerImpl implements ActiveMQServer {
       pagingManager.start();
 
       managementService.start();
+
+      resourceQuotaService.start();
+
+      // Inject ResourceQuotaManager into PagingManager after service initializes it
+      pagingManager.setResourceQuotaManager(resourceQuotaService.getResourceQuotaManager());
 
       resourceManager.start();
 
@@ -3922,7 +3954,7 @@ public class ActiveMQServerImpl implements ActiveMQServer {
 
 
    private JournalLoadInformation[] loadJournals(Set<Long> storedLargeMessages) throws Exception {
-      JournalLoader journalLoader = activation.createJournalLoader(postOffice, pagingManager, storageManager, queueFactory, nodeManager, managementService, groupingHandler, configuration, parentServer);
+      JournalLoader journalLoader = activation.createJournalLoader(postOffice, pagingManager, storageManager, queueFactory, nodeManager, managementService, groupingHandler, configuration, this);
 
       JournalLoadInformation[] journalInfo = new JournalLoadInformation[2];
 
@@ -4209,42 +4241,46 @@ public class ActiveMQServerImpl implements ActiveMQServer {
             mirrorControllerService.createQueue(queueConfiguration);
          }
 
-         queueConfiguration.setId(storageManager.generateID());
+         final Queue queue;
+         try (QueueQuotaToken token = resourceQuotaService.acquireQueueToken(queueConfiguration.getAddress(), false)) {
+            queueConfiguration.setId(storageManager.generateID());
 
-         // preemptive check to ensure the filterString is good
-         Filter filter = FilterImpl.createFilter(queueConfiguration.getFilterString());
+            Filter filter = FilterImpl.createFilter(queueConfiguration.getFilterString());
 
-         final Queue queue = queueFactory.createQueueWith(queueConfiguration, pagingManager, filter);
+            queue = queueFactory.createQueueWith(queueConfiguration, pagingManager, filter);
+            final QueueBinding localQueueBinding = new LocalQueueBinding(queue.getAddress(), queue, nodeManager.getNodeId());
 
-         final QueueBinding localQueueBinding = new LocalQueueBinding(queue.getAddress(), queue, nodeManager.getNodeId());
-
-         long txID = 0;
-         if (queue.isDurable()) {
-            txID = storageManager.generateID();
-            storageManager.addQueueBinding(txID, localQueueBinding);
-         }
-
-         try {
-            postOfficeInUse.addBinding(localQueueBinding);
+            long txID = 0;
             if (queue.isDurable()) {
-               storageManager.commitBindings(txID);
+               txID = storageManager.generateID();
+               storageManager.addQueueBinding(txID, localQueueBinding);
             }
-         } catch (Exception e) {
+
             try {
-               if (queueConfiguration.isDurable()) {
-                  storageManager.rollbackBindings(txID);
+               postOfficeInUse.addBinding(localQueueBinding);
+               if (queue.isDurable()) {
+                  storageManager.commitBindings(txID);
                }
+
+               token.commit();
+
+            } catch (Exception e) {
                try {
-                  queue.close();
-               } finally {
-                  if (queue.getPageSubscription() != null) {
-                     queue.getPageSubscription().destroy();
+                  if (queueConfiguration.isDurable()) {
+                     storageManager.rollbackBindings(txID);
                   }
+                  try {
+                     queue.close();
+                  } finally {
+                     if (queue.getPageSubscription() != null) {
+                        queue.getPageSubscription().destroy();
+                     }
+                  }
+               } catch (Throwable ignored) {
+                  logger.debug(ignored.getMessage(), ignored);
                }
-            } catch (Throwable ignored) {
-               logger.debug(ignored.getMessage(), ignored);
+               throw e;
             }
-            throw e;
          }
 
          managementService.registerQueue(queue, queue.getAddress(), storageManager);

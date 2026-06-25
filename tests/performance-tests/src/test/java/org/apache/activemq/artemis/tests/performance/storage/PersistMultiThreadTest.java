@@ -252,6 +252,10 @@ public class PersistMultiThreadTest extends ActiveMQTestBase {
    class FakePagingStore implements PagingStore {
 
       @Override
+      public void setResourceQuota(org.apache.activemq.artemis.core.settings.impl.ResourceQuota quota) {
+      }
+
+      @Override
       public PageFullMessagePolicy getPageFullMessagePolicy() {
          return null;
       }

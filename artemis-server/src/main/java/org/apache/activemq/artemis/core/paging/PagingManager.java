@@ -143,6 +143,23 @@ public interface PagingManager extends ActiveMQComponent, HierarchicalRepository
     */
    void checkMemory(Runnable runWhenAvailable);
 
+   /**
+    * Get the resource quota manager for hierarchical quota management.
+    * {@return the ResourceQuotaManager instance, or null if quotas are not configured}
+    */
+   default ResourceQuotaManager getResourceQuotaManager() {
+      return null;
+   }
+
+   /**
+    * Set the resource quota manager. Called by ResourceQuotaService during initialization.
+    *
+    * @param resourceQuotaManager the quota manager to set
+    */
+   default void setResourceQuotaManager(ResourceQuotaManager resourceQuotaManager) {
+      // Default no-op for implementations that don't support quotas
+   }
+
    void counterSnapshot();
 
    /**
