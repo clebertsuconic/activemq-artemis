@@ -2669,7 +2669,7 @@ public class ConfigurationImplTest extends AbstractConfigurationTestBase {
       try (FileOutputStream fileOutputStream = new FileOutputStream(tmpFile);
            PrintWriter printWriter = new PrintWriter(fileOutputStream)) {
          for (String textProperty : textProperties) {
-            printWriter.println(textProperty);
+            printWriter.print(textProperty + "\n");
          }
       }
 
