@@ -33,6 +33,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.http.HttpClient;
+import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -104,6 +105,7 @@ import org.eclipse.jetty.ee9.webapp.WebAppContext;
 import org.eclipse.jetty.ee9.webapp.WebInfConfiguration;
 import org.eclipse.jetty.util.thread.ThreadPool;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -569,8 +571,16 @@ public class WebServerComponentTest extends ArtemisTestCase {
 
       String keyStorePath;
       if (useSymbolicLinks) {
-         keyStorePath = Files.createSymbolicLink(storeFolder.toPath().resolve(
-             "store-keystore.p12"), keyStoreFile.toPath()).toString();
+         try {
+            keyStorePath = Files.createSymbolicLink(storeFolder.toPath().resolve(
+                "store-keystore.p12"), keyStoreFile.toPath()).toString();
+         } catch (FileSystemException e) {
+            // Check if privileges are missing on Windows
+            if (e.getMessage() != null && e.getMessage().contains("A required privilege is not held by the client")) {
+               Assumptions.assumeTrue(false, "Skipping test: Windows account lacks the privilege to create symbolic links.");
+            }
+            throw e;
+         }
       } else {
          keyStorePath = keyStoreFile.getAbsolutePath();
       }
@@ -643,10 +653,18 @@ public class WebServerComponentTest extends ArtemisTestCase {
       String sourceKey;
       String sourceCert;
       if (useSymbolicLinks) {
-         sourceKey = Files.createSymbolicLink(storeFolder.toPath().resolve(
-             "store-key.pem"), serverKeyFile.toPath()).toString();
-         sourceCert = Files.createSymbolicLink(storeFolder.toPath().resolve(
-             "store-cert.pem"), serverCertFile.toPath()).toString();
+         try {
+            sourceKey = Files.createSymbolicLink(storeFolder.toPath().resolve(
+               "store-key.pem"), serverKeyFile.toPath()).toString();
+            sourceCert = Files.createSymbolicLink(storeFolder.toPath().resolve(
+               "store-cert.pem"), serverCertFile.toPath()).toString();
+         } catch (FileSystemException e) {
+            // Check if privileges are missing on Windows
+            if (e.getMessage() != null && e.getMessage().contains("A required privilege is not held by the client")) {
+               Assumptions.assumeTrue(false, "Skipping test: Windows account lacks the privilege to create symbolic links.");
+            }
+            throw e;
+         }
       } else {
          sourceKey = serverKeyFile.getAbsolutePath();
          sourceCert = serverCertFile.getAbsolutePath();
@@ -659,8 +677,16 @@ public class WebServerComponentTest extends ArtemisTestCase {
 
       String keyStorePath;
       if (useSymbolicLinks) {
-         keyStorePath = Files.createSymbolicLink(storeFolder.toPath().resolve(
-             "store-pem-config.properties"), serverPemConfigFile.toPath()).toString();
+         try {
+            keyStorePath = Files.createSymbolicLink(storeFolder.toPath().resolve(
+               "store-pem-config.properties"), serverPemConfigFile.toPath()).toString();
+         } catch (FileSystemException e) {
+            // Check if privileges are missing on Windows
+            if (e.getMessage() != null && e.getMessage().contains("A required privilege is not held by the client")) {
+               Assumptions.assumeTrue(false, "Skipping test: Windows account lacks the privilege to create symbolic links.");
+            }
+            throw e;
+         }
       } else {
          keyStorePath = serverPemConfigFile.getAbsolutePath();
       }
