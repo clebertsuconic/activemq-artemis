@@ -79,6 +79,21 @@ public class LockCoordinator extends ActiveMQScheduledComponent {
    DistributedLock distributedLock;
    volatile boolean locked;
 
+   /**
+    * Whether this coordinator should start polling for the distributed lock as soon as the server is activated.
+    * When {@code false}, the coordinator stays stopped until it is started explicitly, e.g. through management.
+    */
+   private volatile boolean autoStart = true;
+
+   public boolean isAutoStart() {
+      return autoStart;
+   }
+
+   public LockCoordinator setAutoStart(boolean autoStart) {
+      this.autoStart = autoStart;
+      return this;
+   }
+
    public DistributedLockManager getLockManager() {
       return lockManager;
    }

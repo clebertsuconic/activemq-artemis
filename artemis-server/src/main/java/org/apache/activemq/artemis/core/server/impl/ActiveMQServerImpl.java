@@ -846,18 +846,21 @@ public class ActiveMQServerImpl implements ActiveMQServer {
          }
 
          LockCoordinator lockCoordinator = new LockCoordinator(scheduledPool, executorFactory.getExecutor(), checkPeriod, lockManager, lockId, name);
+         lockCoordinator.setAutoStart(lockCoordinatorConfiguration.isAutoStart());
          lockCoordinators.put(name, lockCoordinator);
       }
    }
 
    /**
-    * Starts polling for the distributed lock on every created {@link LockCoordinator} that isn't already started.
-    * Called from {@link #completeActivation} so that only the node that actually became active contends for the
-    * lock.
+    * Starts polling for the distributed lock on every created {@link LockCoordinator} configured with
+    * {@code auto-start=true} (the default) that isn't already started. Called from {@link #completeActivation} so
+    * that only the node that actually became active contends for the lock; a coordinator configured with
+    * {@code auto-start=false} is left stopped until it's started explicitly through management
+    * ({@code startLockCoordinator}).
     */
    private void startLockCoordinators() {
       for (LockCoordinator lockCoordinator : lockCoordinators.values()) {
-         if (!lockCoordinator.isStarted()) {
+         if (lockCoordinator.isAutoStart() && !lockCoordinator.isStarted()) {
             ActiveMQServerLogger.LOGGER.lockCoordinatorStarting(lockCoordinator.getName(), lockCoordinator.getLockManager().getClass().getName(), lockCoordinator.getLockId(), lockCoordinator.getPeriod());
             lockCoordinator.start();
          }

@@ -3336,6 +3336,7 @@ public class ConfigurationImplTest extends AbstractConfigurationTestBase {
       properties.put("lockCoordinatorConfigurations.hello.lockId", "lock-id");
       properties.put("lockCoordinatorConfigurations.hello.name", "hello");
       properties.put("lockCoordinatorConfigurations.hello.className", "some.class.somewhere");
+      properties.put("lockCoordinatorConfigurations.hello.autoStart", "false");
       for (int i = 0; i < 10; i++) {
          properties.put("lockCoordinatorConfigurations.hello.properties.k" + i, "v" + i);
       }
@@ -3374,6 +3375,7 @@ public class ConfigurationImplTest extends AbstractConfigurationTestBase {
       assertEquals("lock-id", lockCoordinatorConfiguration.getLockId());
       assertEquals("hello", lockCoordinatorConfiguration.getName());
       assertEquals("some.class.somewhere", lockCoordinatorConfiguration.getClassName());
+      assertFalse(lockCoordinatorConfiguration.isAutoStart());
 
       File outputProperty = new File(getTestDirfile(), "broker.properties");
       configuration.exportAsProperties(outputProperty);
