@@ -45,6 +45,7 @@ import io.netty.util.ReferenceCountUtil;
 import org.apache.activemq.artemis.api.core.ActiveMQSecurityException;
 import org.apache.activemq.artemis.api.core.Pair;
 import org.apache.activemq.artemis.core.io.IOCallback;
+import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.protocol.mqtt.exceptions.DisconnectException;
 import org.apache.activemq.artemis.core.protocol.mqtt.exceptions.InvalidClientIdException;
@@ -96,7 +97,6 @@ public class MQTTProtocolHandler extends ChannelInboundHandlerAdapter {
       this.connectionEntry = entry;
       this.connection = connection;
       this.session = new MQTTSession(this, connection, protocolManager, server.getConfiguration().getWildcardConfiguration(), server.newOperationContext());
-      server.getStorageManager().setContext(session.getSessionContext());
    }
 
    void stop() {
@@ -162,6 +162,8 @@ public class MQTTProtocolHandler extends ChannelInboundHandlerAdapter {
    }
 
    public void act(MqttMessage message) {
+      OperationContext oldContext = server.getStorageManager().getContext();
+      server.getStorageManager().setContext(session.getSessionContext());
       try {
          switch (message.fixedHeader().messageType()) {
             case AUTH:
@@ -210,6 +212,7 @@ public class MQTTProtocolHandler extends ChannelInboundHandlerAdapter {
          disconnect(true);
       } finally {
          ReferenceCountUtil.release(message);
+         server.getStorageManager().setContext(oldContext);
       }
    }
 
