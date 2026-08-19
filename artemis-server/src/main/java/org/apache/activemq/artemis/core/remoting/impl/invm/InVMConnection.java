@@ -66,6 +66,9 @@ public class InVMConnection implements Connection {
 
    private RemotingConnection protocolConnection;
 
+   // set when this connection is used for clustering or topology discovery
+   private volatile boolean connected;
+
    private boolean bufferPoolingEnabled = TransportConstants.DEFAULT_BUFFER_POOLING;
 
    private boolean directDeliver = TransportConstants.DEFAULT_DIRECT_DELIVER;
@@ -136,6 +139,16 @@ public class InVMConnection implements Connection {
    @Override
    public void setProtocolConnection(RemotingConnection connection) {
       this.protocolConnection = connection;
+   }
+
+   @Override
+   public void setConnected() {
+      this.connected = true;
+   }
+
+   @Override
+   public boolean isConnected() {
+      return connected;
    }
 
    @Override

@@ -246,7 +246,7 @@ public final class InVMAcceptor extends AbstractAcceptor {
       Connection conn = connections.get(connectionID);
 
       if (conn != null) {
-         if (failed) {
+         if (failed || conn.isConnected()) {
             conn.disconnect();
          } else {
             conn.close();

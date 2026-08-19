@@ -19,13 +19,12 @@ package org.apache.activemq.artemis.tests.integration.jms.connection;
 import javax.jms.Connection;
 import javax.jms.Session;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.Callable;
+import java.lang.invoke.MethodHandles;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.activemq.artemis.api.core.TransportConfiguration;
 import org.apache.activemq.artemis.api.jms.ActiveMQJMSClient;
@@ -35,7 +34,10 @@ import org.apache.activemq.artemis.tests.util.JMSTestBase;
 import org.apache.activemq.artemis.tests.util.Wait;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -59,6 +61,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 public class InVMConnectionLeakStressTest extends JMSTestBase {
 
+   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
+
    private ActiveMQConnectionFactory floodCf;
 
    @Override
@@ -76,29 +80,31 @@ public class InVMConnectionLeakStressTest extends JMSTestBase {
    @Test
    public void testConcurrentGracefulCloseRemovesAllConnections() throws Exception {
       final int numConnections = 20_000;
-      final int threads = 100;
 
-      List<Callable<Void>> tasks = new ArrayList<>(numConnections);
+      AtomicInteger error = new AtomicInteger(0);
+      CountDownLatch latch = new CountDownLatch(numConnections);
+      ExecutorService executor = Executors.newFixedThreadPool(100);
+      runAfter(executor::shutdownNow);
+
       for (int i = 0; i < numConnections; i++) {
-         tasks.add(() -> {
-            Connection connection = floodCf.createConnection();
-            Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
-            session.createProducer(ActiveMQJMSClient.createQueue("stress-queue"));
-            // Graceful close
-            connection.close();
-            return null;
+         executor.execute(() -> {
+            try {
+               Connection connection = floodCf.createConnection();
+               Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+               session.createProducer(ActiveMQJMSClient.createQueue("stress-queue"));
+               // Graceful close
+               connection.close();
+            } catch (Exception e) {
+               logger.warn(e.getMessage(), e);
+               error.incrementAndGet();
+            } finally {
+               latch.countDown();
+            }
          });
       }
 
-      ExecutorService executor = Executors.newFixedThreadPool(threads);
-      try {
-         for (Future<Void> future : executor.invokeAll(tasks)) {
-            future.get();
-         }
-      } finally {
-         executor.shutdown();
-         assertTrue(executor.awaitTermination(2, TimeUnit.MINUTES));
-      }
+      assertTrue(latch.await(10, TimeUnit.SECONDS));
+      assertEquals(0, error.get());
 
       // Every gracefully-closed connection must be removed from the server. InVM connection-ttl is -1 so the
       // failure-check reaper never removes them; if this never reaches 0 the connections have leaked.

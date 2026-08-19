@@ -222,7 +222,7 @@ public class InVMConnector extends AbstractConnector {
       Connection conn = connections.get(connectionID);
 
       if (conn != null) {
-         if (failed) {
+         if (failed || conn.isConnected()) {
             conn.disconnect();
          } else {
             conn.close();
@@ -269,9 +269,10 @@ public class InVMConnector extends AbstractConnector {
 
       @Override
       public void connectionDestroyed(final Object connectionID, boolean failed) {
-         if (connections.remove(connectionID) != null) {
+         Connection removed = connections.remove(connectionID);
+         if (removed != null) {
             // Close the corresponding connection on the other side
-            acceptor.disconnect((String) connectionID, failed);
+            acceptor.disconnect((String) connectionID, failed || removed.isConnected());
 
             // Execute on different thread to avoid deadlocks
             closeExecutor.execute(() -> listener.connectionDestroyed(connectionID, failed));
