@@ -29,14 +29,19 @@ import org.apache.activemq.artemis.core.server.ActiveMQComponent;
 import org.apache.activemq.artemis.spi.core.protocol.ProtocolManager;
 import org.apache.activemq.artemis.spi.core.remoting.BaseConnectionLifeCycleListener;
 import org.apache.activemq.artemis.spi.core.remoting.Connection;
+import org.apache.activemq.artemis.tests.util.ActiveMQTestBase;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class InVMConnectionTest {
+public class InVMConnectionTest extends ActiveMQTestBase {
 
    @Test
    public void testIsTargetNode() throws Exception {
@@ -67,42 +72,47 @@ public class InVMConnectionTest {
    @Test
    public void testConcurrentCloseFiresConnectionDestroyedExactlyOnce() throws Exception {
       final int threads = 16;
+
+      ExecutorService service = Executors.newFixedThreadPool(threads);
+      runAfter(service::shutdownNow);
+
+
       // Repeat several rounds to widen the window for catching the race.
       for (int round = 0; round < 50; round++) {
+         CountDownLatch done = new CountDownLatch(threads);
          final CountingLifeCycleListener listener = new CountingLifeCycleListener();
          final InVMConnection conn = new InVMConnection(0, null, listener, null);
 
          final CyclicBarrier barrier = new CyclicBarrier(threads);
-         final Thread[] workers = new Thread[threads];
          final AtomicInteger prematureReturns = new AtomicInteger();
 
          for (int i = 0; i < threads; i++) {
             final boolean disconnect = (i % 2 == 0);
-            workers[i] = new Thread(() -> {
+            service.execute(() -> {
                try {
                   // Line up all threads so they hit close()/disconnect() together.
                   barrier.await();
                } catch (Exception e) {
                   throw new RuntimeException(e);
                }
-               if (disconnect) {
-                  conn.disconnect();
-               } else {
-                  conn.close();
-               }
-               // by the time any close()/disconnect() call returns, connectionDestroyed must already have fired.
-               if (!listener.destroyFired) {
-                  prematureReturns.incrementAndGet();
+               try {
+                  if (disconnect) {
+                     conn.disconnect();
+                  } else {
+                     conn.close();
+                  }
+                  // by the time any close()/disconnect() call returns, connectionDestroyed must already have fired.
+                  if (!listener.destroyFired) {
+                     prematureReturns.incrementAndGet();
+                  }
+               } finally {
+                  done.countDown();
                }
             });
          }
 
-         for (Thread worker : workers) {
-            worker.start();
-         }
-         for (Thread worker : workers) {
-            worker.join();
-         }
+         assertTrue(done.await(10, TimeUnit.SECONDS));
+
 
          assertEquals(1, listener.destroyedCount.get(),
                       "connectionDestroyed must be fired exactly once per connection (round " + round + ")");
