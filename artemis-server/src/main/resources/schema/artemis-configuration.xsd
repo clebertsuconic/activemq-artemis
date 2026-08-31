@@ -3196,6 +3196,20 @@
                </xsd:documentation>
             </xsd:annotation>
          </xsd:element>
+         <xsd:element name="database-connections" type="xsd:int" default="5" maxOccurs="1" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The number of database connections used by the database storage worker pool.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
+         <xsd:element name="database-flush-period-nanos" type="xsd:long" default="3333333" maxOccurs="1" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  The period in nanoseconds between database storage flush cycles.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
          <xsd:element name="database-storage" type="xsd:boolean" default="false" maxOccurs="1" minOccurs="0">
             <xsd:annotation>
                <xsd:documentation>

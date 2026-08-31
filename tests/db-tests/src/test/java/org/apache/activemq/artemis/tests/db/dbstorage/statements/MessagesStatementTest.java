@@ -18,6 +18,7 @@ package org.apache.activemq.artemis.tests.db.dbstorage.statements;
 
 import java.lang.invoke.MethodHandles;
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.concurrent.TimeUnit;
 
@@ -29,7 +30,10 @@ import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContextImpl;
 import org.apache.activemq.artemis.core.persistence.impl.database.DatabaseStorageManager;
 import org.apache.activemq.artemis.core.transaction.impl.TransactionImpl;
+import org.apache.activemq.artemis.utils.RandomUtil;
 import org.apache.artemis.database.queries.MessagesJDBCQuery;
+import org.apache.artemis.database.queries.MessagesPendingDeliverQueryForUpdate;
+import org.apache.artemis.database.queries.QueryUtil;
 import org.apache.artemis.database.statements.InsertMessageStatement;
 import org.apache.artemis.database.statements.InsertReferencesStatement;
 import org.apache.artemis.database.data.MessageData;
@@ -188,12 +192,23 @@ public class MessagesStatementTest extends AbstractStatementTest {
       OperationContext context = databaseStorageManager.getContext();
       runAfter(OperationContextImpl::clearContext);
 
-      for (int i = 1; i <= nrecords; i++) {
+      for (int i = 1; i <= nrecords * 2; i++) {
          CoreMessage message = new CoreMessage().initBuffer(1 * 1024).setDurable(true);
          message.setMessageID(i);
          message.putStringProperty("test", "t" + i);
          message.getBodyBuffer().writeByte((byte) 'Z');
          databaseStorageManager.storeMessage(message);
+
+         if (i > nrecords) {
+            // those shouldn't be counted as they are pending
+            databaseStorageManager.storeReference(1, i, true, false);
+            databaseStorageManager.storeReference(2, i, true, false);
+            databaseStorageManager.storeReference(3, i, true, false);
+         } else {
+            databaseStorageManager.storeReference(1, i, false, false);
+            databaseStorageManager.storeReference(2, i, false, false);
+            databaseStorageManager.storeReference(3, i, true, false);
+         }
       }
 
       assertTrue(context.waitCompletion(5000));
@@ -208,6 +223,68 @@ public class MessagesStatementTest extends AbstractStatementTest {
       assertEquals(nrecords, count.get());
 
    }
+
+
+   @TestTemplate
+   public void testLoadPendingDeliveries() throws Exception {
+
+      DatabaseStorageManager databaseStorageManager = new DatabaseStorageManager(configuration,
+                                                                                 criticalAnalyzer,
+                                                                                 executorFactory,
+                                                                                 executorFactory,
+                                                                                 scheduledExecutorService,
+                                                                                 executorService);
+      databaseStorageManager.start();
+
+      DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
+
+      Connection connection = databaseProvider.getConnection();
+      connection.setAutoCommit(false);
+      runAfter(connection::close);
+
+      long queueID = RandomUtil.randomInterval(100, 1000);
+      int nrecords = 100;
+
+      OperationContext context = databaseStorageManager.getContext();
+      runAfter(OperationContextImpl::clearContext);
+
+      for (int i = 1; i <= nrecords; i++) {
+         CoreMessage message = new CoreMessage().initBuffer(1 * 1024).setDurable(true);
+         message.setMessageID(i);
+         message.putStringProperty("test", "t" + i);
+         message.getBodyBuffer().writeByte((byte) 'Z');
+         databaseStorageManager.storeMessage(message);
+
+         databaseStorageManager.storeReference(queueID, i, true, false);
+      }
+
+      assertTrue(context.waitCompletion(5000));
+
+      MessagesPendingDeliverQueryForUpdate pendingDeliveryLoad = new MessagesPendingDeliverQueryForUpdate(databaseProvider, connection);
+      pendingDeliveryLoad.prepare();
+
+      java.util.concurrent.atomic.AtomicInteger count = new java.util.concurrent.atomic.AtomicInteger();
+      ResultSet resultSet = pendingDeliveryLoad.execute(queueID);
+      while (resultSet.next()) {
+         MessageData messageData = QueryUtil.readMessageData(resultSet, 1, 2);
+         pendingDeliveryLoad.updateDelivery(queueID, messageData.messageID);
+         count.incrementAndGet();
+      }
+      pendingDeliveryLoad.flush();
+      connection.commit();
+
+
+      count.set(0);
+      MessagesJDBCQuery query = new MessagesJDBCQuery(databaseProvider, connection);
+      query.query(m -> {
+         count.incrementAndGet();
+         logger.debug("queried message {}", m.messageID);
+         assertTrue(m.messageID >= 1 && m.messageID <= nrecords, "messageID out of range: " + m.messageID);
+      });
+      assertEquals(nrecords, count.get());
+
+   }
+
 
 
    @TestTemplate
@@ -232,7 +309,7 @@ public class MessagesStatementTest extends AbstractStatementTest {
 
       TransactionImpl tx = new TransactionImpl(databaseStorageManager);
       for (int i = 1; i <= nrecords; i++) {
-         databaseStorageManager.storeReferenceTransactional(tx, 1, i);
+         databaseStorageManager.storeReferenceTransactional(tx, 1, i, false);
       }
       databaseStorageManager.commit(tx);
 
@@ -275,10 +352,10 @@ public class MessagesStatementTest extends AbstractStatementTest {
 
       for (int i = 1; i <= nrecords; i++) {
          if (i % 2 == 0) {
-            databaseStorageManager.storeReference(1, i, true);
+            databaseStorageManager.storeReference(1, i, false, true);
          } else {
             TransactionImpl txID = new TransactionImpl(databaseStorageManager);
-            databaseStorageManager.storeReferenceTransactional(txID, 1, i);
+            databaseStorageManager.storeReferenceTransactional(txID, 1, i, false);
             databaseStorageManager.commit(txID);
          }
       }

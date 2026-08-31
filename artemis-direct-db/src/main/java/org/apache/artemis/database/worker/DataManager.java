@@ -59,9 +59,6 @@ import org.slf4j.LoggerFactory;
 
 public class DataManager extends ActiveMQScheduledComponent {
 
-   // TODO-IMPORTANT configure this
-   private static final int NUMBER_OF_CONNECTIONS = 5;
-
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
    final DatabaseProvider databaseProvider;
@@ -85,14 +82,15 @@ public class DataManager extends ActiveMQScheduledComponent {
    public DataManager(ScheduledExecutorService scheduledExecutorService,
                       Executor executor,
                       Executor executorService,
-                      long flushTime,
+                      long flushTimeNanos,
                       DatabaseProvider databaseProvider,
-                      int batchSize) throws SQLException {
-      super(scheduledExecutorService, executor, 0, flushTime, TimeUnit.NANOSECONDS, true);
+                      int batchSize,
+                      int numberOfConnections) throws SQLException {
+      super(scheduledExecutorService, executor, 0, flushTimeNanos, TimeUnit.NANOSECONDS, true);
 
       allWorkers = new ArrayList<>();
-      workers = new LinkedBlockingDeque<>(NUMBER_OF_CONNECTIONS);
-      for (int i = 0; i < NUMBER_OF_CONNECTIONS; i++) {
+      workers = new LinkedBlockingDeque<>(numberOfConnections);
+      for (int i = 0; i < numberOfConnections; i++) {
          DataWorker worker =  new DataWorker(this::workerDone, databaseProvider, batchSize, "worker " + i);
          allWorkers.add(worker);
          workers.offer(worker);
@@ -100,7 +98,7 @@ public class DataManager extends ActiveMQScheduledComponent {
 
       this.executorService = executorService;
 
-      logger.info("FlushTime {}", flushTime);
+      logger.info("FlushTime {}", flushTimeNanos);
       this.databaseProvider = databaseProvider;
       this.batchSize = batchSize;
       init();
@@ -171,8 +169,8 @@ public class DataManager extends ActiveMQScheduledComponent {
       castTX(storageTX).addData(new DeleteReferenceData(queueID, messageID, callback));
    }
 
-   public void storeReference(StorageTX storageTX, long messageID, long queueID, Long txID, IOCompletion callback) {
-      castTX(storageTX).addData(new MessageReferenceData(messageID, queueID, false, txID, callback));
+   public void storeReference(StorageTX storageTX, long messageID, long queueID, boolean pendingDelivery, Long txID, IOCompletion callback) {
+      castTX(storageTX).addData(new MessageReferenceData(messageID, queueID, pendingDelivery, txID, callback));
    }
 
    public void storeQueue(StorageTX storageTX, long addressId, long id,
@@ -200,8 +198,8 @@ public class DataManager extends ActiveMQScheduledComponent {
       flushData(new DeleteQueueData(queueId, callback));
    }
 
-   public void storeReference(long messageID, long queueID, Long txID, IOCompletion callback) {
-      flushData(new MessageReferenceData(messageID, queueID, false, txID, callback));
+   public void storeReference(long messageID, long queueID, boolean pendingDelivery, Long txID, IOCompletion callback) {
+      flushData(new MessageReferenceData(messageID, queueID, pendingDelivery, txID, callback));
    }
 
    public void deleteAddress(StorageTX storageTX, long addressId, IOCompletion callback) {

@@ -1716,6 +1716,10 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
             continue;
          }
 
+         // the new JDBC implementation could set this to true.
+         // as Paging will act differently on the new JDBC
+         boolean pendingDelivery = store != null ? store.isStorePaging() : false;
+
          if (message.isDropped()) {
             // this should never happen
             // adding defensive code just in case
@@ -1737,7 +1741,7 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
 
          final List<Queue> durableQueues = entry.getValue().getDurableQueues();
          if (!durableQueues.isEmpty()) {
-            processRouteToDurableQueues(message, context, deliveryTime, tx, durableQueues, refs);
+            processRouteToDurableQueues(message, context, deliveryTime, tx, durableQueues, refs, pendingDelivery);
             containsDurables = true;
          }
       }
@@ -1794,7 +1798,8 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
                                             final Long deliveryTime,
                                             final Transaction tx,
                                             final List<Queue> durableQueues,
-                                            final ArrayList<MessageReference> refs) throws Exception {
+                                            final ArrayList<MessageReference> refs,
+                                            boolean pendingDelivery) throws Exception {
       final int durableQueuesCount = durableQueues.size();
       refs.ensureCapacity(durableQueuesCount);
       final Iterator<Queue> iter = durableQueues.iterator();
@@ -1810,10 +1815,12 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
          if (deliveryTime != null) {
             reference.setScheduledDeliveryTime(deliveryTime);
          }
-         refs.add(reference);
-         queue.refUp(reference);
+         if (!pendingDelivery) {
+            refs.add(reference);
+            queue.refUp(reference);
+         }
          if (message.isDurable()) {
-            storeDurableReference(storageManager, message, tx, queue, durableQueuesCount - 1 == i);
+            storeDurableReference(storageManager, message, tx, queue, pendingDelivery, durableQueuesCount - 1 == i);
             if (deliveryTime != null && deliveryTime > 0) {
                if (tx != null) {
                   storageManager.updateScheduledDeliveryTimeTransactional(tx, reference);
@@ -1827,7 +1834,7 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
 
    public static void storeDurableReference(StorageManager storageManager, Message message,
                           Transaction tx,
-                          Queue queue, boolean sync) throws Exception {
+                          Queue queue, boolean pendingDelivery, boolean sync) throws Exception {
       assert message.isDurable();
 
       final int durableRefCount = queue.durableUp(message);
@@ -1839,10 +1846,10 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
          }
       }
       if (tx != null) {
-         storageManager.storeReferenceTransactional(tx, queue.getID(), message.getMessageID());
+         storageManager.storeReferenceTransactional(tx, queue.getID(), message.getMessageID(), pendingDelivery);
          tx.setContainsPersistent();
       } else {
-         storageManager.storeReference(queue.getID(), message.getMessageID(), sync);
+         storageManager.storeReference(queue.getID(), message.getMessageID(), pendingDelivery, sync);
       }
    }
 

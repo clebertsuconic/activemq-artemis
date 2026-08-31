@@ -479,7 +479,7 @@ public class TransactionImplTest extends ServerTestBase {
       }
 
       @Override
-      public void storeReference(long queueID, long messageID, boolean last) throws Exception {
+      public void storeReference(long queueID, long messageID, boolean pendingDelivery, boolean last) throws Exception {
 
       }
 
@@ -521,7 +521,7 @@ public class TransactionImplTest extends ServerTestBase {
       }
 
       @Override
-      public void storeReferenceTransactional(Transaction tx, long queueID, long messageID) throws Exception {
+      public void storeReferenceTransactional(Transaction tx, long queueID, long messageID, boolean pendingDelivery) throws Exception {
 
       }
 

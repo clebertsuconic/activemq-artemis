@@ -2102,6 +2102,8 @@ public final class FileConfigurationParser extends XMLConfigurationUtil {
       conf.setJdbcJournalSyncPeriodMillis(getLong(storeNode, "jdbc-journal-sync-period", conf.getJdbcJournalSyncPeriodMillis(), NO_CHECK));
       conf.setJdbcAllowedTimeDiff(getLong(storeNode, "jdbc-allowed-time-diff", conf.getJdbcAllowedTimeDiff(), NO_CHECK));
       conf.setMaxPageSizeBytes(getTextBytesAsIntBytes(storeNode, "jdbc-max-page-size-bytes", conf.getMaxPageSizeBytes(), NO_CHECK));
+      conf.setDatabaseConnections(getInteger(storeNode, "database-connections", conf.getDatabaseConnections(), NO_CHECK));
+      conf.setDatabaseFlushPeriodNanos(getLong(storeNode, "database-flush-period-nanos", conf.getDatabaseFlushPeriodNanos(), NO_CHECK));
       String jdbcUser = getString(storeNode, "jdbc-user", conf.getJdbcUser(), NO_CHECK);
       if (jdbcUser != null) {
          jdbcUser = PasswordMaskingUtil.resolveMask(mainConfig.isMaskPassword(), jdbcUser, mainConfig.getPasswordCodec());

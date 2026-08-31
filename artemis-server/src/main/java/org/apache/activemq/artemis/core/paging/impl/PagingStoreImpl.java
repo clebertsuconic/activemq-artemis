@@ -20,24 +20,34 @@ import java.io.File;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
+import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.io.SequentialFile;
 import org.apache.activemq.artemis.core.io.SequentialFileFactory;
+import org.apache.activemq.artemis.core.paging.PageTransactionInfo;
 import org.apache.activemq.artemis.core.paging.PagedMessage;
 import org.apache.activemq.artemis.core.paging.PagingManager;
+import org.apache.activemq.artemis.core.paging.PagingStore;
 import org.apache.activemq.artemis.core.paging.PagingStoreFactory;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.replication.ReplicationManager;
 import org.apache.activemq.artemis.core.server.ActiveMQServerLogger;
+import org.apache.activemq.artemis.core.server.MessageReference;
 import org.apache.activemq.artemis.core.server.RouteContextList;
 import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
 import org.apache.activemq.artemis.core.transaction.Transaction;
+import org.apache.activemq.artemis.core.transaction.TransactionOperation;
+import org.apache.activemq.artemis.core.transaction.TransactionPropertyIndexes;
 import org.apache.activemq.artemis.utils.actors.ArtemisExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -398,5 +408,173 @@ public class PagingStoreImpl extends AbstractPagingStoreImpl {
    @Override
    protected boolean hasStorage() {
       return fileFactory != null;
+   }
+
+   @Override
+   protected int writePage(Message message,
+                           Transaction tx,
+                           RouteContextList listCtx,
+                           Function<Message, Message> pageDecorator,
+                           boolean useFlowControl) throws Exception {
+      readLock();
+      PagedMessage pagedMessage;
+      try {
+         if (!isStorePaging()) {
+            return -1;
+         }
+
+         final long transactionID = (tx != null && tx.isAllowPageTransaction()) ? tx.getID() : -1L;
+
+         if (pageDecorator != null) {
+            message = pageDecorator.apply(message);
+         }
+
+         message.setPaged();
+
+         pagedMessage = new PagedMessageImpl(message, routeQueues(tx, listCtx), transactionID);
+         if (tx != null) {
+            pagedMessage.setStorageTX(tx.getStorageTx());
+         }
+         long persistentSize = pagedMessage.getPersistentSize() > 0 ? pagedMessage.getPersistentSize() : 0;
+
+         if (tx != null && tx.isAllowPageTransaction()) {
+            installPageTransaction(tx, listCtx);
+         }
+
+         incrementWriteTask();
+
+         applyPageCounters(tx, listCtx, persistentSize);
+
+      } finally {
+         readUnlock();
+      }
+
+      int credits = submitWriteTask(getStorageManager().getContext(), pagedMessage, tx, listCtx, useFlowControl);
+
+      assert credits >= 0;
+
+      return credits;
+   }
+
+   private long[] routeQueues(Transaction tx, RouteContextList ctx) throws Exception {
+      List<org.apache.activemq.artemis.core.server.Queue> durableQueues = ctx.getDurableQueues();
+      List<org.apache.activemq.artemis.core.server.Queue> nonDurableQueues = ctx.getNonDurableQueues();
+      long[] ids = new long[durableQueues.size() + nonDurableQueues.size()];
+      int i = 0;
+
+      for (org.apache.activemq.artemis.core.server.Queue q : durableQueues) {
+         q.getPageSubscription().notEmpty();
+         ids[i++] = q.getID();
+      }
+
+      for (org.apache.activemq.artemis.core.server.Queue q : nonDurableQueues) {
+         q.getPageSubscription().notEmpty();
+         ids[i++] = q.getID();
+      }
+      return ids;
+   }
+
+   private void applyPageCounters(Transaction tx, RouteContextList ctx, long size) throws Exception {
+      List<org.apache.activemq.artemis.core.server.Queue> durableQueues = ctx.getDurableQueues();
+      List<org.apache.activemq.artemis.core.server.Queue> nonDurableQueues = ctx.getNonDurableQueues();
+      for (org.apache.activemq.artemis.core.server.Queue q : durableQueues) {
+         q.getPageSubscription().getCounter().increment(tx, 1, size);
+      }
+
+      for (org.apache.activemq.artemis.core.server.Queue q : nonDurableQueues) {
+         q.getPageSubscription().getCounter().increment(tx, 1, size);
+      }
+   }
+
+   private void installPageTransaction(final Transaction tx, final RouteContextList listCtx) throws Exception {
+      FinishPageMessageOperation pgOper = (FinishPageMessageOperation) tx.getProperty(TransactionPropertyIndexes.PAGE_TRANSACTION);
+      if (pgOper == null) {
+         PageTransactionInfo pgTX = new PageTransactionInfoImpl(tx.getID());
+         getPagingManager().addTransaction(pgTX);
+         pgOper = new FinishPageMessageOperation(pgTX, getStorageManager(), getPagingManager());
+         tx.putProperty(TransactionPropertyIndexes.PAGE_TRANSACTION, pgOper);
+         tx.addOperation(pgOper);
+      }
+
+      if (!tx.isAsync()) {
+         pgOper.addStore(this);
+      }
+
+      pgOper.pageTransaction.increment(listCtx.getNumberOfDurableQueues(), listCtx.getNumberOfNonDurableQueues());
+
+      return;
+   }
+
+   private static class FinishPageMessageOperation implements TransactionOperation {
+
+      private final PageTransactionInfo pageTransaction;
+      private final StorageManager storageManager;
+      private final PagingManager pagingManager;
+      private final Set<PagingStore> usedStores = new HashSet<>();
+
+      private boolean stored = false;
+
+      public void addStore(PagingStore store) {
+         this.usedStores.add(store);
+      }
+
+      private FinishPageMessageOperation(final PageTransactionInfo pageTransaction,
+                                         final StorageManager storageManager,
+                                         final PagingManager pagingManager) {
+         this.pageTransaction = pageTransaction;
+         this.storageManager = storageManager;
+         this.pagingManager = pagingManager;
+      }
+
+      @Override
+      public void afterCommit(final Transaction tx) {
+         if (pageTransaction != null) {
+            pageTransaction.commit();
+         }
+      }
+
+      @Override
+      public void afterPrepare(final Transaction tx) {
+      }
+
+      @Override
+      public void afterRollback(final Transaction tx) {
+         if (pageTransaction != null) {
+            pageTransaction.rollback();
+         }
+      }
+
+      @Override
+      public void beforeCommit(final Transaction tx) throws Exception {
+         storePageTX(tx);
+      }
+
+      @Override
+      public void beforePrepare(final Transaction tx) throws Exception {
+         storePageTX(tx);
+      }
+
+      private void storePageTX(final Transaction tx) throws Exception {
+         if (!stored) {
+            tx.setContainsPersistent();
+            pageTransaction.store(storageManager, pagingManager, tx);
+            stored = true;
+         }
+      }
+
+      @Override
+      public void beforeRollback(final Transaction tx) throws Exception {
+      }
+
+      @Override
+      public List<MessageReference> getRelatedMessageReferences() {
+         return Collections.emptyList();
+      }
+
+      @Override
+      public List<MessageReference> getListOnConsumer(long consumerID) {
+         return Collections.emptyList();
+      }
+
    }
 }

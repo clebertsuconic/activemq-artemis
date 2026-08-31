@@ -147,7 +147,7 @@ public class RefsOperation extends TransactionOperationAbstract {
                      storageManager.storeMessageTransactional(ackedTX, message);
                   }
 
-                  storageManager.storeReferenceTransactional(ackedTX, queue.getID(), message.getMessageID());
+                  storageManager.storeReferenceTransactional(ackedTX, queue.getID(), message.getMessageID(), false);
 
                   ackedTX.setContainsPersistent();
                }

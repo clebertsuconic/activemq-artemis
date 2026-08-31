@@ -20,11 +20,9 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Queue;
-import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -34,7 +32,6 @@ import java.util.function.Consumer;
 
 import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.api.core.SimpleString;
-import org.apache.activemq.artemis.core.paging.PageTransactionInfo;
 import org.apache.activemq.artemis.core.paging.PagedMessage;
 import org.apache.activemq.artemis.core.paging.PagingManager;
 import org.apache.activemq.artemis.core.paging.PagingStore;
@@ -48,7 +45,6 @@ import org.apache.activemq.artemis.core.replication.ReplicationManager;
 import org.apache.activemq.artemis.core.server.ActiveMQMessageBundle;
 import org.apache.activemq.artemis.core.server.ActiveMQServerLogger;
 import org.apache.activemq.artemis.core.server.LargeServerMessage;
-import org.apache.activemq.artemis.core.server.MessageReference;
 import org.apache.activemq.artemis.core.server.RouteContextList;
 import org.apache.activemq.artemis.core.server.impl.MessageReferenceImpl;
 import org.apache.activemq.artemis.core.settings.impl.AddressFullMessagePolicy;
@@ -56,8 +52,6 @@ import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
 import org.apache.activemq.artemis.core.settings.impl.DiskFullMessagePolicy;
 import org.apache.activemq.artemis.core.settings.impl.PageFullMessagePolicy;
 import org.apache.activemq.artemis.core.transaction.Transaction;
-import org.apache.activemq.artemis.core.transaction.TransactionOperation;
-import org.apache.activemq.artemis.core.transaction.TransactionPropertyIndexes;
 import org.apache.activemq.artemis.utils.ArtemisCloseable;
 import org.apache.activemq.artemis.utils.FutureLatch;
 import org.apache.activemq.artemis.utils.SimpleFutureImpl;
@@ -858,6 +852,8 @@ public abstract class AbstractPagingStoreImpl implements PagingStore {
          readUnlock();
       }
 
+      new Exception("Trace paging").printStackTrace(System.out);
+
       // We need to guarantee a readLock on the storageManager before starting paging. This is because the replication
       // manager will get a list of files to synchronize while holding a writeLock on the storageManager. So we must
       // guarantee a readLock here otherwise the list might be wrong.
@@ -1366,67 +1362,11 @@ public abstract class AbstractPagingStoreImpl implements PagingStore {
       return writePage(message, tx, listCtx, pageDecorator, useFlowControl);
    }
 
-   private int writePage(Message message,
-                             Transaction tx,
-                             RouteContextList listCtx,
-                             Function<Message, Message> pageDecorator,
-                             boolean useFlowControl) throws Exception {
-      // We need to use a readLock as we need to keep paging until we scheduled a task
-      // notice that to leave paging you need pending tasks done
-      readLock();
-      PagedMessage pagedMessage;
-      try {
-         if (!paging) {
-            // no paging was used
-            return -1;
-         }
-
-         final long transactionID = (tx != null && tx.isAllowPageTransaction()) ? tx.getID() : -1L;
-
-         if (pageDecorator != null) {
-            message = pageDecorator.apply(message);
-         }
-
-         message.setPaged();
-
-         pagedMessage = new PagedMessageImpl(message, routeQueues(tx, listCtx), transactionID);
-         if (tx != null) {
-            pagedMessage.setStorageTX(tx.getStorageTx());
-         }
-         long persistentSize = pagedMessage.getPersistentSize() > 0 ? pagedMessage.getPersistentSize() : 0;
-
-         if (tx != null && tx.isAllowPageTransaction()) {
-            installPageTransaction(tx, listCtx);
-         }
-
-         // Read the comment bellow on submitWriteTask call
-         incrementWriteTask();
-
-         applyPageCounters(tx, listCtx, persistentSize);
-
-      } finally {
-         readUnlock();
-      }
-
-
-      // submitWriteTask will use a semaphore for flow control, it can hold up to a page file pending.
-      // each write will take its number of bytes away from the semaphore.
-      //
-      // However, when page cleanup is called, it will be using the page executor, and it will require a writeLock
-      // to validate if it can leave page mode.
-      //
-      // If cleanup happens while blocking for credits inside the writeLock the system would deadLock (or starve)
-      // for that reason we increment the task within the readLock (incrementWriteTask()), and call submitWriteTask away from locks
-      //
-      // hasTimedWriterPendingIO would return pending based on incrementWriteTask, and for that reason we can still call the submitWriteTask away from the readLock.
-      //
-      // This scenario was found when running FloodServerWithAsyncSendTest smoke test.
-      int credits = submitWriteTask(storageManager.getContext(), pagedMessage, tx, listCtx, useFlowControl);
-
-      assert credits >= 0;
-
-      return credits;
-   }
+   protected abstract int writePage(Message message,
+                                    Transaction tx,
+                                    RouteContextList listCtx,
+                                    Function<Message, Message> pageDecorator,
+                                    boolean useFlowControl) throws Exception;
 
    @Override
    public void writeFlowControl(int credits) {
@@ -1474,39 +1414,7 @@ public abstract class AbstractPagingStoreImpl implements PagingStore {
       getCursorProvider().resumeCleanup();
    }
 
-   private long[] routeQueues(Transaction tx, RouteContextList ctx) throws Exception {
-      List<org.apache.activemq.artemis.core.server.Queue> durableQueues = ctx.getDurableQueues();
-      List<org.apache.activemq.artemis.core.server.Queue> nonDurableQueues = ctx.getNonDurableQueues();
-      long[] ids = new long[durableQueues.size() + nonDurableQueues.size()];
-      int i = 0;
 
-      for (org.apache.activemq.artemis.core.server.Queue q : durableQueues) {
-         q.getPageSubscription().notEmpty();
-         ids[i++] = q.getID();
-      }
-
-      for (org.apache.activemq.artemis.core.server.Queue q : nonDurableQueues) {
-         q.getPageSubscription().notEmpty();
-         ids[i++] = q.getID();
-      }
-      return ids;
-   }
-
-   /**
-    * This is done to prevent non tx to get out of sync in case of failures
-    */
-   private void applyPageCounters(Transaction tx, RouteContextList ctx, long size) throws Exception {
-      List<org.apache.activemq.artemis.core.server.Queue> durableQueues = ctx.getDurableQueues();
-      List<org.apache.activemq.artemis.core.server.Queue> nonDurableQueues = ctx.getNonDurableQueues();
-      for (org.apache.activemq.artemis.core.server.Queue q : durableQueues) {
-         q.getPageSubscription().getCounter().increment(tx, 1, size);
-      }
-
-      for (org.apache.activemq.artemis.core.server.Queue q : nonDurableQueues) {
-         q.getPageSubscription().getCounter().increment(tx, 1, size);
-      }
-
-   }
 
    @Override
    public void durableDown(Message message, int durableCount) {
@@ -1532,24 +1440,6 @@ public abstract class AbstractPagingStoreImpl implements PagingStore {
       this.addSize(-MessageReferenceImpl.getMemoryEstimate(), true);
    }
 
-   private void installPageTransaction(final Transaction tx, final RouteContextList listCtx) throws Exception {
-      FinishPageMessageOperation pgOper = (FinishPageMessageOperation) tx.getProperty(TransactionPropertyIndexes.PAGE_TRANSACTION);
-      if (pgOper == null) {
-         PageTransactionInfo pgTX = new PageTransactionInfoImpl(tx.getID());
-         pagingManager.addTransaction(pgTX);
-         pgOper = new FinishPageMessageOperation(pgTX, storageManager, pagingManager);
-         tx.putProperty(TransactionPropertyIndexes.PAGE_TRANSACTION, pgOper);
-         tx.addOperation(pgOper);
-      }
-
-      if (!tx.isAsync()) {
-         pgOper.addStore(this);
-      }
-
-      pgOper.pageTransaction.increment(listCtx.getNumberOfDurableQueues(), listCtx.getNumberOfNonDurableQueues());
-
-      return;
-   }
 
    @Override
    public boolean hasPendingIO() {
@@ -1590,82 +1480,6 @@ public abstract class AbstractPagingStoreImpl implements PagingStore {
       }
    }
 
-   private static class FinishPageMessageOperation implements TransactionOperation {
-
-      private final PageTransactionInfo pageTransaction;
-      private final StorageManager storageManager;
-      private final PagingManager pagingManager;
-      private final Set<PagingStore> usedStores = new HashSet<>();
-
-      private boolean stored = false;
-
-      public void addStore(PagingStore store) {
-         this.usedStores.add(store);
-      }
-
-      private FinishPageMessageOperation(final PageTransactionInfo pageTransaction,
-                                         final StorageManager storageManager,
-                                         final PagingManager pagingManager) {
-         this.pageTransaction = pageTransaction;
-         this.storageManager = storageManager;
-         this.pagingManager = pagingManager;
-      }
-
-      @Override
-      public void afterCommit(final Transaction tx) {
-         // If part of the transaction goes to the queue, and part goes to paging, we can't let depage start for the
-         // transaction until all the messages were added to the queue
-         // or else we could deliver the messages out of order
-
-         if (pageTransaction != null) {
-            pageTransaction.commit();
-         }
-      }
-
-      @Override
-      public void afterPrepare(final Transaction tx) {
-      }
-
-      @Override
-      public void afterRollback(final Transaction tx) {
-         if (pageTransaction != null) {
-            pageTransaction.rollback();
-         }
-      }
-
-      @Override
-      public void beforeCommit(final Transaction tx) throws Exception {
-         storePageTX(tx);
-      }
-
-      @Override
-      public void beforePrepare(final Transaction tx) throws Exception {
-         storePageTX(tx);
-      }
-
-      private void storePageTX(final Transaction tx) throws Exception {
-         if (!stored) {
-            tx.setContainsPersistent();
-            pageTransaction.store(storageManager, pagingManager, tx);
-            stored = true;
-         }
-      }
-
-      @Override
-      public void beforeRollback(final Transaction tx) throws Exception {
-      }
-
-      @Override
-      public List<MessageReference> getRelatedMessageReferences() {
-         return Collections.emptyList();
-      }
-
-      @Override
-      public List<MessageReference> getListOnConsumer(long consumerID) {
-         return Collections.emptyList();
-      }
-
-   }
 
    private void openNewPage() throws Exception {
       numberOfPages++;

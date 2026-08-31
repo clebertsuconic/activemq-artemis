@@ -75,6 +75,10 @@ public class DatabaseStorageConfiguration implements StoreConfiguration {
 
    private int maxPageSizeBytes = ActiveMQDefaultConfiguration.getDefaultJdbcMaxPageSizeBytes();
 
+   private int databaseConnections = ActiveMQDefaultConfiguration.getDefaultDatabaseConnections();
+
+   private long databaseFlushPeriodNanos = ActiveMQDefaultConfiguration.getDefaultDatabaseFlushPeriodNanos();
+
    private StoreType storeType = StoreType.DATABASE;
 
    @Override
@@ -169,6 +173,24 @@ public class DatabaseStorageConfiguration implements StoreConfiguration {
 
    public DatabaseStorageConfiguration setMaxPageSizeBytes(int maxPageSizeBytes) {
       this.maxPageSizeBytes = maxPageSizeBytes;
+      return this;
+   }
+
+   public int getDatabaseConnections() {
+      return databaseConnections;
+   }
+
+   public DatabaseStorageConfiguration setDatabaseConnections(int databaseConnections) {
+      this.databaseConnections = databaseConnections;
+      return this;
+   }
+
+   public long getDatabaseFlushPeriodNanos() {
+      return databaseFlushPeriodNanos;
+   }
+
+   public DatabaseStorageConfiguration setDatabaseFlushPeriodNanos(long databaseFlushPeriodNanos) {
+      this.databaseFlushPeriodNanos = databaseFlushPeriodNanos;
       return this;
    }
 

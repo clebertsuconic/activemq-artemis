@@ -85,8 +85,6 @@ public class DataWorker extends DataAgent {
    // To be called when the worker is done
    private final Consumer<DataWorker> onDone;
 
-   private List<BatchableStatement<?>> batchableStatements = new ArrayList<>();
-
    @Override
    protected void connect() throws SQLException {
       super.connect();

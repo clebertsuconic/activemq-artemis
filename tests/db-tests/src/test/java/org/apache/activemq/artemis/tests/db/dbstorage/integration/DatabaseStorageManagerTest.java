@@ -54,7 +54,7 @@ public class DatabaseStorageManagerTest extends AbstractStatementTest {
       message.getBodyBuffer().writeByte((byte)'Z');
 
       databaseStorageManager.storeMessage(message);
-      databaseStorageManager.storeReference(1, 333, true);
+      databaseStorageManager.storeReference(1, 333, false, true);
 
       CountDownLatch done = new CountDownLatch(1);
       databaseStorageManager.getContext().executeOnCompletion(new IOCallback() {
@@ -123,7 +123,7 @@ public class DatabaseStorageManagerTest extends AbstractStatementTest {
             message.setMessageID(i);
             message.getBodyBuffer().writeByte((byte) 'Z');
             databaseStorageManager.storeMessageTransactional(tx, message);
-            databaseStorageManager.storeReferenceTransactional(tx, 3, message.getMessageID());
+            databaseStorageManager.storeReferenceTransactional(tx, 3, message.getMessageID(), false);
             databaseStorageManager.commit(tx);
             assertTrue(OperationContextImpl.getContext().waitCompletion(5000));
          }

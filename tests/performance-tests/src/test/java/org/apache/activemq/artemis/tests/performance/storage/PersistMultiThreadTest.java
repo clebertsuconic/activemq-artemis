@@ -200,7 +200,7 @@ public class PersistMultiThreadTest extends ActiveMQTestBase {
          message.putStringProperty("hello", "" + id);
 
          storage.storeMessageTransactional(tx, message);
-         storage.storeReferenceTransactional(tx, 1, id);
+         storage.storeReferenceTransactional(tx, 1, id, false);
 
          message.refDown();
       }

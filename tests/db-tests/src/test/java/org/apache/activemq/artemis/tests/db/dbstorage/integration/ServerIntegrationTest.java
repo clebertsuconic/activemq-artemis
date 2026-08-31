@@ -20,9 +20,11 @@ import javax.jms.ConnectionFactory;
 import javax.jms.MessageConsumer;
 import javax.jms.MessageProducer;
 import javax.jms.Session;
+import javax.jms.Topic;
 
 import java.lang.invoke.MethodHandles;
 import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -46,6 +48,7 @@ import org.apache.activemq.artemis.utils.RandomUtil;
 import org.apache.activemq.artemis.utils.Wait;
 import org.apache.artemis.database.DatabaseProvider;
 import org.apache.artemis.database.queries.GenericDataJDBCQuery;
+import org.apache.artemis.database.sql.SQLProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestTemplate;
 import org.junit.jupiter.api.condition.DisabledIf;
@@ -485,47 +488,82 @@ public class ServerIntegrationTest extends AbstractStatementTest {
 
    @TestTemplate
    public void testPaging() throws Exception {
+      int nMessages = 100;
+
       ActiveMQServer server = createServer(true, configuration);
       server.getConfiguration().getAddressSettings().clear();
-      AddressSettings settingPaging = new AddressSettings().setAddressFullMessagePolicy(AddressFullMessagePolicy.PAGE).setMaxSizeMessages(100);
+      AddressSettings settingPaging = new AddressSettings().setAddressFullMessagePolicy(AddressFullMessagePolicy.PAGE).setMaxSizeMessages(nMessages / 2);
       server.getConfiguration().addAddressSetting("#", settingPaging);
       server.start();
 
-      int nMessages = 100;
 
       ConnectionFactory factory = CFUtil.createConnectionFactory("CORE", "tcp://localhost:61616");
       try (javax.jms.Connection connection = factory.createConnection()) {
-         try (Session session = connection.createSession(true, Session.SESSION_TRANSACTED)) {
+         try (Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE)) {
             MessageProducer producer = session.createProducer(session.createQueue(QUEUE_NAME));
             try (AssertionLoggerHandler loggerHandler = new AssertionLoggerHandler()) {
-               for (int i = 0; i < 101; i++) {
-                  logger.info("i {}", i);
+               for (int i = 0; i < nMessages; i++) {
                   javax.jms.TextMessage message = session.createTextMessage("test: " + i);
                   producer.send(message);
                }
-               session.commit();
                assertTrue(loggerHandler.findText("AMQ222038"));
-
-               for (int i = 0; i < 100; i++) {
-                  logger.info("i {}", i);
-                  javax.jms.TextMessage message = session.createTextMessage("test: " + i);
-                  producer.send(message);
-                  session.commit();
-               }
-
                DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
-               try (Connection sqlconnection = databaseProvider.getConnection()) {
-                  assertTrue(selectCount(sqlconnection, databaseProvider.getSqlProvider().getPage()) > 1);
-               }
+               validateTotalMessages(databaseProvider, nMessages, nMessages);
             }
          }
       }
 
       server.stop();
+      validateTotalMessages(storageConfiguration.getDatabaseProvider(), nMessages, nMessages);
+      server.start();
+      validateTotalMessages(storageConfiguration.getDatabaseProvider(), nMessages, nMessages);
    }
 
+   private static void validateTotalMessages(DatabaseProvider databaseProvider,
+                                             int expectedMessages,
+                                             int expectedReferences) throws Exception {
+      try (Connection sqlconnection = databaseProvider.getConnection()) {
+         assertEquals(expectedMessages, selectCount(sqlconnection, databaseProvider.getSqlProvider().getMessages()));
+         assertEquals(expectedReferences, selectCount(sqlconnection, databaseProvider.getSqlProvider().getRefs()));
+      }
+   }
 
+   @TestTemplate
+   public void testTopicWithTwoSubscriptions() throws Exception {
+      ActiveMQServer server = createServer(true, configuration);
+      server.start();
 
+      int numberOfMessages = 100;
+      String topicName = "topic" + RandomUtil.randomUUIDString();
+
+      ConnectionFactory factory = CFUtil.createConnectionFactory("CORE", "tcp://localhost:61616");
+      try (javax.jms.Connection connection = factory.createConnection()) {
+         connection.setClientID("testClient");
+         connection.start();
+
+         try (Session session = connection.createSession(true, Session.SESSION_TRANSACTED)) {
+            Topic topic = session.createTopic(topicName);
+
+            MessageConsumer sub1 = session.createDurableSubscriber(topic, "sub1");
+            MessageConsumer sub2 = session.createDurableSubscriber(topic, "sub2");
+
+            MessageProducer producer = session.createProducer(topic);
+            for (int i = 0; i < numberOfMessages; i++) {
+               producer.send(session.createTextMessage("test: " + i));
+            }
+            session.commit();
+
+            DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
+            SQLProvider sqlProvider = databaseProvider.getSqlProvider();
+            validateTotalMessages(databaseProvider, numberOfMessages, numberOfMessages * 2);
+
+            sub1.close();
+            sub2.close();
+         }
+      }
+
+      server.stop();
+   }
 
 
 

@@ -19,6 +19,9 @@ package org.apache.activemq.artemis.core.paging.dbimpl;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
 
+import java.util.function.Function;
+
+import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.paging.PagingManager;
 import org.apache.activemq.artemis.core.paging.PagingStoreFactory;
@@ -26,8 +29,10 @@ import org.apache.activemq.artemis.core.paging.impl.AbstractPagingStoreImpl;
 import org.apache.activemq.artemis.core.paging.impl.Page;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.database.DatabaseStorageManager;
+import org.apache.activemq.artemis.core.server.RouteContextList;
 import org.apache.activemq.artemis.core.server.impl.AddressInfo;
 import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
+import org.apache.activemq.artemis.core.transaction.Transaction;
 import org.apache.activemq.artemis.utils.actors.ArtemisExecutor;
 
 /**
@@ -78,6 +83,8 @@ public class DatabasePagingStoreImpl extends AbstractPagingStoreImpl {
       return addressInfo;
    }
 
+
+
    @Override
    public boolean checkPageFileExists(final long pageNumber) {
       // TODO: query database to check whether this page exists
@@ -87,5 +94,14 @@ public class DatabasePagingStoreImpl extends AbstractPagingStoreImpl {
    @Override
    public Page newPageObject(final long pageNumber) throws Exception {
       return new DatabasePage(getStoreName(), getStorageManager(), pageNumber, addressInfo.getId(), ((DatabaseStorageManager) getStorageManager()).getDataManager());
+   }
+
+   @Override
+   protected int writePage(Message message,
+                           Transaction tx,
+                           RouteContextList listCtx,
+                           Function<Message, Message> pageDecorator,
+                           boolean useFlowControl) throws Exception {
+      return -1;
    }
 }

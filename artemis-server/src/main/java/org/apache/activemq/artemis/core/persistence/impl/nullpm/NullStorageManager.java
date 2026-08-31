@@ -244,11 +244,11 @@ public class NullStorageManager implements StorageManager {
    }
 
    @Override
-   public void storeReference(final long queueID, final long messageID, final boolean last) throws Exception {
+   public void storeReference(final long queueID, final long messageID, final boolean pendingDelivery, final boolean last) throws Exception {
    }
 
    @Override
-   public void storeReferenceTransactional(final Transaction tx, final long queueID, final long messageID) throws Exception {
+   public void storeReferenceTransactional(final Transaction tx, final long queueID, final long messageID, final boolean pendingDelivery) throws Exception {
    }
 
    @Override

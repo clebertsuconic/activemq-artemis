@@ -60,6 +60,8 @@ public class DatabaseStoreConfigurationTest extends ServerTestBase {
       DatabaseStorageConfiguration storeConfiguration = (DatabaseStorageConfiguration) server.getConfiguration().getStoreConfiguration();
       assertEquals(StoreConfiguration.StoreType.NEW_DATABASE, storeConfiguration.getStoreType());
       assertEquals(true, configuration.isDatabaseStorage());
+      assertEquals(10, storeConfiguration.getDatabaseConnections());
+      assertEquals(15, storeConfiguration.getDatabaseFlushPeriodNanos());
    }
 
    @Test

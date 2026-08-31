@@ -433,8 +433,8 @@ public class SendAckFailTest extends SpawnedTestBase {
       }
 
       @Override
-      public void storeReference(long queueID, long messageID, boolean last) throws Exception {
-         manager.storeReference(queueID, messageID, last);
+      public void storeReference(long queueID, long messageID, boolean pendingDelivery, boolean last) throws Exception {
+         manager.storeReference(queueID, messageID, pendingDelivery, last);
       }
 
       @Override
@@ -478,8 +478,8 @@ public class SendAckFailTest extends SpawnedTestBase {
       }
 
       @Override
-      public void storeReferenceTransactional(Transaction tx, long queueID, long messageID) throws Exception {
-         manager.storeReferenceTransactional(tx, queueID, messageID);
+      public void storeReferenceTransactional(Transaction tx, long queueID, long messageID, boolean pendingDelivery) throws Exception {
+         manager.storeReferenceTransactional(tx, queueID, messageID, pendingDelivery);
       }
 
       @Override

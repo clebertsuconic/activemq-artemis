@@ -101,6 +101,7 @@ import org.apache.activemq.artemis.core.server.impl.JournalLoader;
 import org.apache.activemq.artemis.core.transaction.ResourceManager;
 import org.apache.activemq.artemis.core.transaction.Transaction;
 import org.apache.activemq.artemis.spi.core.protocol.MessagePersister;
+import org.apache.artemis.database.data.MessageData;
 import org.apache.activemq.artemis.utils.ArtemisCloseable;
 import org.apache.activemq.artemis.utils.ExecutorFactory;
 import org.apache.activemq.artemis.utils.IDGenerator;
@@ -223,8 +224,8 @@ public class DatabaseStorageManager extends AbstractStorageManager {
 
       databaseProvider.createSchema();
 
-      logger.info("Timeout:: {}", configuration.getJournalBufferTimeout_NIO());
-      dataManager = new DataManager(scheduledExecutorService, executorFactory.getExecutor(), executorService, configuration.getJournalBufferTimeout_NIO(), databaseProvider, batchSize);
+      logger.info("Timeout:: {}", databaseConfiguration.getDatabaseFlushPeriodNanos());
+      dataManager = new DataManager(scheduledExecutorService, executorFactory.getExecutor(), executorService, databaseConfiguration.getDatabaseFlushPeriodNanos(), databaseProvider, batchSize, databaseConfiguration.getDatabaseConnections());
       dataManager.start();
 
    }
@@ -297,8 +298,8 @@ public class DatabaseStorageManager extends AbstractStorageManager {
    }
 
    @Override
-   public void storeReference(long queueID, long messageID, boolean last) throws Exception {
-      dataManager.storeReference(messageID, queueID, null, getContext());
+   public void storeReference(long queueID, long messageID, boolean pendingDelivery, boolean last) throws Exception {
+      dataManager.storeReference(messageID, queueID, pendingDelivery, null, getContext());
    }
 
    @Override
@@ -357,8 +358,8 @@ public class DatabaseStorageManager extends AbstractStorageManager {
    }
 
    @Override
-   public void storeReferenceTransactional(Transaction tx, long queueID, long messageID) throws Exception {
-      dataManager.storeReference(tx.getStorageTx(), messageID, queueID, tx.getID(), getContext());
+   public void storeReferenceTransactional(Transaction tx, long queueID, long messageID, boolean pendingDelivery) throws Exception {
+      dataManager.storeReference(tx.getStorageTx(), messageID, queueID, pendingDelivery, tx.getID(), getContext());
    }
 
    @Override
@@ -908,9 +909,10 @@ public class DatabaseStorageManager extends AbstractStorageManager {
       try (Connection connection = this.databaseProvider.getConnection()) {
          MessagesJDBCQuery query = new MessagesJDBCQuery(databaseProvider, connection);
          query.query(data -> {
-            Message message = MessagePersister.getInstance().decode(data.messageBufferSupplier.get(), null, null);
-            message.setMessageID(data.messageID);
-            loadedMessages.put(data.messageID, message);
+            loadedMessages.put(data.messageID, decodeMessage(data));
+         });
+         query.queryOrphaned(data -> {
+            loadedMessages.put(data.messageID, decodeMessage(data));
          });
 
          ReferencesJDBCQuery referencesQuery = new ReferencesJDBCQuery(databaseProvider, connection);
@@ -1160,6 +1162,12 @@ public class DatabaseStorageManager extends AbstractStorageManager {
    @Override
    public void injectMonitor(FileStoreMonitor monitor) throws Exception {
 
+   }
+
+   public static Message decodeMessage(MessageData data) {
+      Message message = MessagePersister.getInstance().decode(data.messageBufferSupplier.get(), null, null);
+      message.setMessageID(data.messageID);
+      return message;
    }
 
 }

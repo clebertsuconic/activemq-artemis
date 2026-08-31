@@ -19,52 +19,57 @@ package org.apache.artemis.database.queries;
 
 import java.lang.invoke.MethodHandles;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.function.Consumer;
 
 import org.apache.artemis.database.DatabaseProvider;
-import org.apache.artemis.database.data.MessageData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class MessagesJDBCQuery {
+public class MessagesPendingDeliverQueryForUpdate {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
    Connection connection;
    DatabaseProvider databaseProvider;
-   public MessagesJDBCQuery(DatabaseProvider databaseProvider, Connection connection) {
+   PreparedStatement deliveryPreparedStatement;
+   PreparedStatement updateDeliveryStatement;
+
+   public MessagesPendingDeliverQueryForUpdate(DatabaseProvider databaseProvider, Connection connection) {
       this.databaseProvider = databaseProvider;
       this.connection = connection;
    }
 
-   public void query(Consumer<MessageData> consumer) throws Exception {
+   public void prepare() throws Exception {
       String messagesTable = databaseProvider.getSqlProvider().getMessages();
       String referencesTable = databaseProvider.getSqlProvider().getRefs();
-      String sql = databaseProvider.getSqlProvider().reloadMessages(messagesTable, referencesTable);
-      results(consumer, sql);
+      String deliverSQL = databaseProvider.getSqlProvider().deliverPendingMessages(messagesTable, referencesTable);
+      deliveryPreparedStatement = connection.prepareStatement(deliverSQL);
+
+      String updateSql = databaseProvider.getSqlProvider().updatePendingDelivery(referencesTable);
+      updateDeliveryStatement = connection.prepareStatement(updateSql);
    }
 
-   public void queryOrphaned(Consumer<MessageData> consumer) throws Exception {
-      String messagesTable = databaseProvider.getSqlProvider().getMessages();
-      String referencesTable = databaseProvider.getSqlProvider().getRefs();
-      String sql = databaseProvider.getSqlProvider().orphanedMessages(messagesTable, referencesTable);
-      results(consumer, sql);
+   public void updateDelivery(long queueID, long messageID) throws Exception {
+      updateDeliveryStatement.setLong(1, queueID);
+      updateDeliveryStatement.setLong(2, messageID);
+      updateDeliveryStatement.addBatch();
+   }
+
+   public void flush() throws Exception {
+      updateDeliveryStatement.executeBatch();
    }
 
 
-   private void results(Consumer<MessageData> consumer, String sql) throws SQLException {
-      try (Statement statement = connection.createStatement()) {
-         statement.setFetchSize(500);
-         try (ResultSet resultSet = statement.executeQuery(sql)) {
-            while (resultSet.next()) {
-               MessageData messageData = QueryUtil.readMessageData(resultSet, 1, 2);
-               consumer.accept(messageData);
-            }
-         }
-      }
+   public void close() throws Exception {
+      deliveryPreparedStatement.close();
+      updateDeliveryStatement.close();
    }
+
+   public ResultSet execute(long queueID) throws Exception {
+      deliveryPreparedStatement.setLong(1, queueID);
+      return deliveryPreparedStatement.executeQuery();
+   }
+
 
 }

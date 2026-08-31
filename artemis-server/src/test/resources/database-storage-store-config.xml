@@ -22,6 +22,8 @@
       <store>
          <database-store>
             <database-storage>true</database-storage>
+            <database-connections>10</database-connections>
+            <database-flush-period-nanos>15</database-flush-period-nanos>
             <jdbc-connection-url>jdbc:derby:target/derby/database-storage-store;create=true</jdbc-connection-url>
             <bindings-table-name>BINDINGS_TABLE</bindings-table-name>
             <message-table-name>MESSAGE_TABLE</message-table-name>

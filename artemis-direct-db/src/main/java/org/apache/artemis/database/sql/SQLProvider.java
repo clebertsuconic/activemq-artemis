@@ -125,12 +125,26 @@ public abstract class SQLProvider {
       return String.format("DELETE FROM %s WHERE QUEUE_ID=?", tableName);
    }
 
-   public String selectMessages(String tableName) {
-      return String.format("SELECT MESSAGE_ID, MESSAGE_RECORD FROM %s ORDER BY MESSAGE_ID", tableName);
+   // returning only the messages that have at least one PENDING_DELIVERY = "N"
+   public String reloadMessages(String messagesTable, String referencesTable) {
+      return String.format("SELECT a.MESSAGE_ID, a.MESSAGE_RECORD FROM %s a WHERE a.MESSAGE_ID IN (SELECT b.MESSAGE_ID FROM %s b WHERE a.MESSAGE_ID = b.MESSAGE_ID and b.PENDING_DELIVERY='N') ORDER BY MESSAGE_ID", messagesTable, referencesTable);
+   }
+
+   // returning only the messages that have at least one PENDING_DELIVERY = "N"
+   public String orphanedMessages(String messagesTable, String referencesTable) {
+      return String.format("SELECT a.MESSAGE_ID, a.MESSAGE_RECORD FROM %s a WHERE a.MESSAGE_ID NOT IN (SELECT b.MESSAGE_ID FROM %s b WHERE a.MESSAGE_ID = b.MESSAGE_ID) ORDER BY MESSAGE_ID", messagesTable, referencesTable);
+   }
+
+   public String deliverPendingMessages(String messagesTable, String referencesTable) {
+      return String.format("SELECT a.MESSAGE_ID MESSAGE_ID, a.MESSAGE_RECORD MESSAGE_RECORD, b.PENDING_DELIVERY PENDING_DELIVERY FROM %s a, %s b WHERE a.MESSAGE_ID = b.MESSAGE_ID AND b.QUEUE_ID=? AND b.PENDING_DELIVERY='N' ORDER BY a.MESSAGE_ID", messagesTable, referencesTable);
+   }
+
+   public String updatePendingDelivery(String tableName) {
+      return String.format("UPDATE %s SET PENDING_DELIVERY='N' WHERE QUEUE_ID=? AND MESSAGE_ID=?", tableName);
    }
 
    public String selectReferences(String tableName) {
-      return String.format("SELECT MESSAGE_ID, QUEUE_ID, PENDING_DELIVERY FROM %s ORDER BY MESSAGE_ID, QUEUE_ID", tableName);
+      return String.format("SELECT MESSAGE_ID, QUEUE_ID, PENDING_DELIVERY FROM %s WHERE PENDING_DELIVERY='N' ORDER BY MESSAGE_ID, QUEUE_ID", tableName);
    }
 
    public String selectAddress(String tableName) {
