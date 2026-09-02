@@ -57,7 +57,6 @@ import org.apache.activemq.command.MessageAck;
 import org.apache.activemq.command.MessageDispatch;
 import org.apache.activemq.command.MessageId;
 import org.apache.activemq.command.MessagePull;
-import org.apache.activemq.command.RemoveInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -452,7 +451,7 @@ public class AMQConsumer {
 
    public boolean updateDeliveryCountAfterCancel(MessageReference ref) {
 
-      if (RemoveInfo.LAST_DELIVERED_UNKNOWN == info.getLastDeliveredSequenceId()) {
+      if (-1 == info.getLastDeliveredSequenceId()) {
          // treat as delivered
          return true;
       }

@@ -29,7 +29,6 @@ import org.apache.activemq.artemis.core.server.cluster.impl.MessageLoadBalancing
 import org.apache.activemq.artemis.tests.integration.cluster.distribution.ClusterTestBase;
 import org.apache.activemq.artemis.tests.util.Wait;
 import org.apache.activemq.command.ActiveMQDestination;
-import org.apache.activemq.util.ConsumerThread;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -245,12 +244,8 @@ public class MessageRedistributionTest extends ClusterTestBase {
          conn.start();
          Session session = conn.createSession(false, Session.AUTO_ACKNOWLEDGE);
          Destination dest = ActiveMQDestination.createDestination("queue0", ActiveMQDestination.QUEUE_TYPE);
-         ConsumerThread consumer = new ConsumerThread(session, dest);
-         consumer.setMessageCount(0);
-         consumer.setFinished(active);
-         consumer.start();
-
-         assertTrue("consumer takes too long to finish!", active.await(5, TimeUnit.SECONDS));
+         session.createConsumer(dest);
+         active.countDown();
       } finally {
          conn.close();
       }

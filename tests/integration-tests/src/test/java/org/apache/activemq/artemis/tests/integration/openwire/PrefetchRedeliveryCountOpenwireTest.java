@@ -223,7 +223,7 @@ public class PrefetchRedeliveryCountOpenwireTest extends OpenWireTestBase {
 
       final ActiveMQConnectionFactory exFact = new ActiveMQConnectionFactory("failover:(tcp://localhost:61616?closeAsync=false)?startupMaxReconnectAttempts=10&maxReconnectAttempts=0&timeout=1000");
       exFact.setWatchTopicAdvisories(false);
-      exFact.setConnectResponseTimeout(10000);
+
 
       ActiveMQPrefetchPolicy prefetchPastMaxDeliveriesInLoop = new ActiveMQPrefetchPolicy();
       prefetchPastMaxDeliveriesInLoop.setAll(2000);
@@ -384,7 +384,7 @@ public class PrefetchRedeliveryCountOpenwireTest extends OpenWireTestBase {
 
       final ActiveMQConnectionFactory exFact = new ActiveMQConnectionFactory("failover:(tcp://localhost:61616?closeAsync=false)?startupMaxReconnectAttempts=10&maxReconnectAttempts=0&timeout=1000");
       exFact.setWatchTopicAdvisories(false);
-      exFact.setConnectResponseTimeout(10000);
+
 
       ActiveMQPrefetchPolicy prefetchPastMaxDeliveriesInLoop = new ActiveMQPrefetchPolicy();
       prefetchPastMaxDeliveriesInLoop.setAll(2000);

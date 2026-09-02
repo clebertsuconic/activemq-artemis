@@ -73,7 +73,7 @@ public class FastReconnectOpenWireTest extends OpenWireTestBase {
 
       final ActiveMQConnectionFactory exFact = new ActiveMQConnectionFactory("failover:(tcp://localhost:61616?closeAsync=false)?startupMaxReconnectAttempts=-1&maxReconnectAttempts=-1&timeout=5000");
       exFact.setWatchTopicAdvisories(false);
-      exFact.setConnectResponseTimeout(10000);
+
       exFact.setClientID("myID");
 
       RedeliveryPolicy redeliveryPolicy = new RedeliveryPolicy();
@@ -135,7 +135,7 @@ public class FastReconnectOpenWireTest extends OpenWireTestBase {
 
       final ActiveMQConnectionFactory exFact = new ActiveMQConnectionFactory("failover:(tcp://localhost:61616?closeAsync=false)?startupMaxReconnectAttempts=-1&maxReconnectAttempts=-1&timeout=5000");
       exFact.setWatchTopicAdvisories(false);
-      exFact.setConnectResponseTimeout(10000);
+
 
       RedeliveryPolicy redeliveryPolicy = new RedeliveryPolicy();
       redeliveryPolicy.setRedeliveryDelay(0);
