@@ -19,9 +19,11 @@ package org.apache.activemq.artemis.tests.integration.isolated.client;
 
 import javax.jms.Connection;
 import javax.jms.ConnectionFactory;
+import javax.jms.JMSException;
 import javax.jms.Message;
 import javax.jms.MessageConsumer;
 import javax.jms.Session;
+import java.io.IOException;
 import java.lang.invoke.MethodHandles;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -32,10 +34,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import io.netty.channel.EventLoop;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.QueueConfiguration;
 import org.apache.activemq.artemis.api.core.RoutingType;
 import org.apache.activemq.artemis.api.core.SimpleString;
+import org.apache.activemq.artemis.core.config.Configuration;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
 import org.apache.activemq.artemis.core.server.Queue;
@@ -47,16 +51,21 @@ import org.apache.activemq.artemis.spi.core.protocol.RemotingConnection;
 import org.apache.activemq.artemis.spi.core.protocol.SessionCallback;
 import org.apache.activemq.artemis.tests.util.ActiveMQTestBase;
 import org.apache.activemq.artemis.tests.util.CFUtil;
+import org.apache.activemq.artemis.tests.util.TcpProxy;
 import org.apache.activemq.artemis.utils.RandomUtil;
 import org.apache.activemq.artemis.utils.ReusableLatch;
+import org.apache.activemq.artemis.utils.StringPrintStream;
+import org.apache.activemq.artemis.utils.TableOut;
 import org.apache.activemq.artemis.utils.ThreadDumpUtil;
 import org.apache.activemq.artemis.utils.Wait;
 import org.apache.qpid.protonj2.test.driver.ProtonTestClient;
+import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -550,6 +559,141 @@ public class ConnectionDroppedTest extends ActiveMQTestBase {
       Wait.assertEquals(0, serverQueue::getConsumerCount);
    }
 
+   // Reproduces a scenario where the connection cleanup is stuck on a blocked event loop,
+   // preventing the container-id from being released and blocking reconnection.
+   @Test
+   @Timeout(60)
+   public void testGhostConnectionBlockedEventLoop() throws Throwable {
+      final int PROXY_PORT = 61617;
+      final String CLIENT_ID = "unique-client-test";
+      final long TTL = 1000;
+      final long TTL_CHECK_INTERVAL = 100;
 
+      Configuration config = createDefaultConfig(true);
+      config.setConnectionTTLOverride(TTL);
+      config.setConnectionTtlCheckInterval(TTL_CHECK_INTERVAL);
+
+      ActiveMQServer server = createServer(true, config);
+      server.start();
+
+      TcpProxy proxy = new TcpProxy("localhost", 61616, PROXY_PORT, false);
+      proxy.startProxy();
+      runAfter(() -> proxy.stopProxy());
+
+      ConnectionFactory factoryThroughProxyNoRetries = CFUtil.createConnectionFactory("AMQP", "tcp://localhost:" + PROXY_PORT);
+
+      // Step 1: connect through the proxy with a fixed clientID
+      Connection connection1 = factoryThroughProxyNoRetries.createConnection();
+      connection1.setClientID(CLIENT_ID);
+      connection1.start();
+
+      Wait.assertEquals(1, server::getConnectionCount, 5000);
+
+      logger.info("trying to connect...");
+      try {
+         Connection duplicateConnection = factoryThroughProxyNoRetries.createConnection();
+         duplicateConnection.setClientID(CLIENT_ID);
+         duplicateConnection.close();
+         fail("Should have thrown an exception for duplicate clientID");
+      } catch (JMSException e) {
+         logger.info("Duplicate clientID correctly rejected while first connection alive: {}", e.getMessage());
+      }
+
+      logger.info("Connected....");
+
+      // Step 2: block the netty event loop that owns this connection
+      CountDownLatch blockLatch = new CountDownLatch(1);
+      CountDownLatch eventLoopBlocked = new CountDownLatch(1);
+      runAfter(blockLatch::countDown);
+
+      RemotingConnection remotingConn = server.getRemotingService().getConnections().iterator().next();
+      EventLoop eventLoop = remotingConn.getTransportConnection().getEventLoop();
+      eventLoop.execute(() -> {
+         eventLoopBlocked.countDown();
+         try {
+            blockLatch.await(30, TimeUnit.SECONDS);
+         } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+         }
+      });
+
+      logger.info("ConnectionList on the beggining\n{}", listConnection(server));
+
+      assertTrue(eventLoopBlocked.await(5, TimeUnit.SECONDS), "Event loop should be blocked");
+
+      // Step 3: stop proxy traffic so no idle frames flow, letting TTL expire.
+      // The cleanup is queued to the blocked event loop, so it won't run.
+      proxy.stopAllHandlers();
+
+      // Wait for TTL + check intervals to fire and call fail()
+      Thread.sleep(TTL + TTL_CHECK_INTERVAL * 3);
+
+      // Step 5: resume the event loop, the queued cleanup should run and release the clientID
+      blockLatch.countDown();
+
+      // Restart the proxy and reconnect, both on background threads
+      ExecutorService auxiliaryExecutor = Executors.newFixedThreadPool(5);
+      runAfter(auxiliaryExecutor::shutdownNow);
+
+      AtomicBoolean running = new AtomicBoolean(true);
+      runAfter(() -> running.set(true));
+
+      proxy.stopProxy();
+      TcpProxy proxy2 = new TcpProxy("localhost", 61616, PROXY_PORT, false);
+      auxiliaryExecutor.execute(() -> {
+         try {
+            Thread.sleep(500);
+         } catch (Throwable ignored) {
+         }
+         proxy2.startProxy();
+      });
+      runAfter(() -> proxy2.stopProxy());
+
+      auxiliaryExecutor.execute(() -> {
+         while (running.get()) {
+            try {
+               Thread.sleep(1000);
+            } catch (Exception ignored) {
+            }
+
+            try {
+               String connectionList = listConnection(server);
+               logger.info("\n{}", connectionList);
+            } catch (Exception e) {
+               logger.warn(e.getMessage(), e);
+            }
+         }
+      });
+
+      ConnectionFactory factoryThroughProxyRetries = CFUtil.createConnectionFactory("AMQP", "failover:(amqp://localhost:" + PROXY_PORT + ")?failover.maxReconnectAttempts=300&failover.reconnectDelay=100");
+
+      // Step 6: now the clientID should be available again
+      assertTimeoutPreemptively(java.time.Duration.ofSeconds(30), () -> {
+         try (Connection connection3 = factoryThroughProxyRetries.createConnection()) {
+            connection3.setClientID(CLIENT_ID);
+            connection3.start();
+         }
+      }, "Reconnection with same clientID did not complete within 30 seconds");
+
+      Wait.assertEquals(0, server::getConnectionCount, 5000);
+
+      try {
+         connection1.close();
+      } catch (Exception ignored) {
+      }
+   }
+
+   private static String listConnection(ActiveMQServer server) throws IOException {
+      TableOut tableOut = new TableOut("|", 0, new int[]{40, 25, 10});
+      StringPrintStream stringPrintStream = new StringPrintStream();
+      java.io.PrintStream printStream = stringPrintStream.newStream();
+      printStream.println("Active connections (count=" + server.getConnectionCount() + "):");
+      tableOut.print(printStream, new String[]{"ID", "ClientID", "Destroyed"});
+      tableOut.printSeparator(printStream);
+      server.getRemotingService().getConnections().forEach(conn -> {
+         tableOut.print(printStream, new String[]{String.valueOf(conn.getID()), String.valueOf(conn.getClientID()), String.valueOf(conn.isDestroyed())});
+      });
+      return stringPrintStream.toString();
+   }
 
 }
