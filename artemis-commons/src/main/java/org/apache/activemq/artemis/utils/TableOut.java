@@ -33,11 +33,15 @@ public class TableOut {
       this.indentation = indentation;
 
       // building the indentation String to be reused
-      StringBuilder indentBuilder = new StringBuilder();
-      for (int i = 0; i < indentation; i++) {
-         indentBuilder.append(' ');
+      indentationString = " ".repeat(indentation);
+   }
+
+   public void printSeparator(PrintStream stream) {
+      int totalWidth = separator.length() * (columnSizes.length + 1);
+      for (int columnSize : columnSizes) {
+         totalWidth += columnSize;
       }
-      indentationString = indentBuilder.toString();
+      stream.println("-".repeat(totalWidth));
    }
 
    public void print(PrintStream stream, String[] columns) {
