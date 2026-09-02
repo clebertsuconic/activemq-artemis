@@ -565,10 +565,10 @@ public class OpenWireConnection extends AbstractRemotingConnection implements Se
       if (logger.isTraceEnabled()) {
          logger.trace("Sending a big packet sized as {} with smaller packets of {}", bufferSize, maxChunkSize);
       }
-      while (bytes.remaining() > 0) {
-         int chunkSize = Math.min(bytes.remaining(), maxChunkSize);
+      while (bytes.getLength() - bytes.getOffset() > 0) {
+         int chunkSize = Math.min(bytes.getLength() - bytes.getOffset(), maxChunkSize);
          if (logger.isTraceEnabled()) {
-            logger.trace("Sending a partial packet of {} bytes, starting at {}", chunkSize, bytes.remaining());
+            logger.trace("Sending a partial packet of {} bytes, starting at {}", chunkSize, bytes.getLength() - bytes.getOffset());
          }
          final ActiveMQBuffer chunk = transportConnection.createTransportBuffer(chunkSize);
          chunk.writeBytes(bytes.data, bytes.offset, chunkSize);
@@ -983,7 +983,7 @@ public class OpenWireConnection extends AbstractRemotingConnection implements Se
 
          this.addConsumerBrokerExchange(info.getConsumerId(), amqSession, consumersList);
          ss.addConsumer(info);
-         info.setLastDeliveredSequenceId(RemoveInfo.LAST_DELIVERED_UNKNOWN);
+         info.setLastDeliveredSequenceId(-1);
 
          if (consumersList.size() == 0) {
             return;
