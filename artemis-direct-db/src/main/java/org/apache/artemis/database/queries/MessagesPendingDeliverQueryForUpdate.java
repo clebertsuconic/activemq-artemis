@@ -21,6 +21,7 @@ import java.lang.invoke.MethodHandles;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 
 import org.apache.artemis.database.DatabaseProvider;
 import org.slf4j.Logger;
@@ -40,7 +41,7 @@ public class MessagesPendingDeliverQueryForUpdate {
       this.connection = connection;
    }
 
-   public void prepare() throws Exception {
+   public void prepare() throws SQLException {
       String messagesTable = databaseProvider.getSqlProvider().getMessages();
       String referencesTable = databaseProvider.getSqlProvider().getRefs();
       String deliverSQL = databaseProvider.getSqlProvider().deliverPendingMessages(messagesTable, referencesTable);

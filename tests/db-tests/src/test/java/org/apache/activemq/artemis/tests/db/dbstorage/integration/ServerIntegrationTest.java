@@ -24,9 +24,15 @@ import javax.jms.Topic;
 
 import java.lang.invoke.MethodHandles;
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.api.core.QueueConfiguration;
@@ -37,6 +43,7 @@ import org.apache.activemq.artemis.core.persistence.impl.database.DatabaseStorag
 import org.apache.activemq.artemis.core.persistence.impl.journal.BatchingIDGenerator;
 import org.apache.activemq.artemis.core.persistence.impl.journal.JournalRecordIds;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
+import org.apache.activemq.artemis.core.server.Queue;
 import org.apache.activemq.artemis.core.server.impl.AddressInfo;
 import org.apache.activemq.artemis.core.settings.impl.AddressFullMessagePolicy;
 import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
@@ -45,10 +52,14 @@ import org.apache.activemq.artemis.tests.db.dbstorage.statements.AbstractStateme
 import org.apache.activemq.artemis.tests.extensions.parameterized.ParameterizedTestExtension;
 import org.apache.activemq.artemis.tests.util.CFUtil;
 import org.apache.activemq.artemis.utils.RandomUtil;
+import org.apache.activemq.artemis.utils.ReusableLatch;
 import org.apache.activemq.artemis.utils.Wait;
 import org.apache.artemis.database.DatabaseProvider;
+import org.apache.artemis.database.data.MessageData;
 import org.apache.artemis.database.queries.GenericDataJDBCQuery;
+import org.apache.artemis.database.queries.QueryUtil;
 import org.apache.artemis.database.sql.SQLProvider;
+import org.apache.artemis.database.worker.DataWorker;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestTemplate;
 import org.junit.jupiter.api.condition.DisabledIf;
@@ -517,6 +528,42 @@ public class ServerIntegrationTest extends AbstractStatementTest {
       validateNewDBTotalMessages(storageConfiguration.getDatabaseProvider(), nMessages, nMessages);
       server.start();
       validateNewDBTotalMessages(storageConfiguration.getDatabaseProvider(), nMessages, nMessages);
+
+      DatabaseStorageManager databaseStorageManager = (DatabaseStorageManager) server.getStorageManager();
+
+      ExecutorService service = Executors.newSingleThreadExecutor();
+      runAfter(service::shutdownNow);
+
+
+      Queue queue = server.locateQueue(QUEUE_NAME);
+
+      CountDownLatch done = new CountDownLatch(1);
+      AtomicInteger errors = new AtomicInteger(0);
+      AtomicInteger totalMessages = new AtomicInteger(0);
+      long queueID = queue.getID();
+      databaseStorageManager.getDataManager().scheduleQuery(service, worker -> consumePendingMessages(worker, queueID, done, totalMessages, errors));
+      assertTrue(done.await(10, TimeUnit.SECONDS));
+      assertEquals(0, errors.get());
+      assertEquals(50, totalMessages.get());
+   }
+
+
+   private void consumePendingMessages(DataWorker worker, long queueID, CountDownLatch done, AtomicInteger totalMessages, AtomicInteger errors) {
+      try {
+         try (ResultSet resultSet = worker.pendingDeliveryQueryForUpdate.execute(queueID)) {
+            while (resultSet.next()) {
+               MessageData messageData = QueryUtil.readMessageData(resultSet, 1, 2);
+               logger.info("Data:: {}", messageData);
+               totalMessages.incrementAndGet();
+            }
+         }
+      } catch (Exception e) {
+         logger.warn(e.getMessage(), e);
+         errors.incrementAndGet();
+      } finally {
+         done.countDown();
+      }
+
    }
 
    @TestTemplate
@@ -545,7 +592,6 @@ public class ServerIntegrationTest extends AbstractStatementTest {
             session.commit();
 
             DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
-            SQLProvider sqlProvider = databaseProvider.getSqlProvider();
             validateNewDBTotalMessages(databaseProvider, numberOfMessages, numberOfMessages * 2);
 
             sub1.close();

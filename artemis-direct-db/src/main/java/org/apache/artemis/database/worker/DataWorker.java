@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.function.Consumer;
 
 import org.apache.artemis.database.DatabaseStoreTX;import org.apache.artemis.database.data.DBData;
+import org.apache.artemis.database.queries.MessagesPendingDeliverQueryForUpdate;
 import org.apache.artemis.database.statements.DeleteAddressStatement;
 import org.apache.artemis.database.statements.DeleteMessageStatement;
 import org.apache.artemis.database.statements.DeleteAllPageRefStatement;
@@ -41,7 +42,6 @@ import org.apache.artemis.database.statements.InsertGenericDataStatement;
 import org.apache.artemis.database.statements.UpdateGenericDataStatement;
 import org.apache.artemis.database.statements.DeleteGenericDataStatement;
 import org.apache.artemis.database.statements.InsertReferencesStatement;
-import org.apache.artemis.database.statements.BatchableStatement;
 import org.apache.artemis.database.DatabaseProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -81,6 +81,7 @@ public class DataWorker extends DataAgent {
    public InsertGenericDataStatement insertBindingsGenericDataStatement;
    public UpdateGenericDataStatement updateBindingsGenericDataStatement;
    public DeleteGenericDataStatement deleteBindingsGenericDataStatement;
+   public MessagesPendingDeliverQueryForUpdate pendingDeliveryQueryForUpdate;
    public ArrayList<DatabaseStoreTX> pendingTX;
    // To be called when the worker is done
    private final Consumer<DataWorker> onDone;
@@ -109,6 +110,8 @@ public class DataWorker extends DataAgent {
       insertBindingsGenericDataStatement = new InsertGenericDataStatement(databaseProvider, connection, batchSize, bindingsTable);
       updateBindingsGenericDataStatement = new UpdateGenericDataStatement(databaseProvider, connection, batchSize, bindingsTable);
       deleteBindingsGenericDataStatement = new DeleteGenericDataStatement(databaseProvider, connection, batchSize, bindingsTable);
+      pendingDeliveryQueryForUpdate = new MessagesPendingDeliverQueryForUpdate(databaseProvider, connection);
+      pendingDeliveryQueryForUpdate.prepare();
       pendingTX = new ArrayList<>();
    }
 

@@ -21,39 +21,39 @@ import java.lang.invoke.MethodHandles;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
-import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
 import org.apache.activemq.artemis.api.core.RoutingType;
 import org.apache.activemq.artemis.core.journal.IOCompletion;
 import org.apache.activemq.artemis.core.journal.StorageTX;
+import org.apache.activemq.artemis.core.server.ActiveMQScheduledComponent;
+import org.apache.artemis.database.DatabaseProvider;
 import org.apache.artemis.database.DatabaseStoreTX;
 import org.apache.artemis.database.data.AddressData;
 import org.apache.artemis.database.data.DBData;
-import org.apache.artemis.database.data.DeleteMessageData;
+import org.apache.artemis.database.data.DeleteAddressData;
 import org.apache.artemis.database.data.DeleteAllPageRefData;
+import org.apache.artemis.database.data.DeleteGenericData;
+import org.apache.artemis.database.data.DeleteMessageData;
 import org.apache.artemis.database.data.DeletePageData;
 import org.apache.artemis.database.data.DeletePageRefData;
-import org.apache.artemis.database.data.DeleteGenericData;
+import org.apache.artemis.database.data.DeleteQueueData;
 import org.apache.artemis.database.data.DeleteReferenceData;
 import org.apache.artemis.database.data.GenericData;
 import org.apache.artemis.database.data.MessageData;
 import org.apache.artemis.database.data.MessageReferenceData;
 import org.apache.artemis.database.data.PageData;
 import org.apache.artemis.database.data.PageRefData;
-import org.apache.artemis.database.data.DeleteAddressData;
-import org.apache.artemis.database.data.DeleteQueueData;
 import org.apache.artemis.database.data.QueueData;
+import org.apache.artemis.database.data.TXDone;
 import org.apache.artemis.database.data.UpdateGenericData;
 import org.apache.artemis.database.data.UpdateQueueData;
-import org.apache.artemis.database.data.TXDone;
-import org.apache.activemq.artemis.core.server.ActiveMQScheduledComponent;
-import org.apache.artemis.database.DatabaseProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,18 +66,25 @@ public class DataManager extends ActiveMQScheduledComponent {
    final Executor executorService;
 
    List<DataWorker> allWorkers;
-   LinkedBlockingDeque<DataWorker> workers;
+   ConcurrentLinkedQueue<DataWorker> workers;
+   final ConcurrentLinkedQueue<WorkerInterceptor> scheduledQueries = new ConcurrentLinkedQueue<>();
 
    final ArrayList<DBData> pendingData = new ArrayList<>();
 
-   public MessageReferenceData newReferenceTask(long messageID, long queueID, boolean pendingDelivery, Long txID, IOCompletion context) {
+   public MessageReferenceData newReferenceTask(long messageID,
+                                                long queueID,
+                                                boolean pendingDelivery,
+                                                Long txID,
+                                                IOCompletion context) {
       return new MessageReferenceData(messageID, queueID, pendingDelivery, txID, context);
    }
 
-   public MessageData newMessageTask(long messageID, Supplier<ActiveMQBuffer> messageBufferSupplier, Long txID, IOCompletion context) {
+   public MessageData newMessageTask(long messageID,
+                                     Supplier<ActiveMQBuffer> messageBufferSupplier,
+                                     Long txID,
+                                     IOCompletion context) {
       return new MessageData(messageID, messageBufferSupplier, txID, context);
    }
-
 
    public DataManager(ScheduledExecutorService scheduledExecutorService,
                       Executor executor,
@@ -89,9 +96,9 @@ public class DataManager extends ActiveMQScheduledComponent {
       super(scheduledExecutorService, executor, 0, flushTimeNanos, TimeUnit.NANOSECONDS, true);
 
       allWorkers = new ArrayList<>();
-      workers = new LinkedBlockingDeque<>(numberOfConnections);
+      workers = new ConcurrentLinkedQueue<>();
       for (int i = 0; i < numberOfConnections; i++) {
-         DataWorker worker =  new DataWorker(this::workerDone, databaseProvider, batchSize, "worker " + i);
+         DataWorker worker = new DataWorker(this::workerDone, databaseProvider, batchSize, "worker " + i);
          allWorkers.add(worker);
          workers.offer(worker);
       }
@@ -148,12 +155,18 @@ public class DataManager extends ActiveMQScheduledComponent {
       return (DatabaseStoreTX) storageTX;
    }
 
-
-   public void storeMessage(StorageTX storageTX, long messageID, Supplier<ActiveMQBuffer> messageBufferSupplier, Long tx, IOCompletion callback) {
+   public void storeMessage(StorageTX storageTX,
+                            long messageID,
+                            Supplier<ActiveMQBuffer> messageBufferSupplier,
+                            Long tx,
+                            IOCompletion callback) {
       castTX(storageTX).addData(new MessageData(messageID, messageBufferSupplier, tx, callback));
    }
 
-   public void storeMessage(long messageID, Supplier<ActiveMQBuffer> messageBufferSupplier, Long tx, IOCompletion callback) {
+   public void storeMessage(long messageID,
+                            Supplier<ActiveMQBuffer> messageBufferSupplier,
+                            Long tx,
+                            IOCompletion callback) {
       flushData(new MessageData(messageID, messageBufferSupplier, tx, callback));
    }
 
@@ -169,24 +182,35 @@ public class DataManager extends ActiveMQScheduledComponent {
       castTX(storageTX).addData(new DeleteReferenceData(queueID, messageID, callback));
    }
 
-   public void storeReference(StorageTX storageTX, long messageID, long queueID, boolean pendingDelivery, Long txID, IOCompletion callback) {
+   public void storeReference(StorageTX storageTX,
+                              long messageID,
+                              long queueID,
+                              boolean pendingDelivery,
+                              Long txID,
+                              IOCompletion callback) {
       castTX(storageTX).addData(new MessageReferenceData(messageID, queueID, pendingDelivery, txID, callback));
    }
 
-   public void storeQueue(StorageTX storageTX, long addressId, long id,
+   public void storeQueue(StorageTX storageTX,
+                          long addressId,
+                          long id,
                           String name,
                           String filter,
                           RoutingType routingType,
-                          String queueConfigJson, IOCompletion callback) {
+                          String queueConfigJson,
+                          IOCompletion callback) {
 
       castTX(storageTX).addData(new QueueData(addressId, id, name, filter, routingType == RoutingType.MULTICAST, routingType == RoutingType.ANYCAST, queueConfigJson, callback));
    }
 
-   public void updateQueue(StorageTX storageTX, long addressId, long id,
-                          String name,
-                          String filter,
-                          RoutingType routingType,
-                          String queueConfigJson, IOCompletion callback) {
+   public void updateQueue(StorageTX storageTX,
+                           long addressId,
+                           long id,
+                           String name,
+                           String filter,
+                           RoutingType routingType,
+                           String queueConfigJson,
+                           IOCompletion callback) {
       castTX(storageTX).addData(new UpdateQueueData(addressId, id, name, filter, routingType == RoutingType.MULTICAST, routingType == RoutingType.ANYCAST, queueConfigJson, callback));
    }
 
@@ -210,15 +234,33 @@ public class DataManager extends ActiveMQScheduledComponent {
       flushData(new DeleteAddressData(addressId, callback));
    }
 
-   public void storeAddressInfo(StorageTX storageTX, long id, String address, boolean isMulticast, boolean isAnycast, IOCompletion callback) {
+   public void storeAddressInfo(StorageTX storageTX,
+                                long id,
+                                String address,
+                                boolean isMulticast,
+                                boolean isAnycast,
+                                IOCompletion callback) {
       castTX(storageTX).addData(new AddressData(id, address, isMulticast, isAnycast, callback));
    }
 
-   public void storePage(StorageTX storageTX, long addressID, long pageID, long pageNR, long messageID, Supplier<ActiveMQBuffer> messageBufferSupplier, Long txID, IOCompletion callback) {
+   public void storePage(StorageTX storageTX,
+                         long addressID,
+                         long pageID,
+                         long pageNR,
+                         long messageID,
+                         Supplier<ActiveMQBuffer> messageBufferSupplier,
+                         Long txID,
+                         IOCompletion callback) {
       castTX(storageTX).addData(new PageData(addressID, pageID, pageNR, messageID, messageBufferSupplier, txID, callback));
    }
 
-   public void storePage(long addressID, long pageID, long pageNR, long messageID, Supplier<ActiveMQBuffer> messageBufferSupplier, Long txID, IOCompletion callback) {
+   public void storePage(long addressID,
+                         long pageID,
+                         long pageNR,
+                         long messageID,
+                         Supplier<ActiveMQBuffer> messageBufferSupplier,
+                         Long txID,
+                         IOCompletion callback) {
       flushData(new PageData(addressID, pageID, pageNR, messageID, messageBufferSupplier, txID, callback));
    }
 
@@ -226,7 +268,12 @@ public class DataManager extends ActiveMQScheduledComponent {
       flushData(new DeletePageData(addressID, pageID, callback));
    }
 
-   public void storePageRef(StorageTX storageTX, long addressID, long pageID, long pageNR, long queueID, IOCompletion callback) {
+   public void storePageRef(StorageTX storageTX,
+                            long addressID,
+                            long pageID,
+                            long pageNR,
+                            long queueID,
+                            IOCompletion callback) {
       castTX(storageTX).addData(new PageRefData(addressID, pageID, pageNR, queueID, callback));
    }
 
@@ -246,11 +293,20 @@ public class DataManager extends ActiveMQScheduledComponent {
       flushData(new DeleteAllPageRefData(addressID, pageID, callback));
    }
 
-   public void storeGenericData(long id, byte recordType, Long txId, Supplier<ActiveMQBuffer> dataSupplier, IOCompletion callback) {
+   public void storeGenericData(long id,
+                                byte recordType,
+                                Long txId,
+                                Supplier<ActiveMQBuffer> dataSupplier,
+                                IOCompletion callback) {
       flushData(new GenericData(id, recordType, txId, dataSupplier, callback));
    }
 
-   public void storeGenericData(StorageTX storageTX, long id, byte recordType, Long txId, Supplier<ActiveMQBuffer> dataSupplier, IOCompletion callback) {
+   public void storeGenericData(StorageTX storageTX,
+                                long id,
+                                byte recordType,
+                                Long txId,
+                                Supplier<ActiveMQBuffer> dataSupplier,
+                                IOCompletion callback) {
       castTX(storageTX).addData(new GenericData(id, recordType, txId, dataSupplier, callback));
    }
 
@@ -258,7 +314,11 @@ public class DataManager extends ActiveMQScheduledComponent {
       flushData(new UpdateGenericData(id, txId, dataSupplier, callback));
    }
 
-   public void updateGenericData(StorageTX storageTX, long id, Long txId, Supplier<ActiveMQBuffer> dataSupplier, IOCompletion callback) {
+   public void updateGenericData(StorageTX storageTX,
+                                 long id,
+                                 Long txId,
+                                 Supplier<ActiveMQBuffer> dataSupplier,
+                                 IOCompletion callback) {
       castTX(storageTX).addData(new UpdateGenericData(id, txId, dataSupplier, callback));
    }
 
@@ -270,19 +330,35 @@ public class DataManager extends ActiveMQScheduledComponent {
       castTX(storageTX).addData(new DeleteGenericData(id, callback));
    }
 
-   public void storeBindingsGenericData(long id, byte recordType, Long txId, Supplier<ActiveMQBuffer> dataSupplier, IOCompletion callback) {
+   public void storeBindingsGenericData(long id,
+                                        byte recordType,
+                                        Long txId,
+                                        Supplier<ActiveMQBuffer> dataSupplier,
+                                        IOCompletion callback) {
       flushData(new GenericData(id, recordType, txId, dataSupplier, true, callback));
    }
 
-   public void storeBindingsGenericData(StorageTX storageTX, long id, byte recordType, Long txId, Supplier<ActiveMQBuffer> dataSupplier, IOCompletion callback) {
+   public void storeBindingsGenericData(StorageTX storageTX,
+                                        long id,
+                                        byte recordType,
+                                        Long txId,
+                                        Supplier<ActiveMQBuffer> dataSupplier,
+                                        IOCompletion callback) {
       castTX(storageTX).addData(new GenericData(id, recordType, txId, dataSupplier, true, callback));
    }
 
-   public void updateBindingsGenericData(long id, Long txId, Supplier<ActiveMQBuffer> dataSupplier, IOCompletion callback) {
+   public void updateBindingsGenericData(long id,
+                                         Long txId,
+                                         Supplier<ActiveMQBuffer> dataSupplier,
+                                         IOCompletion callback) {
       flushData(new UpdateGenericData(id, txId, dataSupplier, true, callback));
    }
 
-   public void updateBindingsGenericData(StorageTX storageTX, long id, Long txId, Supplier<ActiveMQBuffer> dataSupplier, IOCompletion callback) {
+   public void updateBindingsGenericData(StorageTX storageTX,
+                                         long id,
+                                         Long txId,
+                                         Supplier<ActiveMQBuffer> dataSupplier,
+                                         IOCompletion callback) {
       castTX(storageTX).addData(new UpdateGenericData(id, txId, dataSupplier, true, callback));
    }
 
@@ -297,6 +373,9 @@ public class DataManager extends ActiveMQScheduledComponent {
    private List<DBData> extractTaskList() {
       ArrayList<DBData> tasksToRun;
       synchronized (pendingData) {
+         if (pendingData.isEmpty()) {
+            return null;
+         }
          tasksToRun = new ArrayList<>(pendingData);
          pendingData.clear();
       }
@@ -309,8 +388,6 @@ public class DataManager extends ActiveMQScheduledComponent {
          flush();
       } catch (Throwable e) {
          logger.warn(e.getMessage(), e);
-      } finally {
-
       }
    }
 
@@ -326,9 +403,67 @@ public class DataManager extends ActiveMQScheduledComponent {
       }
 
       List<DBData> dataList = extractTaskList();
-      logger.info("Extracted dataList with {} elements", dataList.size());
-      worker.setTaskList(dataList);
+      if (dataList != null && !dataList.isEmpty()) {
+         logger.info("Extracted dataList with {} elements", dataList.size());
+         worker.setTaskList(dataList);
+         executorService.execute(worker);
+      } else {
+         workerDone(worker);
+      }
 
-      executorService.execute(worker);
+      WorkerInterceptor workerInterceptor;
+      while ((workerInterceptor = scheduledQueries.poll()) != null) {
+         if (!dispatchQuery(workerInterceptor)) {
+            return;
+         }
+      }
    }
+
+   public void scheduleQuery(Executor targetExecutor, Consumer<DataWorker> consumer) {
+      dispatchQuery(new WorkerInterceptor(targetExecutor, consumer));
+   }
+
+   private boolean dispatchQuery(WorkerInterceptor workerInterceptor) {
+      DataWorker worker = workers.poll();
+      if (worker != null) {
+         workerInterceptor.setWorker(worker);
+         workerInterceptor.getExecutor().execute(workerInterceptor);
+         return true;
+      } else {
+         scheduledQueries.offer(workerInterceptor);
+         delay();
+         return false;
+      }
+   }
+
+   private class WorkerInterceptor implements Runnable {
+
+      final Consumer<DataWorker> consumer;
+      final Executor executor;
+      DataWorker worker;
+
+      public Executor getExecutor() {
+         return executor;
+      }
+
+      public WorkerInterceptor setWorker(DataWorker worker) {
+         this.worker = worker;
+         return this;
+      }
+
+      WorkerInterceptor(Executor executor, Consumer<DataWorker> consumer) {
+         this.consumer = consumer;
+         this.executor = executor;
+      }
+
+      @Override
+      public void run() {
+         try {
+            consumer.accept(worker);
+         } finally {
+            workerDone(worker);
+         }
+      }
+   }
+
 }

@@ -48,7 +48,6 @@ public abstract class BatchableStatement<E> {
    public BatchableStatement(DatabaseProvider connectionProvider, Connection connection, String statement, int expectedSize) throws SQLException {
       this.connectionProvider = connectionProvider;
       this.connection = connection;
-      this.connection.prepareStatement(statement);
       this.pendingList = new ArrayList<>(expectedSize);
       this.callbacks = new ArrayList<>(expectedSize);
       this.statement = statement;
