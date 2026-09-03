@@ -125,9 +125,8 @@ public abstract class SQLProvider {
       return String.format("DELETE FROM %s WHERE QUEUE_ID=?", tableName);
    }
 
-   // returning only the messages that have at least one PENDING_DELIVERY = "N"
    public String reloadMessages(String messagesTable, String referencesTable) {
-      return String.format("SELECT a.MESSAGE_ID, a.MESSAGE_RECORD FROM %s a WHERE a.MESSAGE_ID IN (SELECT b.MESSAGE_ID FROM %s b WHERE a.MESSAGE_ID = b.MESSAGE_ID and b.PENDING_DELIVERY='N') ORDER BY MESSAGE_ID", messagesTable, referencesTable);
+      return String.format("SELECT a.MESSAGE_ID, a.MESSAGE_RECORD FROM %s a WHERE EXISTS (SELECT 1 FROM %s b WHERE b.MESSAGE_ID = a.MESSAGE_ID AND b.PENDING_DELIVERY='N') ORDER BY a.MESSAGE_ID", messagesTable, referencesTable);
    }
 
    // returning only the messages that have at least one PENDING_DELIVERY = "N"
@@ -136,7 +135,7 @@ public abstract class SQLProvider {
    }
 
    public String deliverPendingMessages(String messagesTable, String referencesTable) {
-      return String.format("SELECT a.MESSAGE_ID MESSAGE_ID, a.MESSAGE_RECORD MESSAGE_RECORD, b.PENDING_DELIVERY PENDING_DELIVERY FROM %s a, %s b WHERE a.MESSAGE_ID = b.MESSAGE_ID AND b.QUEUE_ID=? AND b.PENDING_DELIVERY='N' ORDER BY a.MESSAGE_ID", messagesTable, referencesTable);
+      return String.format("SELECT a.MESSAGE_ID MESSAGE_ID, a.MESSAGE_RECORD MESSAGE_RECORD, b.PENDING_DELIVERY PENDING_DELIVERY FROM %s a, %s b WHERE a.MESSAGE_ID = b.MESSAGE_ID AND b.QUEUE_ID=? AND b.PENDING_DELIVERY='Y' ORDER BY a.MESSAGE_ID", messagesTable, referencesTable);
    }
 
    public String updatePendingDelivery(String tableName) {

@@ -908,13 +908,12 @@ public class DatabaseStorageManager extends AbstractStorageManager {
       Map<Long, Message> loadedMessages = new HashMap<>();
       try (Connection connection = this.databaseProvider.getConnection()) {
          MessagesJDBCQuery query = new MessagesJDBCQuery(databaseProvider, connection);
+         logger.info("Querying messages");
          query.query(data -> {
             loadedMessages.put(data.messageID, decodeMessage(data));
          });
-         query.queryOrphaned(data -> {
-            loadedMessages.put(data.messageID, decodeMessage(data));
-         });
 
+         logger.info("Querying references");
          ReferencesJDBCQuery referencesQuery = new ReferencesJDBCQuery(databaseProvider, connection);
          referencesQuery.query(d -> {
             Message message = loadedMessages.get(d.messageID);
@@ -928,7 +927,14 @@ public class DatabaseStorageManager extends AbstractStorageManager {
             }
          });
 
-         journalLoader.handleNoMessageReferences(loadedMessages);
+         logger.info("Querying orphaned messages");
+         Map<Long, Message> orphanedMessages = new HashMap<>();
+         query.queryOrphaned(data -> {
+            orphanedMessages.put(data.messageID, decodeMessage(data));
+         });
+
+         logger.info("Handling orphaned messages");
+         journalLoader.handleNoMessageReferences(orphanedMessages);
 
          GenericDataJDBCQuery genericQuery = new GenericDataJDBCQuery(databaseProvider, connection);
          genericQuery.query(data -> {

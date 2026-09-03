@@ -260,6 +260,8 @@ public class MessagesStatementTest extends AbstractStatementTest {
 
       assertTrue(context.waitCompletion(5000));
 
+      validateNewDBTotalMessages(databaseProvider, nrecords, nrecords);
+
       MessagesPendingDeliverQueryForUpdate pendingDeliveryLoad = new MessagesPendingDeliverQueryForUpdate(databaseProvider, connection);
       pendingDeliveryLoad.prepare();
 
@@ -272,6 +274,7 @@ public class MessagesStatementTest extends AbstractStatementTest {
       }
       pendingDeliveryLoad.flush();
       connection.commit();
+      assertEquals(nrecords, count.get());
 
 
       count.set(0);

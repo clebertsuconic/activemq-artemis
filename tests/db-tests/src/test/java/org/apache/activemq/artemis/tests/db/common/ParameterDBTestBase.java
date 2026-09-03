@@ -32,11 +32,13 @@ import org.apache.activemq.artemis.tests.extensions.parameterized.Parameter;
 import org.apache.activemq.artemis.tests.extensions.parameterized.ParameterizedTestExtension;
 import org.apache.activemq.artemis.utils.Wait;
 import org.apache.activemq.artemis.utils.RealServerTestBase;
+import org.apache.artemis.database.DatabaseProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @ExtendWith(ParameterizedTestExtension.class)
 public abstract class ParameterDBTestBase extends RealServerTestBase {
@@ -230,6 +232,15 @@ public abstract class ParameterDBTestBase extends RealServerTestBase {
       dbStorageConfiguration.setJdbcNetworkTimeout(-1);
       dbStorageConfiguration.setJdbcAllowedTimeDiff(250L);
       return dbStorageConfiguration;
+   }
+
+   protected static void validateNewDBTotalMessages(DatabaseProvider databaseProvider,
+                                                    int expectedMessages,
+                                                    int expectedReferences) throws Exception {
+      try (Connection sqlconnection = databaseProvider.getConnection()) {
+         assertEquals(expectedMessages, selectCount(sqlconnection, databaseProvider.getSqlProvider().getMessages()));
+         assertEquals(expectedReferences, selectCount(sqlconnection, databaseProvider.getSqlProvider().getRefs()));
+      }
    }
 
 

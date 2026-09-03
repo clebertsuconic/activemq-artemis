@@ -508,24 +508,15 @@ public class ServerIntegrationTest extends AbstractStatementTest {
                }
                assertTrue(loggerHandler.findText("AMQ222038"));
                DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
-               validateTotalMessages(databaseProvider, nMessages, nMessages);
+               validateNewDBTotalMessages(databaseProvider, nMessages, nMessages);
             }
          }
       }
 
       server.stop();
-      validateTotalMessages(storageConfiguration.getDatabaseProvider(), nMessages, nMessages);
+      validateNewDBTotalMessages(storageConfiguration.getDatabaseProvider(), nMessages, nMessages);
       server.start();
-      validateTotalMessages(storageConfiguration.getDatabaseProvider(), nMessages, nMessages);
-   }
-
-   private static void validateTotalMessages(DatabaseProvider databaseProvider,
-                                             int expectedMessages,
-                                             int expectedReferences) throws Exception {
-      try (Connection sqlconnection = databaseProvider.getConnection()) {
-         assertEquals(expectedMessages, selectCount(sqlconnection, databaseProvider.getSqlProvider().getMessages()));
-         assertEquals(expectedReferences, selectCount(sqlconnection, databaseProvider.getSqlProvider().getRefs()));
-      }
+      validateNewDBTotalMessages(storageConfiguration.getDatabaseProvider(), nMessages, nMessages);
    }
 
    @TestTemplate
@@ -555,7 +546,7 @@ public class ServerIntegrationTest extends AbstractStatementTest {
 
             DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
             SQLProvider sqlProvider = databaseProvider.getSqlProvider();
-            validateTotalMessages(databaseProvider, numberOfMessages, numberOfMessages * 2);
+            validateNewDBTotalMessages(databaseProvider, numberOfMessages, numberOfMessages * 2);
 
             sub1.close();
             sub2.close();

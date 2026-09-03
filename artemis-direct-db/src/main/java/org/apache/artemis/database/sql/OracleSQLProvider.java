@@ -26,7 +26,7 @@ public class OracleSQLProvider extends SQLProvider {
 
    @Override
    public String createReferences(String tableName) {
-      return String.format("CREATE TABLE %s(MESSAGE_ID NUMBER(19), QUEUE_ID NUMBER(19), PENDING_DELIVERY CHAR NOT NULL, TX_ID NUMBER(19), PRIMARY KEY (QUEUE_ID, MESSAGE_ID))", tableName);
+      return String.format("CREATE TABLE %s(MESSAGE_ID NUMBER(19), QUEUE_ID NUMBER(19), PENDING_DELIVERY CHAR NOT NULL, TX_ID NUMBER(19), PRIMARY KEY (MESSAGE_ID, QUEUE_ID))", tableName);
    }
 
    @Override

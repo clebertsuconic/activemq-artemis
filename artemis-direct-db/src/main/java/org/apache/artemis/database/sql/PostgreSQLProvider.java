@@ -26,7 +26,7 @@ public class PostgreSQLProvider extends SQLProvider {
 
    @Override
    public String createReferences(String tableName) {
-      return String.format("CREATE TABLE IF NOT EXISTS %s(MESSAGE_ID BIGINT NOT NULL, QUEUE_ID BIGINT NOT NULL, PENDING_DELIVERY CHAR NOT NULL, TX_ID BIGINT, PRIMARY KEY (QUEUE_ID, MESSAGE_ID))", tableName);
+      return String.format("CREATE TABLE IF NOT EXISTS %s(MESSAGE_ID BIGINT NOT NULL, QUEUE_ID BIGINT NOT NULL, PENDING_DELIVERY CHAR NOT NULL, TX_ID BIGINT, PRIMARY KEY (MESSAGE_ID, QUEUE_ID))", tableName);
    }
 
    @Override
