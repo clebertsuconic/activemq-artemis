@@ -65,11 +65,12 @@ public class DataManager extends ActiveMQScheduledComponent {
    final DatabaseProvider databaseProvider;
    final int batchSize;
    final IntSupplier maxRetriesSupplier;
+   final Consumer<Throwable> criticalErrorListener;
    final Executor executorService;
 
    List<DataWorker> allWorkers;
    ConcurrentLinkedQueue<DataWorker> workers;
-   final ConcurrentLinkedQueue<WorkerInterceptor> scheduledQueries = new ConcurrentLinkedQueue<>();
+   final ConcurrentLinkedQueue<QueryInterceptor> scheduledQueries = new ConcurrentLinkedQueue<>();
 
    final ArrayList<DBData> pendingData = new ArrayList<>();
 
@@ -95,10 +96,12 @@ public class DataManager extends ActiveMQScheduledComponent {
                       DatabaseProvider databaseProvider,
                       int batchSize,
                       int numberOfConnections,
-                      IntSupplier maxRetriesSupplier) throws SQLException {
+                      IntSupplier maxRetriesSupplier,
+                      Consumer<Throwable> criticalErrorListener) throws SQLException {
       super(scheduledExecutorService, executor, 0, flushTimeNanos, TimeUnit.NANOSECONDS, true);
 
       this.maxRetriesSupplier = maxRetriesSupplier;
+      this.criticalErrorListener = criticalErrorListener;
       allWorkers = new ArrayList<>();
       workers = new ConcurrentLinkedQueue<>();
       for (int i = 0; i < numberOfConnections; i++) {
@@ -126,6 +129,10 @@ public class DataManager extends ActiveMQScheduledComponent {
 
    public int getMaxRetries() {
       return maxRetriesSupplier.getAsInt();
+   }
+
+   public void criticalError(Throwable error) {
+      criticalErrorListener.accept(error);
    }
 
    public void storeTX(StorageTX storageTX) {
@@ -417,19 +424,19 @@ public class DataManager extends ActiveMQScheduledComponent {
          workerDone(worker);
       }
 
-      WorkerInterceptor workerInterceptor;
-      while ((workerInterceptor = scheduledQueries.poll()) != null) {
-         if (!dispatchQuery(workerInterceptor)) {
+      QueryInterceptor queryInterceptor;
+      while ((queryInterceptor = scheduledQueries.poll()) != null) {
+         if (!dispatchQuery(queryInterceptor)) {
             return;
          }
       }
    }
 
-   public void scheduleQuery(Executor targetExecutor, Consumer<DataWorker> consumer) {
-      dispatchQuery(new WorkerInterceptor(targetExecutor, consumer));
+   public void executeQuery(Executor targetExecutor, SQLConsumer<DataWorker> consumer, Runnable afterCommit) {
+      dispatchQuery(new QueryInterceptor(targetExecutor, consumer, afterCommit));
    }
 
-   private boolean dispatchQuery(WorkerInterceptor workerInterceptor) {
+   private boolean dispatchQuery(QueryInterceptor workerInterceptor) {
       DataWorker worker = workers.poll();
       if (worker != null) {
          workerInterceptor.setWorker(worker);
@@ -442,30 +449,45 @@ public class DataManager extends ActiveMQScheduledComponent {
       }
    }
 
-   private class WorkerInterceptor implements Runnable {
+   private class QueryInterceptor implements Runnable {
 
-      final Consumer<DataWorker> consumer;
+      final SQLConsumer<DataWorker> consumer;
       final Executor executor;
+      final Runnable afterCommit;
       DataWorker worker;
 
       public Executor getExecutor() {
          return executor;
       }
 
-      public WorkerInterceptor setWorker(DataWorker worker) {
+      public QueryInterceptor setWorker(DataWorker worker) {
          this.worker = worker;
          return this;
       }
 
-      WorkerInterceptor(Executor executor, Consumer<DataWorker> consumer) {
+      QueryInterceptor(Executor executor, SQLConsumer<DataWorker> consumer, Runnable afterCommit) {
          this.consumer = consumer;
          this.executor = executor;
+         this.afterCommit = afterCommit;
       }
 
       @Override
       public void run() {
          try {
-            consumer.accept(worker);
+            SQLException retryException = worker.executeWithRetry(consumer);
+            if (retryException != null) {
+               criticalError(retryException);
+               return;
+            }
+            if (afterCommit != null) {
+               try {
+                  worker.connection.commit();
+               } catch (SQLException e) {
+                  criticalError(e);
+                  return;
+               }
+               afterCommit.run();
+            }
          } finally {
             workerDone(worker);
          }

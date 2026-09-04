@@ -125,44 +125,55 @@ public class DataWorker implements Runnable {
       this.dataList = dataList;
    }
 
+   SQLException executeWithRetry(SQLConsumer<DataWorker> action) {
+      SQLException lastException = null;
+      for (int retryI = 0; retryI < dataManager.getMaxRetries(); retryI++) {
+         try {
+            if (retryI > 0) {
+               logger.info("Retrying SQL Action after a a SQL Exception", lastException);
+               connect();
+            }
+            action.accept(this);
+            return null;
+         } catch (SQLException e) {
+            logger.warn(e.getMessage(), e);
+            lastException = e;
+            disconnect(e);
+         }
+      }
+      return new SQLException("Failed after " + dataManager.getMaxRetries() + " retries", lastException);
+   }
+
    @Override
    public void run() {
-      int success = 0;
-      SQLException lastException = null;
       try {
-         for (int retryI = 0; retryI < dataManager.getMaxRetries() && success == 0; retryI++) {
-            try {
-               doBeforeCommit();
-               success++;
-            } catch (SQLException e) {
-               lastException = e;
-               logger.warn("Retrying Connection:: {}", e.getMessage(), e);
-               try {
-                  connection.rollback();
-                  connection.close();
-               } catch (Throwable ignored) {
-               }
-
-               try {
-                  connect();
-               } catch (SQLException connectingException) {
-                  // TODO: criticalError
-                  logger.warn(e.getMessage(), e);
-               }
-            }
-         }
-         if (success > 0) {
+         SQLException retryException = executeWithRetry(w -> doBeforeCommit());
+         if (retryException == null) {
+            // the commit could fail on the way back from the database after the data was already written,
+            // so we cannot safely retry here. A failure at this point triggers a critical error.
             connection.commit();
             doAfterCommit();
          } else {
-            doError(lastException);
+            doError(retryException);
+            dataManager.criticalError(retryException);
          }
       } catch (Exception e) {
-         // @Claude what's the best way to wrie the critical error here?
-         // TODO Critical IO Error...
-         logger.warn(e.getMessage(), e);
+         dataManager.criticalError(e);
       } finally {
          doCleanup();
+      }
+   }
+
+   protected void disconnect(SQLException e) {
+      logger.warn("Retrying Connection:: {}", e.getMessage(), e);
+      try {
+         connection.rollback();
+      } catch (Throwable ignored) {
+      }
+
+      try {
+         connection.close();
+      } catch (Throwable ignored) {
       }
    }
 

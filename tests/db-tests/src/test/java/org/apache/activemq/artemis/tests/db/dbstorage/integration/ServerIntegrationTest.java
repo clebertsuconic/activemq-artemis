@@ -541,7 +541,7 @@ public class ServerIntegrationTest extends AbstractStatementTest {
       AtomicInteger errors = new AtomicInteger(0);
       AtomicInteger totalMessages = new AtomicInteger(0);
       long queueID = queue.getID();
-      databaseStorageManager.getDataManager().scheduleQuery(service, worker -> consumePendingMessages(worker, queueID, done, totalMessages, errors));
+      databaseStorageManager.getDataManager().executeQuery(service, worker -> consumePendingMessages(worker, queueID, done, totalMessages, errors), null);
       assertTrue(done.await(10, TimeUnit.SECONDS));
       assertEquals(0, errors.get());
       assertEquals(50, totalMessages.get());
