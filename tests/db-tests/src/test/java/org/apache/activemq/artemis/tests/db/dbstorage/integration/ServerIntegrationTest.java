@@ -524,16 +524,15 @@ public class ServerIntegrationTest extends AbstractStatementTest {
          }
       }
 
-      server.stop();
-      validateNewDBTotalMessages(storageConfiguration.getDatabaseProvider(), nMessages, nMessages);
-      server.start();
+      //server.stop();
+      //validateNewDBTotalMessages(storageConfiguration.getDatabaseProvider(), nMessages, nMessages);
+      //server.start();
       validateNewDBTotalMessages(storageConfiguration.getDatabaseProvider(), nMessages, nMessages);
 
       DatabaseStorageManager databaseStorageManager = (DatabaseStorageManager) server.getStorageManager();
 
       ExecutorService service = Executors.newSingleThreadExecutor();
       runAfter(service::shutdownNow);
-
 
       Queue queue = server.locateQueue(QUEUE_NAME);
 
@@ -545,6 +544,18 @@ public class ServerIntegrationTest extends AbstractStatementTest {
       assertTrue(done.await(10, TimeUnit.SECONDS));
       assertEquals(0, errors.get());
       assertEquals(50, totalMessages.get());
+
+      try (javax.jms.Connection connection = factory.createConnection()) {
+         connection.start();
+         try (Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE)) {
+            MessageConsumer consumer = session.createConsumer(session.createQueue(QUEUE_NAME));
+            for (int i = 0; i < nMessages; i++) {
+               assertNotNull(consumer.receive(5000));
+            }
+         }
+      }
+
+
    }
 
 

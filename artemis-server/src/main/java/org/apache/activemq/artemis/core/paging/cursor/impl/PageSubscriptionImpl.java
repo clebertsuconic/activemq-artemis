@@ -52,6 +52,9 @@ import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.server.ActiveMQServerLogger;
 import org.apache.activemq.artemis.core.server.MessageReference;
 import org.apache.activemq.artemis.core.server.Queue;
+import org.apache.activemq.artemis.core.server.StorageMessageReader;
+import org.apache.activemq.artemis.core.server.impl.PageStorageMessageReader;
+import org.apache.activemq.artemis.core.server.impl.QueueImpl;
 import org.apache.activemq.artemis.core.transaction.Transaction;
 import org.apache.activemq.artemis.core.transaction.TransactionOperationAbstract;
 import org.apache.activemq.artemis.core.transaction.TransactionPropertyIndexes;
@@ -393,6 +396,11 @@ public final class PageSubscriptionImpl implements PageSubscription {
    @Override
    public PageIterator iterator(boolean browsing) {
       return new CursorIterator(browsing);
+   }
+
+   @Override
+   public StorageMessageReader createStorageMessageReader(QueueImpl queue) {
+      return new PageStorageMessageReader(queue);
    }
 
    private boolean routed(PagedMessage message) {
