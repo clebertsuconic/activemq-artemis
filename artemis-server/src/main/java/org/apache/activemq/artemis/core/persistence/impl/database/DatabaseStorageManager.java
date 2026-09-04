@@ -45,6 +45,7 @@ import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.config.Configuration;
 import org.apache.activemq.artemis.core.config.DivertConfiguration;
 import org.apache.activemq.artemis.core.config.storage.DatabaseStorageConfiguration;
+import org.apache.activemq.artemis.core.io.IOCriticalErrorListener;
 import org.apache.activemq.artemis.core.io.SequentialFile;
 import org.apache.activemq.artemis.core.journal.EncodingSupport;
 import org.apache.activemq.artemis.core.journal.IOCompletion;
@@ -169,8 +170,9 @@ public class DatabaseStorageManager extends AbstractStorageManager {
                                  ExecutorFactory executorFactory,
                                  ExecutorFactory ioExecutorFactory,
                                  ScheduledExecutorService scheduledExecutorService,
-                                 Executor executorService) {
-      super(analyzer, 1, executorFactory, scheduledExecutorService, ioExecutorFactory);
+                                 Executor executorService,
+                                 IOCriticalErrorListener ioCriticalErrorListener) {
+      super(analyzer, 1, executorFactory, scheduledExecutorService, ioExecutorFactory, ioCriticalErrorListener);
       this.configuration = configuration;
       this.executorService = executorService;
       this.idGenerator = new BatchingIDGenerator(0, Integer.MAX_VALUE, this);
@@ -225,7 +227,7 @@ public class DatabaseStorageManager extends AbstractStorageManager {
       databaseProvider.createSchema();
 
       logger.info("Timeout:: {}", databaseConfiguration.getDatabaseFlushPeriodNanos());
-      dataManager = new DataManager(scheduledExecutorService, executorFactory.getExecutor(), executorService, databaseConfiguration.getDatabaseFlushPeriodNanos(), databaseProvider, batchSize, databaseConfiguration.getDatabaseConnections(), databaseConfiguration::getDatabaseMaxRetries, this::criticalError);
+      dataManager = new DataManager(scheduledExecutorService, executorFactory.getExecutor(), executorService, databaseConfiguration.getDatabaseFlushPeriodNanos(), databaseProvider, batchSize, databaseConfiguration.getDatabaseConnections(), databaseConfiguration::getDatabaseMaxRetries, databaseConfiguration::getDatabaseRetryIntervalMillis, this::criticalError);
       dataManager.start();
 
    }

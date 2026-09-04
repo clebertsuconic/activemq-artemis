@@ -23,6 +23,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.artemis.database.ActiveMQDatabaseLogger;
 import org.apache.artemis.database.DatabaseStoreTX;
 import org.apache.artemis.database.data.DBData;
 import org.apache.artemis.database.queries.MessagesPendingDeliverQueryForUpdate;
@@ -126,16 +127,23 @@ public class DataWorker implements Runnable {
    }
 
    SQLException executeWithRetry(SQLConsumer<DataWorker> action) {
-      SQLException lastException = null;
+      Throwable lastException = null;
       for (int retryI = 0; retryI < dataManager.getMaxRetries(); retryI++) {
          try {
             if (retryI > 0) {
-               logger.info("Retrying SQL Action after a a SQL Exception", lastException);
+               long interval = dataManager.getRetryIntervalMillis();
+               ActiveMQDatabaseLogger.LOGGER.retrySQLAction(retryI + 1, dataManager.getMaxRetries(), interval, lastException.getMessage(), lastException);
+               if (interval > 0) {
+                  Thread.sleep(interval);
+               }
                connect();
             }
             action.accept(this);
             return null;
-         } catch (SQLException e) {
+         } catch (Throwable e) { // Some JDBC drivers throw non-SQLException (e.g. NPE) when the connection drops mid-operation
+            if (e instanceof InterruptedException) {
+               return new SQLException(e.getMessage(), e);
+            }
             logger.warn(e.getMessage(), e);
             lastException = e;
             disconnect(e);
@@ -158,13 +166,14 @@ public class DataWorker implements Runnable {
             dataManager.criticalError(retryException);
          }
       } catch (Exception e) {
+         logger.warn(e.getMessage(), e);
          dataManager.criticalError(e);
       } finally {
          doCleanup();
       }
    }
 
-   protected void disconnect(SQLException e) {
+   protected void disconnect(Throwable e) {
       logger.warn("Retrying Connection:: {}", e.getMessage(), e);
       try {
          connection.rollback();

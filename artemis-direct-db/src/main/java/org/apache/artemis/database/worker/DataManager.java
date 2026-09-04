@@ -27,6 +27,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.IntSupplier;
+import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
 import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
@@ -65,6 +66,7 @@ public class DataManager extends ActiveMQScheduledComponent {
    final DatabaseProvider databaseProvider;
    final int batchSize;
    final IntSupplier maxRetriesSupplier;
+   final LongSupplier retryIntervalMillisSupplier;
    final Consumer<Throwable> criticalErrorListener;
    final Executor executorService;
 
@@ -97,10 +99,12 @@ public class DataManager extends ActiveMQScheduledComponent {
                       int batchSize,
                       int numberOfConnections,
                       IntSupplier maxRetriesSupplier,
+                      LongSupplier retryIntervalMillisSupplier,
                       Consumer<Throwable> criticalErrorListener) throws SQLException {
       super(scheduledExecutorService, executor, 0, flushTimeNanos, TimeUnit.NANOSECONDS, true);
 
       this.maxRetriesSupplier = maxRetriesSupplier;
+      this.retryIntervalMillisSupplier = retryIntervalMillisSupplier;
       this.criticalErrorListener = criticalErrorListener;
       allWorkers = new ArrayList<>();
       workers = new ConcurrentLinkedQueue<>();
@@ -129,6 +133,10 @@ public class DataManager extends ActiveMQScheduledComponent {
 
    public int getMaxRetries() {
       return maxRetriesSupplier.getAsInt();
+   }
+
+   public long getRetryIntervalMillis() {
+      return retryIntervalMillisSupplier.getAsLong();
    }
 
    public void criticalError(Throwable error) {

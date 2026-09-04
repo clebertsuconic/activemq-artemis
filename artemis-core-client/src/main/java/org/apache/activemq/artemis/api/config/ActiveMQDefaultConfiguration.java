@@ -506,6 +506,8 @@ public final class ActiveMQDefaultConfiguration {
 
    private static final int DEFAULT_DATABASE_MAX_RETRIES = 5;
 
+   private static final long DEFAULT_DATABASE_RETRY_INTERVAL_MILLIS = 5000;
+
    private static final long DEFAULT_DATABASE_FLUSH_PERIOD_NANOS = (long) (1000000000d / 300);
 
    // Default period to wait between connection TTL checks
@@ -1638,6 +1640,10 @@ public final class ActiveMQDefaultConfiguration {
 
    public static int getDefaultDatabaseMaxRetries() {
       return DEFAULT_DATABASE_MAX_RETRIES;
+   }
+
+   public static long getDefaultDatabaseRetryIntervalMillis() {
+      return DEFAULT_DATABASE_RETRY_INTERVAL_MILLIS;
    }
 
    public static long getDefaultDatabaseFlushPeriodNanos() {

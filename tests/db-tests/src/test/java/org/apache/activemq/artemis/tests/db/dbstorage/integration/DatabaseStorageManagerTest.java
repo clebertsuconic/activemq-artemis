@@ -45,7 +45,8 @@ public class DatabaseStorageManagerTest extends AbstractStatementTest {
                                                                                  criticalAnalyzer,
                                                                                  executorFactory,
                                                                                  executorFactory,
-                                                                                 scheduledExecutorService, executorFactory.getExecutor());
+                                                                                 scheduledExecutorService, executorFactory.getExecutor(),
+                                                                                 null);
       databaseStorageManager.start();
 
       CoreMessage message = new CoreMessage().initBuffer(10 * 1024).setDurable(true);
@@ -80,7 +81,8 @@ public class DatabaseStorageManagerTest extends AbstractStatementTest {
                                                                                  executorFactory,
                                                                                  executorFactory,
                                                                                  scheduledExecutorService,
-                                                                                 executorFactory.getExecutor());
+                                                                                 executorFactory.getExecutor(),
+                                                                                 null);
       databaseStorageManager.start();
 
       DatabaseProvider databaseStorageProvider = storageConfiguration.getDatabaseProvider();
@@ -108,7 +110,8 @@ public class DatabaseStorageManagerTest extends AbstractStatementTest {
                                                                                  executorFactory,
                                                                                  executorFactory,
                                                                                  scheduledExecutorService,
-                                                                                 executorFactory.getExecutor());
+                                                                                 executorFactory.getExecutor(),
+                                                                                 null);
       databaseStorageManager.start();
 
       DatabaseProvider databaseStorageProvider = storageConfiguration.getDatabaseProvider();

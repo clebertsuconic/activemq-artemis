@@ -45,7 +45,7 @@ public class AddressInfoTest extends AbstractStatementTest {
 
    @TestTemplate
    public void testAddressInfoDirectly() throws Exception {
-      DatabaseStorageManager databaseStorageManager = new DatabaseStorageManager(configuration, criticalAnalyzer, executorFactory, executorFactory, scheduledExecutorService, executorService);
+      DatabaseStorageManager databaseStorageManager = new DatabaseStorageManager(configuration, criticalAnalyzer, executorFactory, executorFactory, scheduledExecutorService, executorService, null);
       databaseStorageManager.start();
 
       JDBCConnectionProvider connectionProvider = storageConfiguration.getConnectionProvider();

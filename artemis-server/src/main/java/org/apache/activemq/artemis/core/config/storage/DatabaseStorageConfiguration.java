@@ -79,6 +79,8 @@ public class DatabaseStorageConfiguration implements StoreConfiguration {
 
    private int databaseMaxRetries = ActiveMQDefaultConfiguration.getDefaultDatabaseMaxRetries();
 
+   private long databaseRetryIntervalMillis = ActiveMQDefaultConfiguration.getDefaultDatabaseRetryIntervalMillis();
+
    private long databaseFlushPeriodNanos = ActiveMQDefaultConfiguration.getDefaultDatabaseFlushPeriodNanos();
 
    private StoreType storeType = StoreType.DATABASE;
@@ -193,6 +195,15 @@ public class DatabaseStorageConfiguration implements StoreConfiguration {
 
    public DatabaseStorageConfiguration setDatabaseMaxRetries(int databaseMaxRetries) {
       this.databaseMaxRetries = databaseMaxRetries;
+      return this;
+   }
+
+   public long getDatabaseRetryIntervalMillis() {
+      return databaseRetryIntervalMillis;
+   }
+
+   public DatabaseStorageConfiguration setDatabaseRetryIntervalMillis(long databaseRetryIntervalMillis) {
+      this.databaseRetryIntervalMillis = databaseRetryIntervalMillis;
       return this;
    }
 

@@ -30,4 +30,7 @@ public interface ActiveMQDatabaseLogger {
 
    @LogMessage(id = 232000, value = "Queue {} (id={}) on table {} does not have the json configuration. Reconstructing the object individually from the fields.", level = LogMessage.Level.WARN)
    void queueMissingJsonConfig(String queueName, long queueId, String tableName);
+
+   @LogMessage(id = 232001, value = "Retrying SQL action (attempt {} of {}, interval={}ms) after failure: {}", level = LogMessage.Level.WARN)
+   void retrySQLAction(int attempt, int maxRetries, long intervalMillis, String errorMessage, Throwable e);
 }

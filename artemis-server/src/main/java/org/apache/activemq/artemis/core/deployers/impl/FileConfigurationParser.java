@@ -2104,6 +2104,7 @@ public final class FileConfigurationParser extends XMLConfigurationUtil {
       conf.setMaxPageSizeBytes(getTextBytesAsIntBytes(storeNode, "jdbc-max-page-size-bytes", conf.getMaxPageSizeBytes(), NO_CHECK));
       conf.setDatabaseConnections(getInteger(storeNode, "database-connections", conf.getDatabaseConnections(), NO_CHECK));
       conf.setDatabaseMaxRetries(getInteger(storeNode, "database-max-retries", conf.getDatabaseMaxRetries(), NO_CHECK));
+      conf.setDatabaseRetryIntervalMillis(getLong(storeNode, "database-retry-interval-millis", conf.getDatabaseRetryIntervalMillis(), NO_CHECK));
       conf.setDatabaseFlushPeriodNanos(getLong(storeNode, "database-flush-period-nanos", conf.getDatabaseFlushPeriodNanos(), NO_CHECK));
       String jdbcUser = getString(storeNode, "jdbc-user", conf.getJdbcUser(), NO_CHECK);
       if (jdbcUser != null) {

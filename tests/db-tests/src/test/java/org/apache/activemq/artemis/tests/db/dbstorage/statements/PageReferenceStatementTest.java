@@ -52,7 +52,8 @@ public class PageReferenceStatementTest extends AbstractStatementTest {
                                                                                  executorFactory,
                                                                                  executorFactory,
                                                                                  scheduledExecutorService,
-                                                                                 executorService);
+                                                                                 executorService,
+                                                                                 null);
       databaseStorageManager.start();
 
       DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
@@ -83,7 +84,8 @@ public class PageReferenceStatementTest extends AbstractStatementTest {
                                                                                  executorFactory,
                                                                                  executorFactory,
                                                                                  scheduledExecutorService,
-                                                                                 executorService);
+                                                                                 executorService,
+                                                                                 null);
       databaseStorageManager.start();
 
       DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
@@ -125,7 +127,8 @@ public class PageReferenceStatementTest extends AbstractStatementTest {
                                                                                  executorFactory,
                                                                                  executorFactory,
                                                                                  scheduledExecutorService,
-                                                                                 executorService);
+                                                                                 executorService,
+                                                                                 null);
       databaseStorageManager.start();
 
       DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();

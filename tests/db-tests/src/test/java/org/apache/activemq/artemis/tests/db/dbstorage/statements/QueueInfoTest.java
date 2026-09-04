@@ -46,7 +46,7 @@ public class QueueInfoTest extends AbstractStatementTest {
 
    @TestTemplate
    public void testQueueInfoDirectly() throws Exception {
-      DatabaseStorageManager databaseStorageManager = new DatabaseStorageManager(configuration, criticalAnalyzer, executorFactory, executorFactory, scheduledExecutorService, executorService);
+      DatabaseStorageManager databaseStorageManager = new DatabaseStorageManager(configuration, criticalAnalyzer, executorFactory, executorFactory, scheduledExecutorService, executorService, null);
       databaseStorageManager.start();
 
       JDBCConnectionProvider connectionProvider = storageConfiguration.getConnectionProvider();
@@ -74,7 +74,7 @@ public class QueueInfoTest extends AbstractStatementTest {
 
    @TestTemplate
    public void testQueueInfoStorageManager() throws Exception {
-      DatabaseStorageManager databaseStorageManager = new DatabaseStorageManager(configuration, criticalAnalyzer, executorFactory, executorFactory, scheduledExecutorService, executorService);
+      DatabaseStorageManager databaseStorageManager = new DatabaseStorageManager(configuration, criticalAnalyzer, executorFactory, executorFactory, scheduledExecutorService, executorService, null);
       databaseStorageManager.start();
 
       JDBCConnectionProvider connectionProvider = storageConfiguration.getConnectionProvider();
