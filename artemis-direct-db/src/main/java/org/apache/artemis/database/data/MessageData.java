@@ -23,7 +23,7 @@ import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
 import org.apache.activemq.artemis.core.journal.IOCompletion;
 import org.apache.artemis.database.worker.DataWorker;
 
-public class MessageData extends DBData<DataWorker> {
+public class MessageData extends DBData {
    public MessageData(long messageID, Supplier<ActiveMQBuffer> messageBufferSupplier, Long tx, IOCompletion context) {
       super(context);
       this.messageID = messageID;

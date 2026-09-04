@@ -23,7 +23,7 @@ import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
 import org.apache.activemq.artemis.core.journal.IOCompletion;
 import org.apache.artemis.database.worker.DataWorker;
 
-public class UpdateGenericData extends DBData<DataWorker> {
+public class UpdateGenericData extends DBData {
 
    public final long id;
    public final Long txId;

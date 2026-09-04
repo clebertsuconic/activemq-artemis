@@ -23,7 +23,7 @@ import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
 import org.apache.activemq.artemis.core.journal.IOCompletion;
 import org.apache.artemis.database.worker.DataWorker;
 
-public class PageData extends DBData<DataWorker> {
+public class PageData extends DBData {
 
    public final long addressID;
    public final long pageID;

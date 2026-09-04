@@ -26,6 +26,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 
 import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
@@ -63,6 +64,7 @@ public class DataManager extends ActiveMQScheduledComponent {
 
    final DatabaseProvider databaseProvider;
    final int batchSize;
+   final IntSupplier maxRetriesSupplier;
    final Executor executorService;
 
    List<DataWorker> allWorkers;
@@ -92,13 +94,15 @@ public class DataManager extends ActiveMQScheduledComponent {
                       long flushTimeNanos,
                       DatabaseProvider databaseProvider,
                       int batchSize,
-                      int numberOfConnections) throws SQLException {
+                      int numberOfConnections,
+                      IntSupplier maxRetriesSupplier) throws SQLException {
       super(scheduledExecutorService, executor, 0, flushTimeNanos, TimeUnit.NANOSECONDS, true);
 
+      this.maxRetriesSupplier = maxRetriesSupplier;
       allWorkers = new ArrayList<>();
       workers = new ConcurrentLinkedQueue<>();
       for (int i = 0; i < numberOfConnections; i++) {
-         DataWorker worker = new DataWorker(this::workerDone, databaseProvider, batchSize, "worker " + i);
+         DataWorker worker = new DataWorker(this, databaseProvider, batchSize, "worker " + i);
          allWorkers.add(worker);
          workers.offer(worker);
       }
@@ -114,12 +118,14 @@ public class DataManager extends ActiveMQScheduledComponent {
    public void init() throws SQLException {
    }
 
-   public void close() throws SQLException {
-      allWorkers.forEach(w -> w.close());
+   public void close() {
+      allWorkers.forEach(DataWorker::close);
       allWorkers.clear();
       workers.clear();
+   }
 
-      // TODO close workers
+   public int getMaxRetries() {
+      return maxRetriesSupplier.getAsInt();
    }
 
    public void storeTX(StorageTX storageTX) {

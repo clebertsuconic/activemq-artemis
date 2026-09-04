@@ -20,7 +20,7 @@ package org.apache.artemis.database.data;
 import org.apache.activemq.artemis.core.journal.IOCompletion;
 import org.apache.artemis.database.worker.DataWorker;
 
-public class AddressData extends DBData<DataWorker> {
+public class AddressData extends DBData {
 
    public AddressData(long id, String address, boolean isMulticast, boolean isAnycast, IOCompletion context) {
       super(context);

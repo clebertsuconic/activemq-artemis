@@ -20,7 +20,7 @@ package org.apache.artemis.database.data;
 import org.apache.activemq.artemis.core.journal.IOCompletion;
 import org.apache.artemis.database.worker.DataWorker;
 
-public class DeletePageRefData extends DBData<DataWorker> {
+public class DeletePageRefData extends DBData {
 
    public final long addressID;
    public final long pageID;

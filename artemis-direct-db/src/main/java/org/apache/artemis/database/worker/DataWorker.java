@@ -18,12 +18,13 @@
 package org.apache.artemis.database.worker;
 
 import java.lang.invoke.MethodHandles;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Consumer;
 
-import org.apache.artemis.database.DatabaseStoreTX;import org.apache.artemis.database.data.DBData;
+import org.apache.artemis.database.DatabaseStoreTX;
+import org.apache.artemis.database.data.DBData;
 import org.apache.artemis.database.queries.MessagesPendingDeliverQueryForUpdate;
 import org.apache.artemis.database.statements.DeleteAddressStatement;
 import org.apache.artemis.database.statements.DeleteMessageStatement;
@@ -46,17 +47,12 @@ import org.apache.artemis.database.DatabaseProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class DataWorker extends DataAgent {
+public class DataWorker implements Runnable {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
-   public DataWorker(Consumer<DataWorker> onDone, DatabaseProvider databaseProvider, int batchSize, String name) throws SQLException  {
-      super(databaseProvider);
-      this.onDone = onDone;
-      this.name = name;
-      this.batchSize = batchSize;
-      connect();
-   }
+   protected final DatabaseProvider databaseProvider;
+   protected Connection connection;
 
    private final String name;
    int batchSize;
@@ -84,11 +80,19 @@ public class DataWorker extends DataAgent {
    public MessagesPendingDeliverQueryForUpdate pendingDeliveryQueryForUpdate;
    public ArrayList<DatabaseStoreTX> pendingTX;
    // To be called when the worker is done
-   private final Consumer<DataWorker> onDone;
+   private final DataManager dataManager;
 
-   @Override
+   public DataWorker(DataManager dataManager, DatabaseProvider databaseProvider, int batchSize, String name) throws SQLException {
+      this.databaseProvider = databaseProvider;
+      this.dataManager = dataManager;
+      this.name = name;
+      this.batchSize = batchSize;
+      connect();
+   }
+
    protected void connect() throws SQLException {
-      super.connect();
+      connection = databaseProvider.getConnection();
+      connection.setAutoCommit(false);
       insertMessageStatement = new InsertMessageStatement(databaseProvider, connection, batchSize);
       insertReferencesStatement = new InsertReferencesStatement(databaseProvider, connection, batchSize);
       deleteReferenceStatement = new DeleteReferenceStatement(databaseProvider, connection, batchSize);
@@ -122,34 +126,47 @@ public class DataWorker extends DataAgent {
    }
 
    @Override
-   protected void doCleanup() {
-      this.dataList = null;
-      insertMessageStatement.clear();
-      insertReferencesStatement.clear();
-      deleteReferenceStatement.clear();
-      deleteMessageStatement.clear();
-      deleteAddressStatement.clear();
-      insertAddressStatement.clear();
-      insertQueueStatement.clear();
-      updateQueueStatement.clear();
-      deleteQueueStatement.clear();
-      insertPageStatement.clear();
-      deletePageStatement.clear();
-      insertPageRefStatement.clear();
-      deletePageRefStatement.clear();
-      deleteAllPageRefStatement.clear();
-      insertGenericDataStatement.clear();
-      updateGenericDataStatement.clear();
-      deleteGenericDataStatement.clear();
-      insertBindingsGenericDataStatement.clear();
-      updateBindingsGenericDataStatement.clear();
-      deleteBindingsGenericDataStatement.clear();
-      pendingTX.clear();
-      onDone.accept(this);
+   public void run() {
+      int success = 0;
+      SQLException lastException = null;
+      try {
+         for (int retryI = 0; retryI < dataManager.getMaxRetries() && success == 0; retryI++) {
+            try {
+               doBeforeCommit();
+               success++;
+            } catch (SQLException e) {
+               lastException = e;
+               logger.warn("Retrying Connection:: {}", e.getMessage(), e);
+               try {
+                  connection.rollback();
+                  connection.close();
+               } catch (Throwable ignored) {
+               }
+
+               try {
+                  connect();
+               } catch (SQLException connectingException) {
+                  // TODO: criticalError
+                  logger.warn(e.getMessage(), e);
+               }
+            }
+         }
+         if (success > 0) {
+            connection.commit();
+            doAfterCommit();
+         } else {
+            doError(lastException);
+         }
+      } catch (Exception e) {
+         // @Claude what's the best way to wrie the critical error here?
+         // TODO Critical IO Error...
+         logger.warn(e.getMessage(), e);
+      } finally {
+         doCleanup();
+      }
    }
 
-   @Override
-   protected void doBeforeCommit() throws SQLException {
+   private void doBeforeCommit() throws SQLException {
       logger.info("Worker {} running with {} tasks", name, dataList.size());
       dataList.forEach(this::doStore);
       insertMessageStatement.flushPending(false);
@@ -174,8 +191,7 @@ public class DataWorker extends DataAgent {
       deleteBindingsGenericDataStatement.flushPending(false);
    }
 
-   @Override
-   protected void doAfterCommit() {
+   private void doAfterCommit() {
       insertMessageStatement.confirmData();
       insertReferencesStatement.confirmData();
       deleteReferenceStatement.confirmData();
@@ -200,8 +216,7 @@ public class DataWorker extends DataAgent {
       pendingTX.forEach(DatabaseStoreTX::completeIO);
    }
 
-   @Override
-   protected void doError(Exception exception) {
+   private void doError(Exception exception) {
       insertMessageStatement.onError(exception);
       insertReferencesStatement.onError(exception);
       deleteReferenceStatement.onError(exception);
@@ -224,6 +239,32 @@ public class DataWorker extends DataAgent {
       updateBindingsGenericDataStatement.onError(exception);
       deleteBindingsGenericDataStatement.onError(exception);
       // TODO: Critical Error
+   }
+
+   private void doCleanup() {
+      this.dataList = null;
+      insertMessageStatement.clear();
+      insertReferencesStatement.clear();
+      deleteReferenceStatement.clear();
+      deleteMessageStatement.clear();
+      deleteAddressStatement.clear();
+      insertAddressStatement.clear();
+      insertQueueStatement.clear();
+      updateQueueStatement.clear();
+      deleteQueueStatement.clear();
+      insertPageStatement.clear();
+      deletePageStatement.clear();
+      insertPageRefStatement.clear();
+      deletePageRefStatement.clear();
+      deleteAllPageRefStatement.clear();
+      insertGenericDataStatement.clear();
+      updateGenericDataStatement.clear();
+      deleteGenericDataStatement.clear();
+      insertBindingsGenericDataStatement.clear();
+      updateBindingsGenericDataStatement.clear();
+      deleteBindingsGenericDataStatement.clear();
+      pendingTX.clear();
+      dataManager.workerDone(this);
    }
 
    public void doStore(DBData data) {

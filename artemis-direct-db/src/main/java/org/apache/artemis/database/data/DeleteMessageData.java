@@ -20,7 +20,7 @@ package org.apache.artemis.database.data;
 import org.apache.activemq.artemis.core.journal.IOCompletion;
 import org.apache.artemis.database.worker.DataWorker;
 
-public class DeleteMessageData extends DBData<DataWorker> {
+public class DeleteMessageData extends DBData {
    public long messageID;
 
    public DeleteMessageData(long messageID, IOCompletion context) {

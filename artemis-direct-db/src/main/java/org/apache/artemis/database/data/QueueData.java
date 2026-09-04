@@ -24,7 +24,7 @@ import org.apache.activemq.artemis.core.journal.IOCompletion;
 import org.apache.artemis.database.ActiveMQDatabaseLogger;
 import org.apache.artemis.database.worker.DataWorker;
 
-public class QueueData extends DBData<DataWorker> {
+public class QueueData extends DBData {
 
    private static final ActiveMQDatabaseLogger logger = ActiveMQDatabaseLogger.LOGGER;
 

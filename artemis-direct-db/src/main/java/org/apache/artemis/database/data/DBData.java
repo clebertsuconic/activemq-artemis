@@ -18,9 +18,9 @@
 package org.apache.artemis.database.data;
 
 import org.apache.activemq.artemis.core.journal.IOCompletion;
-import org.apache.artemis.database.worker.DataAgent;
+import org.apache.artemis.database.worker.DataWorker;
 
-public abstract class DBData<W extends DataAgent> {
+public abstract class DBData {
 
    final IOCompletion context;
 
@@ -34,5 +34,5 @@ public abstract class DBData<W extends DataAgent> {
       this.context = context;
    }
 
-   public abstract void perform(W worker);
+   public abstract void perform(DataWorker worker);
 }

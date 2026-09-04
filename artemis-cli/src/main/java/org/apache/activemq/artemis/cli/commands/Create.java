@@ -725,10 +725,12 @@ public class Create extends InstallAbstract {
          if (databaseStorage) {
             filters.put("${databaseStorage}", "<database-storage>true</database-storage>");
             filters.put("${databaseConnections}", "<database-connections>" + ActiveMQDefaultConfiguration.getDefaultDatabaseConnections() + "</database-connections>");
+            filters.put("${databaseMaxRetries}", "<database-max-retries>" + ActiveMQDefaultConfiguration.getDefaultDatabaseMaxRetries() + "</database-max-retries>");
             filters.put("${databaseFlushPeriodNanos}", "<database-flush-period-nanos>" + ActiveMQDefaultConfiguration.getDefaultDatabaseFlushPeriodNanos() + "</database-flush-period-nanos>");
          } else {
             filters.put("${databaseStorage}", "");
             filters.put("${databaseConnections}", "");
+            filters.put("${databaseMaxRetries}", "");
             filters.put("${databaseFlushPeriodNanos}", "");
          }
          filters.put("${jdbc}", readTextFile(ETC_DATABASE_STORE_TXT, filters));

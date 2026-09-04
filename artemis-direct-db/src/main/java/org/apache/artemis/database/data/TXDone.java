@@ -20,7 +20,7 @@ package org.apache.artemis.database.data;
 import org.apache.artemis.database.DatabaseStoreTX;
 import org.apache.artemis.database.worker.DataWorker;
 
-public class TXDone extends DBData<DataWorker> {
+public class TXDone extends DBData {
 
    DatabaseStoreTX tx;
 
