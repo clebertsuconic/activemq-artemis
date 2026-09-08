@@ -22,8 +22,6 @@ import org.apache.activemq.artemis.core.paging.PagedMessage;
 import org.apache.activemq.artemis.core.paging.PagingStore;
 import org.apache.activemq.artemis.core.paging.impl.Page;
 import org.apache.activemq.artemis.core.server.Queue;
-import org.apache.activemq.artemis.core.server.StorageMessageReader;
-import org.apache.activemq.artemis.core.server.impl.QueueImpl;
 import org.apache.activemq.artemis.core.transaction.Transaction;
 
 public interface PageSubscription {
@@ -154,6 +152,4 @@ public interface PageSubscription {
    void removePendingDelivery(PagedMessage pagedMessage);
 
    ConsumedPage locatePageInfo(long pageNr);
-
-   StorageMessageReader createStorageMessageReader(QueueImpl queue);
 }

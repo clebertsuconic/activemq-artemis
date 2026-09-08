@@ -441,7 +441,10 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
 
       if (pageSubscription != null) {
          pageSubscription.setQueue(this);
-         this.storageMessageReader = pageSubscription.createStorageMessageReader(this);
+      }
+
+      if (pagingStore != null) {
+         this.storageMessageReader = pagingStore.createStorageMessageReader(this);
       }
 
       this.executor = executor;
@@ -1024,7 +1027,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
 
                if (deliveriesInTransit.getCount() == 0 && getExecutor().isFlushed() &&
                   intermediateMessageReferences.isEmpty() && messageReferences.isEmpty() &&
-                  (storageMessageReader.allowDirectDelivery()) &&
+                  (storageMessageReader != null && storageMessageReader.allowDirectDelivery()) &&
                   pageSubscription != null && !pageSubscription.isStorePaging()) {
                   // We must block on the executor to ensure any async deliveries have completed or we might get out of order
                   // deliveries
@@ -2064,7 +2067,9 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
 
       // This is to avoid scheduling depaging/prefetching while iterQueue is happening
       // this should minimize the use of the paged executor.
-      storageMessageReader.lock();
+      if (storageMessageReader != null) {
+         storageMessageReader.lock();
+      }
 
       if (logger.isDebugEnabled()) {
          logger.debug("Executing iterQueue for operation {} on queue {}", operationName, getName());
@@ -2137,7 +2142,9 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
          }
 
 
-         count = storageMessageReader.iterateMessages(operationName, flushLimit, separatePageIterator, messageAction, count);
+         if (storageMessageReader != null) {
+            count = storageMessageReader.iterateMessages(operationName, flushLimit, separatePageIterator, messageAction, count);
+         }
 
 
          if (filter != null && !queueDestroyed && storageMessageReader != null) {
@@ -2148,7 +2155,9 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
       } finally {
          // to resume flow of depages, just in case
          // as we disabled depaging during the execution of this method
-         storageMessageReader.unlock();
+         if (storageMessageReader != null) {
+            storageMessageReader.unlock();
+         }
          forceDelivery();
       }
    }
@@ -2415,7 +2424,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
          }
 
          // If empty we need to schedule depaging to make sure we would depage expired messages as well
-         if ((!hasElements || expired)) {
+         if ((!hasElements || expired) && storageMessageReader != null) {
             storageMessageReader.checkRead();
          }
       }
@@ -4093,7 +4102,9 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
 
             if (needCheckDepage) {
                try (ArtemisCloseable metric = measureCritical(CRITICAL_CHECK_DEPAGE)) {
-                  storageMessageReader.checkRead();
+                  if (storageMessageReader != null) {
+                     storageMessageReader.checkRead();
+                  }
                }
             }
          } catch (Exception e) {

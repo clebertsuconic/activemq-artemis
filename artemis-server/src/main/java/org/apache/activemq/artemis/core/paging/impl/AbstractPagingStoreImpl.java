@@ -46,7 +46,10 @@ import org.apache.activemq.artemis.core.server.ActiveMQMessageBundle;
 import org.apache.activemq.artemis.core.server.ActiveMQServerLogger;
 import org.apache.activemq.artemis.core.server.LargeServerMessage;
 import org.apache.activemq.artemis.core.server.RouteContextList;
+import org.apache.activemq.artemis.core.server.StorageMessageReader;
 import org.apache.activemq.artemis.core.server.impl.MessageReferenceImpl;
+import org.apache.activemq.artemis.core.server.impl.PageStorageMessageReader;
+import org.apache.activemq.artemis.core.server.impl.QueueImpl;
 import org.apache.activemq.artemis.core.settings.impl.AddressFullMessagePolicy;
 import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
 import org.apache.activemq.artemis.core.settings.impl.DiskFullMessagePolicy;
@@ -1591,6 +1594,11 @@ public abstract class AbstractPagingStoreImpl implements PagingStore {
 
    protected PagingStoreFactory getStoreFactory() {
       return storeFactory;
+   }
+
+   @Override
+   public StorageMessageReader createStorageMessageReader(QueueImpl queue) {
+      return new PageStorageMessageReader(queue);
    }
 
 }
